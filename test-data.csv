@@ -1,0 +1,11 @@
+Station Name,Country,County,Operator,Visited,Visit Date,Favorite,Latitude,Longitude,2024,2023,2022
+London Paddington,England,London,Great Western Railway,Yes,15/03/2024,Yes,51.5154,-0.1755,15000000,12000000,11000000
+London Victoria,England,London,Southern,Yes,20/03/2024,No,51.4952,-0.1441,18000000,15000000,14000000
+Manchester Piccadilly,England,Greater Manchester,Northern,No,,No,53.4771,-2.2309,12000000,10000000,9500000
+Birmingham New Street,England,West Midlands,West Midlands Railway,Yes,10/04/2024,Yes,52.4779,-1.8986,8000000,7500000,7000000
+Edinburgh Waverley,Scotland,Edinburgh,ScotRail,No,,No,55.9521,-3.1883,6000000,5500000,5000000
+Liverpool Lime Street,England,Merseyside,Avanti West Coast,Yes,25/04/2024,No,53.4074,-2.9786,7000000,6500000,6000000
+Leeds,England,West Yorkshire,Northern,Yes,05/05/2024,Yes,53.7960,-1.5476,9000000,8500000,8000000
+Glasgow Central,Scotland,Glasgow City,ScotRail,No,,No,55.8599,-4.2572,5000000,4800000,4500000
+Newcastle,England,Tyne and Wear,LNER,Yes,15/05/2024,No,54.9684,-1.6174,4000000,3800000,3500000
+Cardiff Central,Wales,Cardiff,Transport for Wales,Yes,20/05/2024,Yes,51.4756,-3.1791,3000000,2800000,2600000

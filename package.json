@@ -1,0 +1,36 @@
+{
+  "name": "rail-statistics-migration-tool",
+  "version": "1.0.0",
+  "description": "A web-based tool for migrating station tracking data from CSV files to the Rail Statistics app format",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "python3 -m http.server 8000",
+    "dev": "python -m http.server 8000",
+    "build": "echo 'No build step required for static site'",
+    "deploy": "echo 'Deploy to Netlify via git push'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GoldJack1/railstatisticsweb.git"
+  },
+  "keywords": [
+    "rail",
+    "statistics",
+    "migration",
+    "csv",
+    "firebase",
+    "station-tracking"
+  ],
+  "author": "GoldJack1",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GoldJack1/railstatisticsweb/issues"
+  },
+  "homepage": "https://github.com/GoldJack1/railstatisticsweb#readme",
+  "devDependencies": {},
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
