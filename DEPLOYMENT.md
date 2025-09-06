@@ -143,14 +143,14 @@ For Netlify deployment, you can use these environment variables instead of the `
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_FIREBASE_API_KEY` | Firebase API key | `AIzaSyD0-OjpeptPX5zG1x0411nkP0cdQq5oWXc` |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain | `rail-statistics.firebaseapp.com` |
-| `VITE_FIREBASE_DATABASE_URL` | Firebase database URL | `https://rail-statistics-default-rtdb.europe-west1.firebasedatabase.app` |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID | `rail-statistics` |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket | `rail-statistics.firebasestorage.app` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID | `998967146702` |
-| `VITE_FIREBASE_APP_ID` | Firebase app ID | `1:998967146702:web:3183d4e5621ddfff2ff89f` |
-| `VITE_FIREBASE_MEASUREMENT_ID` | Firebase measurement ID | `G-GNL8ZVEW1E` |
+| `VITE_FIREBASE_API_KEY` | Firebase API key | `AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain | `your-project.firebaseapp.com` |
+| `VITE_FIREBASE_DATABASE_URL` | Firebase database URL | `https://your-project-default-rtdb.region.firebasedatabase.app` |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID | `your-project-id` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket | `your-project.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID | `123456789012` |
+| `VITE_FIREBASE_APP_ID` | Firebase app ID | `1:123456789012:web:abcdef1234567890` |
+| `VITE_FIREBASE_MEASUREMENT_ID` | Firebase measurement ID | `G-XXXXXXXXXX` |
 
 ## Security Notes
 
