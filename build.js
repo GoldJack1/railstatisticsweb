@@ -26,6 +26,12 @@ if (!fs.existsSync(indexPath)) {
 let htmlContent = fs.readFileSync(indexPath, 'utf8');
 console.log('📄 Reading index.html...');
 
+// Load environment variables from .env.local for local testing
+if (fs.existsSync('.env.local')) {
+    require('dotenv').config({ path: '.env.local' });
+    console.log('📄 Loaded local environment variables from .env.local');
+}
+
 // Get environment variables
 const envVars = {
     VITE_FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY,

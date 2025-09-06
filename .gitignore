@@ -5,6 +5,7 @@ firebase-config.js
 .env
 .env.local
 .env.production
+.env.test
 
 # Node modules (if using npm/yarn)
 node_modules/

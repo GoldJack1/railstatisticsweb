@@ -7,9 +7,11 @@ module.exports = {
   extends: [
     'eslint:recommended'
   ],
+  parser: '@babel/eslint-parser',
   parserOptions: {
     ecmaVersion: 'latest',
-    sourceType: 'module'
+    sourceType: 'module',
+    requireConfigFile: false
   },
   rules: {
     // Disable all rules for this simple static site
