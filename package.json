@@ -28,7 +28,10 @@
     "url": "https://github.com/GoldJack1/railstatisticsweb/issues"
   },
   "homepage": "https://github.com/GoldJack1/railstatisticsweb#readme",
-  "devDependencies": {},
+  "devDependencies": {
+    "babel-eslint": "^10.1.0",
+    "eslint": "^8.0.0"
+  },
   "dependencies": {},
   "engines": {
     "node": ">=14.0.0"

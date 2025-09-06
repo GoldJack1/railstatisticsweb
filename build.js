@@ -7,10 +7,19 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('🔨 Building for production...');
+console.log('📦 Node.js version:', process.version);
+console.log('📁 Working directory:', process.cwd());
 
 // Read the original index.html
 const indexPath = path.join(__dirname, 'index.html');
+
+if (!fs.existsSync(indexPath)) {
+    console.error('❌ index.html not found at:', indexPath);
+    process.exit(1);
+}
+
 let htmlContent = fs.readFileSync(indexPath, 'utf8');
+console.log('📄 Reading index.html...');
 
 // Get environment variables
 const envVars = {
