@@ -30,7 +30,10 @@
   "homepage": "https://github.com/GoldJack1/railstatisticsweb#readme",
   "devDependencies": {
     "babel-eslint": "^10.1.0",
-    "eslint": "^8.0.0"
+    "eslint": "^8.0.0",
+    "caniuse-lite": "^1.0.30001500",
+    "browserslist": "^4.21.0",
+    "autoprefixer": "^10.4.0"
   },
   "dependencies": {},
   "engines": {

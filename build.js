@@ -10,6 +10,11 @@ console.log('🔨 Building for production...');
 console.log('📦 Node.js version:', process.version);
 console.log('📁 Working directory:', process.cwd());
 
+// Check if we're in a Netlify environment
+if (process.env.NETLIFY) {
+    console.log('🌐 Running in Netlify environment');
+}
+
 // Read the original index.html
 const indexPath = path.join(__dirname, 'index.html');
 
