@@ -35,23 +35,24 @@ This guide will help you deploy the Rail Statistics Migration Tool to Netlify.
    - Select your repository (`railstatisticsweb`)
 
 3. **Configure build settings:**
-   - Build command: `echo 'No build step required'`
+   - Build command: `npm run build`
    - Publish directory: `.` (root directory)
    - Click "Deploy site"
 
 4. **Set up environment variables (for Firebase):**
    - Go to Site settings > Environment variables
-   - Add the following variables:
+   - Add the following variables with your actual Firebase values:
      ```
-     VITE_FIREBASE_API_KEY=your_api_key
+     VITE_FIREBASE_API_KEY=your_actual_api_key_here
      VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
      VITE_FIREBASE_DATABASE_URL=https://your_project-default-rtdb.region.firebasedatabase.app
      VITE_FIREBASE_PROJECT_ID=your_project_id
      VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
-     VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
-     VITE_FIREBASE_APP_ID=1:123456789012:web:abcdef1234567890
-     VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+     VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+     VITE_FIREBASE_APP_ID=your_app_id
+     VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
      ```
+   - **Important**: Replace the placeholder values with your actual Firebase configuration values
 
 5. **Redeploy:**
    - Go to Deploys tab
