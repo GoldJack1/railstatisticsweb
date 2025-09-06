@@ -25,12 +25,27 @@ const envVars = {
 };
 
 // Check if we have the required environment variables
-const requiredVars = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_PROJECT_ID'];
+const requiredVars = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN', 
+    'VITE_FIREBASE_DATABASE_URL',
+    'VITE_FIREBASE_PROJECT_ID',
+    'VITE_FIREBASE_STORAGE_BUCKET',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_FIREBASE_APP_ID',
+    'VITE_FIREBASE_MEASUREMENT_ID'
+];
 const missingVars = requiredVars.filter(varName => !envVars[varName]);
 
 if (missingVars.length > 0) {
-    console.error('❌ Missing required environment variables:', missingVars.join(', '));
-    console.error('Please set up environment variables in your deployment platform.');
+    console.error('❌ Missing required environment variables:');
+    missingVars.forEach(varName => console.error(`   - ${varName}`));
+    console.error('\n📋 To fix this:');
+    console.error('1. Go to your Netlify dashboard');
+    console.error('2. Navigate to Site settings > Environment variables');
+    console.error('3. Add the missing variables listed above');
+    console.error('4. See netlify-env-setup.md for the exact values to use');
+    console.error('\n🔗 Quick setup guide: https://docs.netlify.com/environment-variables/overview/');
     process.exit(1);
 }
 
