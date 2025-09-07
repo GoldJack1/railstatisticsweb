@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Review your parsed station data before matching">
+    <title>Review Data - Rail Statistics Migration</title>
+    <link rel="stylesheet" href="styles.css?v=7">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-train"></i> Rail Statistics Migration Tool</h1>
+                <p>Step 2 of 4: Review your parsed station data</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <section class="step-section active">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h2>Review Parsed Data</h2>
+                </div>
+
+                <div class="data-summary">
+                    <div class="summary-card">
+                        <i class="fas fa-building"></i>
+                        <div>
+                            <h3 id="total-stations">0</h3>
+                            <p>Total Stations</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <i class="fas fa-check-circle"></i>
+                        <div>
+                            <h3 id="visited-stations">0</h3>
+                            <p>Visited</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <i class="fas fa-heart"></i>
+                        <div>
+                            <h3 id="favorite-stations">0</h3>
+                            <p>Favorites</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-preview">
+                    <div class="preview-header">
+                        <h3>Data Preview</h3>
+                        <div class="preview-controls">
+                            <input type="text" id="preview-search-input" placeholder="Search stations..." class="search-input">
+                            <select id="filter-select" class="filter-select">
+                                <option value="all">All Stations</option>
+                                <option value="visited">Visited Only</option>
+                                <option value="unvisited">Unvisited Only</option>
+                                <option value="favorites">Favorites Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="preview-table-container">
+                        <table class="preview-table" id="preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Station Name</th>
+                                    <th>Country</th>
+                                    <th>County</th>
+                                    <th>Operator</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="step-actions">
+                    <button class="btn btn-secondary" onclick="goBack()">Back to Upload</button>
+                    <button class="btn btn-primary" onclick="continueToMatching()">Start Matching</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loading-text">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="modal" id="error-modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Error</h3>
+                    <button class="modal-close" onclick="closeModal('error-modal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="error-message"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="closeModal('error-modal')">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/shared/firebase.js"></script>
+    <script src="js/shared/csv-parser.js"></script>
+    <script src="js/shared/storage.js"></script>
+    <script src="js/pages/review.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <title>Rail Statistics - Station Migration Tool</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 </head>
@@ -21,273 +21,22 @@
         <header class="header">
             <div class="header-content">
                 <h1><i class="fas fa-train"></i> Rail Statistics Migration Tool</h1>
-                <p>Upload your station tracking CSV to migrate to the new format</p>
+                <p>Redirecting to migration tool...</p>
             </div>
         </header>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Step 1: Upload -->
-            <section id="upload-section" class="step-section active">
-                <div class="step-header">
-                    <div class="step-number">1</div>
-                    <h2>Upload CSV File</h2>
-                </div>
-                
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-content">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <h3>Drop your CSV file here</h3>
-                        <p>or <button class="file-button" id="browse-button">browse files</button></p>
-                        <p class="supported-formats">Supports: Original, oldformatv2, and exported3 formats</p>
-                    </div>
-                    <input type="file" id="file-input" accept=".csv,.txt" style="display: none;">
-                </div>
-
-                <div class="file-info" id="file-info" style="display: none;">
-                    <div class="file-details">
-                        <i class="fas fa-file-csv"></i>
-                        <div class="file-text">
-                            <h4 id="file-name"></h4>
-                            <p id="file-size"></p>
-                        </div>
-                        <button class="remove-file" onclick="removeFile()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Step 2: Review Data -->
-            <section id="review-section" class="step-section">
-                <div class="step-header">
-                    <div class="step-number">2</div>
-                    <h2>Review Parsed Data</h2>
-                </div>
-
-                <div class="data-summary">
-                    <div class="summary-card">
-                        <i class="fas fa-building"></i>
-                        <div>
-                            <h3 id="total-stations">0</h3>
-                            <p>Total Stations</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <i class="fas fa-check-circle"></i>
-                        <div>
-                            <h3 id="visited-stations">0</h3>
-                            <p>Visited</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <i class="fas fa-heart"></i>
-                        <div>
-                            <h3 id="favorite-stations">0</h3>
-                            <p>Favorites</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="data-preview">
-                    <div class="preview-header">
-                        <h3>Data Preview</h3>
-                        <div class="preview-controls">
-                            <input type="text" id="preview-search-input" placeholder="Search stations..." class="search-input">
-                            <select id="filter-select" class="filter-select">
-                                <option value="all">All Stations</option>
-                                <option value="visited">Visited Only</option>
-                                <option value="unvisited">Unvisited Only</option>
-                                <option value="favorites">Favorites Only</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="preview-table-container">
-                        <table class="preview-table" id="preview-table">
-                            <thead>
-                                <tr>
-                                    <th>Station Name</th>
-                                    <th>Country</th>
-                                    <th>County</th>
-                                    <th>Operator</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="preview-tbody">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="step-actions">
-                    <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
-                    <button class="btn btn-primary" onclick="startMatching()">Start Matching</button>
-                </div>
-            </section>
-
-            <!-- Step 3: Matching -->
-            <section id="matching-section" class="step-section">
-                <div class="step-header">
-                    <div class="step-number">3</div>
-                    <h2>Station Matching</h2>
-                </div>
-
-                <div class="matching-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill"></div>
-                    </div>
-                    <p class="progress-text" id="progress-text">Preparing to match stations...</p>
-                </div>
-
-                <!-- Matching Log -->
-                <div class="matching-log" id="matching-log" style="display: none;">
-                    <div class="log-header">
-                        <h3>Matching Progress</h3>
-                        <button class="log-toggle" id="log-toggle" onclick="toggleMatchingLog()">
-                            <i class="fas fa-chevron-up"></i>
-                        </button>
-                    </div>
-                    <div class="log-content" id="log-content">
-                        <div class="log-entries" id="log-entries">
-                            <!-- Log entries will be added here -->
-                        </div>
-                        <div class="log-stats">
-                            <!-- Log stats will be added here -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="matching-results" id="matching-results" style="display: none;">
-                    <div class="results-summary">
-                        <div class="result-card success">
-                            <i class="fas fa-check-circle"></i>
-                            <div>
-                                <h3 id="matched-count">0</h3>
-                                <p>Auto-Matched</p>
-                            </div>
-                        </div>
-                        <div class="result-card warning">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <div>
-                                <h3 id="unmatched-count">0</h3>
-                                <p>Need Manual Review</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-actions">
-                    <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
-                    <button class="btn btn-primary" onclick="goToStep(4)" id="review-matches-btn" style="display: none;">Review Matches</button>
-                </div>
-            </section>
-
-            <!-- Step 4: Manual Review -->
-            <section id="review-matches-section" class="step-section">
-                <div class="step-header">
-                    <div class="step-number">4</div>
-                    <h2>Review & Link Stations</h2>
-                </div>
-
-                <div class="matched-stations" id="matched-stations">
-                    <!-- Matched stations will be populated here -->
-                </div>
-
-                <div class="unmatched-stations" id="unmatched-stations">
-                    <!-- Unmatched stations will be populated here -->
-                </div>
-
-                <div class="step-actions">
-                    <button class="btn btn-secondary" onclick="goToStep(3)">Back</button>
-                    <button class="btn btn-primary" onclick="exportResults()">Export Results</button>
-                </div>
-            </section>
-
-            <!-- Step 4: Export -->
-            <section id="export-section" class="step-section">
-                <div class="step-header">
-                    <div class="step-number">4</div>
-                    <h2>Export Results</h2>
-                </div>
-
-                <div class="export-options">
-                    <div class="export-card">
-                        <i class="fas fa-file-csv"></i>
-                        <h3>Download CSV</h3>
-                        <p>Download the processed data as a CSV file with all your station tracking information</p>
-                        <button class="btn btn-primary" onclick="downloadCSV()">Download CSV</button>
-                    </div>
-                    <div class="export-card">
-                        <i class="fas fa-download"></i>
-                        <h3>Download JSON</h3>
-                        <p>Download the processed data as a JSON file for manual import</p>
-                        <button class="btn btn-secondary" onclick="downloadJSON()">Download JSON</button>
-                    </div>
-                </div>
-
-                <div class="step-actions">
-                    <button class="btn btn-secondary" onclick="goToStep(4)">Back</button>
-                    <button class="btn btn-primary" onclick="startOver()">Start Over</button>
-                </div>
-            </section>
-        </main>
-
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loading-overlay" style="display: none;">
-            <div class="loading-content">
+            <div class="redirect-message">
                 <div class="spinner"></div>
-                <p id="loading-text">Processing...</p>
+                <h2>Redirecting to Migration Tool</h2>
+                <p>You will be automatically redirected to the new multi-page migration system.</p>
+                <p>If you are not redirected automatically, <a href="upload.html">click here</a>.</p>
             </div>
-        </div>
-
-        <!-- Search Dialog Modal -->
-        <div class="modal" id="search-modal" style="display: none;">
-            <div class="modal-content search-modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-search"></i> Search Stations</h3>
-                    <button class="modal-close" onclick="closeModal('search-modal')">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="search-input-container">
-                        <input type="text" id="search-dialog-input" placeholder="Type station name, CRS code, or location..." 
-                               autocomplete="off" spellcheck="false">
-                        <div class="search-results-container" id="search-dialog-results">
-                            <div class="search-placeholder">
-                                <i class="fas fa-search"></i>
-                                <p>Start typing to search for stations...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeModal('search-modal')">Cancel</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Error Modal -->
-        <div class="modal" id="error-modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-exclamation-triangle"></i> Error</h3>
-                    <button class="modal-close" onclick="closeModal('error-modal')">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <p id="error-message"></p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" onclick="closeModal('error-modal')">OK</button>
-                </div>
-            </div>
-        </div>
+        </main>
     </div>
 
     <!-- Scripts -->
-    
     <script>
         // Injected environment variables for production
         window.VITE_FIREBASE_API_KEY = "AIzaSyD0-OjpeptPX5zG1x0411nkP0cdQq5oWXc";
@@ -299,120 +48,10 @@
         window.VITE_FIREBASE_APP_ID = "1:998967146702:web:3183d4e5621ddfff2ff89f";
         window.VITE_FIREBASE_MEASUREMENT_ID = "G-GNL8ZVEW1E";
     </script>
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
-        import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
-        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js';
-        
-        // Function to get Firebase config from environment variables or local file
-        async function getFirebaseConfig() {
-            // Check if we're in a production environment with environment variables
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                // Try to get config from environment variables (for Netlify deployment)
-                const envConfig = {
-                    apiKey: window.VITE_FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
-                    authDomain: window.VITE_FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN,
-                    databaseURL: window.VITE_FIREBASE_DATABASE_URL || process.env.VITE_FIREBASE_DATABASE_URL,
-                    projectId: window.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
-                    storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
-                    messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-                    appId: window.VITE_FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
-                    measurementId: window.VITE_FIREBASE_MEASUREMENT_ID || process.env.VITE_FIREBASE_MEASUREMENT_ID
-                };
-                
-                // Check if we have at least the essential config
-                if (envConfig.apiKey && envConfig.projectId) {
-                    console.log('Using environment variables for Firebase config');
-                    return envConfig;
-                }
-            }
-            
-            // Fallback to local firebase-config.js file
-            try {
-                const { firebaseConfig } = await import('./firebase-config.js');
-                console.log('Using local firebase-config.js file');
-                return firebaseConfig;
-            } catch (error) {
-                console.error('Failed to load local firebase-config.js:', error);
-                throw new Error('Firebase configuration not found. Please set up environment variables or create firebase-config.js file.');
-            }
-        }
-        
-        try {
-            console.log('Starting Firebase initialization...');
-            
-            const firebaseConfig = await getFirebaseConfig();
-            console.log('Firebase config loaded:', {
-                apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-4) : 'missing',
-                projectId: firebaseConfig.projectId || 'missing',
-                authDomain: firebaseConfig.authDomain || 'missing'
-            });
-            
-            // Initialize Firebase
-            const app = initializeApp(firebaseConfig);
-            console.log('Firebase app initialized:', app);
-            
-            const db = getFirestore(app);
-            console.log('Firestore database initialized:', db);
-            
-            const analytics = getAnalytics(app);
-            console.log('Analytics initialized:', analytics);
-            
-            // Make Firebase available globally
-            window.firebaseApp = app;
-            window.firebaseDb = db;
-            window.firebaseCollection = collection;
-            window.firebaseGetDocs = getDocs;
-            window.firebaseAnalytics = analytics;
-            
-            console.log('Firebase initialized successfully');
-            console.log('Firebase objects available globally:', {
-                firebaseApp: !!window.firebaseApp,
-                firebaseDb: !!window.firebaseDb,
-                firebaseCollection: !!window.firebaseCollection,
-                firebaseGetDocs: !!window.firebaseGetDocs,
-                firebaseAnalytics: !!window.firebaseAnalytics
-            });
-            console.log('Firestore database connected');
-        } catch (error) {
-            console.error('Firebase initialization failed:', error);
-            console.error('Error details:', error.message);
-            console.error('Error stack:', error.stack);
-            console.log('Migration tool requires Firebase to function properly');
-            
-            // Show user-friendly error message
-            document.addEventListener('DOMContentLoaded', () => {
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: #ff4757;
-                    color: white;
-                    padding: 15px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    z-index: 10000;
-                    max-width: 500px;
-                    text-align: center;
-                `;
-                errorDiv.innerHTML = `
-                    <strong>Firebase Connection Error</strong><br>
-                    Please check your Firebase configuration. For deployment, set up environment variables in your hosting platform.
-                `;
-                document.body.appendChild(errorDiv);
-                
-                // Auto-remove after 10 seconds
-                setTimeout(() => {
-                    if (errorDiv.parentNode) {
-                        errorDiv.parentNode.removeChild(errorDiv);
-                    }
-                }, 10000);
-            });
-        }
+    
+    <script>
+        // Redirect to upload page
+        window.location.href = 'upload.html';
     </script>
-    <script src="migration.js?v=14"></script>
 </body>
 </html>

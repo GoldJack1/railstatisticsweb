@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Upload your station tracking CSV file to begin migration">
+    <title>Upload CSV - Rail Statistics Migration</title>
+    <link rel="stylesheet" href="styles.css?v=7">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-train"></i> Rail Statistics Migration Tool</h1>
+                <p>Step 1 of 4: Upload your station tracking CSV file</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <section class="step-section active">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h2>Upload CSV File</h2>
+                </div>
+                
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <h3>Drop your CSV file here</h3>
+                        <p>or <button class="file-button" id="browse-button">browse files</button></p>
+                        <p class="supported-formats">Supports: Original, oldformatv2, and exported3 formats</p>
+                    </div>
+                    <input type="file" id="file-input" accept=".csv,.txt" style="display: none;">
+                </div>
+
+                <div class="file-info" id="file-info" style="display: none;">
+                    <div class="file-details">
+                        <i class="fas fa-file-csv"></i>
+                        <div class="file-text">
+                            <h4 id="file-name"></h4>
+                            <p id="file-size"></p>
+                        </div>
+                        <button class="remove-file" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="step-actions">
+                    <button class="btn btn-primary" id="continue-btn" onclick="continueToReview()" disabled>Continue to Review</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loading-text">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="modal" id="error-modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Error</h3>
+                    <button class="modal-close" onclick="closeModal('error-modal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="error-message"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="closeModal('error-modal')">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/shared/firebase.js"></script>
+    <script src="js/shared/csv-parser.js"></script>
+    <script src="js/shared/storage.js"></script>
+    <script src="js/pages/upload.js"></script>
+</body>
+</html>
