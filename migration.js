@@ -1409,17 +1409,18 @@ class MigrationTool {
             return;
         }
         
-        // Add summary statistics
+        // Add summary statistics for unmatched stations only
         const summaryDiv = document.createElement('div');
         summaryDiv.className = 'match-summary';
         const totalStations = this.matchedStations.length + this.unmatchedStations.length;
-        const visitedStations = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.isVisited).length;
-        const favoriteStations = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.isFavorite).length;
-        const stationsWithNotes = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.notes).length;
+        const unmatchedVisited = this.unmatchedStations.filter(s => s.isVisited).length;
+        const unmatchedFavorites = this.unmatchedStations.filter(s => s.isFavorite).length;
+        const unmatchedWithNotes = this.unmatchedStations.filter(s => s.notes).length;
         
         summaryDiv.innerHTML = `
             <div class="summary-header">
-                <h3>📊 Your Station Data Summary</h3>
+                <h3>🔍 Stations Needing Attention</h3>
+                <p class="summary-subtitle">These ${this.unmatchedStations.length} stations need to be linked to the database</p>
             </div>
             <div class="summary-stats">
                 <div class="stat-card total">
@@ -1429,24 +1430,31 @@ class MigrationTool {
                         <div class="stat-label">Total Stations</div>
                     </div>
                 </div>
+                <div class="stat-card unmatched">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <div class="stat-number">${this.unmatchedStations.length}</div>
+                        <div class="stat-label">Need Linking</div>
+                    </div>
+                </div>
                 <div class="stat-card visited">
                     <div class="stat-icon">✅</div>
                     <div class="stat-content">
-                        <div class="stat-number">${visitedStations}</div>
+                        <div class="stat-number">${unmatchedVisited}</div>
                         <div class="stat-label">Visited</div>
                     </div>
                 </div>
                 <div class="stat-card favorites">
                     <div class="stat-icon">❤️</div>
                     <div class="stat-content">
-                        <div class="stat-number">${favoriteStations}</div>
+                        <div class="stat-number">${unmatchedFavorites}</div>
                         <div class="stat-label">Favorites</div>
                     </div>
                 </div>
                 <div class="stat-card notes">
                     <div class="stat-icon">📝</div>
                     <div class="stat-content">
-                        <div class="stat-number">${stationsWithNotes}</div>
+                        <div class="stat-number">${unmatchedWithNotes}</div>
                         <div class="stat-label">With Notes</div>
                     </div>
                 </div>
@@ -1457,11 +1465,14 @@ class MigrationTool {
         // Add header with progress info
         const headerDiv = document.createElement('div');
         headerDiv.className = 'unmatched-header';
+        const progressPercentage = this.unmatchedStations.length > 0 ? 
+            ((this.matchedStations.length / (this.matchedStations.length + this.unmatchedStations.length)) * 100) : 100;
+        
         headerDiv.innerHTML = `
             <div class="progress-info">
-                <h3>Unmatched Stations (${this.unmatchedStations.length} remaining)</h3>
+                <h3>📋 Unmatched Stations List</h3>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${((this.matchedStations.length / (this.matchedStations.length + this.unmatchedStations.length)) * 100)}%"></div>
+                    <div class="progress-fill" style="width: ${progressPercentage}%"></div>
                 </div>
                 <p class="progress-text">${this.matchedStations.length} matched, ${this.unmatchedStations.length} remaining</p>
             </div>
