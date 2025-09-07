@@ -39,12 +39,25 @@ class MatchingController {
 
     async initializeFirebase() {
         try {
+            console.log('Initializing Firebase...');
             await window.firebaseService.initialize();
+            console.log('Firebase initialized successfully');
+            
+            console.log('Fetching stations from Firebase...');
             this.firebaseStations = await window.firebaseService.fetchStations();
             console.log(`Loaded ${this.firebaseStations.length} Firebase stations`);
+            
+            if (this.firebaseStations.length === 0) {
+                throw new Error('No stations found in Firebase database');
+            }
         } catch (error) {
             console.error('Error loading Firebase stations:', error);
-            this.showError('Failed to load station database from Firebase. Please check your connection and try again.');
+            console.error('Firebase error details:', {
+                message: error.message,
+                stack: error.stack
+            });
+            this.showError(`Failed to load station database from Firebase: ${error.message}. Please check your connection and try again.`);
+            throw error; // Re-throw to be caught by the calling function
         }
     }
 
@@ -93,7 +106,13 @@ class MatchingController {
         } catch (error) {
             this.hideLoading();
             console.error('Error during matching:', error);
-            this.showError('Error during station matching. Please try again.');
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                uploadedStations: this.uploadedStations?.length,
+                firebaseStations: this.firebaseStations?.length
+            });
+            this.showError(`Error during station matching: ${error.message}. Please check the console for details.`);
         }
     }
 

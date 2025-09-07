@@ -24,19 +24,24 @@ class FirebaseService {
             });
             
             // Import Firebase modules dynamically
+            console.log('Importing Firebase modules...');
             const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js');
             const { getFirestore, collection, getDocs } = await import('https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js');
             const { getAnalytics } = await import('https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js');
+            console.log('Firebase modules imported successfully');
             
             // Initialize Firebase
+            console.log('Initializing Firebase app...');
             const app = initializeApp(firebaseConfig);
             console.log('Firebase app initialized:', app);
             
+            console.log('Initializing Firestore...');
             this.db = getFirestore(app);
             this.collection = collection;
             this.getDocs = getDocs;
             console.log('Firestore database initialized:', this.db);
             
+            console.log('Initializing Analytics...');
             this.analytics = getAnalytics(app);
             console.log('Analytics initialized:', this.analytics);
             
@@ -45,6 +50,11 @@ class FirebaseService {
             
         } catch (error) {
             console.error('Firebase initialization failed:', error);
+            console.error('Firebase initialization error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
             throw error;
         }
     }
@@ -89,9 +99,15 @@ class FirebaseService {
 
         try {
             console.log('Fetching stations from Firebase...');
+            console.log('Database object:', this.db);
+            console.log('Collection function:', this.collection);
+            console.log('GetDocs function:', this.getDocs);
             
             const stationsRef = this.collection(this.db, 'stations');
+            console.log('Stations reference created:', stationsRef);
+            
             const snapshot = await this.getDocs(stationsRef);
+            console.log('Snapshot received:', snapshot);
             
             const stations = [];
             snapshot.forEach((doc) => {
