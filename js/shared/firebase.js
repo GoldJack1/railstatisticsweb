@@ -60,25 +60,30 @@ class FirebaseService {
     }
 
     async getFirebaseConfig() {
-        // Check if we're in a production environment with environment variables
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            // Try to get config from environment variables (for Netlify deployment)
-            const envConfig = {
-                apiKey: window.VITE_FIREBASE_API_KEY,
-                authDomain: window.VITE_FIREBASE_AUTH_DOMAIN,
-                databaseURL: window.VITE_FIREBASE_DATABASE_URL,
-                projectId: window.VITE_FIREBASE_PROJECT_ID,
-                storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET,
-                messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID,
-                appId: window.VITE_FIREBASE_APP_ID,
-                measurementId: window.VITE_FIREBASE_MEASUREMENT_ID
-            };
-            
-            // Check if we have at least the essential config
-            if (envConfig.apiKey && envConfig.projectId) {
-                console.log('Using environment variables for Firebase config');
-                return envConfig;
-            }
+        console.log('Getting Firebase configuration...');
+        console.log('Hostname:', window.location.hostname);
+        console.log('Environment variables available:', {
+            apiKey: !!window.VITE_FIREBASE_API_KEY,
+            projectId: !!window.VITE_FIREBASE_PROJECT_ID,
+            authDomain: !!window.VITE_FIREBASE_AUTH_DOMAIN
+        });
+        
+        // Try to get config from environment variables first (for Netlify deployment)
+        const envConfig = {
+            apiKey: window.VITE_FIREBASE_API_KEY,
+            authDomain: window.VITE_FIREBASE_AUTH_DOMAIN,
+            databaseURL: window.VITE_FIREBASE_DATABASE_URL,
+            projectId: window.VITE_FIREBASE_PROJECT_ID,
+            storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET,
+            messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID,
+            appId: window.VITE_FIREBASE_APP_ID,
+            measurementId: window.VITE_FIREBASE_MEASUREMENT_ID
+        };
+        
+        // Check if we have at least the essential config from environment variables
+        if (envConfig.apiKey && envConfig.projectId) {
+            console.log('Using environment variables for Firebase config');
+            return envConfig;
         }
         
         // Fallback to local firebase-config.js file

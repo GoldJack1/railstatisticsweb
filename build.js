@@ -15,16 +15,18 @@ if (process.env.NETLIFY) {
     console.log('🌐 Running in Netlify environment');
 }
 
-// Read the original index.html
-const indexPath = path.join(__dirname, 'index.html');
+// List of HTML files to process
+const htmlFiles = [
+    'index.html',
+    'upload.html', 
+    'review.html',
+    'matching.html',
+    'export.html',
+    'debug.html',
+    'test-simplified-parser.html'
+];
 
-if (!fs.existsSync(indexPath)) {
-    console.error('❌ index.html not found at:', indexPath);
-    process.exit(1);
-}
-
-let htmlContent = fs.readFileSync(indexPath, 'utf8');
-console.log('📄 Reading index.html...');
+console.log('📄 Processing HTML files:', htmlFiles.join(', '));
 
 // Load environment variables from .env.local for local testing
 if (fs.existsSync('.env.local')) {
@@ -83,15 +85,29 @@ const envScript = `
         window.VITE_FIREBASE_MEASUREMENT_ID = "${envVars.VITE_FIREBASE_MEASUREMENT_ID}";
     </script>`;
 
-// Insert the environment variables script before the Firebase SDK script
-htmlContent = htmlContent.replace(
-    '<!-- Firebase SDK -->',
-    envScript + '\n    <!-- Firebase SDK -->'
-);
-
-// Write the modified HTML
-fs.writeFileSync(indexPath, htmlContent);
+// Process each HTML file
+let processedFiles = 0;
+for (const htmlFile of htmlFiles) {
+    const filePath = path.join(__dirname, htmlFile);
+    
+    if (!fs.existsSync(filePath)) {
+        console.log(`⚠️  ${htmlFile} not found, skipping...`);
+        continue;
+    }
+    
+    let htmlContent = fs.readFileSync(filePath, 'utf8');
+    
+    // Insert the environment variables script before the closing </head> tag
+    if (htmlContent.includes('</head>')) {
+        htmlContent = htmlContent.replace('</head>', envScript + '\n</head>');
+        fs.writeFileSync(filePath, htmlContent);
+        processedFiles++;
+        console.log(`✅ Injected environment variables into ${htmlFile}`);
+    } else {
+        console.log(`⚠️  ${htmlFile} doesn't have a </head> tag, skipping...`);
+    }
+}
 
 console.log('✅ Build completed successfully!');
-console.log('📦 Environment variables injected into index.html');
+console.log(`📦 Environment variables injected into ${processedFiles} HTML files`);
 console.log('🚀 Ready for deployment');
