@@ -1418,10 +1418,15 @@ class MigrationTool {
     }
 
     openSearchDialog(stationId) {
+        console.log('openSearchDialog called for station:', stationId);
         this.currentSearchStationId = stationId;
         const modal = document.getElementById('search-modal');
         const searchInput = document.getElementById('search-input');
         const resultsContainer = document.getElementById('search-results-container');
+        
+        console.log('Modal element found:', !!modal);
+        console.log('Search input found:', !!searchInput);
+        console.log('Results container found:', !!resultsContainer);
         
         // Reset the search
         searchInput.value = '';
@@ -1464,14 +1469,29 @@ class MigrationTool {
     }
 
     performDialogSearch(query) {
+        console.log('performDialogSearch called with query:', query);
         const resultsContainer = document.getElementById('search-results-container');
         const trimmedQuery = query.toLowerCase().trim();
+        
+        console.log('Firebase stations available:', this.firebaseStations ? this.firebaseStations.length : 'undefined');
         
         if (trimmedQuery.length < 2) {
             resultsContainer.innerHTML = `
                 <div class="search-placeholder">
                     <i class="fas fa-search"></i>
                     <p>Start typing to search for stations...</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (!this.firebaseStations || this.firebaseStations.length === 0) {
+            console.log('No Firebase stations available for search');
+            resultsContainer.innerHTML = `
+                <div class="search-no-results">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>No station data available</p>
+                    <small>Please wait for the data to load or refresh the page</small>
                 </div>
             `;
             return;
