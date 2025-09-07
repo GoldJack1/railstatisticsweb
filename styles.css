@@ -623,9 +623,10 @@ body {
 }
 
 .search-result {
-    padding: 10px 15px;
+    padding: 12px 15px;
     cursor: pointer;
     border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s ease;
 }
 
 .search-result:hover {
@@ -636,10 +637,31 @@ body {
     border-bottom: none;
 }
 
+.search-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.search-result-crs {
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.search-result-details {
+    color: #666;
+    font-size: 0.9rem;
+}
+
 /* Export Options */
 .export-options {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    display: flex;
+    justify-content: center;
     gap: 25px;
     margin-bottom: 30px;
 }

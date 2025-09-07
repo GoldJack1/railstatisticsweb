@@ -208,31 +208,11 @@
 
                 <div class="export-options">
                     <div class="export-card">
-                        <i class="fas fa-mobile-alt"></i>
-                        <h3>Import to App</h3>
-                        <p>Generate a QR code or download link to import directly into your Rail Statistics app</p>
-                        <button class="btn btn-primary" onclick="generateAppImport()">Generate Import</button>
-                    </div>
-                    <div class="export-card">
-                        <i class="fas fa-download"></i>
-                        <h3>Download JSON</h3>
-                        <p>Download the processed data as a JSON file for manual import</p>
-                        <button class="btn btn-secondary" onclick="downloadJSON()">Download JSON</button>
-                    </div>
-                    <div class="export-card">
                         <i class="fas fa-file-csv"></i>
                         <h3>Download CSV</h3>
-                        <p>Download the processed data as a CSV file</p>
-                        <button class="btn btn-secondary" onclick="downloadCSV()">Download CSV</button>
+                        <p>Download the processed data as a CSV file with all your station tracking information</p>
+                        <button class="btn btn-primary" onclick="downloadCSV()">Download CSV</button>
                     </div>
-                </div>
-
-                <div class="import-qr" id="import-qr" style="display: none;">
-                    <h3>Scan with your app to import:</h3>
-                    <div class="qr-container">
-                        <canvas id="qr-canvas"></canvas>
-                    </div>
-                    <p class="qr-instructions">Open your Rail Statistics app and use the "Import from Website" feature to scan this QR code.</p>
                 </div>
 
                 <div class="step-actions">
@@ -270,7 +250,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
     
     <script>
         // Injected environment variables for production

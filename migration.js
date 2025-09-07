@@ -1418,7 +1418,7 @@ class MigrationTool {
     }
 
     searchStations(input, stationId) {
-        const query = input.value.toLowerCase();
+        const query = input.value.toLowerCase().trim();
         const resultsContainer = document.getElementById(`results-${stationId}`);
         
         if (!resultsContainer) {
@@ -1431,24 +1431,92 @@ class MigrationTool {
             return;
         }
         
-        const results = this.firebaseStations.filter(station =>
-            station.stationName.toLowerCase().includes(query) ||
-            station.crsCode.toLowerCase().includes(query) ||
-            (station.country && station.country.toLowerCase().includes(query)) ||
-            (station.toc && station.toc.toLowerCase().includes(query))
-        ).slice(0, 5);
+        // Enhanced search with better matching logic
+        const results = this.firebaseStations.filter(station => {
+            const stationName = (station.stationName || '').toLowerCase();
+            const crsCode = (station.crsCode || '').toLowerCase();
+            const country = (station.country || '').toLowerCase();
+            const county = (station.county || '').toLowerCase();
+            const toc = (station.toc || '').toLowerCase();
+            
+            // Multiple search strategies for better results
+            return (
+                // Exact word match (highest priority)
+                stationName.includes(query) ||
+                crsCode.includes(query) ||
+                country.includes(query) ||
+                county.includes(query) ||
+                toc.includes(query) ||
+                
+                // Partial word match
+                stationName.split(' ').some(word => word.includes(query)) ||
+                stationName.split('-').some(word => word.includes(query)) ||
+                stationName.split('(').some(word => word.includes(query)) ||
+                
+                // Fuzzy matching for common variations
+                this.fuzzyMatch(stationName, query) ||
+                this.fuzzyMatch(crsCode, query)
+            );
+        }).sort((a, b) => {
+            // Sort by relevance: exact matches first, then partial matches
+            const aName = a.stationName.toLowerCase();
+            const bName = b.stationName.toLowerCase();
+            
+            // Exact match gets highest priority
+            if (aName === query) return -1;
+            if (bName === query) return 1;
+            
+            // Starts with query gets second priority
+            if (aName.startsWith(query) && !bName.startsWith(query)) return -1;
+            if (bName.startsWith(query) && !aName.startsWith(query)) return 1;
+            
+            // Contains query gets third priority
+            if (aName.includes(query) && !bName.includes(query)) return -1;
+            if (bName.includes(query) && !aName.includes(query)) return 1;
+            
+            // Alphabetical order for ties
+            return aName.localeCompare(bName);
+        }).slice(0, 8); // Show more results
         
         if (results.length > 0) {
             resultsContainer.innerHTML = results.map(station => `
                 <div class="search-result" onclick="migrationTool.linkStation('${stationId}', '${station.id}')">
-                    <strong>${station.stationName}</strong> (${station.crsCode})<br>
-                    <small>${station.country} - ${station.toc}</small>
+                    <div class="search-result-header">
+                        <strong>${station.stationName}</strong>
+                        <span class="search-result-crs">${station.crsCode}</span>
+                    </div>
+                    <div class="search-result-details">
+                        <small>${station.country}${station.county ? ', ' + station.county : ''} - ${station.toc}</small>
+                    </div>
                 </div>
             `).join('');
             resultsContainer.style.display = 'block';
+            
+            // Add debug info to console
+            console.log(`Search for "${query}" found ${results.length} results:`, results.map(r => r.stationName));
         } else {
             resultsContainer.style.display = 'none';
+            console.log(`No results found for "${query}"`);
         }
+    }
+
+    fuzzyMatch(text, query) {
+        // Simple fuzzy matching for search improvements
+        if (!text || !query) return false;
+        
+        const textLower = text.toLowerCase();
+        const queryLower = query.toLowerCase();
+        
+        // Check if all characters in query appear in order in text
+        let queryIndex = 0;
+        for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
+            if (textLower[i] === queryLower[queryIndex]) {
+                queryIndex++;
+            }
+        }
+        
+        // If we found all characters in order, it's a fuzzy match
+        return queryIndex === queryLower.length;
     }
 
     linkStation(csvStationId, firebaseStationId) {
@@ -1494,117 +1562,6 @@ class MigrationTool {
         this.goToStep(5);
     }
 
-    generateAppImport() {
-        // Create import data in the format expected by iOS app's StationImportService
-        const importData = {
-            exportInfo: {
-                exportedAt: new Date().toISOString(),
-                format: "CSV",
-                stationCount: this.matchedStations.length,
-                options: {
-                    includeLocalData: true,
-                    includeFirebaseData: true,
-                    includeYearlyPassengers: true,
-                    includeCoordinates: true,
-                    includeMetadata: true
-                }
-            },
-            stations: this.matchedStations.map(station => ({
-                id: station.id, // Use unique CSV station ID instead of Firebase station ID
-                stationName: station.stationName,
-                crsCode: station.crsCode,
-                stnCrsId: station.stnCrsId,
-                tiploc: station.tiploc,
-                latitude: station.latitude,
-                longitude: station.longitude,
-                country: station.country,
-                county: station.county,
-                toc: station.toc,
-                yearlyPassengers: station.yearlyPassengers,
-                // Personal tracking data preserved from Firebase
-                isVisited: station.isVisited,
-                visitedDates: station.visitedDates,
-                isFavorite: station.isFavorite,
-                notes: station.notes
-            })),
-            timestamp: new Date().toISOString()
-        };
-        
-        const dataString = JSON.stringify(importData);
-        const qrContainer = document.getElementById('import-qr');
-        const canvas = document.getElementById('qr-canvas');
-        
-        if (!canvas) {
-            console.error('QR canvas not found');
-            this.showError('QR code canvas not found');
-            return;
-        }
-        
-        // Generate QR code
-        QRCode.toCanvas(canvas, dataString, {
-            width: 200,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
-        }, (error) => {
-            if (error) {
-                console.error('QR code generation error:', error);
-                this.showError('Failed to generate QR code');
-            } else {
-                if (qrContainer) {
-                    qrContainer.style.display = 'block';
-                }
-            }
-        });
-    }
-
-    downloadJSON() {
-        // Create export data in the format expected by iOS app's StationExportService
-        const exportData = {
-            exportInfo: {
-                exportedAt: new Date().toISOString(),
-                format: "JSON",
-                stationCount: this.matchedStations.length,
-                options: {
-                    includeLocalData: true,
-                    includeFirebaseData: true,
-                    includeYearlyPassengers: true,
-                    includeCoordinates: true,
-                    includeMetadata: true
-                }
-            },
-            stations: this.matchedStations.map(station => ({
-                id: station.id, // Use unique CSV station ID instead of Firebase station ID
-                stationName: station.stationName,
-                crsCode: station.crsCode,
-                stnCrsId: station.stnCrsId,
-                tiploc: station.tiploc,
-                latitude: station.latitude,
-                longitude: station.longitude,
-                country: station.country,
-                county: station.county,
-                toc: station.toc,
-                yearlyPassengers: station.yearlyPassengers,
-                // Personal tracking data preserved from Firebase
-                isVisited: station.isVisited,
-                visitedDates: station.visitedDates,
-                isFavorite: station.isFavorite,
-                notes: station.notes
-            }))
-        };
-        
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `railstats_stations_${this.getTimestamp()}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
 
     downloadCSV() {
         // Generate CSV content using the same format as iOS app
@@ -1628,8 +1585,15 @@ class MigrationTool {
         const headers = this.generateCSVHeaders();
         csvLines.push(headers.join(','));
         
+        // Sort stations alphabetically by station name for consistent export order
+        const sortedStations = [...this.matchedStations].sort((a, b) => {
+            const nameA = (a.stationName || '').toLowerCase();
+            const nameB = (b.stationName || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        
         // Generate data rows
-        for (const station of this.matchedStations) {
+        for (const station of sortedStations) {
             const row = this.generateCSVRow(station);
             csvLines.push(row.join(','));
         }
@@ -1842,14 +1806,6 @@ function goToStep(step) {
 
 function exportResults() {
     migrationTool.exportResults();
-}
-
-function generateAppImport() {
-    migrationTool.generateAppImport();
-}
-
-function downloadJSON() {
-    migrationTool.downloadJSON();
 }
 
 function downloadCSV() {
