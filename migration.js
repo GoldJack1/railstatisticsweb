@@ -1881,7 +1881,7 @@ class MigrationTool {
             
             // Update UI
             this.populateUnmatchedStations();
-            this.populateMatchedStations();
+            // Don't update matched stations display on Review & Link page
             const resultsContainer = document.getElementById(`results-${csvStationId}`);
             if (resultsContainer) {
                 resultsContainer.style.display = 'none';
@@ -2113,8 +2113,12 @@ class MigrationTool {
         
         // Populate data for specific steps
         if (step === 4) {
+            // Clear matched stations section since we only want to show unmatched ones
+            const matchedContainer = document.getElementById('matched-stations');
+            if (matchedContainer) {
+                matchedContainer.innerHTML = '';
+            }
             this.populateUnmatchedStations();
-            this.populateMatchedStations();
         }
     }
 
