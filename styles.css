@@ -767,6 +767,333 @@ body {
     color: #ccc;
 }
 
+/* Match Summary Statistics */
+.match-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+}
+
+.summary-header h3 {
+    margin: 0 0 20px 0;
+    font-size: 1.4rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Improved Match Stations UI */
+.all-matched-success {
+    text-align: center;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    margin: 20px 0;
+}
+
+.all-matched-success i {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    color: #4ade80;
+}
+
+.all-matched-success h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+}
+
+.all-matched-success p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+.unmatched-header {
+    background: #f8f9ff;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    border: 2px solid #e1e5e9;
+}
+
+.progress-info h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.3rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #e1e5e9;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transition: width 0.3s ease;
+    border-radius: 6px;
+}
+
+.progress-text {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.unmatched-station-card {
+    background: white;
+    border: 2px solid #e1e5e9;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.unmatched-station-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+    transform: translateY(-2px);
+}
+
+.station-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    gap: 20px;
+}
+
+.station-title h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.station-status-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.visited {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.favorite {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.status-badge.dates {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-badge.notes {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.station-actions {
+    flex-shrink: 0;
+}
+
+.search-btn {
+    padding: 12px 20px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.station-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    font-size: 0.95rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.notes-row {
+    grid-column: 1 / -1;
+}
+
+.notes-text {
+    background: #f8f9ff;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* Matched Stations UI */
+.no-matched-stations {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    background: #f8f9ff;
+    border-radius: 15px;
+    border: 2px dashed #e1e5e9;
+}
+
+.no-matched-stations i {
+    font-size: 2rem;
+    margin-bottom: 15px;
+    color: #ccc;
+}
+
+.matched-header {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+}
+
+.matched-info h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.3rem;
+}
+
+.matched-info p {
+    margin: 0 0 15px 0;
+    opacity: 0.9;
+    font-size: 0.95rem;
+}
+
+.matched-summary {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.matched-stat {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.matched-station-card {
+    background: white;
+    border: 2px solid #4ade80;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(74, 222, 128, 0.1);
+}
+
+.matched-station-card:hover {
+    border-color: #22c55e;
+    box-shadow: 0 4px 16px rgba(74, 222, 128, 0.2);
+    transform: translateY(-2px);
+}
+
+.matched-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #4ade80;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 /* Export Options */
 .export-options {
     display: grid;

@@ -816,47 +816,48 @@ class MigrationTool {
             
             if (bestMatch.match && bestMatch.confidence >= this.fuzzyMatchThreshold) {
                 // Check if this Firebase station has already been matched to prevent duplicates
-                if (usedFirebaseStations.has(bestMatch.match.id)) {
-                    console.warn(`Firebase station ${bestMatch.match.stationName} (${bestMatch.match.id}) already matched, skipping duplicate`);
+                if (usedFirebaseStations.has(bestMatch.match.stnCrsId)) {
+                    console.warn(`Firebase station ${bestMatch.match.stationName} (${bestMatch.match.stnCrsId}) already matched, skipping duplicate`);
                     this.unmatchedStations.push(csvStation);
                     this.addLogEntry('warning', csvStation, bestMatch.match, bestMatch.confidence, 'Duplicate match prevented');
                     this.logStats.unmatched++;
                 } else {
                     // Mark this Firebase station as used
-                    usedFirebaseStations.add(bestMatch.match.id);
-                    
-                    // Update the CSV station with Firebase data while preserving CSV user data
-                    csvStation.stationName = bestMatch.match.stationName;
-                    csvStation.country = bestMatch.match.country;
-                    csvStation.county = bestMatch.match.county;
-                    csvStation.toc = bestMatch.match.toc;
-                    csvStation.latitude = bestMatch.match.latitude;
-                    csvStation.longitude = bestMatch.match.longitude;
-                    csvStation.yearlyPassengers = bestMatch.match.yearlyPassengers;
-                    csvStation.crsCode = bestMatch.match.crsCode;
-                    csvStation.stnCrsId = bestMatch.match.stnCrsId;
-                    csvStation.tiploc = bestMatch.match.tiploc;
-                    
-                    // Preserve personal tracking data from CSV (user's data from uploaded file)
-                    // Don't overwrite with Firebase data - keep the user's original tracking data
-                    
-                    // Set matching metadata
-                    csvStation.matchedStation = bestMatch.match;
-                    csvStation.matchConfidence = bestMatch.confidence;
-                    csvStation.isMatched = true;
-                    this.matchedStations.push(csvStation);
-                    
-                    // Log successful match (show original Firebase station for reference)
-                    this.addLogEntry('success', csvStation, bestMatch.match, bestMatch.confidence);
-                    this.logStats.matched++;
-                    
-                    // Update confidence stats
-                    if (bestMatch.confidence >= 0.8) {
-                        this.logStats.highConfidence++;
-                    } else if (bestMatch.confidence >= 0.6) {
-                        this.logStats.mediumConfidence++;
-                    } else {
-                        this.logStats.lowConfidence++;
+                    usedFirebaseStations.add(bestMatch.match.stnCrsId);
+                
+                // Update the CSV station with Firebase data while preserving CSV user data
+                    csvStation.id = bestMatch.match.stnCrsId; // Use Firebase STNCRSID as the primary identifier
+                csvStation.stationName = bestMatch.match.stationName;
+                csvStation.country = bestMatch.match.country;
+                csvStation.county = bestMatch.match.county;
+                csvStation.toc = bestMatch.match.toc;
+                csvStation.latitude = bestMatch.match.latitude;
+                csvStation.longitude = bestMatch.match.longitude;
+                csvStation.yearlyPassengers = bestMatch.match.yearlyPassengers;
+                csvStation.crsCode = bestMatch.match.crsCode;
+                csvStation.stnCrsId = bestMatch.match.stnCrsId;
+                csvStation.tiploc = bestMatch.match.tiploc;
+                
+                // Preserve personal tracking data from CSV (user's data from uploaded file)
+                // Don't overwrite with Firebase data - keep the user's original tracking data
+                
+                // Set matching metadata
+                csvStation.matchedStation = bestMatch.match;
+                csvStation.matchConfidence = bestMatch.confidence;
+                csvStation.isMatched = true;
+                this.matchedStations.push(csvStation);
+                
+                // Log successful match (show original Firebase station for reference)
+                this.addLogEntry('success', csvStation, bestMatch.match, bestMatch.confidence);
+                this.logStats.matched++;
+                
+                // Update confidence stats
+                if (bestMatch.confidence >= 0.8) {
+                    this.logStats.highConfidence++;
+                } else if (bestMatch.confidence >= 0.6) {
+                    this.logStats.mediumConfidence++;
+                } else {
+                    this.logStats.lowConfidence++;
                     }
                 }
             } else {
@@ -1397,20 +1398,214 @@ class MigrationTool {
         
         container.innerHTML = '';
         
+        if (this.unmatchedStations.length === 0) {
+            container.innerHTML = `
+                <div class="all-matched-success">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>All stations have been matched!</h3>
+                    <p>Great job! You can now proceed to export your data.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Add summary statistics
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'match-summary';
+        const totalStations = this.matchedStations.length + this.unmatchedStations.length;
+        const visitedStations = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.isVisited).length;
+        const favoriteStations = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.isFavorite).length;
+        const stationsWithNotes = [...this.matchedStations, ...this.unmatchedStations].filter(s => s.notes).length;
+        
+        summaryDiv.innerHTML = `
+            <div class="summary-header">
+                <h3>📊 Your Station Data Summary</h3>
+            </div>
+            <div class="summary-stats">
+                <div class="stat-card total">
+                    <div class="stat-icon">🚂</div>
+                    <div class="stat-content">
+                        <div class="stat-number">${totalStations}</div>
+                        <div class="stat-label">Total Stations</div>
+                    </div>
+                </div>
+                <div class="stat-card visited">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-number">${visitedStations}</div>
+                        <div class="stat-label">Visited</div>
+                    </div>
+                </div>
+                <div class="stat-card favorites">
+                    <div class="stat-icon">❤️</div>
+                    <div class="stat-content">
+                        <div class="stat-number">${favoriteStations}</div>
+                        <div class="stat-label">Favorites</div>
+                    </div>
+                </div>
+                <div class="stat-card notes">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-content">
+                        <div class="stat-number">${stationsWithNotes}</div>
+                        <div class="stat-label">With Notes</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(summaryDiv);
+
+        // Add header with progress info
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'unmatched-header';
+        headerDiv.innerHTML = `
+            <div class="progress-info">
+                <h3>Unmatched Stations (${this.unmatchedStations.length} remaining)</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${((this.matchedStations.length / (this.matchedStations.length + this.unmatchedStations.length)) * 100)}%"></div>
+                </div>
+                <p class="progress-text">${this.matchedStations.length} matched, ${this.unmatchedStations.length} remaining</p>
+            </div>
+        `;
+        container.appendChild(headerDiv);
+        
         this.unmatchedStations.forEach(station => {
             const stationDiv = document.createElement('div');
-            stationDiv.className = 'unmatched-station';
+            stationDiv.className = 'unmatched-station-card';
+            
+            // Create status badges for user data
+            const statusBadges = [];
+            if (station.isVisited) statusBadges.push('<span class="status-badge visited"><i class="fas fa-check"></i> Visited</span>');
+            if (station.isFavorite) statusBadges.push('<span class="status-badge favorite"><i class="fas fa-heart"></i> Favorite</span>');
+            if (station.visitedDates && station.visitedDates.length > 0) {
+                statusBadges.push(`<span class="status-badge dates"><i class="fas fa-calendar"></i> ${station.visitedDates.length} visit${station.visitedDates.length > 1 ? 's' : ''}</span>`);
+            }
+            if (station.notes) statusBadges.push('<span class="status-badge notes"><i class="fas fa-sticky-note"></i> Has notes</span>');
+            
             stationDiv.innerHTML = `
-                <div class="station-info">
+                <div class="station-card-header">
+                    <div class="station-title">
                     <h4>${station.stationName}</h4>
-                    <p><strong>Country:</strong> ${station.country || 'Unknown'}</p>
-                    <p><strong>County:</strong> ${station.county || 'Unknown'}</p>
-                    <p><strong>Operator:</strong> ${station.toc || 'Unknown'}</p>
+                        <div class="station-status-badges">
+                            ${statusBadges.join('')}
                 </div>
-                <div class="search-station">
-                    <button class="btn btn-secondary" onclick="migrationTool.openSearchDialog('${station.id}')">
-                        <i class="fas fa-search"></i> Search Stations
-                    </button>
+                    </div>
+                    <div class="station-actions">
+                        <button class="btn btn-primary search-btn" onclick="migrationTool.openSearchDialog('${station.id}')">
+                            <i class="fas fa-search"></i> Find Match
+                        </button>
+                    </div>
+                </div>
+                <div class="station-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Country:</span>
+                        <span class="detail-value">${station.country || 'Unknown'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">County:</span>
+                        <span class="detail-value">${station.county || 'Unknown'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Operator:</span>
+                        <span class="detail-value">${station.toc || 'Unknown'}</span>
+                    </div>
+                    ${station.notes ? `
+                    <div class="detail-row notes-row">
+                        <span class="detail-label">Notes:</span>
+                        <span class="detail-value notes-text">${station.notes}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            container.appendChild(stationDiv);
+        });
+    }
+
+    populateMatchedStations() {
+        const container = document.getElementById('matched-stations');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (this.matchedStations.length === 0) {
+            container.innerHTML = `
+                <div class="no-matched-stations">
+                    <i class="fas fa-info-circle"></i>
+                    <p>No stations have been matched yet. Use the search dialog to link your stations.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Add header with summary
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'matched-header';
+        const matchedVisited = this.matchedStations.filter(s => s.isVisited).length;
+        const matchedFavorites = this.matchedStations.filter(s => s.isFavorite).length;
+        const matchedWithNotes = this.matchedStations.filter(s => s.notes).length;
+        
+        headerDiv.innerHTML = `
+            <div class="matched-info">
+                <h3>✅ Matched Stations (${this.matchedStations.length})</h3>
+                <p>These stations have been successfully linked to the database.</p>
+                <div class="matched-summary">
+                    <span class="matched-stat">${matchedVisited} visited</span>
+                    <span class="matched-stat">${matchedFavorites} favorites</span>
+                    <span class="matched-stat">${matchedWithNotes} with notes</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(headerDiv);
+        
+        this.matchedStations.forEach(station => {
+            const stationDiv = document.createElement('div');
+            stationDiv.className = 'matched-station-card';
+            
+            // Create status badges for user data
+            const statusBadges = [];
+            if (station.isVisited) statusBadges.push('<span class="status-badge visited"><i class="fas fa-check"></i> Visited</span>');
+            if (station.isFavorite) statusBadges.push('<span class="status-badge favorite"><i class="fas fa-heart"></i> Favorite</span>');
+            if (station.visitedDates && station.visitedDates.length > 0) {
+                statusBadges.push(`<span class="status-badge dates"><i class="fas fa-calendar"></i> ${station.visitedDates.length} visit${station.visitedDates.length > 1 ? 's' : ''}</span>`);
+            }
+            if (station.notes) statusBadges.push('<span class="status-badge notes"><i class="fas fa-sticky-note"></i> Has notes</span>');
+            
+            stationDiv.innerHTML = `
+                <div class="station-card-header">
+                    <div class="station-title">
+                        <h4>${station.stationName}</h4>
+                        <div class="station-status-badges">
+                            ${statusBadges.join('')}
+                        </div>
+                    </div>
+                    <div class="station-actions">
+                        <span class="matched-badge">
+                            <i class="fas fa-link"></i> Linked
+                        </span>
+                    </div>
+                </div>
+                <div class="station-details">
+                    <div class="detail-row">
+                        <span class="detail-label">CRS Code:</span>
+                        <span class="detail-value">${station.crsCode || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Country:</span>
+                        <span class="detail-value">${station.country || 'Unknown'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">County:</span>
+                        <span class="detail-value">${station.county || 'Unknown'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Operator:</span>
+                        <span class="detail-value">${station.toc || 'Unknown'}</span>
+                    </div>
+                    ${station.notes ? `
+                    <div class="detail-row notes-row">
+                        <span class="detail-label">Notes:</span>
+                        <span class="detail-value notes-text">${station.notes}</span>
+                    </div>
+                    ` : ''}
                 </div>
             `;
             container.appendChild(stationDiv);
@@ -1558,7 +1753,7 @@ class MigrationTool {
         
         if (results.length > 0) {
             resultsContainer.innerHTML = results.map(station => `
-                <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.id}')">
+                <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.stnCrsId}')">
                     <div class="search-result-info">
                         <div class="search-result-name">${station.stationName}</div>
                         <div class="search-result-details">
@@ -1610,14 +1805,33 @@ class MigrationTool {
 
     linkStation(csvStationId, firebaseStationId) {
         const csvStation = this.unmatchedStations.find(s => s.id === csvStationId);
-        const firebaseStation = this.firebaseStations.find(s => s.id === firebaseStationId);
+        const firebaseStation = this.firebaseStations.find(s => s.stnCrsId === firebaseStationId);
+        
+        console.log('Linking stations:', {
+            csvStation: csvStation ? csvStation.stationName : 'not found',
+            firebaseStation: firebaseStation ? firebaseStation.stationName : 'not found',
+            csvUserData: csvStation ? {
+                isVisited: csvStation.isVisited,
+                visitedDates: csvStation.visitedDates,
+                isFavorite: csvStation.isFavorite,
+                notes: csvStation.notes
+            } : 'no csv station'
+        });
         
         if (csvStation && firebaseStation) {
             
-            // Use Firebase station ID as the primary identifier
-            csvStation.id = firebaseStation.id;
+            // PRESERVE user's personal tracking data from CSV BEFORE updating with Firebase data
+            const preservedUserData = {
+                isVisited: csvStation.isVisited,
+                visitedDates: csvStation.visitedDates,
+                isFavorite: csvStation.isFavorite,
+                notes: csvStation.notes
+            };
             
-            // Update the CSV station with Firebase data while preserving CSV user data
+            // Use Firebase STNCRSID as the primary identifier
+            csvStation.id = firebaseStation.stnCrsId;
+            
+            // Update the CSV station with Firebase data
             csvStation.stationName = firebaseStation.stationName;
             csvStation.country = firebaseStation.country;
             csvStation.county = firebaseStation.county;
@@ -1629,8 +1843,11 @@ class MigrationTool {
             csvStation.stnCrsId = firebaseStation.stnCrsId;
             csvStation.tiploc = firebaseStation.tiploc;
             
-            // Preserve personal tracking data from CSV (user's data from uploaded file)
-            // Don't overwrite with Firebase data - keep the user's original tracking data
+            // RESTORE user's personal tracking data from CSV (preserve user's original data)
+            csvStation.isVisited = preservedUserData.isVisited;
+            csvStation.visitedDates = preservedUserData.visitedDates;
+            csvStation.isFavorite = preservedUserData.isFavorite;
+            csvStation.notes = preservedUserData.notes;
             
             // Set matching metadata
             csvStation.matchedStation = firebaseStation;
@@ -1641,8 +1858,19 @@ class MigrationTool {
             this.unmatchedStations = this.unmatchedStations.filter(s => s.id !== csvStationId);
             this.matchedStations.push(csvStation);
             
+            console.log('Station linked successfully:', {
+                finalStation: csvStation.stationName,
+                finalUserData: {
+                    isVisited: csvStation.isVisited,
+                    visitedDates: csvStation.visitedDates,
+                    isFavorite: csvStation.isFavorite,
+                    notes: csvStation.notes
+                }
+            });
+            
             // Update UI
             this.populateUnmatchedStations();
+            this.populateMatchedStations();
             const resultsContainer = document.getElementById(`results-${csvStationId}`);
             if (resultsContainer) {
                 resultsContainer.style.display = 'none';
@@ -1678,22 +1906,22 @@ class MigrationTool {
                 })
                 .map(station => ({
                     id: station.id, // Now using Firebase station ID
-                    stationName: station.stationName,
-                    crsCode: station.crsCode,
-                    stnCrsId: station.stnCrsId,
-                    tiploc: station.tiploc,
-                    latitude: station.latitude,
-                    longitude: station.longitude,
-                    country: station.country,
-                    county: station.county,
-                    toc: station.toc,
-                    yearlyPassengers: station.yearlyPassengers,
+                stationName: station.stationName,
+                crsCode: station.crsCode,
+                stnCrsId: station.stnCrsId,
+                tiploc: station.tiploc,
+                latitude: station.latitude,
+                longitude: station.longitude,
+                country: station.country,
+                county: station.county,
+                toc: station.toc,
+                yearlyPassengers: station.yearlyPassengers,
                     // Personal tracking data preserved from CSV
-                    isVisited: station.isVisited,
-                    visitedDates: station.visitedDates,
-                    isFavorite: station.isFavorite,
-                    notes: station.notes
-                }))
+                isVisited: station.isVisited,
+                visitedDates: station.visitedDates,
+                isFavorite: station.isFavorite,
+                notes: station.notes
+            }))
         };
         
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1875,6 +2103,7 @@ class MigrationTool {
         // Populate data for specific steps
         if (step === 4) {
             this.populateUnmatchedStations();
+            this.populateMatchedStations();
         }
     }
 
