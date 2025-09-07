@@ -93,11 +93,23 @@ class CSVParser {
         const hasVisitDate = headerSet.has('visit date') || headerSet.has('visit date dd/mm/yyyy') || headerSet.has('visit dates');
         const hasFavorite = headerSet.has('favourite') || headerSet.has('favorite');
         
-        console.log('Essential columns found:', {
-            stationName: hasStationName,
-            visited: hasVisited,
-            visitDate: hasVisitDate,
-            favorite: hasFavorite
+        // Look for additional matching columns
+        const hasCountry = headerSet.has('country');
+        const hasCounty = headerSet.has('county');
+        const hasToc = headerSet.has('toc') || headerSet.has('operator');
+        
+        console.log('Columns found:', {
+            essential: {
+                stationName: hasStationName,
+                visited: hasVisited,
+                visitDate: hasVisitDate,
+                favorite: hasFavorite
+            },
+            matching: {
+                country: hasCountry,
+                county: hasCounty,
+                toc: hasToc
+            }
         });
         
         // Return a simple format identifier
@@ -111,6 +123,10 @@ class CSVParser {
             isVisited: false,
             visitedDates: [],
             isFavorite: false,
+            // Additional fields for matching (will be removed after matching)
+            country: null,
+            county: null,
+            toc: null,
             matchedStation: null,
             matchConfidence: 0,
             isMatched: false
@@ -127,6 +143,16 @@ class CSVParser {
                 case 'station':
                 case 'station name':
                     station.stationName = value.trim();
+                    break;
+                case 'country':
+                    station.country = value.trim() || null;
+                    break;
+                case 'county':
+                    station.county = value.trim() || null;
+                    break;
+                case 'toc':
+                case 'operator':
+                    station.toc = value.trim() || null;
                     break;
                 case 'visited':
                     station.isVisited = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value.toLowerCase() === '1';

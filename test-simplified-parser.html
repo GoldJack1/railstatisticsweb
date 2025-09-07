@@ -130,6 +130,34 @@ King's Cross,No`;
                 results.push('✗ Missing optional fields test error: ' + e.message);
             }
             
+            // Test 4: CSV with additional matching fields
+            try {
+                const testCSV4 = `Station Name,Country,County,TOC,Visited,Visit Date,Favorite
+London Bridge,England,Greater London,Network Rail,Yes,15/03/2023,Yes
+Manchester Piccadilly,England,Greater Manchester,Network Rail,No,,No
+Birmingham New Street,England,West Midlands,Network Rail,Yes,22/07/2023,Yes`;
+                
+                const stations4 = window.csvParser.parseCSV(testCSV4);
+                results.push(`✓ Additional matching fields test: ${stations4.length} stations parsed`);
+                
+                if (stations4.length === 3) {
+                    const station1 = stations4[0];
+                    if (station1.stationName === 'London Bridge' && 
+                        station1.country === 'England' && 
+                        station1.county === 'Greater London' && 
+                        station1.toc === 'Network Rail' &&
+                        station1.isVisited === true && 
+                        station1.isFavorite === true) {
+                        results.push('✓ Additional matching fields extracted correctly');
+                    } else {
+                        results.push('✗ Additional matching fields not extracted correctly');
+                    }
+                }
+                
+            } catch (e) {
+                results.push('✗ Additional matching fields test error: ' + e.message);
+            }
+            
             // Display results
             output.innerHTML = results.map(result => `<p>${result}</p>`).join('');
         }

@@ -88,13 +88,43 @@ class StationMatcher {
             await new Promise(resolve => setTimeout(resolve, 10));
         }
         
-        console.log(`Matching complete: ${matchedStations.length} stations matched, ${this.logStats.unmatched} stations skipped`);
+        // Clean up matched stations - remove additional fields used only for matching
+        const cleanedStations = this.cleanMatchedStations(matchedStations);
+        
+        console.log(`Matching complete: ${cleanedStations.length} stations matched, ${this.logStats.unmatched} stations skipped`);
         
         return {
-            matchedStations,
+            matchedStations: cleanedStations,
             matchingLog: this.matchingLog,
             logStats: this.logStats
         };
+    }
+
+    cleanMatchedStations(matchedStations) {
+        // Remove additional fields that were only used for matching
+        // Keep only the essential fields: stationName, isVisited, visitedDates, isFavorite
+        // Plus the Firebase data: crsCode, latitude, longitude, country, county, toc
+        return matchedStations.map(station => {
+            const cleaned = {
+                id: station.id,
+                stationName: station.stationName,
+                isVisited: station.isVisited,
+                visitedDates: station.visitedDates,
+                isFavorite: station.isFavorite,
+                // Firebase data from matching
+                crsCode: station.crsCode,
+                latitude: station.latitude,
+                longitude: station.longitude,
+                country: station.country,
+                county: station.county,
+                toc: station.toc,
+                // Matching metadata
+                matchedStation: station.matchedStation,
+                matchConfidence: station.matchConfidence,
+                isMatched: station.isMatched
+            };
+            return cleaned;
+        });
     }
 
     findBestMatch(csvStation, firebaseStations) {
