@@ -805,6 +805,9 @@ class MigrationTool {
         this.matchedStations = [];
         this.unmatchedStations = [];
         
+        // Track which Firebase stations have already been matched to prevent duplicates
+        const usedFirebaseStations = new Set();
+        
         const total = this.uploadedStations.length;
         let processed = 0;
         
@@ -812,39 +815,49 @@ class MigrationTool {
             const bestMatch = this.findBestMatch(csvStation, this.firebaseStations);
             
             if (bestMatch.match && bestMatch.confidence >= this.fuzzyMatchThreshold) {
-                
-                // Update the CSV station with Firebase data while preserving CSV user data
-                csvStation.stationName = bestMatch.match.stationName;
-                csvStation.country = bestMatch.match.country;
-                csvStation.county = bestMatch.match.county;
-                csvStation.toc = bestMatch.match.toc;
-                csvStation.latitude = bestMatch.match.latitude;
-                csvStation.longitude = bestMatch.match.longitude;
-                csvStation.yearlyPassengers = bestMatch.match.yearlyPassengers;
-                csvStation.crsCode = bestMatch.match.crsCode;
-                csvStation.stnCrsId = bestMatch.match.stnCrsId;
-                csvStation.tiploc = bestMatch.match.tiploc;
-                
-                // Preserve personal tracking data from CSV (user's data from uploaded file)
-                // Don't overwrite with Firebase data - keep the user's original tracking data
-                
-                // Set matching metadata
-                csvStation.matchedStation = bestMatch.match;
-                csvStation.matchConfidence = bestMatch.confidence;
-                csvStation.isMatched = true;
-                this.matchedStations.push(csvStation);
-                
-                // Log successful match (show original Firebase station for reference)
-                this.addLogEntry('success', csvStation, bestMatch.match, bestMatch.confidence);
-                this.logStats.matched++;
-                
-                // Update confidence stats
-                if (bestMatch.confidence >= 0.8) {
-                    this.logStats.highConfidence++;
-                } else if (bestMatch.confidence >= 0.6) {
-                    this.logStats.mediumConfidence++;
+                // Check if this Firebase station has already been matched to prevent duplicates
+                if (usedFirebaseStations.has(bestMatch.match.id)) {
+                    console.warn(`Firebase station ${bestMatch.match.stationName} (${bestMatch.match.id}) already matched, skipping duplicate`);
+                    this.unmatchedStations.push(csvStation);
+                    this.addLogEntry('warning', csvStation, bestMatch.match, bestMatch.confidence, 'Duplicate match prevented');
+                    this.logStats.unmatched++;
                 } else {
-                    this.logStats.lowConfidence++;
+                    // Mark this Firebase station as used
+                    usedFirebaseStations.add(bestMatch.match.id);
+                    
+                    // Update the CSV station with Firebase data while preserving CSV user data
+                    csvStation.stationName = bestMatch.match.stationName;
+                    csvStation.country = bestMatch.match.country;
+                    csvStation.county = bestMatch.match.county;
+                    csvStation.toc = bestMatch.match.toc;
+                    csvStation.latitude = bestMatch.match.latitude;
+                    csvStation.longitude = bestMatch.match.longitude;
+                    csvStation.yearlyPassengers = bestMatch.match.yearlyPassengers;
+                    csvStation.crsCode = bestMatch.match.crsCode;
+                    csvStation.stnCrsId = bestMatch.match.stnCrsId;
+                    csvStation.tiploc = bestMatch.match.tiploc;
+                    
+                    // Preserve personal tracking data from CSV (user's data from uploaded file)
+                    // Don't overwrite with Firebase data - keep the user's original tracking data
+                    
+                    // Set matching metadata
+                    csvStation.matchedStation = bestMatch.match;
+                    csvStation.matchConfidence = bestMatch.confidence;
+                    csvStation.isMatched = true;
+                    this.matchedStations.push(csvStation);
+                    
+                    // Log successful match (show original Firebase station for reference)
+                    this.addLogEntry('success', csvStation, bestMatch.match, bestMatch.confidence);
+                    this.logStats.matched++;
+                    
+                    // Update confidence stats
+                    if (bestMatch.confidence >= 0.8) {
+                        this.logStats.highConfidence++;
+                    } else if (bestMatch.confidence >= 0.6) {
+                        this.logStats.mediumConfidence++;
+                    } else {
+                        this.logStats.lowConfidence++;
+                    }
                 }
             } else {
                 this.unmatchedStations.push(csvStation);
@@ -1264,12 +1277,13 @@ class MigrationTool {
         }
     }
 
-    addLogEntry(type, csvStation, firebaseStation, confidence) {
+    addLogEntry(type, csvStation, firebaseStation, confidence, message = null) {
         const logEntry = {
             type: type,
             csvStation: csvStation,
             firebaseStation: firebaseStation,
             confidence: confidence,
+            message: message,
             timestamp: new Date()
         };
         
@@ -1302,11 +1316,14 @@ class MigrationTool {
             `→ ${logEntry.firebaseStation.stationName} (${logEntry.firebaseStation.crsCode})` : 
             'No match found';
         
+        const messageText = logEntry.message ? `<div class="log-entry-message">${logEntry.message}</div>` : '';
+        
         entryDiv.innerHTML = `
             <div class="log-entry-icon ${iconClass}">${iconSymbol}</div>
             <div class="log-entry-content">
                 <div class="log-entry-station">${logEntry.csvStation.stationName}</div>
                 <div class="log-entry-details">${matchDetails}</div>
+                ${messageText}
             </div>
             <div class="log-entry-confidence ${confidenceClass}">
                 ${Math.round(logEntry.confidence * 100)}%
@@ -1493,7 +1510,7 @@ class MigrationTool {
                 }
             },
             stations: this.matchedStations.map(station => ({
-                id: station.matchedStation.id,
+                id: station.id, // Use unique CSV station ID instead of Firebase station ID
                 stationName: station.stationName,
                 crsCode: station.crsCode,
                 stnCrsId: station.stnCrsId,
@@ -1559,7 +1576,7 @@ class MigrationTool {
                 }
             },
             stations: this.matchedStations.map(station => ({
-                id: station.matchedStation.id,
+                id: station.id, // Use unique CSV station ID instead of Firebase station ID
                 stationName: station.stationName,
                 crsCode: station.crsCode,
                 stnCrsId: station.stnCrsId,
@@ -1657,7 +1674,7 @@ class MigrationTool {
         const longitude = typeof station.longitude === 'number' ? station.longitude : 0;
         
         const row = [
-            this.escapeCSVField(station.matchedStation.id),
+            this.escapeCSVField(station.id), // Use unique CSV station ID instead of Firebase station ID
             this.escapeCSVField(station.crsCode),
             this.escapeCSVField(station.tiploc || ''),
             this.escapeCSVField(station.stationName),
