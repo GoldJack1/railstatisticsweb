@@ -64,6 +64,9 @@ class MatchingController {
     async startMatching() {
         this.showLoading('Starting station matching...');
         
+        // Initialize progress display
+        this.updateProgress(0, 0, this.uploadedStations.length);
+        
         // Initialize matching log
         this.matchingLog = [];
         this.logStats = {
@@ -86,7 +89,11 @@ class MatchingController {
                 await this.initializeFirebase();
             }
             
-            const results = await window.stationMatcher.performFuzzyMatching(this.uploadedStations, this.firebaseStations);
+            const results = await window.stationMatcher.performFuzzyMatching(
+                this.uploadedStations, 
+                this.firebaseStations, 
+                (percentage, processed, total) => this.updateProgress(percentage, processed, total)
+            );
             
             this.matchedStations = results.matchedStations;
             this.matchingLog = results.matchingLog;
@@ -213,6 +220,36 @@ class MatchingController {
     hideLoading() {
         const loadingOverlay = document.getElementById('loading-overlay');
         if (loadingOverlay) loadingOverlay.style.display = 'none';
+    }
+
+    updateProgress(percentage, processed, total) {
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const progressRingFill = document.getElementById('progress-ring-fill');
+        
+        // Update progress bar
+        if (progressFill) {
+            progressFill.style.width = `${percentage}%`;
+        }
+        
+        // Update circular progress
+        if (progressRingFill) {
+            const circumference = 2 * Math.PI * 52; // radius = 52
+            const offset = circumference - (percentage / 100) * circumference;
+            progressRingFill.style.strokeDasharray = `${circumference} ${circumference}`;
+            progressRingFill.style.strokeDashoffset = offset;
+        }
+        
+        // Update percentage text
+        if (progressPercentage) {
+            progressPercentage.textContent = `${percentage}%`;
+        }
+        
+        // Update progress text
+        if (progressText) {
+            progressText.textContent = `Matching stations... ${percentage}% (${processed}/${total})`;
+        }
     }
 
     showError(message) {

@@ -45,6 +45,36 @@ class StorageService {
         }
     }
 
+    // Clear all application data and cache
+    clearAllData() {
+        try {
+            // Clear migration data
+            this.clearMigrationData();
+            
+            // Clear any other related localStorage items
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('railstatistics') || key.includes('migration') || key.includes('firebase'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`Cleared localStorage key: ${key}`);
+            });
+            
+            // Clear sessionStorage as well
+            sessionStorage.clear();
+            console.log('Session storage cleared');
+            
+            console.log('All application data and cache cleared');
+        } catch (error) {
+            console.error('Error clearing all data:', error);
+        }
+    }
+
     // Save current session info
     saveSessionInfo(sessionInfo) {
         try {

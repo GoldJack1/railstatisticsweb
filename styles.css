@@ -432,6 +432,45 @@ body {
     color: #666;
 }
 
+/* Circular Progress Styles */
+.progress-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 15px;
+}
+
+.progress-circle {
+    position: relative;
+    display: inline-block;
+}
+
+.progress-ring {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+    transition: stroke-dasharray 0.3s ease;
+}
+
+.progress-ring-fill {
+    stroke-dasharray: 0 326.73;
+    stroke-dashoffset: 0;
+    transition: stroke-dasharray 0.3s ease;
+    stroke-linecap: round;
+}
+
+.progress-percentage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+}
+
 /* Matching Log */
 .matching-log {
     background: #f8f9ff;

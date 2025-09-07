@@ -12,13 +12,23 @@ class ExportController {
 
     loadData() {
         const data = window.storageService.loadMigrationData();
-        if (!data || !data.matchedStations) {
-            // No data found, redirect to upload page
+        console.log('Export page - loaded data:', data);
+        
+        if (!data) {
+            console.log('Export page - No data found, redirecting to upload');
+            window.location.href = 'upload.html';
+            return;
+        }
+        
+        if (!data.matchedStations) {
+            console.log('Export page - No matchedStations found, redirecting to upload');
+            console.log('Available data keys:', Object.keys(data));
             window.location.href = 'upload.html';
             return;
         }
 
         this.matchedStations = data.matchedStations;
+        console.log('Export page - Loaded matched stations:', this.matchedStations.length);
     }
 
     updateExportSummary() {

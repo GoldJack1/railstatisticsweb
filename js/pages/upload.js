@@ -11,6 +11,35 @@ class UploadController {
         this.checkForExistingData();
     }
 
+    clearOldData() {
+        console.log('Clearing old data and cache...');
+        
+        // Clear all application data
+        if (window.storageService) {
+            window.storageService.clearAllData();
+        }
+        
+        // Clear any file input
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        
+        // Reset file info display
+        const fileInfo = document.getElementById('file-info');
+        if (fileInfo) {
+            fileInfo.style.display = 'none';
+        }
+        
+        // Reset continue button
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) {
+            continueBtn.style.display = 'none';
+        }
+        
+        console.log('Old data and cache cleared');
+    }
+
     initializeEventListeners() {
         // File upload
         const fileInput = document.getElementById('file-input');
@@ -58,6 +87,9 @@ class UploadController {
         const existingData = window.storageService.loadMigrationData();
         if (existingData && existingData.uploadedStations) {
             this.showExistingDataWarning(existingData);
+        } else {
+            // Only clear data if there's no valid existing data
+            this.clearOldData();
         }
     }
 
@@ -73,7 +105,7 @@ class UploadController {
                         <h4>Existing Migration Data Found</h4>
                         <p>You have ${summary.total} stations from a previous session. You can continue with this data or upload a new file.</p>
                         <div class="warning-actions">
-                            <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Upload New File</button>
+                            <button class="btn btn-secondary" onclick="startNewMigration()">Start New Migration</button>
                             <button class="btn btn-primary" onclick="window.location.href='review.html'">Continue with Existing Data</button>
                         </div>
                     </div>

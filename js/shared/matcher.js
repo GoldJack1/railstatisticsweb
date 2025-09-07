@@ -12,7 +12,7 @@ class StationMatcher {
         };
     }
 
-    async performFuzzyMatching(uploadedStations, firebaseStations) {
+    async performFuzzyMatching(uploadedStations, firebaseStations, progressCallback = null) {
         console.log('Starting fuzzy matching...');
         console.log('Uploaded stations:', uploadedStations.length);
         console.log('Firebase stations:', firebaseStations.length);
@@ -83,6 +83,12 @@ class StationMatcher {
             }
             
             processed++;
+            
+            // Update progress if callback provided
+            if (progressCallback) {
+                const percentage = Math.round((processed / total) * 100);
+                progressCallback(percentage, processed, total);
+            }
             
             // Small delay to show progress
             await new Promise(resolve => setTimeout(resolve, 10));

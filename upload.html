@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Upload your station tracking CSV file to begin migration">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' data: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com;">
     <title>Upload CSV - Rail Statistics Migration</title>
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=9">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 </head>
@@ -53,6 +56,9 @@
 
                 <div class="step-actions">
                     <button class="btn btn-primary" id="continue-btn" onclick="continueToReview()" disabled>Continue to Review</button>
+                    <button class="btn btn-secondary" id="start-new-btn" style="display: none;" onclick="startNewMigration()">
+                        <i class="fas fa-refresh"></i> Start New Migration
+                    </button>
                 </div>
             </section>
         </main>
@@ -85,9 +91,26 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/shared/firebase.js"></script>
-    <script src="js/shared/csv-parser.js"></script>
-    <script src="js/shared/storage.js"></script>
-    <script src="js/pages/upload.js"></script>
+    <script src="js/shared/firebase.js?v=9"></script>
+    <script src="js/shared/csv-parser.js?v=9"></script>
+    <script src="js/shared/storage.js?v=9"></script>
+    <script src="js/pages/upload.js?v=9"></script>
+    
+    <script>
+        function continueToReview() {
+            window.location.href = 'review.html';
+        }
+
+        function startNewMigration() {
+            if (window.uploadController) {
+                window.uploadController.clearOldData();
+                // Remove the warning div and show upload area
+                const warningDiv = document.querySelector('.existing-data-warning');
+                const uploadArea = document.getElementById('upload-area');
+                if (warningDiv) warningDiv.remove();
+                if (uploadArea) uploadArea.style.display = 'block';
+            }
+        }
+    </script>
 </body>
 </html>
