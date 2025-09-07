@@ -64,14 +64,14 @@ class FirebaseService {
         if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
             // Try to get config from environment variables (for Netlify deployment)
             const envConfig = {
-                apiKey: window.VITE_FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
-                authDomain: window.VITE_FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN,
-                databaseURL: window.VITE_FIREBASE_DATABASE_URL || process.env.VITE_FIREBASE_DATABASE_URL,
-                projectId: window.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
-                storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
-                messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-                appId: window.VITE_FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
-                measurementId: window.VITE_FIREBASE_MEASUREMENT_ID || process.env.VITE_FIREBASE_MEASUREMENT_ID
+                apiKey: window.VITE_FIREBASE_API_KEY,
+                authDomain: window.VITE_FIREBASE_AUTH_DOMAIN,
+                databaseURL: window.VITE_FIREBASE_DATABASE_URL,
+                projectId: window.VITE_FIREBASE_PROJECT_ID,
+                storageBucket: window.VITE_FIREBASE_STORAGE_BUCKET,
+                messagingSenderId: window.VITE_FIREBASE_MESSAGING_SENDER_ID,
+                appId: window.VITE_FIREBASE_APP_ID,
+                measurementId: window.VITE_FIREBASE_MEASUREMENT_ID
             };
             
             // Check if we have at least the essential config

@@ -1,7 +1,7 @@
-// CSV Parser shared module
+// CSV Parser shared module - Simplified to only parse essential fields
 class CSVParser {
     constructor() {
-        this.supportedFormats = ['original', 'oldformatv2', 'exported3'];
+        this.supportedFormats = ['simplified'];
     }
 
     parseCSV(csvContent) {
@@ -29,7 +29,7 @@ class CSVParser {
             try {
                 const values = this.parseCSVLine(line);
                 
-                if (values.length < 5) {
+                if (values.length < 2) {
                     console.warn(`Skipping line ${i + 1}: insufficient columns (${values.length})`);
                     skippedLines++;
                     continue;
@@ -87,53 +87,30 @@ class CSVParser {
     detectCSVFormat(headers) {
         const headerSet = new Set(headers.map(h => h.toLowerCase()));
         
-        // Check for oldformatv2 indicators
-        if (headerSet.has('type') && headerSet.has('operator') && 
-            headerSet.has('visit date dd/mm/yyyy') && headerSet.has('favourite')) {
-            return 'oldformatv2';
-        }
+        // Look for essential columns: station name, visited, visit date, favorite
+        const hasStationName = headerSet.has('station') || headerSet.has('station name');
+        const hasVisited = headerSet.has('visited');
+        const hasVisitDate = headerSet.has('visit date') || headerSet.has('visit date dd/mm/yyyy') || headerSet.has('visit dates');
+        const hasFavorite = headerSet.has('favourite') || headerSet.has('favorite');
         
-        // Check for exported3 indicators
-        if (headerSet.has('station name') && headerSet.has('operator') && 
-            headerSet.has('visit date') && headerSet.has('favorite') && 
-            !headerSet.has('type')) {
-            return 'exported3';
-        }
+        console.log('Essential columns found:', {
+            stationName: hasStationName,
+            visited: hasVisited,
+            visitDate: hasVisitDate,
+            favorite: hasFavorite
+        });
         
-        // Check for original format indicators
-        if (headerSet.has('station') && headerSet.has('country') && 
-            headerSet.has('county') && headerSet.has('toc') && 
-            headerSet.has('visited') && headerSet.has('latitude') && 
-            headerSet.has('longitude')) {
-            return 'original';
-        }
-        
-        // Fallback
-        if (headerSet.has('operator') && headerSet.has('visit date')) {
-            return 'exported3';
-        } else if (headerSet.has('operator')) {
-            return 'oldformatv2';
-        } else if (headerSet.has('toc')) {
-            return 'original';
-        }
-        
-        return 'original';
+        // Return a simple format identifier
+        return 'simplified';
     }
 
     createStationFromCSVRow(headers, values, format) {
         const station = {
             id: Math.random().toString(36).substr(2, 9),
             stationName: '',
-            country: null,
-            county: null,
-            toc: null,
             isVisited: false,
             visitedDates: [],
             isFavorite: false,
-            latitude: null,
-            longitude: null,
-            yearlyPassengers: {},
-            csvType: null,
             matchedStation: null,
             matchConfidence: 0,
             isMatched: false
@@ -149,20 +126,10 @@ class CSVParser {
                 switch (header) {
                 case 'station':
                 case 'station name':
-                    station.stationName = value;
-                    break;
-                case 'country':
-                    station.country = value || null;
-                    break;
-                case 'county':
-                    station.county = value || null;
-                    break;
-                case 'toc':
-                case 'operator':
-                    station.toc = value || null;
+                    station.stationName = value.trim();
                     break;
                 case 'visited':
-                    station.isVisited = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                    station.isVisited = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value.toLowerCase() === '1';
                     break;
                 case 'visit date dd/mm/yyyy':
                 case 'visit date':
@@ -176,24 +143,7 @@ class CSVParser {
                     break;
                 case 'favourite':
                 case 'favorite':
-                    station.isFavorite = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
-                    break;
-                case 'latitude':
-                    station.latitude = parseFloat(value) || null;
-                    break;
-                case 'longitude':
-                    station.longitude = parseFloat(value) || null;
-                    break;
-                case 'type':
-                    station.csvType = value || null;
-                    break;
-                default:
-                    if (header.length === 4 && /^\d{4}$/.test(header)) {
-                        const year = parseInt(header);
-                        if (year >= 1990 && year <= 2030) {
-                            station.yearlyPassengers[header] = this.parsePassengerCount(value);
-                        }
-                    }
+                    station.isFavorite = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value.toLowerCase() === '1';
                     break;
                 }
             } catch (error) {
@@ -221,13 +171,6 @@ class CSVParser {
         return null;
     }
 
-    parsePassengerCount(value) {
-        if (!value || value.toLowerCase() === 'n/a') return null;
-        
-        const cleaned = value.replace(/,/g, '').trim();
-        const parsed = parseInt(cleaned);
-        return isNaN(parsed) ? null : parsed;
-    }
 }
 
 // Create global instance
