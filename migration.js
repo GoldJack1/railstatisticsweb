@@ -97,7 +97,7 @@ class MigrationTool {
         }
         
         // Search and filter
-        const searchInput = document.getElementById('search-input');
+        const searchInput = document.getElementById('preview-search-input');
         const filterSelect = document.getElementById('filter-select');
         
         if (searchInput) {
@@ -701,7 +701,7 @@ class MigrationTool {
     }
 
     filterStations() {
-        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const searchTerm = document.getElementById('preview-search-input').value.toLowerCase();
         const filter = document.getElementById('filter-select').value;
         
         let filtered = this.uploadedStations;
@@ -1421,8 +1421,8 @@ class MigrationTool {
         console.log('openSearchDialog called for station:', stationId);
         this.currentSearchStationId = stationId;
         const modal = document.getElementById('search-modal');
-        const searchInput = document.getElementById('search-input');
-        const resultsContainer = document.getElementById('search-results-container');
+        const searchInput = document.getElementById('search-dialog-input');
+        const resultsContainer = document.getElementById('search-dialog-results');
         
         console.log('Modal element found:', !!modal);
         console.log('Search input found:', !!searchInput);
@@ -1443,15 +1443,25 @@ class MigrationTool {
         // Focus the input
         setTimeout(() => {
             searchInput.focus();
+            // Test search to verify functionality
+            console.log('Testing search functionality...');
+            this.performDialogSearch('ford');
         }, 100);
         
         // Add event listeners
         searchInput.onkeyup = (e) => {
+            console.log('Search input keyup event triggered:', e.key, e.target.value);
             if (e.key === 'Escape') {
                 this.closeSearchDialog();
             } else {
                 this.performDialogSearch(e.target.value);
             }
+        };
+        
+        // Also add input event for better compatibility
+        searchInput.oninput = (e) => {
+            console.log('Search input input event triggered:', e.target.value);
+            this.performDialogSearch(e.target.value);
         };
         
         // Close on outside click
@@ -1470,7 +1480,7 @@ class MigrationTool {
 
     performDialogSearch(query) {
         console.log('performDialogSearch called with query:', query);
-        const resultsContainer = document.getElementById('search-results-container');
+        const resultsContainer = document.getElementById('search-dialog-results');
         const trimmedQuery = query.toLowerCase().trim();
         
         console.log('Firebase stations available:', this.firebaseStations ? this.firebaseStations.length : 'undefined');
@@ -1544,6 +1554,8 @@ class MigrationTool {
             return aName.localeCompare(bName);
         }).slice(0, 20); // Show more results in dialog
         
+        console.log(`Search for "${trimmedQuery}" found ${results.length} results:`, results.map(r => r.stationName));
+        
         if (results.length > 0) {
             resultsContainer.innerHTML = results.map(station => `
                 <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.id}')">
@@ -1557,8 +1569,7 @@ class MigrationTool {
                 </div>
             `).join('');
             
-            // Add debug info to console
-            console.log(`Search for "${trimmedQuery}" found ${results.length} results:`, results.map(r => r.stationName));
+            console.log('Results HTML generated and inserted');
         } else {
             resultsContainer.innerHTML = `
                 <div class="search-no-results">
@@ -1603,6 +1614,9 @@ class MigrationTool {
         
         if (csvStation && firebaseStation) {
             
+            // Use Firebase station ID as the primary identifier
+            csvStation.id = firebaseStation.id;
+            
             // Update the CSV station with Firebase data while preserving CSV user data
             csvStation.stationName = firebaseStation.stationName;
             csvStation.country = firebaseStation.country;
@@ -1640,6 +1654,58 @@ class MigrationTool {
         this.goToStep(5);
     }
 
+
+    downloadJSON() {
+        // Create export data in the format expected by iOS app's StationExportService
+        const exportData = {
+            exportInfo: {
+                exportedAt: new Date().toISOString(),
+                format: "JSON",
+                stationCount: this.matchedStations.length,
+                options: {
+                    includeLocalData: true,
+                    includeFirebaseData: true,
+                    includeYearlyPassengers: true,
+                    includeCoordinates: true,
+                    includeMetadata: true
+                }
+            },
+            stations: [...this.matchedStations]
+                .sort((a, b) => {
+                    const nameA = (a.stationName || '').toLowerCase();
+                    const nameB = (b.stationName || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                })
+                .map(station => ({
+                    id: station.id, // Now using Firebase station ID
+                    stationName: station.stationName,
+                    crsCode: station.crsCode,
+                    stnCrsId: station.stnCrsId,
+                    tiploc: station.tiploc,
+                    latitude: station.latitude,
+                    longitude: station.longitude,
+                    country: station.country,
+                    county: station.county,
+                    toc: station.toc,
+                    yearlyPassengers: station.yearlyPassengers,
+                    // Personal tracking data preserved from CSV
+                    isVisited: station.isVisited,
+                    visitedDates: station.visitedDates,
+                    isFavorite: station.isFavorite,
+                    notes: station.notes
+                }))
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `railstats_stations_${this.getTimestamp()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 
     downloadCSV() {
         // Generate CSV content using the same format as iOS app
@@ -1884,6 +1950,10 @@ function goToStep(step) {
 
 function exportResults() {
     migrationTool.exportResults();
+}
+
+function downloadJSON() {
+    migrationTool.downloadJSON();
 }
 
 function downloadCSV() {

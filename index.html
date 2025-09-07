@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <title>Rail Statistics - Station Migration Tool</title>
-    <link rel="stylesheet" href="styles.css?v=2">
+    <link rel="stylesheet" href="styles.css?v=3">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 </head>
@@ -93,7 +93,7 @@
                     <div class="preview-header">
                         <h3>Data Preview</h3>
                         <div class="preview-controls">
-                            <input type="text" id="search-input" placeholder="Search stations..." class="search-input">
+                            <input type="text" id="preview-search-input" placeholder="Search stations..." class="search-input">
                             <select id="filter-select" class="filter-select">
                                 <option value="all">All Stations</option>
                                 <option value="visited">Visited Only</option>
@@ -213,6 +213,12 @@
                         <p>Download the processed data as a CSV file with all your station tracking information</p>
                         <button class="btn btn-primary" onclick="downloadCSV()">Download CSV</button>
                     </div>
+                    <div class="export-card">
+                        <i class="fas fa-download"></i>
+                        <h3>Download JSON</h3>
+                        <p>Download the processed data as a JSON file for manual import</p>
+                        <button class="btn btn-secondary" onclick="downloadJSON()">Download JSON</button>
+                    </div>
                 </div>
 
                 <div class="step-actions">
@@ -241,9 +247,9 @@
                 </div>
                 <div class="modal-body">
                     <div class="search-input-container">
-                        <input type="text" id="search-input" placeholder="Type station name, CRS code, or location..." 
+                        <input type="text" id="search-dialog-input" placeholder="Type station name, CRS code, or location..." 
                                autocomplete="off" spellcheck="false">
-                        <div class="search-results-container" id="search-results-container">
+                        <div class="search-results-container" id="search-dialog-results">
                             <div class="search-placeholder">
                                 <i class="fas fa-search"></i>
                                 <p>Start typing to search for stations...</p>
@@ -403,6 +409,6 @@
             });
         }
     </script>
-    <script src="migration.js?v=3"></script>
+    <script src="migration.js?v=6"></script>
 </body>
 </html>
