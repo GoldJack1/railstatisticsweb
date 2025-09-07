@@ -1408,26 +1408,72 @@ class MigrationTool {
                     <p><strong>Operator:</strong> ${station.toc || 'Unknown'}</p>
                 </div>
                 <div class="search-station">
-                    <input type="text" placeholder="Search for matching station..." 
-                           onkeyup="migrationTool.searchStations(this, '${station.id}')">
-                    <div class="search-results" id="results-${station.id}" style="display: none;"></div>
+                    <button class="btn btn-secondary" onclick="migrationTool.openSearchDialog('${station.id}')">
+                        <i class="fas fa-search"></i> Search Stations
+                    </button>
                 </div>
             `;
             container.appendChild(stationDiv);
         });
     }
 
-    searchStations(input, stationId) {
-        const query = input.value.toLowerCase().trim();
-        const resultsContainer = document.getElementById(`results-${stationId}`);
+    openSearchDialog(stationId) {
+        this.currentSearchStationId = stationId;
+        const modal = document.getElementById('search-modal');
+        const searchInput = document.getElementById('search-input');
+        const resultsContainer = document.getElementById('search-results-container');
         
-        if (!resultsContainer) {
-            console.error(`Results container not found for station ${stationId}`);
-            return;
-        }
+        // Reset the search
+        searchInput.value = '';
+        resultsContainer.innerHTML = `
+            <div class="search-placeholder">
+                <i class="fas fa-search"></i>
+                <p>Start typing to search for stations...</p>
+            </div>
+        `;
         
-        if (query.length < 2) {
-            resultsContainer.style.display = 'none';
+        // Show the modal
+        modal.style.display = 'flex';
+        
+        // Focus the input
+        setTimeout(() => {
+            searchInput.focus();
+        }, 100);
+        
+        // Add event listeners
+        searchInput.onkeyup = (e) => {
+            if (e.key === 'Escape') {
+                this.closeSearchDialog();
+            } else {
+                this.performDialogSearch(e.target.value);
+            }
+        };
+        
+        // Close on outside click
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                this.closeSearchDialog();
+            }
+        };
+    }
+
+    closeSearchDialog() {
+        const modal = document.getElementById('search-modal');
+        modal.style.display = 'none';
+        this.currentSearchStationId = null;
+    }
+
+    performDialogSearch(query) {
+        const resultsContainer = document.getElementById('search-results-container');
+        const trimmedQuery = query.toLowerCase().trim();
+        
+        if (trimmedQuery.length < 2) {
+            resultsContainer.innerHTML = `
+                <div class="search-placeholder">
+                    <i class="fas fa-search"></i>
+                    <p>Start typing to search for stations...</p>
+                </div>
+            `;
             return;
         }
         
@@ -1442,20 +1488,20 @@ class MigrationTool {
             // Multiple search strategies for better results
             return (
                 // Exact word match (highest priority)
-                stationName.includes(query) ||
-                crsCode.includes(query) ||
-                country.includes(query) ||
-                county.includes(query) ||
-                toc.includes(query) ||
+                stationName.includes(trimmedQuery) ||
+                crsCode.includes(trimmedQuery) ||
+                country.includes(trimmedQuery) ||
+                county.includes(trimmedQuery) ||
+                toc.includes(trimmedQuery) ||
                 
                 // Partial word match
-                stationName.split(' ').some(word => word.includes(query)) ||
-                stationName.split('-').some(word => word.includes(query)) ||
-                stationName.split('(').some(word => word.includes(query)) ||
+                stationName.split(' ').some(word => word.includes(trimmedQuery)) ||
+                stationName.split('-').some(word => word.includes(trimmedQuery)) ||
+                stationName.split('(').some(word => word.includes(trimmedQuery)) ||
                 
                 // Fuzzy matching for common variations
-                this.fuzzyMatch(stationName, query) ||
-                this.fuzzyMatch(crsCode, query)
+                this.fuzzyMatch(stationName, trimmedQuery) ||
+                this.fuzzyMatch(crsCode, trimmedQuery)
             );
         }).sort((a, b) => {
             // Sort by relevance: exact matches first, then partial matches
@@ -1463,40 +1509,52 @@ class MigrationTool {
             const bName = b.stationName.toLowerCase();
             
             // Exact match gets highest priority
-            if (aName === query) return -1;
-            if (bName === query) return 1;
+            if (aName === trimmedQuery) return -1;
+            if (bName === trimmedQuery) return 1;
             
             // Starts with query gets second priority
-            if (aName.startsWith(query) && !bName.startsWith(query)) return -1;
-            if (bName.startsWith(query) && !aName.startsWith(query)) return 1;
+            if (aName.startsWith(trimmedQuery) && !bName.startsWith(trimmedQuery)) return -1;
+            if (bName.startsWith(trimmedQuery) && !aName.startsWith(trimmedQuery)) return 1;
             
             // Contains query gets third priority
-            if (aName.includes(query) && !bName.includes(query)) return -1;
-            if (bName.includes(query) && !aName.includes(query)) return 1;
+            if (aName.includes(trimmedQuery) && !bName.includes(trimmedQuery)) return -1;
+            if (bName.includes(trimmedQuery) && !aName.includes(trimmedQuery)) return 1;
             
             // Alphabetical order for ties
             return aName.localeCompare(bName);
-        }).slice(0, 8); // Show more results
+        }).slice(0, 20); // Show more results in dialog
         
         if (results.length > 0) {
             resultsContainer.innerHTML = results.map(station => `
-                <div class="search-result" onclick="migrationTool.linkStation('${stationId}', '${station.id}')">
-                    <div class="search-result-header">
-                        <strong>${station.stationName}</strong>
-                        <span class="search-result-crs">${station.crsCode}</span>
+                <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.id}')">
+                    <div class="search-result-info">
+                        <div class="search-result-name">${station.stationName}</div>
+                        <div class="search-result-details">
+                            ${station.country}${station.county ? ', ' + station.county : ''} - ${station.toc}
+                        </div>
                     </div>
-                    <div class="search-result-details">
-                        <small>${station.country}${station.county ? ', ' + station.county : ''} - ${station.toc}</small>
-                    </div>
+                    <div class="search-result-crs-dialog">${station.crsCode}</div>
                 </div>
             `).join('');
-            resultsContainer.style.display = 'block';
             
             // Add debug info to console
-            console.log(`Search for "${query}" found ${results.length} results:`, results.map(r => r.stationName));
+            console.log(`Search for "${trimmedQuery}" found ${results.length} results:`, results.map(r => r.stationName));
         } else {
-            resultsContainer.style.display = 'none';
-            console.log(`No results found for "${query}"`);
+            resultsContainer.innerHTML = `
+                <div class="search-no-results">
+                    <i class="fas fa-search"></i>
+                    <p>No stations found for "${query}"</p>
+                    <small>Try a different search term or check spelling</small>
+                </div>
+            `;
+            console.log(`No results found for "${trimmedQuery}"`);
+        }
+    }
+
+    selectStationFromDialog(firebaseStationId) {
+        if (this.currentSearchStationId) {
+            this.linkStation(this.currentSearchStationId, firebaseStationId);
+            this.closeSearchDialog();
         }
     }
 

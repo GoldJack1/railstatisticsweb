@@ -658,6 +658,115 @@ body {
     font-size: 0.9rem;
 }
 
+/* Search Dialog Modal */
+.search-modal-content {
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+}
+
+.search-input-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+#search-input {
+    width: 100%;
+    padding: 15px 20px;
+    border: 2px solid #e1e5e9;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+#search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-results-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    margin-top: 10px;
+    background: white;
+}
+
+.search-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.search-placeholder i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #ccc;
+}
+
+.search-placeholder p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.search-result-dialog {
+    padding: 15px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-result-dialog:hover {
+    background: #f8f9ff;
+}
+
+.search-result-dialog:last-child {
+    border-bottom: none;
+}
+
+.search-result-info {
+    flex: 1;
+}
+
+.search-result-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.search-result-details {
+    font-size: 13px;
+    color: #666;
+}
+
+.search-result-crs-dialog {
+    background: #667eea;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 15px;
+}
+
+.search-no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.search-no-results i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #ccc;
+}
+
 /* Export Options */
 .export-options {
     display: flex;
