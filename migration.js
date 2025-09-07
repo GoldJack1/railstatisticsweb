@@ -816,17 +816,17 @@ class MigrationTool {
             
             if (bestMatch.match && bestMatch.confidence >= this.fuzzyMatchThreshold) {
                 // Check if this Firebase station has already been matched to prevent duplicates
-                if (usedFirebaseStations.has(bestMatch.match.stnCrsId)) {
-                    console.warn(`Firebase station ${bestMatch.match.stationName} (${bestMatch.match.stnCrsId}) already matched, skipping duplicate`);
+                if (usedFirebaseStations.has(bestMatch.match.id)) {
+                    console.warn(`Firebase station ${bestMatch.match.stationName} (${bestMatch.match.id}) already matched, skipping duplicate`);
                     this.unmatchedStations.push(csvStation);
                     this.addLogEntry('warning', csvStation, bestMatch.match, bestMatch.confidence, 'Duplicate match prevented');
                     this.logStats.unmatched++;
                 } else {
                     // Mark this Firebase station as used
-                    usedFirebaseStations.add(bestMatch.match.stnCrsId);
+                    usedFirebaseStations.add(bestMatch.match.id);
                 
                 // Update the CSV station with Firebase data while preserving CSV user data
-                    csvStation.id = bestMatch.match.stnCrsId; // Use Firebase STNCRSID as the primary identifier
+                    csvStation.id = bestMatch.match.id; // Use Firebase document ID as the primary identifier
                 csvStation.stationName = bestMatch.match.stationName;
                 csvStation.country = bestMatch.match.country;
                 csvStation.county = bestMatch.match.county;
@@ -861,10 +861,13 @@ class MigrationTool {
                     }
                 }
             } else {
-                this.unmatchedStations.push(csvStation);
+                // Add unmatched stations directly to matched list (no manual review needed)
+                csvStation.isMatched = true;
+                csvStation.matchConfidence = 0.0; // Mark as unmatched but included
+                this.matchedStations.push(csvStation);
                 
-                // Log unmatched station
-                this.addLogEntry('warning', csvStation, bestMatch.match, bestMatch.confidence);
+                // Log unmatched station as included
+                this.addLogEntry('info', csvStation, null, 0.0, 'Station included without matching');
                 this.logStats.unmatched++;
             }
             
@@ -1384,9 +1387,17 @@ class MigrationTool {
         const reviewMatchesBtn = document.getElementById('review-matches-btn');
         
         if (matchedCount) matchedCount.textContent = this.matchedStations.length;
-        if (unmatchedCount) unmatchedCount.textContent = this.unmatchedStations.length;
+        if (unmatchedCount) unmatchedCount.textContent = 0; // No unmatched stations since we include all
         if (matchingResults) matchingResults.style.display = 'block';
-        if (reviewMatchesBtn) reviewMatchesBtn.style.display = 'inline-block';
+        if (reviewMatchesBtn) {
+            // Hide the review button since we're skipping the review step
+            reviewMatchesBtn.style.display = 'none';
+        }
+        
+        // Automatically proceed to export since all stations are now included
+        setTimeout(() => {
+            this.goToStep(4); // Go directly to export (step 4 is now export)
+        }, 2000); // Give user 2 seconds to see the results
     }
 
     populateUnmatchedStations() {
@@ -1764,7 +1775,7 @@ class MigrationTool {
         
         if (results.length > 0) {
             resultsContainer.innerHTML = results.map(station => `
-                <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.stnCrsId}')">
+                <div class="search-result-dialog" onclick="migrationTool.selectStationFromDialog('${station.id}')">
                     <div class="search-result-info">
                         <div class="search-result-name">${station.stationName}</div>
                         <div class="search-result-details">
@@ -1816,7 +1827,7 @@ class MigrationTool {
 
     linkStation(csvStationId, firebaseStationId) {
         const csvStation = this.unmatchedStations.find(s => s.id === csvStationId);
-        const firebaseStation = this.firebaseStations.find(s => s.stnCrsId === firebaseStationId);
+        const firebaseStation = this.firebaseStations.find(s => s.id === firebaseStationId);
         
         console.log('Linking stations:', {
             csvStation: csvStation ? csvStation.stationName : 'not found',
@@ -1839,8 +1850,8 @@ class MigrationTool {
                 notes: csvStation.notes
             };
             
-            // Use Firebase STNCRSID as the primary identifier
-            csvStation.id = firebaseStation.stnCrsId;
+            // Use Firebase document ID as the primary identifier
+            csvStation.id = firebaseStation.id;
             
             // Update the CSV station with Firebase data
             csvStation.stationName = firebaseStation.stationName;
@@ -1890,7 +1901,7 @@ class MigrationTool {
     }
 
     exportResults() {
-        this.goToStep(5);
+        this.goToStep(4);
     }
 
 
