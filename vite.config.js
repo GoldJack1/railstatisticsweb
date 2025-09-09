@@ -10,7 +10,27 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Create vendor chunks for better caching
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor'
+            }
+            if (id.includes('firebase')) {
+              return 'firebase-vendor'
+            }
+            if (id.includes('react-router')) {
+              return 'router-vendor'
+            }
+            return 'vendor'
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
   define: {
     // Replace environment variables at build time
@@ -25,5 +45,8 @@ export default defineConfig({
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.js']
+  },
+  optimizeDeps: {
+    include: ['firebase/app', 'firebase/firestore', 'firebase/analytics']
   }
 })
