@@ -39,25 +39,27 @@ class UniversalHeader {
                         </a>
                     </div>
                     
-                    <nav class="header-nav" id="header-nav">
-                        <a href="index.html" class="nav-link ${this.currentPage === 'home' ? 'active' : ''}">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                                <polyline points="9,22 9,12 15,12 15,22"/>
-                            </svg>
-                            <span>Home</span>
-                        </a>
-                        <a href="fbstationtest.html" class="nav-link ${this.currentPage === 'stations' ? 'active' : ''}">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14,2 14,8 20,8"/>
-                                <line x1="16" y1="13" x2="8" y2="13"/>
-                                <line x1="16" y1="17" x2="8" y2="17"/>
-                                <polyline points="10,9 9,9 8,9"/>
-                            </svg>
-                            <span>Stations</span>
-                        </a>
-                    </nav>
+                    <div class="header-center">
+                        <nav class="header-nav desktop-nav" id="desktop-nav">
+                            <a href="index.html" class="nav-link ${this.currentPage === 'home' ? 'active' : ''}">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                    <polyline points="9,22 9,12 15,12 15,22"/>
+                                </svg>
+                                <span>Home</span>
+                            </a>
+                            <a href="fbstationtest.html" class="nav-link ${this.currentPage === 'stations' ? 'active' : ''}">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14,2 14,8 20,8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                    <polyline points="10,9 9,9 8,9"/>
+                                </svg>
+                                <span>Stations</span>
+                            </a>
+                        </nav>
+                    </div>
                     
                     <div class="header-right">
                         <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
@@ -78,6 +80,27 @@ class UniversalHeader {
                         </button>
                     </div>
                 </div>
+                
+                <!-- Mobile Navigation (separate from header-center) -->
+                <nav class="header-nav mobile-nav" id="header-nav">
+                    <a href="index.html" class="nav-link ${this.currentPage === 'home' ? 'active' : ''}">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9,22 9,12 15,12 15,22"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="fbstationtest.html" class="nav-link ${this.currentPage === 'stations' ? 'active' : ''}">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                        <span>Stations</span>
+                    </a>
+                </nav>
             </header>
         `;
 
@@ -149,8 +172,12 @@ class UniversalHeader {
         const body = document.body;
 
         if (mobileMenuToggle && headerNav) {
-            mobileMenuToggle.addEventListener('click', () => {
+            mobileMenuToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Mobile menu toggle clicked');
                 const isOpen = headerNav.classList.contains('mobile-open');
+                console.log('Menu is open:', isOpen);
                 
                 if (isOpen) {
                     this.closeMobileMenu();
@@ -188,9 +215,13 @@ class UniversalHeader {
         const body = document.body;
 
         if (headerNav && mobileMenuToggle) {
+            console.log('Opening mobile menu');
             headerNav.classList.add('mobile-open');
             mobileMenuToggle.classList.add('active');
             body.classList.add('mobile-menu-open');
+            console.log('Mobile menu classes added');
+        } else {
+            console.log('Header nav or mobile menu toggle not found');
         }
     }
 
