@@ -24,7 +24,7 @@ const Stations: React.FC = () => {
     )
   }, [stations, searchTerm])
 
-  const formatYearlyPassengers = (passengers: any): string => {
+  const formatYearlyPassengers = (passengers: Record<string, number> | number | string | null): string => {
     if (!passengers) return 'N/A'
     
     // If it's already a number, format it

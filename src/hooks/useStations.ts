@@ -1,35 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchStationsFromFirebase } from '../services/firebase'
 import { fetchLocalStations, calculateStats } from '../services/localData'
-
-interface Station {
-  id: string
-  stationName: string
-  crsCode: string
-  tiploc?: string
-  latitude: number
-  longitude: number
-  country?: string
-  county?: string
-  toc?: string
-  stnarea?: string
-  yearlyPassengers?: any
-}
-
-interface StationStats {
-  totalStations: number
-  withCoordinates: number
-  withTOC: number
-  withPassengers: number
-}
-
-interface UseStationsReturn {
-  stations: Station[]
-  loading: boolean
-  error: string | null
-  stats: StationStats
-  refetch: () => void
-}
+import type { Station, StationStats, UseStationsReturn } from '../types'
 
 export const useStations = (): UseStationsReturn => {
   const [stations, setStations] = useState<Station[]>([])
@@ -90,7 +62,7 @@ export const useStations = (): UseStationsReturn => {
         } else {
           throw new Error('No data in Firebase')
         }
-      } catch (firebaseError) {
+      } catch {
         // Fallback to local data
         const localStations = await fetchLocalStations()
         setStations(localStations)
@@ -107,7 +79,7 @@ export const useStations = (): UseStationsReturn => {
 
   useEffect(() => {
     loadStations()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refetch = (): void => {
     loadStations()

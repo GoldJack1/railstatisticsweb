@@ -44,7 +44,7 @@ export type Theme = 'light' | 'dark'
 export interface UseStationsReturn {
   stations: Station[]
   loading: boolean
-  error: Error | null
+  error: string | null
   stats: StationStats
   refetch: () => void
 }

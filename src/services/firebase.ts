@@ -1,6 +1,7 @@
 import { initializeApp, FirebaseApp } from 'firebase/app'
 import { getFirestore, collection, getDocs, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
+import type { Station } from '../types'
 
 // Firebase configuration from environment variables (set in Netlify)
 const firebaseConfig = {
@@ -40,7 +41,7 @@ export const initializeFirebase = async () => {
     try {
       const { getAnalytics } = await import('firebase/analytics')
       analytics = getAnalytics(app)
-    } catch (analyticsError) {
+    } catch {
       // Analytics blocked by ad blockers or not available
       analytics = null
     }
@@ -65,7 +66,7 @@ export const parseLocationString = (locationString: string): { latitude: number;
     
     // Handle format like "[51.59792249° N, 0.12023522° W]"
     if (locationString.includes('°')) {
-      const cleanString = locationString.replace(/[\[\]]/g, '')
+      const cleanString = locationString.replace(/[[\]]/g, '')
       const parts = cleanString.split(',')
       
       if (parts.length === 2) {
@@ -93,7 +94,7 @@ export const parseLocationString = (locationString: string): { latitude: number;
     
     // Handle format like "[51.59792249, -0.12023522]"
     if (locationString.startsWith('[') && locationString.endsWith(']')) {
-      const cleanString = locationString.replace(/[\[\]]/g, '')
+      const cleanString = locationString.replace(/[[\]]/g, '')
       const parts = cleanString.split(',')
       
       if (parts.length === 2) {
@@ -128,7 +129,7 @@ export const parseLocationString = (locationString: string): { latitude: number;
 }
 
 // Fetch stations from Firebase
-export const fetchStationsFromFirebase = async (): Promise<any[]> => {
+export const fetchStationsFromFirebase = async (): Promise<Station[]> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
@@ -142,7 +143,7 @@ export const fetchStationsFromFirebase = async (): Promise<any[]> => {
     const stationsRef = collection(db, 'stations')
     const snapshot = await getDocs(stationsRef)
     
-    const stations: any[] = []
+    const stations: Station[] = []
     snapshot.forEach((doc) => {
       const data = doc.data()
       

@@ -1,7 +1,9 @@
 // Local Data Service
 // This service provides local station data for development and testing
 
-export const fetchLocalStations = async (): Promise<any[]> => {
+import type { Station, StationStats } from '../types'
+
+export const fetchLocalStations = async (): Promise<Station[]> => {
   try {
     const response = await fetch('/data/stations.json')
     
@@ -19,7 +21,7 @@ export const fetchLocalStations = async (): Promise<any[]> => {
   }
 }
 
-export const fetchLocalStats = async (): Promise<any> => {
+export const fetchLocalStats = async (): Promise<StationStats | null> => {
   try {
     const response = await fetch('/data/stats.json')
     if (response.ok) {
@@ -33,7 +35,7 @@ export const fetchLocalStats = async (): Promise<any> => {
   }
 }
 
-export const calculateStats = (stations: any[]): { totalStations: number; withCoordinates: number; withTOC: number; withPassengers: number } => {
+export const calculateStats = (stations: Station[]): StationStats => {
   if (!stations || stations.length === 0) {
     return {
       totalStations: 0,
