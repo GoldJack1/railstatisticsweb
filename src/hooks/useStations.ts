@@ -28,10 +28,10 @@ export const useStations = (): UseStationsReturn => {
     // In development mode, prioritize Firebase emulator over local data
     const isDevelopment = import.meta.env.DEV
     
-    // Only use local data if explicitly requested or in production without Firebase
-    const shouldUseLocal = (localFlag === 'true' || 
-                          localStorageFlag === 'true' || 
-                          envFlag) && !isDevelopment
+    // Use local data if explicitly requested (localStorage takes priority)
+    // In development, only use local data if explicitly requested via localStorage
+    const shouldUseLocal = localStorageFlag === 'true' || 
+                          (localFlag === 'true' || envFlag) && !isDevelopment
     
     
     return shouldUseLocal
@@ -44,8 +44,10 @@ export const useStations = (): UseStationsReturn => {
 
       // Check if we should use local data only
       const useLocalDataOnly = checkLocalDataFlag()
+      console.log('useStations: useLocalDataOnly =', useLocalDataOnly)
       
       if (useLocalDataOnly) {
+        console.log('useStations: Using local data')
         const localStations = await fetchLocalStations()
         setStations(localStations)
         setStats(calculateStats(localStations))
@@ -80,6 +82,7 @@ export const useStations = (): UseStationsReturn => {
   useEffect(() => {
     loadStations()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const refetch = (): void => {
     loadStations()

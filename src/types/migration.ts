@@ -23,16 +23,16 @@ export interface NewFormatStation {
   county: string
   TOC: string
   location: string // JSON string with latitude/longitude
-  'Is Visited': string
+  'Is Visited': boolean
   'Visit Dates': string
-  'Is Favorite': string
-  [year: string]: string // Dynamic year columns
+  'Is Favorite': boolean
+  [year: string]: string | number | boolean // Dynamic year columns (2024, 2023, etc.)
 }
 
 export interface StationMatch {
   oldStation: OldFormatStation
   firebaseStation: any | null
-  matchType: 'exact' | 'fuzzy' | 'coordinates' | 'none'
+  matchType: 'exact' | 'fuzzy' | 'coordinates' | 'manual' | 'none'
   confidence: number
   suggestedId: string
   suggestedCrsCode: string
@@ -50,6 +50,8 @@ export interface MigrationResult {
     exactMatches: number
     fuzzyMatches: number
     coordinateMatches: number
+    visited: number
+    favorites: number
   }
 }
 
@@ -62,4 +64,13 @@ export interface MigrationState {
   loading: boolean
   error: string | null
   step: 'upload' | 'matching' | 'review' | 'complete'
+  // Search functionality
+  searchQuery: string
+  searchResults: any[]
+  selectedMatchIndex: number | null
+  showSearchModal: boolean
+  // Progress tracking
+  showProgressModal: boolean
+  matchingProgress: number
+  currentStationName: string
 }
