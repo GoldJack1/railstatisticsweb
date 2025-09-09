@@ -6,7 +6,7 @@
   publish = "."
 
   # Build command to inject environment variables
-  command = "npm install && npm run build"
+  command = "npm run build"
 
 [build.environment]
   # Node.js version
@@ -35,12 +35,7 @@
     Cache-Control = "public, max-age=31536000"
 
 [[headers]]
-  for = "/migration.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000"
-
-[[headers]]
-  for = "/*.js"
+  for = "/js/*.js"
   [headers.values]
     Cache-Control = "public, max-age=31536000"
 

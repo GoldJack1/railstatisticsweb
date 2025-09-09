@@ -180,16 +180,16 @@ class FirebaseService {
                 }
                 
                 const station = {
-                    id: doc.id,
-                    stationName: data.stationName || '',
-                    crsCode: data.crsCode || '',
-                    stnCrsId: data.stnCrsId || null,
+                    id: doc.id, // Firebase document ID (this is the station ID)
+                    stationName: data.stationname || data.stationName || '',
+                    crsCode: data.CrsCode || data.crsCode || '',
                     tiploc: data.tiploc || null,
                     latitude: latitude,
                     longitude: longitude,
                     country: data.country || null,
                     county: data.county || null,
-                    toc: data.toc || null,
+                    toc: data.TOC || data.toc || null,
+                    stnarea: data.stnarea || null,
                     yearlyPassengers: data.yearlyPassengers || null
                 };
                 

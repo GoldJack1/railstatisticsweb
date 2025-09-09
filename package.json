@@ -1,12 +1,12 @@
 {
-  "name": "rail-statistics-migration-tool",
+  "name": "rail-statistics-landing",
   "version": "1.0.0",
-  "description": "A web-based tool for migrating station tracking data from CSV files to the Rail Statistics app format",
+  "description": "Rail Statistics - A simple landing page for railway station tracking",
   "main": "index.html",
   "scripts": {
-    "start": "python -m http.server 8000",
+    "start": "python3 -m http.server 8000",
     "serve": "python3 -m http.server 8000",
-    "dev": "python -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
     "build": "node build.js",
     "deploy": "echo 'Deploy to Netlify via git push'"
   },
@@ -17,8 +17,7 @@
   "keywords": [
     "rail",
     "statistics",
-    "migration",
-    "csv",
+    "landing-page",
     "firebase",
     "station-tracking"
   ],
@@ -28,15 +27,8 @@
     "url": "https://github.com/GoldJack1/railstatisticsweb/issues"
   },
   "homepage": "https://github.com/GoldJack1/railstatisticsweb#readme",
-  "devDependencies": {
-    "@babel/eslint-parser": "^7.23.0",
-    "eslint": "^9.0.0",
-    "caniuse-lite": "^1.0.30001500",
-    "browserslist": "^4.23.0",
-    "autoprefixer": "^10.4.0",
-    "dotenv": "^16.3.0"
-  },
   "dependencies": {},
+  "devDependencies": {},
   "engines": {
     "node": ">=14.0.0"
   }
