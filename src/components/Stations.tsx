@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useStations } from '../hooks/useStations'
 import './Stations.css'
 
-const Stations = () => {
+const Stations: React.FC = () => {
   const { stations, loading, error, stats } = useStations()
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -24,7 +24,7 @@ const Stations = () => {
     )
   }, [stations, searchTerm])
 
-  const formatYearlyPassengers = (passengers) => {
+  const formatYearlyPassengers = (passengers: any): string => {
     if (!passengers) return 'N/A'
     
     // If it's already a number, format it

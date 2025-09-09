@@ -2,18 +2,47 @@ import { useState, useEffect } from 'react'
 import { fetchStationsFromFirebase } from '../services/firebase'
 import { fetchLocalStations, calculateStats } from '../services/localData'
 
-export const useStations = () => {
-  const [stations, setStations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [stats, setStats] = useState({
+interface Station {
+  id: string
+  stationName: string
+  crsCode: string
+  tiploc?: string
+  latitude: number
+  longitude: number
+  country?: string
+  county?: string
+  toc?: string
+  stnarea?: string
+  yearlyPassengers?: any
+}
+
+interface StationStats {
+  totalStations: number
+  withCoordinates: number
+  withTOC: number
+  withPassengers: number
+}
+
+interface UseStationsReturn {
+  stations: Station[]
+  loading: boolean
+  error: string | null
+  stats: StationStats
+  refetch: () => void
+}
+
+export const useStations = (): UseStationsReturn => {
+  const [stations, setStations] = useState<Station[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<StationStats>({
     totalStations: 0,
     withCoordinates: 0,
     withTOC: 0,
     withPassengers: 0
   })
 
-  const checkLocalDataFlag = () => {
+  const checkLocalDataFlag = (): boolean => {
     // Check URL parameters for local data flag
     const urlParams = new URLSearchParams(window.location.search)
     const localFlag = urlParams.get('local') || urlParams.get('localData')
@@ -22,7 +51,7 @@ export const useStations = () => {
     const localStorageFlag = localStorage.getItem('useLocalDataOnly')
     
     // Check for environment variable (for development)
-    const envFlag = import.meta.env.VITE_USE_LOCAL_DATA_ONLY === 'true' || import.meta.env.VITE_USE_LOCAL_DATA_ONLY === true
+    const envFlag = import.meta.env.VITE_USE_LOCAL_DATA_ONLY === 'true'
     
     // In development mode, prioritize Firebase emulator over local data
     const isDevelopment = import.meta.env.DEV
@@ -30,13 +59,13 @@ export const useStations = () => {
     // Only use local data if explicitly requested or in production without Firebase
     const shouldUseLocal = (localFlag === 'true' || 
                           localStorageFlag === 'true' || 
-                          envFlag === true) && !isDevelopment
+                          envFlag) && !isDevelopment
     
     
     return shouldUseLocal
   }
 
-  const loadStations = async () => {
+  const loadStations = async (): Promise<void> => {
     try {
       setLoading(true)
       setError(null)
@@ -80,7 +109,7 @@ export const useStations = () => {
     loadStations()
   }, [])
 
-  const refetch = () => {
+  const refetch = (): void => {
     loadStations()
   }
 

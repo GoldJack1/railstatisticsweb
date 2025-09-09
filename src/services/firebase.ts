@@ -1,5 +1,6 @@
-import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, getDocs, connectFirestoreEmulator } from 'firebase/firestore'
+import { initializeApp, FirebaseApp } from 'firebase/app'
+import { getFirestore, collection, getDocs, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
+import { Analytics } from 'firebase/analytics'
 
 // Firebase configuration from environment variables (set in Netlify)
 const firebaseConfig = {
@@ -14,9 +15,9 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase
-let app = null
-let db = null
-let analytics = null
+let app: FirebaseApp | null = null
+let db: Firestore | null = null
+let analytics: Analytics | null = null
 
 export const initializeFirebase = async () => {
   if (app) return { app, db, analytics }
@@ -31,7 +32,7 @@ export const initializeFirebase = async () => {
         connectFirestoreEmulator(db, '127.0.0.1', 8080)
         console.log('🔥 Connected to Firebase emulator')
       } catch (emulatorError) {
-        console.warn('Firebase emulator connection failed:', emulatorError.message)
+        console.warn('Firebase emulator connection failed:', (emulatorError as Error).message)
       }
     }
     
@@ -51,12 +52,12 @@ export const initializeFirebase = async () => {
   }
 }
 
-export const getFirebaseApp = () => app
-export const getFirebaseDB = () => db
-export const getFirebaseAnalytics = () => analytics
+export const getFirebaseApp = (): FirebaseApp | null => app
+export const getFirebaseDB = (): Firestore | null => db
+export const getFirebaseAnalytics = (): Analytics | null => analytics
 
 // Parse location string helper
-export const parseLocationString = (locationString) => {
+export const parseLocationString = (locationString: string): { latitude: number; longitude: number } | null => {
   try {
     if (!locationString || typeof locationString !== 'string') {
       return null
@@ -127,17 +128,21 @@ export const parseLocationString = (locationString) => {
 }
 
 // Fetch stations from Firebase
-export const fetchStationsFromFirebase = async () => {
+export const fetchStationsFromFirebase = async (): Promise<any[]> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
+  }
+
+  if (!db) {
+    throw new Error('Failed to initialize Firebase database')
   }
 
   try {
     const stationsRef = collection(db, 'stations')
     const snapshot = await getDocs(stationsRef)
     
-    const stations = []
+    const stations: any[] = []
     snapshot.forEach((doc) => {
       const data = doc.data()
       

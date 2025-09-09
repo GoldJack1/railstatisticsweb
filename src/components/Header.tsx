@@ -3,12 +3,12 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
 import './Header.css'
 
-const Header = () => {
+const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const isActive = (path) => {
+  const isActive = (path: string): boolean => {
     return location.pathname === path
   }
 

@@ -1,8 +1,8 @@
 import React from 'react'
 import { Routes, Route } from 'react-router-dom'
-import Header from './components/Header.jsx'
-import Home from './components/Home.jsx'
-import Stations from './components/Stations.jsx'
+import Header from './components/Header'
+import Home from './components/Home'
+import Stations from './components/Stations'
 import './styles/App.css'
 
 const App: React.FC = () => {

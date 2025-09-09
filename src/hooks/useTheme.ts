@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 
-export const useTheme = () => {
+interface UseThemeReturn {
+  theme: string
+  toggleTheme: () => void
+}
+
+export const useTheme = (): UseThemeReturn => {
   const [theme, setTheme] = useState(() => {
     // Check for saved theme preference or default to light mode
     return localStorage.getItem('theme') || 'light'
