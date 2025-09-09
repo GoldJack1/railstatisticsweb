@@ -6,14 +6,18 @@
   publish = "dist"
 
   # Build command to build React app with Vite
-  command = "npm run build"
+  command = "npm ci && npm run build"
 
 [build.environment]
-  # Node.js version
-  NODE_VERSION = "18"
+  # Node.js version - using Node 20 for better compatibility
+  NODE_VERSION = "20"
   # Build environment
   NODE_ENV = "production"
   NETLIFY = "true"
+  # Vite build configuration
+  VITE_BUILD_MODE = "production"
+  # Disable telemetry for faster builds
+  VITE_DISABLE_TELEMETRY = "true"
 
 # Redirect rules for SPA (Single Page Application) behavior
 [[redirects]]
