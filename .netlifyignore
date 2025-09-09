@@ -1,0 +1,24 @@
+# Ignore Firebase Functions directory
+functions/
+
+# Ignore Firebase configuration files (not needed for static site)
+firebase.json
+firestore.rules
+firestore.indexes.json
+.firebaserc
+
+# Ignore development files
+.env.local
+.env.example
+
+# Ignore old HTML files (replaced by React)
+*.html
+!index.html
+
+# Ignore old JavaScript files (replaced by React)
+js/
+fbstationtest.html
+
+# Ignore build artifacts
+dist/
+node_modules/
