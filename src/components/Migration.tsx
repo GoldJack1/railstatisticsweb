@@ -4,8 +4,7 @@ import {
   parseOldFormatCSV, 
   matchStations, 
   generateMigrationResult, 
-  downloadCSV,
-  downloadJSON 
+  downloadCSV
 } from '../services/migration'
 import type { MigrationState } from '../types/migration'
 import './Migration.css'
@@ -118,10 +117,6 @@ const Migration: React.FC = () => {
     setState(prev => ({ ...prev, step: 'complete' }))
   }, [state.result])
 
-  const handleDownloadJSON = useCallback(() => {
-    if (!state.result) return
-    downloadJSON(state.result.converted, 'migrated-stations.json')
-  }, [state.result])
 
 
   const handleReset = useCallback(() => {
