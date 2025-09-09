@@ -1,135 +1,166 @@
-# Rail Statistics - Landing Page
+# Rail Statistics - React Application
 
-A simple, modern landing page for the Rail Statistics application with Firebase integration.
+A modern React application for railway station tracking with Firebase integration, TypeScript support, and real-time capabilities.
 
-## Features
+## 🚀 Features
 
-- **Modern Design**: Clean, responsive landing page with railway theme
-- **Firebase Integration**: Real-time connection testing and status display
-- **Responsive Layout**: Works perfectly on desktop, tablet, and mobile
-- **Interactive Elements**: Status updates and user notifications
-- **Fast Loading**: Optimized for quick loading and smooth user experience
+- **React 18** with modern hooks and functional components
+- **TypeScript** for type safety and better development experience
+- **Firebase Firestore** for real-time data synchronization
+- **Vite** for fast development and optimized builds
+- **Responsive Design** with modern CSS and mobile support
+- **Real-time Updates** with Firebase integration
+- **Local Data Fallback** for offline development
 
-## Getting Started
+## 🛠️ Development
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+```bash
+npm install
+```
+
+### Development Commands
+```bash
+# Start development server
+npm run dev
+
+# Type checking
+npm run type-check
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Lint code
+npm run lint
+```
+
+## 🔥 Firebase Configuration
+
+The application uses Firebase for data storage and real-time updates. Configuration is handled through environment variables:
+
+### Environment Variables
+```env
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=rail-statistics.firebaseapp.com
+VITE_FIREBASE_DATABASE_URL=https://rail-statistics-default-rtdb.firebaseio.com
+VITE_FIREBASE_PROJECT_ID=rail-statistics
+VITE_FIREBASE_STORAGE_BUCKET=rail-statistics.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+```
 
 ### Local Development
+For local development, create a `.env.local` file with your Firebase configuration values.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/GoldJack1/railstatisticsweb.git
-   cd railstatisticsweb
-   ```
-
-2. **Start the development server:**
-   ```bash
-   npm start
-   # or
-   python3 -m http.server 8000
-   ```
-
-3. **Open your browser:**
-   - Navigate to `http://localhost:8000`
-   - You'll see the Rail Statistics landing page
-
-### Testing Firebase Connection
-
-1. Click the "Get Started" button on the landing page
-2. The system will test the Firebase connection
-3. Status updates will show in real-time
-4. Success/error notifications will appear
-
-## Project Structure
-
-```
-railstatisticsweb/
-├── index.html              # Main landing page
-├── styles.css              # Styling and responsive design
-├── build.js                # Build script for production
-├── package.json            # Project configuration
-├── netlify.toml            # Netlify deployment configuration
-├── firebase-config.template.js  # Firebase configuration template
-└── js/
-    └── shared/
-        └── firebase.js     # Firebase service and connection logic
+### Firebase Emulator (Optional)
+To use Firebase emulator for local development:
+```env
+VITE_USE_FIREBASE_EMULATOR=true
 ```
 
-## Firebase Configuration
+## 📁 Project Structure
 
-The application uses Firebase for backend services. Configuration is handled through:
+```
+src/
+├── components/          # React components
+│   ├── Header.tsx      # Navigation header
+│   ├── Home.tsx        # Home page
+│   └── Stations.tsx    # Stations listing page
+├── hooks/              # Custom React hooks
+│   ├── useStations.js  # Station data management
+│   └── useTheme.js     # Theme management
+├── services/           # External service integrations
+│   ├── firebase.js     # Firebase configuration
+│   └── localData.js    # Local data service
+├── types/              # TypeScript type definitions
+│   └── index.ts        # All type definitions
+├── styles/             # CSS files
+├── App.tsx             # Main app component
+└── main.tsx            # Entry point
+```
 
-- **Environment Variables**: For production deployment (Netlify)
-- **Template File**: `firebase-config.template.js` for local development
-
-### Environment Variables (Production)
-
-Set these in your Netlify site settings:
-
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_DATABASE_URL`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-- `VITE_FIREBASE_MEASUREMENT_ID`
-
-## Deployment
+## 🚀 Deployment
 
 ### Netlify (Recommended)
+The application is configured for Netlify deployment:
 
-1. **Connect your repository** to Netlify
-2. **Set build settings:**
-   - Build command: `npm run build`
-   - Publish directory: `.` (root)
-3. **Add environment variables** (see Firebase Configuration)
-4. **Deploy!**
+1. **Build Command**: `npm run build`
+2. **Publish Directory**: `dist`
+3. **Environment Variables**: Set Firebase configuration in Netlify dashboard
 
-The site will be available at `https://your-site-name.netlify.app`
+### Manual Deployment
+```bash
+# Build the application
+npm run build
 
-## Development
+# Deploy the dist folder to your hosting provider
+```
 
-### Available Scripts
+## 🔧 Configuration
 
-- `npm start` - Start local development server
-- `npm run build` - Build for production (injects environment variables)
-- `npm run serve` - Alternative server start command
+### Firebase Security Rules
+The application includes Firestore security rules for:
+- Public read access to station data
+- Admin write access for data management
+- User data protection
 
-### Technologies Used
+### TypeScript Configuration
+- Strict mode enabled for maximum type safety
+- Modern ES2020 target
+- React JSX support
 
-- **HTML5** - Semantic markup
-- **CSS3** - Modern styling with flexbox/grid
-- **JavaScript (ES6+)** - Interactive functionality
-- **Firebase** - Backend services
-- **Font Awesome** - Icons
-- **Python HTTP Server** - Local development
+## 📊 Data Structure
 
-## Browser Support
+### Station Data
+```typescript
+interface Station {
+  id: string
+  stationName: string
+  crsCode: string
+  latitude: number
+  longitude: number
+  country: string
+  county: string
+  toc: string
+  stnarea: string
+  yearlyPassengers: YearlyPassengers
+}
+```
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-- Mobile browsers (iOS Safari, Chrome Mobile)
+### Statistics
+```typescript
+interface StationStats {
+  totalStations: number
+  withCoordinates: number
+  withTOC: number
+  withPassengers: number
+}
+```
 
-## Contributing
+## 🧪 Testing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test locally
-5. Submit a pull request
+### Type Checking
+```bash
+npm run type-check
+```
 
-## License
+### Code Quality
+```bash
+npm run lint
+```
+
+## 📄 License
 
 MIT License - see LICENSE file for details
 
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check the Firebase documentation
-- Review the Netlify deployment guide
-
 ---
 
-Built with ❤️ for railway enthusiasts.
+Built with ❤️ using modern React, TypeScript, and Firebase technologies for railway enthusiasts.
