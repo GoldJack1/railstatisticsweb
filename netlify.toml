@@ -11,6 +11,9 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
+  # Build environment
+  NODE_ENV = "production"
+  NETLIFY = "true"
 
 # Redirect rules for SPA (Single Page Application) behavior
 [[redirects]]

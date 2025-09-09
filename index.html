@@ -88,15 +88,16 @@
 
     <!-- Firebase Environment Variables -->
     <script>
-        // Injected environment variables for production
-        window.VITE_FIREBASE_API_KEY = "AIzaSyD0-OjpeptPX5zG1x0411nkP0cdQq5oWXc";
-        window.VITE_FIREBASE_AUTH_DOMAIN = "rail-statistics.firebaseapp.com";
-        window.VITE_FIREBASE_DATABASE_URL = "https://rail-statistics-default-rtdb.europe-west1.firebasedatabase.app";
-        window.VITE_FIREBASE_PROJECT_ID = "rail-statistics";
-        window.VITE_FIREBASE_STORAGE_BUCKET = "rail-statistics.firebasestorage.app";
-        window.VITE_FIREBASE_MESSAGING_SENDER_ID = "998967146702";
-        window.VITE_FIREBASE_APP_ID = "1:998967146702:web:3183d4e5621ddfff2ff89f";
-        window.VITE_FIREBASE_MEASUREMENT_ID = "G-GNL8ZVEW1E";
+        // Environment variables will be injected by build process
+        // These are placeholders that will be replaced during deployment
+        window.VITE_FIREBASE_API_KEY = "{{FIREBASE_API_KEY}}";
+        window.VITE_FIREBASE_AUTH_DOMAIN = "{{FIREBASE_AUTH_DOMAIN}}";
+        window.VITE_FIREBASE_DATABASE_URL = "{{FIREBASE_DATABASE_URL}}";
+        window.VITE_FIREBASE_PROJECT_ID = "{{FIREBASE_PROJECT_ID}}";
+        window.VITE_FIREBASE_STORAGE_BUCKET = "{{FIREBASE_STORAGE_BUCKET}}";
+        window.VITE_FIREBASE_MESSAGING_SENDER_ID = "{{FIREBASE_MESSAGING_SENDER_ID}}";
+        window.VITE_FIREBASE_APP_ID = "{{FIREBASE_APP_ID}}";
+        window.VITE_FIREBASE_MEASUREMENT_ID = "{{FIREBASE_MEASUREMENT_ID}}";
     </script>
     
     <!-- Universal Header -->
