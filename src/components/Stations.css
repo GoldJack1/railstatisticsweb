@@ -126,7 +126,7 @@
 
 .stations-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     gap: var(--space-xl);
 }
 
@@ -239,9 +239,72 @@
 }
 
 /* Responsive Design */
-@media (max-width: 1024px) {
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+    .page-title {
+        font-size: var(--text-4xl);
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-2xl);
+    }
+    
+    .stat-card {
+        padding: var(--space-2xl);
+    }
+    
+    .stat-number {
+        font-size: var(--text-4xl);
+    }
+    
     .stations-grid {
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-2xl);
+    }
+    
+    .station-card {
+        padding: var(--space-2xl);
+    }
+    
+    .station-name {
+        font-size: var(--text-2xl);
+    }
+    
+    .search-section {
+        padding: var(--space-2xl);
+    }
+}
+
+/* Desktop (1280px - 1439px) */
+@media (min-width: 1280px) and (max-width: 1439px) {
+    .page-title {
+        font-size: var(--text-3xl);
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-xl);
+    }
+    
+    .stations-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-xl);
+    }
+    
+    .station-card {
+        padding: var(--space-xl);
+    }
+    
+    .search-section {
+        padding: var(--space-xl);
+    }
+}
+
+/* Tablet/Laptop (1024px - 1279px) */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .stations-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     }
 }
 

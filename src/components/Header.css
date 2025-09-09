@@ -14,7 +14,7 @@
 }
 
 .header-container {
-    max-width: var(--container-xl);
+    max-width: var(--container-2xl);
     margin: 0 auto;
     padding: 0 var(--space-xl);
     display: grid;
@@ -187,6 +187,51 @@
 }
 
 /* Responsive Design */
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+    .header-container {
+        max-width: var(--container-3xl);
+        padding: 0 var(--space-2xl);
+        height: 5rem;
+    }
+    
+    .logo {
+        font-size: var(--text-2xl);
+    }
+    
+    .nav-link {
+        padding: var(--space-md) var(--space-xl);
+        font-size: var(--text-base);
+    }
+}
+
+/* Desktop (1280px - 1439px) */
+@media (min-width: 1280px) and (max-width: 1439px) {
+    .header-container {
+        max-width: var(--container-2xl);
+        padding: 0 var(--space-2xl);
+        height: 4.5rem;
+    }
+    
+    .logo {
+        font-size: var(--text-xl);
+    }
+    
+    .nav-link {
+        padding: var(--space-sm) var(--space-lg);
+        font-size: var(--text-sm);
+    }
+}
+
+/* Tablet/Laptop (1024px - 1279px) */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .header-container {
+        max-width: var(--container-xl);
+        padding: 0 var(--space-xl);
+        height: 4rem;
+    }
+}
+
 @media (max-width: 768px) {
     .header-container {
         padding: 0 var(--space-xl);

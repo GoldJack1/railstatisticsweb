@@ -53,8 +53,9 @@
     --container-sm: 640px;
     --container-md: 768px;
     --container-lg: 1024px;
-    --container-xl: 1200px;
-    --container-2xl: 1400px;
+    --container-xl: 1280px;
+    --container-2xl: 1536px;
+    --container-3xl: 1920px;
 }
 
 /* Dark Theme Colors */
@@ -127,7 +128,7 @@ button, a, input, select, textarea, [role="button"] {
 
 /* Container */
 .container {
-    max-width: var(--container-xl);
+    max-width: var(--container-2xl);
     margin: 0 auto;
     padding: 0 var(--space-xl);
     min-height: 100vh;
