@@ -23,10 +23,10 @@ export interface NewFormatStation {
   county: string
   TOC: string
   location: string // JSON string with latitude/longitude
-  'Is Visited': boolean
+  'Is Visited': string
   'Visit Dates': string
-  'Is Favorite': boolean
-  [year: string]: string | number | boolean // Dynamic year columns (2024, 2023, etc.)
+  'Is Favorite': string
+  [year: string]: string | number // Dynamic year columns (2024, 2023, etc.)
 }
 
 export interface StationMatch {

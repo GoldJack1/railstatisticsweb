@@ -548,10 +548,10 @@ export const convertToNewFormat = (matches: StationMatch[]): NewFormatStation[] 
         _latitude: parseFloat(old.latitude),
         _longitude: parseFloat(old.longitude)
       }),
-      // Preserve user data from old format, converting Yes/No to boolean for JSON
-      'Is Visited': Boolean(old.visited && old.visited.toLowerCase() === 'yes'),
+      // Preserve user data from old format, keeping Yes/No as strings
+      'Is Visited': old.visited && old.visited.toLowerCase() === 'yes' ? 'Yes' : 'No',
       'Visit Dates': formatDate(old.visitDate),
-      'Is Favorite': Boolean(old.favorite && old.favorite.toLowerCase() === 'yes')
+      'Is Favorite': old.favorite && old.favorite.toLowerCase() === 'yes' ? 'Yes' : 'No'
     }
 
     // Add yearly usage data as individual year properties
