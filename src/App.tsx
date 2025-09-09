@@ -6,6 +6,7 @@ import './styles/App.css'
 // Lazy load components for better performance
 const Home = React.lazy(() => import('./components/Home'))
 const Stations = React.lazy(() => import('./components/Stations'))
+const Migration = React.lazy(() => import('./components/Migration'))
 
 const App: React.FC = () => {
   return (
@@ -27,6 +28,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/stations" element={<Stations />} />
+            <Route path="/migration" element={<Migration />} />
           </Routes>
         </Suspense>
       </main>

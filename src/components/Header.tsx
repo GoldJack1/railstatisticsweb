@@ -61,6 +61,21 @@ const Header: React.FC = () => {
               </svg>
               <span>Stations</span>
             </Link>
+            <Link 
+              to="/migration" 
+              className={`nav-link ${isActive('/migration') ? 'active' : ''}`}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <path d="M16 13H8"/>
+                <path d="M16 17H8"/>
+                <path d="M10 9H9H8"/>
+                <path d="M21 15h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>
+                <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
+              </svg>
+              <span>Migration</span>
+            </Link>
           </nav>
         </div>
         
@@ -136,6 +151,22 @@ const Header: React.FC = () => {
             <polyline points="10,9 9,9 8,9"/>
           </svg>
           <span>Stations</span>
+        </Link>
+        <Link 
+          to="/migration" 
+          className={`nav-link ${isActive('/migration') ? 'active' : ''}`}
+          onClick={closeMobileMenu}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <path d="M16 13H8"/>
+            <path d="M16 17H8"/>
+            <path d="M10 9H9H8"/>
+            <path d="M21 15h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>
+            <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
+          </svg>
+          <span>Migration</span>
         </Link>
       </nav>
     </header>
