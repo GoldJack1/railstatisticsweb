@@ -6,10 +6,41 @@ class FirebaseService {
         this.getDocs = null;
         this.analytics = null;
         this.isInitialized = false;
+        this.useLocalDataOnly = false;
+    }
+
+    checkLocalDataFlag() {
+        // Check URL parameters for local data flag
+        const urlParams = new URLSearchParams(window.location.search);
+        const localFlag = urlParams.get('local') || urlParams.get('localData');
+        
+        // Check for localStorage flag
+        const localStorageFlag = localStorage.getItem('useLocalDataOnly');
+        
+        // Check for environment variable (for development)
+        const envFlag = window.USE_LOCAL_DATA_ONLY;
+        
+        this.useLocalDataOnly = localFlag === 'true' || localStorageFlag === 'true' || envFlag === true;
+        
+        if (this.useLocalDataOnly) {
+            console.log('🏠 Local data mode enabled - skipping Firebase initialization');
+            console.log('   URL param ?local=true or ?localData=true');
+            console.log('   localStorage: useLocalDataOnly=true');
+            console.log('   Environment: USE_LOCAL_DATA_ONLY=true');
+        }
+        
+        return this.useLocalDataOnly;
     }
 
     async initialize() {
         if (this.isInitialized) {
+            return;
+        }
+
+        // Check if we should use local data only
+        if (this.checkLocalDataFlag()) {
+            this.isInitialized = true;
+            console.log('✅ Firebase service initialized in local-only mode');
             return;
         }
 
@@ -100,6 +131,23 @@ class FirebaseService {
     async fetchStations() {
         if (!this.isInitialized) {
             await this.initialize();
+        }
+
+        // If local data only mode is enabled, use local data directly
+        if (this.useLocalDataOnly) {
+            console.log('🏠 Using local data only (flag enabled)');
+            try {
+                if (typeof window.localDataService !== 'undefined') {
+                    const localStations = await window.localDataService.fetchStations();
+                    console.log(`✅ Successfully loaded ${localStations.length} stations from local data`);
+                    return localStations;
+                } else {
+                    throw new Error('Local data service not available');
+                }
+            } catch (error) {
+                console.error('Local data fetch failed:', error);
+                throw new Error('Unable to fetch station data from local source');
+            }
         }
 
         try {
@@ -201,7 +249,22 @@ class FirebaseService {
             
         } catch (error) {
             console.error('Firebase fetch error:', error);
-            throw error;
+            console.log('🔄 Falling back to local data...');
+            
+            // Fallback to local data service
+            try {
+                if (typeof window.localDataService !== 'undefined') {
+                    const localStations = await window.localDataService.fetchStations();
+                    console.log(`✅ Successfully loaded ${localStations.length} stations from local data`);
+                    return localStations;
+                } else {
+                    console.error('Local data service not available');
+                    throw new Error('Both Firebase and local data services are unavailable');
+                }
+            } catch (localError) {
+                console.error('Local data fallback failed:', localError);
+                throw new Error('Unable to fetch station data from any source');
+            }
         }
     }
 

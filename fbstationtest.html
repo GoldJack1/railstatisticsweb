@@ -536,10 +536,17 @@
         window.VITE_FIREBASE_MESSAGING_SENDER_ID = "{{FIREBASE_MESSAGING_SENDER_ID}}";
         window.VITE_FIREBASE_APP_ID = "{{FIREBASE_APP_ID}}";
         window.VITE_FIREBASE_MEASUREMENT_ID = "{{FIREBASE_MEASUREMENT_ID}}";
+        
+        // Development flag for local testing
+        // Set to true to force local data usage (bypasses Firebase)
+        window.USE_LOCAL_DATA_ONLY = false; // Change to true for local-only mode
     </script>
     
     <!-- Universal Header -->
     <script src="js/shared/header.js"></script>
+    
+    <!-- Local Data Service -->
+    <script src="js/shared/local-data.js"></script>
     
     <!-- Firebase Service -->
     <script src="js/shared/firebase.js"></script>
