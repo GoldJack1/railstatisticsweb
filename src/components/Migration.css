@@ -1225,8 +1225,12 @@
   .action-buttons {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-md);
+  }
+  
+  .action-button {
+    width: 100%;
   }
   
   .btn {
@@ -1252,16 +1256,16 @@
     align-items: flex-start;
   }
 
-  .station-details:first-of-type {
+  .station-details:nth-child(2) {
     order: 2;
   }
 
-  .station-details:first-of-type::after {
+  .station-details:nth-child(2)::after {
     content: '↓';
     display: block;
     text-align: center;
     font-size: 1.5rem;
-    color: var(--accent-color);
+    color: var(--text-primary);
     margin: 0.5rem 0;
     font-weight: bold;
   }
@@ -1270,8 +1274,8 @@
     display: none;
   }
 
-  .station-details:last-of-type {
-    order: 3;
+  .station-details:nth-child(4) {
+    order: 4;
   }
 
   .match-name {
@@ -1282,12 +1286,15 @@
     text-align: left;
   }
 
-  .search-btn {
-    order: 4;
-    width: 100% !important;
-    max-width: none !important;
+  .rank-match-button-wrapper {
+    order: 5;
+    width: 100%;
     align-self: stretch;
-    margin: 0 !important;
+    margin-top: var(--space-sm);
+  }
+
+  .rank-match-button-wrapper .rank-match-button {
+    width: 100%;
   }
 
   .section-button-container {
@@ -1407,16 +1414,16 @@
     align-items: flex-start;
   }
 
-  .station-details:first-of-type {
+  .station-details:nth-child(2) {
     order: 2;
   }
 
-  .station-details:first-of-type::after {
+  .station-details:nth-child(2)::after {
     content: '↓';
     display: block;
     text-align: center;
     font-size: 1.5rem;
-    color: var(--accent-color);
+    color: var(--text-primary);
     margin: 0.5rem 0;
     font-weight: bold;
   }
@@ -1425,8 +1432,8 @@
     display: none;
   }
 
-  .station-details:last-of-type {
-    order: 3;
+  .station-details:nth-child(4) {
+    order: 4;
   }
 
   .match-name {
@@ -1441,16 +1448,10 @@
     text-align: left;
   }
 
-  .search-btn {
-    order: 4;
+  .rank-match-button {
     width: 100% !important;
-    max-width: none !important;
     align-self: stretch;
-    padding: var(--space-md) var(--space-lg);
-    font-size: var(--text-base);
-    min-height: 48px;
-    border-radius: var(--radius-lg);
-    font-weight: 600;
+    margin-top: var(--space-sm) !important;
     margin: 0 !important;
   }
 
@@ -1566,9 +1567,13 @@
   /* Action Buttons Mobile */
   .action-buttons {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-md);
     margin-top: var(--space-lg);
+  }
+
+  .action-button {
+    width: 100%;
   }
 
   .btn {
@@ -1677,16 +1682,16 @@
     align-items: flex-start;
   }
 
-  .station-details:first-of-type {
+  .station-details:nth-child(2) {
     order: 2;
   }
 
-  .station-details:first-of-type::after {
+  .station-details:nth-child(2)::after {
     content: '↓';
     display: block;
     text-align: center;
     font-size: 1.5rem;
-    color: var(--accent-color);
+    color: var(--text-primary);
     margin: 0.5rem 0;
     font-weight: bold;
   }
@@ -1695,8 +1700,8 @@
     display: none;
   }
 
-  .station-details:last-of-type {
-    order: 3;
+  .station-details:nth-child(4) {
+    order: 4;
   }
 
   .match-name {
@@ -1708,15 +1713,15 @@
     text-align: left;
   }
 
-  .search-btn {
-    order: 4;
-    width: 100% !important;
-    max-width: none !important;
+  .rank-match-button-wrapper {
+    order: 5;
+    width: 100%;
     align-self: stretch;
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--text-sm);
-    min-height: 44px;
-    margin: 0 !important;
+    margin-top: var(--space-sm);
+  }
+
+  .rank-match-button-wrapper .rank-match-button {
+    width: 100%;
   }
 
   .section-button-container {
@@ -2398,19 +2403,23 @@
     font-size: var(--text-sm);
   }
 
+  .manual-download-button-container {
+    justify-content: stretch;
+  }
+
+  .manual-download-button-container button,
   .manual-download-button-container .btn {
-    width: 100%;
-    max-width: 300px;
+    width: 100% !important;
   }
 
   .complete-actions {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
   }
   
+  .complete-actions button,
   .btn-large {
-    width: 100%;
-    max-width: 300px;
+    width: 100% !important;
   }
 }
 

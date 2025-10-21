@@ -98,9 +98,24 @@
 
 /* Wide Button Variant */
 .rs-button--wide {
-  padding: 12px;
-  min-width: 288px;
+  padding: 12px 20px;
   min-height: 40px;
+}
+
+/* Width Options for Wide Buttons */
+.rs-button--width-fixed {
+  min-width: 288px;
+  width: auto;
+}
+
+.rs-button--width-hug {
+  min-width: auto;
+  width: auto;
+}
+
+.rs-button--width-fill {
+  width: 100%;
+  min-width: auto;
 }
 
 /* Circle Button Variant */
@@ -202,8 +217,11 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .rs-button--wide {
-    min-width: 240px;
     font-size: 15px;
+  }
+  
+  .rs-button--width-fixed {
+    min-width: 240px;
   }
   
   .rs-button--tab {
@@ -214,9 +232,12 @@
 
 @media (max-width: 480px) {
   .rs-button--wide {
-    min-width: 200px;
     font-size: 14px;
-    padding: 10px;
+    padding: 10px 18px;
+  }
+  
+  .rs-button--width-fixed {
+    min-width: 200px;
   }
   
   .rs-button--tab {

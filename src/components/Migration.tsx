@@ -10,6 +10,7 @@ import {
   downloadRejectedStationsCSV
 } from '../services/migration'
 import type { MigrationState } from '../types/migration'
+import Button from './Button'
 import './Migration.css'
 
 const Migration: React.FC = () => {
@@ -318,10 +319,15 @@ const Migration: React.FC = () => {
               onChange={handleFileUpload}
               className="file-input"
               id="csv-upload"
+              style={{ display: 'none' }}
             />
-            <label htmlFor="csv-upload" className="file-label">
+            <Button 
+              variant="wide" 
+              width="hug"
+              onClick={() => document.getElementById('csv-upload')?.click()}
+            >
               {state.file ? state.file.name : 'Choose CSV file'}
-            </label>
+            </Button>
             {state.file && (
               <div className="file-info">
                 <p>File selected: {state.file.name}</p>
@@ -350,13 +356,14 @@ const Migration: React.FC = () => {
                 <strong>Uploaded File:</strong> {state.file.name}
               </p>
             )}
-            <button 
+            <Button 
               onClick={handleStartMatching}
               disabled={state.loading}
-              className="btn btn-primary"
+              variant="wide"
+              width="hug"
             >
               {state.loading ? 'Matching...' : 'Start Matching'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -442,13 +449,17 @@ const Migration: React.FC = () => {
                                   </div>
                                 </div>
                               )}
-                              <button 
-                                onClick={() => handleOpenSearchModal(originalIndex)}
-                                className="btn btn-sm btn-outline search-btn"
-                                title="Search for a different station"
-                              >
-                                Correct
-                              </button>
+                              <div className="rank-match-button-wrapper">
+                                <Button 
+                                  onClick={() => handleOpenSearchModal(originalIndex)}
+                                  variant="wide"
+                                  width="hug"
+                                  className="rank-match-button"
+                                  ariaLabel="Search for a different station"
+                                >
+                                  Correct
+                                </Button>
+                              </div>
                             </div>
                           )
                         })}
@@ -493,13 +504,17 @@ const Migration: React.FC = () => {
                                   </div>
                                 </div>
                               )}
-                              <button 
-                                onClick={() => handleOpenSearchModal(originalIndex)}
-                                className="btn btn-sm btn-outline search-btn"
-                                title="Search for a different station"
-                              >
-                                Correct
-                              </button>
+                              <div className="rank-match-button-wrapper">
+                                <Button 
+                                  onClick={() => handleOpenSearchModal(originalIndex)}
+                                  variant="wide"
+                                  width="hug"
+                                  className="rank-match-button"
+                                  ariaLabel="Search for a different station"
+                                >
+                                  Correct
+                                </Button>
+                              </div>
                             </div>
                           )
                         })}
@@ -552,13 +567,15 @@ const Migration: React.FC = () => {
               </div>
               
               <div className="section-button-container">
-                <button 
+                <Button 
                   onClick={handleDownloadRejected}
-                  className="btn btn-secondary section-button"
-                  title="Download rejected stations as CSV"
+                  variant="wide"
+                  width="hug"
+                  className="section-button"
+                  ariaLabel="Download rejected stations as CSV"
                 >
                   Export Rejected
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -576,12 +593,14 @@ const Migration: React.FC = () => {
                     This shows the complete converted data including all yearly usage statistics.
                   </p>
                 </div>
-                <button
+                <Button
                   onClick={() => handleShowAllData('allData')}
-                  className="btn btn-outline show-all-btn-desktop"
+                  variant="wide"
+                  width="hug"
+                  className="show-all-btn-desktop"
                 >
                   {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
-                </button>
+                </Button>
               </div>
               
               {/* Search controls */}
@@ -599,12 +618,14 @@ const Migration: React.FC = () => {
                     <path d="M21 21l-4.35-4.35"/>
                   </svg>
                 </div>
-                <button
+                <Button
                   onClick={() => handleShowAllData('allData')}
-                  className="btn btn-outline show-all-btn-mobile"
+                  variant="wide"
+                  width="hug"
+                  className="show-all-btn-mobile"
                 >
                   {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
-                </button>
+                </Button>
               </div>
 
               <div className="preview-table-container">
@@ -656,12 +677,12 @@ const Migration: React.FC = () => {
           </div>
 
           <div className="action-buttons">
-            <button onClick={handleDownload} className="btn btn-success">
+            <Button onClick={handleDownload} variant="wide" width="hug" className="action-button">
               Download Converted CSV
-            </button>
-            <button onClick={handleReset} className="btn btn-secondary">
+            </Button>
+            <Button onClick={handleReset} variant="wide" width="hug" className="action-button">
               Start Over
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -764,17 +785,20 @@ const Migration: React.FC = () => {
               Your file was automatically downloaded. If the download didn't start, click the button below to download manually.
             </p>
             <div className="manual-download-button-container">
-              <button 
+              <Button 
                 onClick={() => state.result && downloadCSV(state.result.converted, 'migrated-stations.csv')}
-                className="btn btn-success btn-large"
+                variant="wide"
+                width="hug"
+                icon={
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                }
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
                 Download CSV Manually
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -819,28 +843,40 @@ const Migration: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="complete-actions">
-            <button onClick={handleReset} className="btn btn-primary btn-large">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14,2 14,8 20,8"/>
-                <path d="M16 13H8"/>
-                <path d="M16 17H8"/>
-                <path d="M10 9H9H8"/>
-                <path d="M21 15h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>
-                <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
-              </svg>
+            <Button 
+              onClick={handleReset} 
+              variant="wide"
+              width="hug"
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                  <path d="M16 13H8"/>
+                  <path d="M16 17H8"/>
+                  <path d="M10 9H9H8"/>
+                  <path d="M21 15h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>
+                  <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
+                </svg>
+              }
+            >
               Convert Another File
-            </button>
-            <button onClick={() => window.location.href = '/stations'} className="btn btn-outline btn-large">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14,2 14,8 20,8"/>
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/stations'} 
+              variant="wide"
+              width="hug"
+              icon={
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
                 <line x1="16" y1="13" x2="8" y2="13"/>
                 <line x1="16" y1="17" x2="8" y2="17"/>
                 <polyline points="10,9 9,9 8,9"/>
               </svg>
+              }
+            >
               View Stations
-            </button>
+            </Button>
           </div>
         </div>
       )}
