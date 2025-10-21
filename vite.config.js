@@ -6,7 +6,32 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    cors: true,
+    fs: {
+      strict: false
+    }
+  },
+  configureServer: (server) => {
+    server.middlewares.use((req, res, next) => {
+      // Add CORS and proper headers for fonts
+      if (req.url?.match(/\.(woff2?|ttf|otf|eot)$/)) {
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        res.setHeader('Access-Control-Allow-Headers', '*')
+        res.setHeader('Cache-Control', 'public, max-age=31536000')
+        
+        // Set proper MIME types
+        if (req.url.endsWith('.woff2')) {
+          res.setHeader('Content-Type', 'font/woff2')
+        } else if (req.url.endsWith('.woff')) {
+          res.setHeader('Content-Type', 'font/woff')
+        } else if (req.url.endsWith('.ttf')) {
+          res.setHeader('Content-Type', 'font/ttf')
+        }
+      }
+      next()
+    })
   },
   build: {
     outDir: 'dist',

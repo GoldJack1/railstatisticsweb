@@ -1,14 +1,15 @@
+/* Geologica Variable Font with CRSV loaded via Google Fonts */
+
 /* CSS Reset and Base Styles */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-}
-
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
+    font-family: 'Geologica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 400;
+    /* CRSV axis enabled via Google Fonts */
+    -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
+    font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
 }
 
 /* CSS Custom Properties for Theming */
@@ -91,7 +92,10 @@ html {
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Geologica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 400;
+    -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
+    font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
     line-height: 1.6;
     color: var(--text-primary);
     background-color: var(--bg-primary);
