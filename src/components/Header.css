@@ -1,16 +1,10 @@
 /* Universal Header Styles */
 .universal-header {
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 1000;
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .universal-header {
-    background: rgba(15, 23, 42, 0.8);
 }
 
 .header-container {
@@ -98,8 +92,8 @@
 }
 
 .nav-link.active {
-    color: var(--accent-color);
-    background: var(--accent-light);
+    color: #ffffff;
+    background: var(--accent-color);
 }
 
 .nav-link svg {

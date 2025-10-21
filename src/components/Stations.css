@@ -36,7 +36,7 @@
 .stat-number {
     font-size: var(--text-3xl);
     font-weight: 700;
-    color: var(--accent-color);
+    color: var(--text-primary);
     margin-bottom: var(--space-sm);
 }
 
@@ -205,7 +205,7 @@
 }
 
 .coordinates .detail-label {
-    color: var(--accent-color);
+    color: var(--text-primary);
     font-weight: 600;
 }
 

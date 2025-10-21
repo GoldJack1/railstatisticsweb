@@ -28,9 +28,6 @@
 .button-demo__section {
   margin-bottom: var(--space-4xl);
   padding: var(--space-2xl);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
 }
 
 .button-demo__section-title {
@@ -132,9 +129,6 @@
 
 /* Interactive Section */
 .button-demo__interactive {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-  border: 2px solid var(--accent-color);
-  box-shadow: var(--shadow-lg);
 }
 
 .button-demo__interactive .button-demo__section-title {
@@ -143,8 +137,6 @@
 
 /* Guidelines Section */
 .button-demo__guidelines {
-  background: var(--bg-primary);
-  border: 2px solid var(--accent-light);
 }
 
 .button-demo__guidelines-content {
