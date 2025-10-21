@@ -1,7 +1,6 @@
 // Migration service for converting old format CSV to new format
 import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult } from '../types/migration'
 import { fetchStationsFromFirebase } from './firebase'
-import { fetchLocalStations } from './localData'
 
 // Detect CSV format based on headers
 const detectCSVFormat = (headers: string[]): 'format1' | 'format2' => {
@@ -206,73 +205,29 @@ const parseCSVLine = (line: string): string[] => {
   return result
 }
 
-// Check if we should use local data only (same logic as useStations hook)
-const checkLocalDataFlag = (): boolean => {
-  // Check URL parameters for local data flag
-  const urlParams = new URLSearchParams(window.location.search)
-  const localFlag = urlParams.get('local') || urlParams.get('localData')
-  
-  // Check for localStorage flag
-  const localStorageFlag = localStorage.getItem('useLocalDataOnly')
-  
-  // Check for environment variable (for development)
-  const envFlag = import.meta.env.VITE_USE_LOCAL_DATA_ONLY === 'true'
-  
-  // In development mode, prioritize Firebase emulator over local data
-  const isDevelopment = import.meta.env.DEV
-  
-  // Only use local data if explicitly requested or in production without Firebase
-  const shouldUseLocal = (localFlag === 'true' || 
-                        localStorageFlag === 'true' || 
-                        envFlag) && !isDevelopment
-  
-  return shouldUseLocal
-}
-
-// Load stations using the same logic as useStations hook
+// Load stations from Firebase for matching
 const loadStationsForMatching = async (): Promise<any[]> => {
   try {
-    // Check if we should use local data only
-    const useLocalDataOnly = checkLocalDataFlag()
+    console.log('Loading Firebase stations for migration matching')
+    const firebaseStations = await fetchStationsFromFirebase()
     
-    if (useLocalDataOnly) {
-      console.log('Using local data for migration matching')
-      const localStations = await fetchLocalStations()
-      console.log(`Local stations loaded: ${localStations.length}`)
-      return localStations
+    if (firebaseStations.length > 0) {
+      console.log(`Loaded ${firebaseStations.length} Firebase stations for matching`)
+      return firebaseStations
+    } else {
+      throw new Error('No data available in Firebase')
     }
-
-    // Try Firebase first, fallback to local data if needed
-    try {
-      console.log('Attempting to load Firebase stations for migration matching')
-      const firebaseStations = await fetchStationsFromFirebase()
-      
-      if (firebaseStations.length > 0) {
-        console.log(`Loaded ${firebaseStations.length} Firebase stations for matching`)
-        return firebaseStations
-      } else {
-        console.warn('No data in Firebase, falling back to local data')
-        throw new Error('No data in Firebase')
-      }
-    } catch (firebaseError) {
-      console.warn('Firebase failed, falling back to local data:', firebaseError)
-      // Fallback to local data
-      const localStations = await fetchLocalStations()
-      console.log(`Loaded ${localStations.length} local stations for matching`)
-      return localStations
-    }
-
   } catch (error) {
     console.error('Failed to load stations for migration:', error)
-    throw new Error('Unable to fetch station data from any source')
+    throw new Error('Unable to fetch station data from Firebase')
   }
 }
 
-// Match old format stations with available stations (Firebase or local)
+// Match old format stations with available stations from Firebase
 export const matchStations = async (
   oldStations: OldFormatStation[], 
   onProgress?: (progress: number, currentStation: string) => void
-): Promise<StationMatch[]> => {
+): Promise<{ matches: StationMatch[], availableStations: any[] }> => {
   try {
     const availableStations = await loadStationsForMatching()
     console.log(`Loaded ${availableStations.length} stations for matching`)
@@ -343,7 +298,7 @@ export const matchStations = async (
     }
 
     console.log(`Completed matching ${matches.length} stations`)
-    return matches
+    return { matches, availableStations }
   } catch (error) {
     console.error('Error in matchStations:', error)
     throw error
@@ -623,8 +578,53 @@ const formatDate = (dateString: string): string => {
   return dateString
 }
 
+// Convert new stations from database to new format
+const convertNewStationsToFormat = (newStations: any[], startingIndex: number): NewFormatStation[] => {
+  const converted: NewFormatStation[] = []
+  
+  for (let i = 0; i < newStations.length; i++) {
+    const station = newStations[i]
+    const sequentialId = String(startingIndex + i + 1).padStart(4, '0')
+    
+    const newStation: NewFormatStation = {
+      id: sequentialId,
+      stnarea: 'GBNR',
+      stationname: station.stationName || station.stationname || '',
+      CrsCode: station.crsCode || station.CrsCode || '',
+      tiploc: station.tiploc || '',
+      country: station.country || '',
+      county: station.county || '',
+      TOC: station.toc || station.TOC || '',
+      location: JSON.stringify({
+        _latitude: station.latitude || 0,
+        _longitude: station.longitude || 0
+      }),
+      'Is Visited': 'No',
+      'Visit Dates': '',
+      'Is Favorite': 'No'
+    }
+
+    // Add yearly usage data if available
+    if (station.yearlyPassengers) {
+      for (let year = 2024; year >= 1998; year--) {
+        const yearStr = year.toString()
+        newStation[yearStr] = station.yearlyPassengers[yearStr] || 0
+      }
+    } else {
+      // Fill with zeros
+      for (let year = 2024; year >= 1998; year--) {
+        newStation[year.toString()] = 0
+      }
+    }
+
+    converted.push(newStation)
+  }
+
+  return converted
+}
+
 // Convert matched stations to new format
-export const convertToNewFormat = (matches: StationMatch[]): NewFormatStation[] => {
+export const convertToNewFormat = (matches: StationMatch[], newStations: any[] = []): NewFormatStation[] => {
   const converted: NewFormatStation[] = []
   
   for (let i = 0; i < matches.length; i++) {
@@ -686,13 +686,46 @@ export const convertToNewFormat = (matches: StationMatch[]): NewFormatStation[] 
     converted.push(newStation)
   }
 
+  // Add new stations (ID >= 2588) to the converted output
+  if (newStations.length > 0) {
+    const newStationsConverted = convertNewStationsToFormat(newStations, converted.length)
+    converted.push(...newStationsConverted)
+    console.log(`Added ${newStationsConverted.length} new stations (ID >= 2588) to converted output`)
+  }
+
   return converted
 }
 
 // Generate migration result with country filtering
-export const generateMigrationResult = (matches: StationMatch[], rejectedStations: OldFormatStation[] = []): MigrationResult => {
+export const generateMigrationResult = (
+  matches: StationMatch[], 
+  rejectedStations: OldFormatStation[] = [],
+  availableStations: any[] = []
+): MigrationResult => {
   const unmatched = matches.filter(m => m.matchType === 'none').map(m => m.oldStation)
-  const converted = convertToNewFormat(matches)
+  
+  // Find stations in database that were not matched (untracked stations)
+  const matchedStationIds = new Set(
+    matches
+      .filter(m => m.firebaseStation !== null)
+      .map(m => m.firebaseStation.id)
+  )
+  
+  const untrackedStations = availableStations.filter(
+    station => !matchedStationIds.has(station.id)
+  )
+  
+  // Also find new stations (ID 2588 and above) that are likely not in CSV
+  const newStations = availableStations.filter(station => {
+    const stationId = parseInt(station.id)
+    return !isNaN(stationId) && stationId >= 2588 && !matchedStationIds.has(station.id)
+  })
+  
+  console.log(`Found ${untrackedStations.length} untracked stations (in database but not in CSV)`)
+  console.log(`Found ${newStations.length} new stations (ID >= 2588)`)
+  
+  // Convert matches and automatically add new stations
+  const converted = convertToNewFormat(matches, newStations)
   
   // Count visited and favorite stations
   const visitedCount = matches.filter(m => 
@@ -706,10 +739,12 @@ export const generateMigrationResult = (matches: StationMatch[], rejectedStation
   ).length
   
   const stats = {
-    total: matches.length,
+    total: matches.length + newStations.length, // Include new stations in total
     matched: matches.filter(m => m.matchType !== 'none').length,
     unmatched: unmatched.length,
     rejected: rejectedStations.length,
+    untracked: untrackedStations.length,
+    newStations: newStations.length,
     exactMatches: matches.filter(m => m.matchType === 'exact').length,
     fuzzyMatches: matches.filter(m => m.matchType === 'fuzzy').length,
     coordinateMatches: matches.filter(m => m.matchType === 'coordinates').length,
@@ -721,6 +756,8 @@ export const generateMigrationResult = (matches: StationMatch[], rejectedStation
     matches,
     unmatched,
     rejected: rejectedStations,
+    untracked: untrackedStations,
+    newStations: newStations,
     converted,
     stats
   }
@@ -805,4 +842,73 @@ export const downloadJSON = (data: NewFormatStation[], filename: string = 'conve
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+}
+
+// Download rejected stations as CSV
+export const downloadRejectedStationsCSV = (rejectedStations: OldFormatStation[], filename: string = 'rejected-stations.csv'): void => {
+  if (rejectedStations.length === 0) {
+    alert('No rejected stations to download')
+    return
+  }
+
+  // Define headers based on the data structure
+  const headers = [
+    'Station Name',
+    'Country',
+    'County',
+    'Operator',
+    'Visited',
+    'Visit Date',
+    'Favorite',
+    'Latitude',
+    'Longitude'
+  ]
+
+  // Add year columns
+  const years: string[] = []
+  for (let year = 2024; year >= 1998; year--) {
+    years.push(year.toString())
+  }
+  
+  const allHeaders = [...headers, ...years]
+
+  const csvContent = [
+    allHeaders.join(','),
+    ...rejectedStations.map(station => 
+      [
+        // Escape and quote if contains comma
+        escapeCSVValue(station.stationName || ''),
+        escapeCSVValue(station.country || ''),
+        escapeCSVValue(station.county || ''),
+        escapeCSVValue(station.operator || ''),
+        escapeCSVValue(station.visited || ''),
+        escapeCSVValue(station.visitDate || ''),
+        escapeCSVValue(station.favorite || ''),
+        station.latitude || '',
+        station.longitude || '',
+        // Add year data
+        ...years.map(year => station[year] || '0')
+      ].join(',')
+    )
+  ].join('\n')
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.visibility = 'hidden'
+  
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// Helper to escape CSV values
+const escapeCSVValue = (value: string): string => {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
 }

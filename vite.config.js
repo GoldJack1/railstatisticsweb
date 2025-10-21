@@ -32,17 +32,20 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000
   },
-  define: {
-    // Replace environment variables at build time
-    'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(process.env.VITE_FIREBASE_API_KEY || '{{FIREBASE_API_KEY}}'),
-    'import.meta.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(process.env.VITE_FIREBASE_AUTH_DOMAIN || '{{FIREBASE_AUTH_DOMAIN}}'),
-    'import.meta.env.VITE_FIREBASE_DATABASE_URL': JSON.stringify(process.env.VITE_FIREBASE_DATABASE_URL || '{{FIREBASE_DATABASE_URL}}'),
-    'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify(process.env.VITE_FIREBASE_PROJECT_ID || '{{FIREBASE_PROJECT_ID}}'),
-    'import.meta.env.VITE_FIREBASE_STORAGE_BUCKET': JSON.stringify(process.env.VITE_FIREBASE_STORAGE_BUCKET || '{{FIREBASE_STORAGE_BUCKET}}'),
-    'import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '{{FIREBASE_MESSAGING_SENDER_ID}}'),
-    'import.meta.env.VITE_FIREBASE_APP_ID': JSON.stringify(process.env.VITE_FIREBASE_APP_ID || '{{FIREBASE_APP_ID}}'),
-    'import.meta.env.VITE_FIREBASE_MEASUREMENT_ID': JSON.stringify(process.env.VITE_FIREBASE_MEASUREMENT_ID || '{{FIREBASE_MEASUREMENT_ID}}')
-  },
+  // Note: Vite automatically loads .env.local in development
+  // This define section is only for production builds on Netlify
+  // In development, remove or comment out to use .env.local
+  // define: {
+  //   // Replace environment variables at build time
+  //   'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(process.env.VITE_FIREBASE_API_KEY || '{{FIREBASE_API_KEY}}'),
+  //   'import.meta.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(process.env.VITE_FIREBASE_AUTH_DOMAIN || '{{FIREBASE_AUTH_DOMAIN}}'),
+  //   'import.meta.env.VITE_FIREBASE_DATABASE_URL': JSON.stringify(process.env.VITE_FIREBASE_DATABASE_URL || '{{FIREBASE_DATABASE_URL}}'),
+  //   'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify(process.env.VITE_FIREBASE_PROJECT_ID || '{{FIREBASE_PROJECT_ID}}'),
+  //   'import.meta.env.VITE_FIREBASE_STORAGE_BUCKET': JSON.stringify(process.env.VITE_FIREBASE_STORAGE_BUCKET || '{{FIREBASE_STORAGE_BUCKET}}'),
+  //   'import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '{{FIREBASE_MESSAGING_SENDER_ID}}'),
+  //   'import.meta.env.VITE_FIREBASE_APP_ID': JSON.stringify(process.env.VITE_FIREBASE_APP_ID || '{{FIREBASE_APP_ID}}'),
+  //   'import.meta.env.VITE_FIREBASE_MEASUREMENT_ID': JSON.stringify(process.env.VITE_FIREBASE_MEASUREMENT_ID || '{{FIREBASE_MEASUREMENT_ID}}')
+  // },
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.js']
   },

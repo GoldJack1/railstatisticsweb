@@ -3,7 +3,7 @@ import { getFirestore, collection, getDocs, connectFirestoreEmulator, Firestore 
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 
-// Firebase configuration from environment variables (set in Netlify)
+// Firebase configuration from environment variables (set in Netlify or .env.local)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'placeholder',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'placeholder',
@@ -14,6 +14,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || 'placeholder',
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'placeholder'
 }
+
+// Debug logging to verify environment variables are loaded
+console.log('🔥 Firebase Config Check:')
+console.log('  - API Key:', firebaseConfig.apiKey === 'placeholder' ? '❌ NOT LOADED (using placeholder)' : `✅ Loaded (${firebaseConfig.apiKey.substring(0, 10)}...)`)
+console.log('  - Project ID:', firebaseConfig.projectId)
+console.log('  - Auth Domain:', firebaseConfig.authDomain)
+console.log('  - Environment:', import.meta.env.MODE)
+console.log('  - All env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')))
 
 // Initialize Firebase
 let app: FirebaseApp | null = null

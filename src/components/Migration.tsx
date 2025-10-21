@@ -6,13 +6,14 @@ import {
   generateMigrationResult, 
   downloadCSV,
   detectCSVFormatFromContent,
-  filterStationsByCountry
+  filterStationsByCountry,
+  downloadRejectedStationsCSV
 } from '../services/migration'
 import type { MigrationState } from '../types/migration'
 import './Migration.css'
 
 const Migration: React.FC = () => {
-  const { stations: firebaseStations, loading: firebaseLoading, refetch } = useStations()
+  const { stations: firebaseStations, loading: firebaseLoading } = useStations()
   const [state, setState] = useState<MigrationState>({
     file: null,
     oldFormatData: [],
@@ -96,14 +97,14 @@ const Migration: React.FC = () => {
     }))
 
     try {
-      const matches = await matchStations(state.oldFormatData, (progress, currentStation) => {
+      const { matches, availableStations } = await matchStations(state.oldFormatData, (progress, currentStation) => {
         setState(prev => ({
           ...prev,
           matchingProgress: progress,
           currentStationName: currentStation
         }))
       })
-      const result = generateMigrationResult(matches, state.rejectedStations)
+      const result = generateMigrationResult(matches, state.rejectedStations, availableStations)
       
       setState(prev => ({ 
         ...prev, 
@@ -127,6 +128,11 @@ const Migration: React.FC = () => {
     if (!state.result) return
     downloadCSV(state.result.converted, 'migrated-stations.csv')
     setState(prev => ({ ...prev, step: 'complete' }))
+  }, [state.result])
+
+  const handleDownloadRejected = useCallback(() => {
+    if (!state.result || !state.result.rejected || state.result.rejected.length === 0) return
+    downloadRejectedStationsCSV(state.result.rejected, 'rejected-stations.csv')
   }, [state.result])
 
 
@@ -193,7 +199,7 @@ const Migration: React.FC = () => {
         suggestedTiploc: selectedStation.tiploc || ''
       }
       
-      const newResult = generateMigrationResult(newMatches, prev.rejectedStations)
+      const newResult = generateMigrationResult(newMatches, prev.rejectedStations, firebaseStations)
       
       return {
         ...prev,
@@ -205,7 +211,7 @@ const Migration: React.FC = () => {
         searchResults: []
       }
     })
-  }, [])
+  }, [firebaseStations])
 
   const handleOpenSearchModal = useCallback((matchIndex: number) => {
     setState(prev => ({
@@ -271,34 +277,16 @@ const Migration: React.FC = () => {
   //   })
   // }, [])
 
-  const handleUseLocalData = useCallback(() => {
-    console.log('Button clicked - switching to local data')
-    localStorage.setItem('useLocalDataOnly', 'true')
-    console.log('Local storage set, refetching stations...')
-    refetch() // Refetch stations with new localStorage setting
-  }, [refetch])
-
   // Debug logging
   console.log('Migration component render - firebaseLoading:', firebaseLoading)
 
   if (firebaseLoading) {
-    console.log('Showing loading screen with local data button')
+    console.log('Showing loading screen')
     return (
       <div className="migration-container">
-        <div className="loading">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Loading Firebase stations...</p>
-          </div>
-          <div className="loading-options">
-            <p>Having trouble connecting to Firebase?</p>
-            <button 
-              onClick={handleUseLocalData}
-              className="btn btn-secondary"
-            >
-              Use Local Data Instead
-            </button>
-          </div>
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading stations from Firebase...</p>
         </div>
       </div>
     )
@@ -311,15 +299,6 @@ const Migration: React.FC = () => {
           <h1>CSV Migration Tool</h1>
         </div>
         <p>Convert old format CSV files to the new format with Firebase station matching</p>
-        <div className="data-source-controls">
-          <button 
-            onClick={handleUseLocalData}
-            className="btn btn-secondary btn-sm"
-            title="Switch to local data if Firebase is having issues"
-          >
-            Use Local Data
-          </button>
-        </div>
       </div>
 
       {state.error && (
@@ -358,27 +337,19 @@ const Migration: React.FC = () => {
         <div className="migration-step">
           <h2>Step 2: Station Matching</h2>
           <div className="matching-info">
-            <p>Found {state.oldFormatData.length} stations to process</p>
-            {state.rejectedStations.length > 0 && (
-              <div className="rejected-info">
-                <p className="rejected-count">
-                  ⚠️ <strong>{state.rejectedStations.length} stations rejected</strong> (not England, Scotland, or Wales)
-                </p>
-              </div>
-            )}
-            {state.detectedFormat && (
-              <p className="format-info">
-                <strong>Detected CSV Format:</strong> {state.detectedFormat}
+            <p>Found {state.oldFormatData.length} Stations | In Cloud Database: {firebaseStations.length}</p>
+            <div>
+              {state.rejectedStations.length > 0 && (
+                <div className="rejected-chip">
+                  {state.rejectedStations.length} Stations Rejected (Not in England, Scotland or Wales)
+                </div>
+              )}
+            </div>
+            {state.file && (
+              <p className="uploaded-file-info">
+                <strong>Uploaded File:</strong> {state.file.name}
               </p>
             )}
-            <p>Available {firebaseStations.length} stations for matching (Firebase/Local data)</p>
-            <p className="data-source-info">
-              <small>
-                Data source: {firebaseStations.length > 0 ? 
-                  (localStorage.getItem('useLocalDataOnly') === 'true' ? 'Local Data' : 'Firebase with Local Fallback') : 
-                  'No data available'}
-              </small>
-            </p>
             <button 
               onClick={handleStartMatching}
               disabled={state.loading}
@@ -408,16 +379,6 @@ const Migration: React.FC = () => {
               <h3>Unmatched</h3>
               <span className="stat-number">{state.result.stats.unmatched}</span>
             </div>
-            {state.result.stats.rejected > 0 && (
-              <div className="stat-card rejected">
-                <h3>Rejected</h3>
-                <span className="stat-number">{state.result.stats.rejected}</span>
-              </div>
-            )}
-            <div className="stat-card">
-              <h3>Exact Matches</h3>
-              <span className="stat-number">{state.result.stats.exactMatches}</span>
-            </div>
             <div className="stat-card visited">
               <h3>Visited</h3>
               <span className="stat-number">{state.result.stats.visited}</span>
@@ -426,6 +387,12 @@ const Migration: React.FC = () => {
               <h3>Favorites</h3>
               <span className="stat-number">{state.result.stats.favorites}</span>
             </div>
+            {state.result.stats.rejected > 0 && (
+              <div className="stat-card rejected">
+                <h3>Rejected</h3>
+                <span className="stat-number">{state.result.stats.rejected}</span>
+              </div>
+            )}
           </div>
 
           <div className="match-breakdown">
@@ -433,7 +400,6 @@ const Migration: React.FC = () => {
             <ul>
               <li>Exact matches: {state.result.stats.exactMatches}</li>
               <li>Fuzzy matches: {state.result.stats.fuzzyMatches}</li>
-              <li>Coordinate matches: {state.result.stats.coordinateMatches}</li>
               <li>No matches: {state.result.stats.unmatched}</li>
             </ul>
           </div>
@@ -443,50 +409,6 @@ const Migration: React.FC = () => {
             <div className="fuzzy-match-ranks">
               <h3>Fuzzy Match Confidence Rankings</h3>
               <div className="confidence-ranks">
-                {/* Green - High Confidence (80%+) */}
-                {(() => {
-                  const greenMatches = state.result.matches.filter(m => 
-                    m.matchType === 'fuzzy' && m.confidence >= 0.8
-                  )
-                  return greenMatches.length > 0 && (
-                    <div className="confidence-rank green">
-                      <div className="rank-header">
-                        <span className="rank-indicator green"></span>
-                        <h4>High Confidence (80%+)</h4>
-                        <span className="rank-count">{greenMatches.length}</span>
-                      </div>
-                      <div className="rank-matches">
-                        {greenMatches.slice(0, 5).map((match, index) => {
-                          const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
-                          return (
-                            <div key={index} className="rank-match">
-                              <div className="match-info">
-                                <span className="match-name">{match.oldStation.stationName}</span>
-                                <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
-                              </div>
-                              {match.firebaseStation && (
-                                <span className="match-target">
-                                  → {match.firebaseStation.stationName || match.firebaseStation.stationname}
-                                </span>
-                              )}
-                              <button 
-                                onClick={() => handleOpenSearchModal(originalIndex)}
-                                className="btn btn-sm btn-outline search-btn"
-                                title="Search for a different station"
-                              >
-                                🔍 Search
-                              </button>
-                            </div>
-                          )
-                        })}
-                        {greenMatches.length > 5 && (
-                          <div className="more-matches">... and {greenMatches.length - 5} more</div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })()}
-
                 {/* Amber - Medium Confidence (60-79%) */}
                 {(() => {
                   const amberMatches = state.result.matches.filter(m => 
@@ -504,21 +426,28 @@ const Migration: React.FC = () => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
                           return (
                             <div key={index} className="rank-match">
-                              <div className="match-info">
+                              <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
+                              <div className="station-details">
                                 <span className="match-name">{match.oldStation.stationName}</span>
-                                <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
+                                <div className="match-location">
+                                  <small>{match.oldStation.country}, {match.oldStation.county}</small>
+                                </div>
                               </div>
+                              <div className="match-arrow">→</div>
                               {match.firebaseStation && (
-                                <span className="match-target">
-                                  → {match.firebaseStation.stationName || match.firebaseStation.stationname}
-                                </span>
+                                <div className="station-details">
+                                  <span className="match-name">{match.firebaseStation.stationName || match.firebaseStation.stationname}</span>
+                                  <div className="match-location">
+                                    <small>{match.firebaseStation.country}, {match.firebaseStation.county}</small>
+                                  </div>
+                                </div>
                               )}
                               <button 
                                 onClick={() => handleOpenSearchModal(originalIndex)}
                                 className="btn btn-sm btn-outline search-btn"
                                 title="Search for a different station"
                               >
-                                🔍 Search
+                                Correct
                               </button>
                             </div>
                           )
@@ -548,21 +477,28 @@ const Migration: React.FC = () => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
                           return (
                             <div key={index} className="rank-match">
-                              <div className="match-info">
+                              <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
+                              <div className="station-details">
                                 <span className="match-name">{match.oldStation.stationName}</span>
-                                <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
+                                <div className="match-location">
+                                  <small>{match.oldStation.country}, {match.oldStation.county}</small>
+                                </div>
                               </div>
+                              <div className="match-arrow">→</div>
                               {match.firebaseStation && (
-                                <span className="match-target">
-                                  → {match.firebaseStation.stationName || match.firebaseStation.stationname}
-                                </span>
+                                <div className="station-details">
+                                  <span className="match-name">{match.firebaseStation.stationName || match.firebaseStation.stationname}</span>
+                                  <div className="match-location">
+                                    <small>{match.firebaseStation.country}, {match.firebaseStation.county}</small>
+                                  </div>
+                                </div>
                               )}
                               <button 
                                 onClick={() => handleOpenSearchModal(originalIndex)}
                                 className="btn btn-sm btn-outline search-btn"
                                 title="Search for a different station"
                               >
-                                🔍 Search
+                                Correct
                               </button>
                             </div>
                           )
@@ -581,10 +517,12 @@ const Migration: React.FC = () => {
           {/* Rejected Stations Section */}
           {state.result.rejected && state.result.rejected.length > 0 && (
             <div className="rejected-stations-section">
-              <h3>❌ Rejected Stations ({state.result.rejected.length})</h3>
-              <p className="section-description">
-                These stations were rejected because they are not located in England, Scotland, or Wales.
-              </p>
+              <div>
+                <h3>❌ Rejected Stations ({state.result.rejected.length})</h3>
+                <p className="section-description">
+                  These stations were rejected because they are not located in England, Scotland, or Wales.
+                </p>
+              </div>
               
               <div className="rejected-stations-list">
                 <table className="rejected-table">
@@ -612,6 +550,16 @@ const Migration: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              
+              <div className="section-button-container">
+                <button 
+                  onClick={handleDownloadRejected}
+                  className="btn btn-secondary section-button"
+                  title="Download rejected stations as CSV"
+                >
+                  Export Rejected
+                </button>
+              </div>
             </div>
           )}
 
@@ -619,78 +567,24 @@ const Migration: React.FC = () => {
           <div className="output-preview">
             <h3>Output Preview</h3>
             
-            {/* Final Data Preview (excluding yearly usage) */}
+            {/* Data Preview */}
             <div className="preview-section">
-              <h4>Final Data (excluding yearly usage)</h4>
-              <p className="preview-description">
-                This shows the converted data with core station information, excluding yearly usage statistics.
-              </p>
-              
-              {/* Search and controls */}
-              <div className="table-controls">
-                <div className="search-container">
-                  <input
-                    type="text"
-                    placeholder="Search stations..."
-                    value={tableState.finalDataSearch}
-                    onChange={(e) => handleTableSearch('finalData', e.target.value)}
-                    className="table-search-input"
-                  />
-                  <span className="search-icon">🔍</span>
+              <div className="preview-header">
+                <div className="preview-header-text">
+                  <h4>Converted Data</h4>
+                  <p className="preview-description">
+                    This shows the complete converted data including all yearly usage statistics.
+                  </p>
                 </div>
                 <button
-                  onClick={() => handleShowAllData('finalData')}
-                  className="btn btn-outline show-all-btn"
+                  onClick={() => handleShowAllData('allData')}
+                  className="btn btn-outline show-all-btn-desktop"
                 >
-                  {tableState.showAllFinalData ? 'Show Less' : 'Show All Data'}
+                  {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
                 </button>
               </div>
-
-              <div className="preview-table-container">
-                <table className="preview-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Station Name</th>
-                      <th>CRS Code</th>
-                      <th>Country</th>
-                      <th>County</th>
-                      <th>TOC</th>
-                      <th>Visited</th>
-                      <th>Favorite</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getDisplayData(state.result.converted, tableState.finalDataSearch, tableState.showAllFinalData).map((station, index) => (
-                      <tr key={index}>
-                        <td className="id-cell">{station.id}</td>
-                        <td className="name-cell">{station.stationname}</td>
-                        <td className="crs-cell">{station.CrsCode || '-'}</td>
-                        <td className="country-cell">{station.country}</td>
-                        <td className="county-cell">{station.county}</td>
-                        <td className="toc-cell">{station.TOC}</td>
-                        <td className="visited-cell">{station['Is Visited']}</td>
-                        <td className="favorite-cell">{station['Is Favorite']}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {getDisplayData(state.result.converted, tableState.finalDataSearch, tableState.showAllFinalData).length === 0 && (
-                  <div className="no-results">
-                    No stations found matching your search.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* All Data Preview (including yearly usage) */}
-            <div className="preview-section">
-              <h4>All Data (including yearly usage)</h4>
-              <p className="preview-description">
-                This shows the complete converted data including all yearly usage statistics.
-              </p>
               
-              {/* Search and controls */}
+              {/* Search controls */}
               <div className="table-controls">
                 <div className="search-container">
                   <input
@@ -700,11 +594,14 @@ const Migration: React.FC = () => {
                     onChange={(e) => handleTableSearch('allData', e.target.value)}
                     className="table-search-input"
                   />
-                  <span className="search-icon">🔍</span>
+                  <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
                 </div>
                 <button
                   onClick={() => handleShowAllData('allData')}
-                  className="btn btn-outline show-all-btn"
+                  className="btn btn-outline show-all-btn-mobile"
                 >
                   {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
                 </button>
@@ -786,7 +683,7 @@ const Migration: React.FC = () => {
 
           {/* Migration Summary Cards */}
           <div className="migration-summary">
-            <div className="summary-card primary">
+            <div className="summary-card">
               <div className="card-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -797,58 +694,6 @@ const Migration: React.FC = () => {
                 <h3>Total Stations</h3>
                 <div className="card-number">{state.result.stats.total}</div>
                 <p>Stations processed from your CSV</p>
-              </div>
-            </div>
-
-            <div className="summary-card success">
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12l2 2 4-4"/>
-                  <circle cx="12" cy="12" r="10"/>
-                </svg>
-              </div>
-              <div className="card-content">
-                <h3>Successfully Matched</h3>
-                <div className="card-number">{state.result.stats.matched}</div>
-                <p>Stations linked to database</p>
-              </div>
-            </div>
-
-            <div className="summary-card warning">
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-              </div>
-              <div className="card-content">
-                <h3>Unmatched</h3>
-                <div className="card-number">{state.result.stats.unmatched}</div>
-                <p>Stations without database links</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Match Breakdown */}
-          <div className="match-breakdown-detailed">
-            <h3>Match Breakdown</h3>
-            <div className="breakdown-grid">
-              <div className="breakdown-item exact">
-                <span className="breakdown-label">Exact Matches</span>
-                <span className="breakdown-count">{state.result.stats.exactMatches}</span>
-              </div>
-              <div className="breakdown-item fuzzy">
-                <span className="breakdown-label">Fuzzy Matches</span>
-                <span className="breakdown-count">{state.result.stats.fuzzyMatches}</span>
-              </div>
-              <div className="breakdown-item coordinates">
-                <span className="breakdown-label">Coordinate Matches</span>
-                <span className="breakdown-count">{state.result.stats.coordinateMatches}</span>
-              </div>
-              <div className="breakdown-item manual">
-                <span className="breakdown-label">Manual Matches</span>
-                <span className="breakdown-count">{state.matches.filter(m => m.matchType === 'manual').length}</span>
               </div>
             </div>
           </div>
@@ -911,6 +756,66 @@ const Migration: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Manual Download Section */}
+          <div className="manual-download-section">
+            <h3>Download Your File</h3>
+            <p className="manual-download-description">
+              Your file was automatically downloaded. If the download didn't start, click the button below to download manually.
+            </p>
+            <div className="manual-download-button-container">
+              <button 
+                onClick={() => state.result && downloadCSV(state.result.converted, 'migrated-stations.csv')}
+                className="btn btn-success btn-large"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download CSV Manually
+              </button>
+            </div>
+          </div>
+
+          {/* New Stations Section */}
+          {state.result.newStations && state.result.newStations.length > 0 && (
+            <div className="new-stations-section">
+              <div>
+                <h3>🆕 New Stations Automatically Added ({state.result.newStations.length})</h3>
+                <p className="section-description">
+                  These stations (ID 2588+) were automatically added to your converted CSV from the cloud database.
+                </p>
+              </div>
+              
+              <div className="new-stations-list">
+                <table className="new-stations-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Station Name</th>
+                      <th>CRS Code</th>
+                      <th>Country</th>
+                      <th>County</th>
+                      <th>TOC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.result.newStations.map((station, index) => (
+                      <tr key={index}>
+                        <td className="id-cell">{station.id}</td>
+                        <td className="station-name-cell">{station.stationName || station.stationname}</td>
+                        <td className="crs-cell">{station.crsCode || station.CrsCode || '-'}</td>
+                        <td className="country-cell">{station.country || '-'}</td>
+                        <td className="county-cell">{station.county || '-'}</td>
+                        <td className="toc-cell">{station.toc || station.TOC || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="complete-actions">

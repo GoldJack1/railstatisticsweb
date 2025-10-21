@@ -44,12 +44,16 @@ export interface MigrationResult {
   matches: StationMatch[]
   unmatched: OldFormatStation[]
   rejected: OldFormatStation[]
+  untracked: any[] // Stations in database but not in CSV
+  newStations: any[] // Stations with ID >= 2588 (new additions to database)
   converted: NewFormatStation[]
   stats: {
     total: number
     matched: number
     unmatched: number
     rejected: number
+    untracked: number
+    newStations: number
     exactMatches: number
     fuzzyMatches: number
     coordinateMatches: number
