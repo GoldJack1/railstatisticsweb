@@ -208,7 +208,7 @@ const parseCSVLine = (line: string): string[] => {
 // Load stations from Firebase for matching
 const loadStationsForMatching = async (): Promise<any[]> => {
   try {
-    console.log('Loading Firebase stations for migration matching')
+    console.log('Loading stations from Cloud Database for migration matching')
     const firebaseStations = await fetchStationsFromFirebase()
     
     if (firebaseStations.length > 0) {

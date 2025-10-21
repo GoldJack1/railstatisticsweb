@@ -286,7 +286,7 @@ const Migration: React.FC = () => {
       <div className="migration-container">
         <div className="loading-state">
           <div className="loading-spinner"></div>
-          <p>Loading stations from Firebase...</p>
+          <p>Loading data from Cloud Database...</p>
         </div>
       </div>
     )
