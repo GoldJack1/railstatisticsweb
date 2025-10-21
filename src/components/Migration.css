@@ -141,6 +141,50 @@
   font-style: italic;
 }
 
+.format-info {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--accent-light);
+  border-left: 3px solid var(--accent-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.format-info strong {
+  color: var(--accent-color);
+}
+
+.rejected-info {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+  border-radius: var(--radius-sm);
+}
+
+.rejected-count {
+  margin: 0;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .rejected-info {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.stat-card.rejected {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border-left: 4px solid #ef4444;
+}
+
+.stat-card.rejected h3 {
+  color: #ef4444;
+}
+
+[data-theme="dark"] .stat-card.rejected {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+}
+
 /* Button Styles */
 .btn {
   padding: var(--space-md) var(--space-xl);
@@ -795,6 +839,87 @@
 .preview-table.full-data th,
 .preview-table.full-data td {
   padding: 0.5rem 0.4rem;
+}
+
+/* Rejected Stations Section */
+.rejected-stations-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: rgba(239, 68, 68, 0.05);
+  border: 2px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-lg);
+}
+
+.rejected-stations-section h3 {
+  color: #ef4444;
+  margin-bottom: 0.5rem;
+}
+
+.rejected-stations-section .section-description {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+[data-theme="dark"] .rejected-stations-section {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.rejected-stations-list {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.rejected-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.rejected-table th {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--text-primary);
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 2px solid rgba(239, 68, 68, 0.3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rejected-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+  color: var(--text-primary);
+}
+
+.rejected-table tr:hover {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.rejected-table tr:last-child td {
+  border-bottom: none;
+}
+
+.rejected-table .station-name-cell {
+  font-weight: 500;
+  min-width: 150px;
+}
+
+.rejected-table .country-cell {
+  font-weight: 600;
+  color: #ef4444;
+  min-width: 100px;
+}
+
+[data-theme="dark"] .rejected-table th {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+[data-theme="dark"] .rejected-table tr:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Action Buttons */

@@ -3,7 +3,81 @@ import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult 
 import { fetchStationsFromFirebase } from './firebase'
 import { fetchLocalStations } from './localData'
 
-// Parse CSV content
+// Detect CSV format based on headers
+const detectCSVFormat = (headers: string[]): 'format1' | 'format2' => {
+  // Format 1: Has "Station Name" header
+  // Format 2: Has "Type" and "Station" headers
+  
+  if (headers.includes('Type') && headers.includes('Station')) {
+    console.log('Detected Format 2 (new format with Type column)')
+    return 'format2'
+  } else if (headers.includes('Station Name')) {
+    console.log('Detected Format 1 (original format)')
+    return 'format1'
+  }
+  
+  // Default to format 1 if unclear
+  console.log('Could not detect format clearly, defaulting to Format 1')
+  return 'format1'
+}
+
+// Public function to detect format from CSV content
+export const detectCSVFormatFromContent = (csvContent: string): { format: string; description: string } => {
+  const lines = csvContent.split('\n').filter(line => line.trim())
+  if (lines.length < 1) {
+    return { format: 'unknown', description: 'Unable to detect format' }
+  }
+  
+  const headers = parseCSVLine(lines[0])
+  const format = detectCSVFormat(headers)
+  
+  if (format === 'format2') {
+    return { 
+      format: 'Format 2', 
+      description: 'New format with Type column (e.g., stations_20250917214403.csv)' 
+    }
+  } else {
+    return { 
+      format: 'Format 1', 
+      description: 'Original format with Station Name column' 
+    }
+  }
+}
+
+// Check if station is from an allowed country
+const isAllowedCountry = (country: string): boolean => {
+  const normalized = country.toLowerCase().trim()
+  const allowedCountries = ['england', 'scotland', 'wales']
+  return allowedCountries.includes(normalized)
+}
+
+// Filter stations by country
+export const filterStationsByCountry = (stations: OldFormatStation[]): { 
+  allowed: OldFormatStation[], 
+  rejected: OldFormatStation[] 
+} => {
+  const allowed: OldFormatStation[] = []
+  const rejected: OldFormatStation[] = []
+  
+  for (const station of stations) {
+    if (isAllowedCountry(station.country)) {
+      allowed.push(station)
+    } else {
+      rejected.push(station)
+    }
+  }
+  
+  console.log(`Filtered stations: ${allowed.length} allowed, ${rejected.length} rejected`)
+  return { allowed, rejected }
+}
+
+// Clean number string (remove commas and quotes)
+const cleanNumberString = (value: string): string => {
+  if (!value || value === 'n/a' || value === 'N/A') return '0'
+  return value.replace(/,/g, '').replace(/"/g, '').trim()
+}
+
+// Parse CSV content with auto-detection of format
 export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
   const lines = csvContent.split('\n').filter(line => line.trim())
   if (lines.length < 2) {
@@ -14,18 +88,21 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
   console.log('CSV Headers:', headers)
   console.log('Number of headers:', headers.length)
   
+  // Detect which format we're dealing with
+  const format = detectCSVFormat(headers)
+  
   const stations: OldFormatStation[] = []
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i])
     if (i <= 3) { // Log first few rows for debugging
-      console.log(`Row ${i + 1} raw line:`, lines[i])
-      console.log(`Row ${i + 1} parsed values:`, values)
+      console.log(`Row ${i + 1} raw line:`, lines[i].substring(0, 200) + '...')
+      console.log(`Row ${i + 1} parsed values (first 10):`, values.slice(0, 10))
     }
     if (values.length !== headers.length) {
       console.warn(`Row ${i + 1} has ${values.length} columns, expected ${headers.length}`)
       if (i <= 3) { // Log first few problematic rows
-        console.log(`Row ${i + 1} values:`, values)
+        console.log(`Row ${i + 1} first 10 values:`, values.slice(0, 10))
       }
       continue
     }
@@ -35,23 +112,48 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
       station[header] = values[index]
     })
 
-    // Map CSV headers to OldFormatStation interface properties
-    const mappedStation: OldFormatStation = {
-      stationName: station['Station Name'] || '',
-      country: station['Country'] || '',
-      county: station['County'] || '',
-      operator: station['Operator'] || '',
-      visited: station['Visited'] || '',
-      visitDate: station['Visit Date'] || '',
-      favorite: station['Favorite'] || '',
-      latitude: station['Latitude'] || '',
-      longitude: station['Longitude'] || '',
-      // Copy all year columns
-      ...Object.fromEntries(
-        Object.entries(station).filter(([key]) => 
-          /^\d{4}$/.test(key) // Only year columns (4 digits)
+    // Map CSV headers to OldFormatStation interface properties based on format
+    let mappedStation: OldFormatStation
+    
+    if (format === 'format2') {
+      // New format with Type column
+      mappedStation = {
+        type: station['Type'] || '',
+        stationName: station['Station'] || '',
+        country: station['Country'] || '',
+        county: station['County'] || '',
+        operator: station['Operator'] || '',
+        visited: station['Visited'] || '',
+        visitDate: station['Visit Date DD/MM/YYYY'] || '',
+        favorite: station['Favourite'] || '', // Note: British spelling
+        latitude: station['Latitude'] || '',
+        longitude: station['Longitude'] || '',
+        // Copy all year columns, cleaning numeric values
+        ...Object.fromEntries(
+          Object.entries(station)
+            .filter(([key]) => /^\d{4}$/.test(key)) // Only year columns (4 digits)
+            .map(([key, value]) => [key, cleanNumberString(value as string)])
         )
-      )
+      }
+    } else {
+      // Original format without Type column
+      mappedStation = {
+        stationName: station['Station Name'] || '',
+        country: station['Country'] || '',
+        county: station['County'] || '',
+        operator: station['Operator'] || '',
+        visited: station['Visited'] || '',
+        visitDate: station['Visit Date'] || '',
+        favorite: station['Favorite'] || '',
+        latitude: station['Latitude'] || '',
+        longitude: station['Longitude'] || '',
+        // Copy all year columns
+        ...Object.fromEntries(
+          Object.entries(station).filter(([key]) => 
+            /^\d{4}$/.test(key) // Only year columns (4 digits)
+          )
+        )
+      }
     }
 
     stations.push(mappedStation)
@@ -59,12 +161,14 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
     // Log first few parsed stations for debugging
     if (i <= 3) {
       console.log(`Parsed station ${i}:`, {
+        type: mappedStation.type,
         stationName: mappedStation.stationName,
         country: mappedStation.country,
         county: mappedStation.county,
-        operator: mappedStation.operator
+        operator: mappedStation.operator,
+        visited: mappedStation.visited,
+        favorite: mappedStation.favorite
       })
-      console.log(`Mapped station object:`, mappedStation)
     }
   }
 
@@ -565,7 +669,9 @@ export const convertToNewFormat = (matches: StationMatch[]): NewFormatStation[] 
       // Fallback to old data if no Firebase data available
       const years = Object.keys(old).filter(key => /^\d{4}$/.test(key))
       for (const year of years) {
-        newStation[year] = parseInt(old[year]) || 0
+        // Clean the number string (remove commas, handle n/a and N/A)
+        const cleanValue = cleanNumberString(old[year] || '0')
+        newStation[year] = parseInt(cleanValue) || 0
       }
       
       // Fill missing years with 0
@@ -583,8 +689,8 @@ export const convertToNewFormat = (matches: StationMatch[]): NewFormatStation[] 
   return converted
 }
 
-// Generate migration result
-export const generateMigrationResult = (matches: StationMatch[]): MigrationResult => {
+// Generate migration result with country filtering
+export const generateMigrationResult = (matches: StationMatch[], rejectedStations: OldFormatStation[] = []): MigrationResult => {
   const unmatched = matches.filter(m => m.matchType === 'none').map(m => m.oldStation)
   const converted = convertToNewFormat(matches)
   
@@ -603,6 +709,7 @@ export const generateMigrationResult = (matches: StationMatch[]): MigrationResul
     total: matches.length,
     matched: matches.filter(m => m.matchType !== 'none').length,
     unmatched: unmatched.length,
+    rejected: rejectedStations.length,
     exactMatches: matches.filter(m => m.matchType === 'exact').length,
     fuzzyMatches: matches.filter(m => m.matchType === 'fuzzy').length,
     coordinateMatches: matches.filter(m => m.matchType === 'coordinates').length,
@@ -613,6 +720,7 @@ export const generateMigrationResult = (matches: StationMatch[]): MigrationResul
   return {
     matches,
     unmatched,
+    rejected: rejectedStations,
     converted,
     stats
   }

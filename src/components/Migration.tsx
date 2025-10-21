@@ -4,7 +4,9 @@ import {
   parseOldFormatCSV, 
   matchStations, 
   generateMigrationResult, 
-  downloadCSV
+  downloadCSV,
+  detectCSVFormatFromContent,
+  filterStationsByCountry
 } from '../services/migration'
 import type { MigrationState } from '../types/migration'
 import './Migration.css'
@@ -14,6 +16,7 @@ const Migration: React.FC = () => {
   const [state, setState] = useState<MigrationState>({
     file: null,
     oldFormatData: [],
+    rejectedStations: [],
     firebaseStations: [],
     matches: [],
     result: null,
@@ -28,7 +31,9 @@ const Migration: React.FC = () => {
     // Progress tracking
     showProgressModal: false,
     matchingProgress: 0,
-    currentStationName: ''
+    currentStationName: '',
+    // Format detection
+    detectedFormat: null
   })
 
   // Table search and display state
@@ -54,12 +59,19 @@ const Migration: React.FC = () => {
     reader.onload = (e) => {
       try {
         const csvContent = e.target?.result as string
-        const oldFormatData = parseOldFormatCSV(csvContent)
+        const formatInfo = detectCSVFormatFromContent(csvContent)
+        const allStations = parseOldFormatCSV(csvContent)
+        
+        // Filter stations by country (England, Scotland, Wales only)
+        const { allowed, rejected } = filterStationsByCountry(allStations)
+        
         setState(prev => ({ 
           ...prev, 
-          oldFormatData, 
+          oldFormatData: allowed, 
+          rejectedStations: rejected,
           step: 'matching',
-          error: null 
+          error: null,
+          detectedFormat: formatInfo.description
         }))
       } catch (error) {
         setState(prev => ({ 
@@ -91,7 +103,7 @@ const Migration: React.FC = () => {
           currentStationName: currentStation
         }))
       })
-      const result = generateMigrationResult(matches)
+      const result = generateMigrationResult(matches, state.rejectedStations)
       
       setState(prev => ({ 
         ...prev, 
@@ -109,7 +121,7 @@ const Migration: React.FC = () => {
         showProgressModal: false
       }))
     }
-  }, [state.oldFormatData])
+  }, [state.oldFormatData, state.rejectedStations])
 
   const handleDownload = useCallback(() => {
     if (!state.result) return
@@ -123,6 +135,7 @@ const Migration: React.FC = () => {
     setState({
       file: null,
       oldFormatData: [],
+      rejectedStations: [],
       firebaseStations: [],
       matches: [],
       result: null,
@@ -137,7 +150,9 @@ const Migration: React.FC = () => {
       // Progress tracking
       showProgressModal: false,
       matchingProgress: 0,
-      currentStationName: ''
+      currentStationName: '',
+      // Format detection
+      detectedFormat: null
     })
   }, [])
 
@@ -178,7 +193,7 @@ const Migration: React.FC = () => {
         suggestedTiploc: selectedStation.tiploc || ''
       }
       
-      const newResult = generateMigrationResult(newMatches)
+      const newResult = generateMigrationResult(newMatches, prev.rejectedStations)
       
       return {
         ...prev,
@@ -343,7 +358,19 @@ const Migration: React.FC = () => {
         <div className="migration-step">
           <h2>Step 2: Station Matching</h2>
           <div className="matching-info">
-            <p>Found {state.oldFormatData.length} stations in the uploaded file</p>
+            <p>Found {state.oldFormatData.length} stations to process</p>
+            {state.rejectedStations.length > 0 && (
+              <div className="rejected-info">
+                <p className="rejected-count">
+                  ⚠️ <strong>{state.rejectedStations.length} stations rejected</strong> (not England, Scotland, or Wales)
+                </p>
+              </div>
+            )}
+            {state.detectedFormat && (
+              <p className="format-info">
+                <strong>Detected CSV Format:</strong> {state.detectedFormat}
+              </p>
+            )}
             <p>Available {firebaseStations.length} stations for matching (Firebase/Local data)</p>
             <p className="data-source-info">
               <small>
@@ -381,6 +408,12 @@ const Migration: React.FC = () => {
               <h3>Unmatched</h3>
               <span className="stat-number">{state.result.stats.unmatched}</span>
             </div>
+            {state.result.stats.rejected > 0 && (
+              <div className="stat-card rejected">
+                <h3>Rejected</h3>
+                <span className="stat-number">{state.result.stats.rejected}</span>
+              </div>
+            )}
             <div className="stat-card">
               <h3>Exact Matches</h3>
               <span className="stat-number">{state.result.stats.exactMatches}</span>
@@ -541,6 +574,43 @@ const Migration: React.FC = () => {
                     </div>
                   )
                 })()}
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Stations Section */}
+          {state.result.rejected && state.result.rejected.length > 0 && (
+            <div className="rejected-stations-section">
+              <h3>❌ Rejected Stations ({state.result.rejected.length})</h3>
+              <p className="section-description">
+                These stations were rejected because they are not located in England, Scotland, or Wales.
+              </p>
+              
+              <div className="rejected-stations-list">
+                <table className="rejected-table">
+                  <thead>
+                    <tr>
+                      <th>Station Name</th>
+                      <th>Country</th>
+                      <th>County</th>
+                      <th>Operator</th>
+                      <th>Visited</th>
+                      <th>Favorite</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.result.rejected.map((station, index) => (
+                      <tr key={index}>
+                        <td className="station-name-cell">{station.stationName}</td>
+                        <td className="country-cell">{station.country}</td>
+                        <td className="county-cell">{station.county || '-'}</td>
+                        <td className="operator-cell">{station.operator || '-'}</td>
+                        <td className="visited-cell">{station.visited}</td>
+                        <td className="favorite-cell">{station.favorite}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

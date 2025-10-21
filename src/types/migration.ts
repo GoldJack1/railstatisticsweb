@@ -1,6 +1,7 @@
 // Migration types for CSV conversion
 
 export interface OldFormatStation {
+  type?: string // Optional, only in Format 2 (e.g., "GBNationalRail")
   stationName: string
   country: string
   county: string
@@ -10,7 +11,7 @@ export interface OldFormatStation {
   favorite: string
   latitude: string
   longitude: string
-  [year: string]: string // Dynamic year columns (2024, 2023, etc.)
+  [year: string]: string | undefined // Dynamic year columns (2024, 2023, etc.) - undefined for optional properties
 }
 
 export interface NewFormatStation {
@@ -42,11 +43,13 @@ export interface StationMatch {
 export interface MigrationResult {
   matches: StationMatch[]
   unmatched: OldFormatStation[]
+  rejected: OldFormatStation[]
   converted: NewFormatStation[]
   stats: {
     total: number
     matched: number
     unmatched: number
+    rejected: number
     exactMatches: number
     fuzzyMatches: number
     coordinateMatches: number
@@ -58,6 +61,7 @@ export interface MigrationResult {
 export interface MigrationState {
   file: File | null
   oldFormatData: OldFormatStation[]
+  rejectedStations: OldFormatStation[]
   firebaseStations: any[]
   matches: StationMatch[]
   result: MigrationResult | null
@@ -73,4 +77,6 @@ export interface MigrationState {
   showProgressModal: boolean
   matchingProgress: number
   currentStationName: string
+  // Format detection
+  detectedFormat: string | null
 }
