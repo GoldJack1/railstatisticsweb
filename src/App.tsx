@@ -7,6 +7,7 @@ import './styles/App.css'
 const Home = React.lazy(() => import('./components/Home'))
 const Stations = React.lazy(() => import('./components/Stations'))
 const Migration = React.lazy(() => import('./components/Migration'))
+const ButtonDemo = React.lazy(() => import('./components/ButtonDemo'))
 
 const App: React.FC = () => {
   return (
@@ -29,6 +30,7 @@ const App: React.FC = () => {
             <Route path="/" element={<Home />} />
             <Route path="/stations" element={<Stations />} />
             <Route path="/migration" element={<Migration />} />
+            <Route path="/buttons" element={<ButtonDemo />} />
           </Routes>
         </Suspense>
       </main>

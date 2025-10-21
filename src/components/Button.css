@@ -1,0 +1,230 @@
+/* Button Design System - Custom Properties */
+:root {
+  /* Active Button Colors - Light Mode */
+  --button-bg-active: #ffffff;
+  --button-text-active: #000000;
+  --button-drop-shadow: 0px 3px 3px rgba(0, 0, 0, 0.2);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
+  
+  /* Pressed & Disabled Button Colors - Light Mode */
+  --button-bg-inactive: #d4d4d4;
+  --button-text-inactive: #000000;
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
+  
+  /* Special Button Colors */
+  --button-visited: #4ade80;
+  --button-not-visited: #ef4444;
+}
+
+/* Dark Mode */
+[data-theme="dark"] {
+  /* Active Button Colors - Dark Mode */
+  --button-bg-active: #3b3b3b;
+  --button-text-active: #ffffff;
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
+  
+  /* Pressed & Disabled Button Colors - Dark Mode */
+  --button-bg-inactive: #000000;
+  --button-text-inactive: #ffffff;
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
+}
+
+/* Base Button Styles */
+.rs-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.rs-button__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.rs-button__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rs-button__text {
+  white-space: nowrap;
+}
+
+/* Button States */
+.rs-button--active {
+  background-color: var(--button-bg-active);
+  color: var(--button-text-active);
+  box-shadow: var(--button-drop-shadow);
+}
+
+.rs-button--active .rs-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+.rs-button--pressed,
+.rs-button--disabled {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-inactive);
+  box-shadow: none;
+}
+
+.rs-button--pressed .rs-button__inner-shadow,
+.rs-button--disabled .rs-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+.rs-button--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Wide Button Variant */
+.rs-button--wide {
+  padding: 12px;
+  min-width: 288px;
+  min-height: 40px;
+}
+
+/* Circle Button Variant */
+.rs-button--circle {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.rs-button--circle .rs-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Square Button Variant */
+.rs-button--square {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.rs-button--square .rs-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Tab Button Variant */
+.rs-button--tab {
+  padding: 12px 18px;
+  min-height: 40px;
+  min-width: 66px;
+}
+
+/* Chip Button Variant */
+.rs-button--chip {
+  padding: 8px 16px;
+  min-height: 35px;
+  font-size: 14px;
+}
+
+/* Button Shapes */
+.rs-button--rounded {
+  border-radius: 32px;
+}
+
+.rs-button--left-rounded {
+  border-radius: 32px 0 0 32px;
+}
+
+.rs-button--right-rounded {
+  border-radius: 0 32px 32px 0;
+}
+
+.rs-button--top-rounded {
+  border-radius: 32px 32px 0 0;
+}
+
+.rs-button--bottom-rounded {
+  border-radius: 0 0 32px 32px;
+}
+
+.rs-button--squared {
+  border-radius: 0;
+}
+
+/* Circle and Square buttons are always fully rounded/squared */
+.rs-button--circle.rs-button--rounded,
+.rs-button--circle.rs-button--left-rounded,
+.rs-button--circle.rs-button--right-rounded,
+.rs-button--circle.rs-button--top-rounded,
+.rs-button--circle.rs-button--bottom-rounded {
+  border-radius: 50%;
+}
+
+.rs-button--square.rs-button--squared {
+  border-radius: 0;
+}
+
+/* Hover States (only for active buttons) */
+.rs-button--active:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Active (Click) State */
+.rs-button--active:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Focus States for Accessibility */
+.rs-button:focus-visible {
+  outline: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .rs-button--wide {
+    min-width: 240px;
+    font-size: 15px;
+  }
+  
+  .rs-button--tab {
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rs-button--wide {
+    min-width: 200px;
+    font-size: 14px;
+    padding: 10px;
+  }
+  
+  .rs-button--tab {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  
+  .rs-button--chip {
+    font-size: 13px;
+    padding: 7px 14px;
+  }
+}
+

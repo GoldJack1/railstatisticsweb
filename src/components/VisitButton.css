@@ -1,0 +1,92 @@
+/* Visit Status Button Styles */
+.rs-visit-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  min-height: 40px;
+  min-width: 288px;
+  border-radius: 0;
+  color: #ffffff;
+}
+
+.rs-visit-button__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.rs-visit-button__text {
+  white-space: nowrap;
+}
+
+/* Visited State */
+.rs-visit-button--visited {
+  background-color: var(--button-visited);
+  box-shadow: var(--button-drop-shadow);
+}
+
+.rs-visit-button--visited .rs-visit-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+/* Not Visited State */
+.rs-visit-button--not-visited {
+  background-color: var(--button-not-visited);
+  box-shadow: var(--button-drop-shadow);
+}
+
+.rs-visit-button--not-visited .rs-visit-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+/* Disabled State */
+.rs-visit-button--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Hover States */
+.rs-visit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Active State */
+.rs-visit-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Focus States */
+.rs-visit-button:focus-visible {
+  outline: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .rs-visit-button {
+    min-width: 240px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rs-visit-button {
+    min-width: 200px;
+    font-size: 14px;
+    padding: 10px 20px;
+  }
+}
+

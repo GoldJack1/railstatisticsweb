@@ -112,6 +112,56 @@
     font-size: var(--text-base);
 }
 
+/* Demo Section */
+.demo-section {
+    text-align: center;
+    padding: var(--space-3xl) 0;
+    margin-top: var(--space-2xl);
+}
+
+.demo-section h2 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+}
+
+.demo-section p {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+}
+
+.demo-button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    text-decoration: none;
+    padding: var(--space-lg) var(--space-2xl);
+    border-radius: var(--radius-lg);
+    font-weight: 500;
+    font-size: var(--text-base);
+    transition: all 0.2s ease;
+    border: 2px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    min-height: 48px;
+}
+
+.demo-button:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.demo-button svg {
+    width: 20px;
+    height: 20px;
+}
+
 /* Footer */
 .footer {
     margin-top: var(--space-4xl);
@@ -264,6 +314,11 @@
     .feature p {
         font-size: var(--text-base);
     }
+    
+    .demo-button {
+        width: 100%;
+        max-width: 300px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -319,5 +374,23 @@
     
     .feature p {
         font-size: var(--text-sm);
+    }
+    
+    .demo-section {
+        padding: var(--space-2xl) 0;
+    }
+    
+    .demo-section h2 {
+        font-size: var(--text-xl);
+    }
+    
+    .demo-section p {
+        font-size: var(--text-sm);
+    }
+    
+    .demo-button {
+        padding: var(--space-md) var(--space-lg);
+        font-size: var(--text-sm);
+        min-height: 44px;
     }
 }
