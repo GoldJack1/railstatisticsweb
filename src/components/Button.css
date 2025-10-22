@@ -1,13 +1,13 @@
 /* Button Design System - Custom Properties */
 :root {
   /* Active Button Colors - Light Mode */
-  --button-bg-active: #ffffff;
+  --button-bg-active: hsl(220, 10%, 99%);
   --button-text-active: #000000;
   --button-drop-shadow: 0px 3px 3px rgba(0, 0, 0, 0.2);
   --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
   
   /* Pressed & Disabled Button Colors - Light Mode */
-  --button-bg-inactive: #d4d4d4;
+  --button-bg-inactive: hsl(220, 10%, 78%);
   --button-text-inactive: #000000;
   --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
   
@@ -19,12 +19,12 @@
 /* Dark Mode */
 [data-theme="dark"] {
   /* Active Button Colors - Dark Mode */
-  --button-bg-active: #3b3b3b;
+  --button-bg-active: hsl(220, 10%, 25%);
   --button-text-active: #ffffff;
   --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
   
   /* Pressed & Disabled Button Colors - Dark Mode */
-  --button-bg-inactive: #000000;
+  --button-bg-inactive: hsl(220, 10%, 1%);
   --button-text-inactive: #ffffff;
   --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
 }
