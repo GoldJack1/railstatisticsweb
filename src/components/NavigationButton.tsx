@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Button, { ButtonProps } from './Button'
 
 export interface NavigationButtonProps extends Omit<ButtonProps, 'onClick'> {
@@ -7,6 +7,7 @@ export interface NavigationButtonProps extends Omit<ButtonProps, 'onClick'> {
   replace?: boolean
   state?: any
   onClick?: () => void
+  isActive?: boolean
 }
 
 const NavigationButton: React.FC<NavigationButtonProps> = ({
@@ -14,6 +15,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
   replace = false,
   state,
   onClick,
+  isActive = false,
   ...buttonProps
 }) => {
   const [isNavigating, setIsNavigating] = useState(false)
@@ -41,7 +43,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
     <Button
       {...buttonProps}
       onClick={handleClick}
-      pressed={isNavigating}
+      pressed={isNavigating || isActive}
       disabled={buttonProps.disabled || isNavigating}
     />
   )

@@ -120,11 +120,16 @@
 
 /* Circle Button Variant */
 .rs-button--circle {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  min-width: 40px;
-  min-height: 40px;
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  flex-basis: 40px !important;
 }
 
 .rs-button--circle .rs-button__icon {
@@ -139,6 +144,7 @@
   padding: 0;
   min-width: 40px;
   min-height: 40px;
+  flex-shrink: 0;
 }
 
 .rs-button--square .rs-button__icon {
@@ -228,6 +234,18 @@
     font-size: 15px;
     padding: 10px 16px;
   }
+  
+  /* Ensure circle buttons maintain their shape on mobile */
+  .rs-button--circle {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -248,6 +266,18 @@
   .rs-button--chip {
     font-size: 13px;
     padding: 7px 14px;
+  }
+  
+  /* Ensure circle buttons maintain their shape on small mobile */
+  .rs-button--circle {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
   }
 }
 

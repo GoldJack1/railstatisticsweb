@@ -9,4 +9,12 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    padding-top: 4rem; /* Account for fixed header height */
+}
+
+/* Responsive padding for mobile */
+@media (max-width: 480px) {
+    .main-content {
+        padding-top: 3.5rem; /* Account for smaller mobile header height */
+    }
 }
