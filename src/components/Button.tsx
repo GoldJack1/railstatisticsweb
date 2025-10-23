@@ -47,7 +47,7 @@ const Button: React.FC<ButtonProps> = ({
       setTimeout(() => {
         onClick()
         setIsPressed(false)
-      }, 100)
+      }, 300)
     }
   }
 

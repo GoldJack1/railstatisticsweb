@@ -176,7 +176,5 @@ textarea:focus {
 
 /* Print styles */
 @media print {
-    .theme-toggle {
-        display: none;
-    }
+    /* Hide interactive elements when printing */
 }

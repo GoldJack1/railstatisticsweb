@@ -37,32 +37,6 @@
     justify-content: center;
 }
 
-.cta-button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-md);
-    background: var(--accent-color);
-    color: white;
-    text-decoration: none;
-    padding: var(--space-lg) var(--space-2xl);
-    border-radius: var(--radius-lg);
-    font-weight: 500;
-    font-size: var(--text-lg);
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-md);
-    min-height: 48px;
-}
-
-.cta-button:hover {
-    background: var(--accent-hover);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-.cta-button svg {
-    width: 20px;
-    height: 20px;
-}
 
 /* Features Section */
 .features {
@@ -132,35 +106,6 @@
     margin-bottom: var(--space-xl);
 }
 
-.demo-button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-md);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    text-decoration: none;
-    padding: var(--space-lg) var(--space-2xl);
-    border-radius: var(--radius-lg);
-    font-weight: 500;
-    font-size: var(--text-base);
-    transition: all 0.2s ease;
-    border: 2px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    min-height: 48px;
-}
-
-.demo-button:hover {
-    background: var(--accent-light);
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.demo-button svg {
-    width: 20px;
-    height: 20px;
-}
 
 /* Footer */
 .footer {
@@ -282,13 +227,6 @@
         padding: 0 var(--space-sm);
     }
     
-    .cta-button {
-        padding: var(--space-lg) var(--space-xl);
-        font-size: var(--text-base);
-        min-height: 48px;
-        width: 100%;
-        max-width: 300px;
-    }
     
     .features {
         grid-template-columns: 1fr;
@@ -315,10 +253,6 @@
         font-size: var(--text-base);
     }
     
-    .demo-button {
-        width: 100%;
-        max-width: 300px;
-    }
 }
 
 @media (max-width: 480px) {
@@ -346,11 +280,6 @@
         padding: 0 var(--space-xs);
     }
     
-    .cta-button {
-        padding: var(--space-md) var(--space-lg);
-        font-size: var(--text-sm);
-        min-height: 44px;
-    }
     
     .features {
         gap: var(--space-lg);
@@ -388,9 +317,4 @@
         font-size: var(--text-sm);
     }
     
-    .demo-button {
-        padding: var(--space-md) var(--space-lg);
-        font-size: var(--text-sm);
-        min-height: 44px;
-    }
 }

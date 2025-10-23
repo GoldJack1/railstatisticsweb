@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
+import NavLink from './NavLink'
+import Button from './Button'
 import './Header.css'
 
 const Header: React.FC = () => {
@@ -8,9 +10,6 @@ const Header: React.FC = () => {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const isActive = (path: string): boolean => {
-    return location.pathname === path
-  }
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false)
@@ -38,20 +37,14 @@ const Header: React.FC = () => {
         
         <div className="header-center">
           <nav className="header-nav desktop-nav">
-            <Link 
-              to="/" 
-              className={`nav-link ${isActive('/') ? 'active' : ''}`}
-            >
+            <NavLink to="/">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9,22 9,12 15,12 15,22"/>
               </svg>
               <span>Home</span>
-            </Link>
-            <Link 
-              to="/stations" 
-              className={`nav-link ${isActive('/stations') ? 'active' : ''}`}
-            >
+            </NavLink>
+            <NavLink to="/stations">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14,2 14,8 20,8"/>
@@ -60,11 +53,8 @@ const Header: React.FC = () => {
                 <polyline points="10,9 9,9 8,9"/>
               </svg>
               <span>Stations</span>
-            </Link>
-            <Link 
-              to="/migration" 
-              className={`nav-link ${isActive('/migration') ? 'active' : ''}`}
-            >
+            </NavLink>
+            <NavLink to="/migration">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14,2 14,8 20,8"/>
@@ -75,42 +65,42 @@ const Header: React.FC = () => {
                 <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
               </svg>
               <span>Migration</span>
-            </Link>
+            </NavLink>
           </nav>
         </div>
         
         <div className="header-right">
-          <button 
+          <Button
+            variant="circle"
             onClick={toggleTheme}
-            className="theme-toggle" 
-            aria-label="Toggle theme"
-          >
-            <svg 
-              className="sun-icon" 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2"
-              style={{ display: theme === 'light' ? 'block' : 'none' }}
-            >
-              <circle cx="12" cy="12" r="5"/>
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-            </svg>
-            <svg 
-              className="moon-icon" 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2"
-              style={{ display: theme === 'dark' ? 'block' : 'none' }}
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </button>
+            ariaLabel="Toggle theme"
+            icon={
+              theme === 'light' ? (
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="5"/>
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+              ) : (
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              )
+            }
+          />
           
           {/* Mobile Menu Button */}
           <button 
@@ -127,22 +117,14 @@ const Header: React.FC = () => {
       
       {/* Mobile Navigation */}
       <nav className={`header-nav mobile-nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        <Link 
-          to="/" 
-          className={`nav-link ${isActive('/') ? 'active' : ''}`}
-          onClick={closeMobileMenu}
-        >
+        <NavLink to="/" onClick={closeMobileMenu}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             <polyline points="9,22 9,12 15,12 15,22"/>
           </svg>
           <span>Home</span>
-        </Link>
-        <Link 
-          to="/stations" 
-          className={`nav-link ${isActive('/stations') ? 'active' : ''}`}
-          onClick={closeMobileMenu}
-        >
+        </NavLink>
+        <NavLink to="/stations" onClick={closeMobileMenu}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
@@ -151,12 +133,8 @@ const Header: React.FC = () => {
             <polyline points="10,9 9,9 8,9"/>
           </svg>
           <span>Stations</span>
-        </Link>
-        <Link 
-          to="/migration" 
-          className={`nav-link ${isActive('/migration') ? 'active' : ''}`}
-          onClick={closeMobileMenu}
-        >
+        </NavLink>
+        <NavLink to="/migration" onClick={closeMobileMenu}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
@@ -167,7 +145,7 @@ const Header: React.FC = () => {
             <path d="M3 15h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H3"/>
           </svg>
           <span>Migration</span>
-        </Link>
+        </NavLink>
       </nav>
     </header>
   )

@@ -96,6 +96,11 @@
     background: var(--accent-color);
 }
 
+.nav-link.pressed {
+    transform: translateY(1px);
+    box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 .nav-link svg {
     width: 20px;
     height: 20px;
@@ -149,36 +154,6 @@
 }
 
 /* Theme Toggle Button */
-.theme-toggle {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: var(--space-md);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: var(--shadow-sm);
-    min-height: 44px;
-    min-width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.theme-toggle:hover {
-    background: var(--bg-tertiary);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
-}
-
-.theme-toggle svg {
-    display: block;
-    color: var(--text-secondary);
-    transition: color 0.2s ease;
-}
-
-.theme-toggle:hover svg {
-    color: var(--text-primary);
-}
 
 /* Responsive Design */
 /* Large Desktop (1440px+) */
@@ -416,7 +391,4 @@
         min-height: 44px;
     }
     
-    .theme-toggle {
-        padding: var(--space-sm);
-    }
 }
