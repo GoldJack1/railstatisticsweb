@@ -1,85 +1,151 @@
 import React, { useState, useMemo } from 'react'
 import { useStations } from '../hooks/useStations'
+import { useDebounce } from '../hooks/useDebounce'
+import StationModal from './StationModal'
+import type { Station } from '../types'
 import './Stations.css'
+
+type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
 
 const Stations: React.FC = () => {
   const { stations, loading, error, stats } = useStations()
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedTOC, setSelectedTOC] = useState<string>('')
+  const [selectedCountry, setSelectedCountry] = useState<string>('')
+  const [selectedCounty, setSelectedCounty] = useState<string>('')
+  const [sortOption, setSortOption] = useState<SortOption>('name-asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
 
-  const filteredStations = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return stations
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+  const itemsPerPage = 24
+
+  // Get unique filter options
+  const uniqueTOCs = useMemo(() => {
+    const tocs = new Set<string>()
+    stations.forEach(station => {
+      if (station.toc) tocs.add(station.toc)
+    })
+    return Array.from(tocs).sort()
+  }, [stations])
+
+  const uniqueCountries = useMemo(() => {
+    const countries = new Set<string>()
+    stations.forEach(station => {
+      if (station.country) countries.add(station.country)
+    })
+    return Array.from(countries).sort()
+  }, [stations])
+
+  const uniqueCounties = useMemo(() => {
+    const counties = new Set<string>()
+    stations.forEach(station => {
+      if (station.county) counties.add(station.county)
+    })
+    return Array.from(counties).sort()
+  }, [stations])
+
+  // Filter and sort stations
+  const filteredAndSortedStations = useMemo(() => {
+    let filtered = stations
+
+    // Text search
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase()
+      filtered = filtered.filter(station => 
+        (station.stationName && station.stationName.toLowerCase().includes(term)) ||
+        (station.crsCode && station.crsCode.toLowerCase().includes(term)) ||
+        (station.tiploc && station.tiploc.toLowerCase().includes(term)) ||
+        (station.country && station.country.toLowerCase().includes(term)) ||
+        (station.county && station.county.toLowerCase().includes(term)) ||
+        (station.toc && station.toc.toLowerCase().includes(term)) ||
+        (station.stnarea && station.stnarea.toLowerCase().includes(term)) ||
+        (station.id && station.id.toLowerCase().includes(term))
+      )
     }
 
-    const term = searchTerm.toLowerCase()
-    return stations.filter(station => 
-      (station.stationName && station.stationName.toLowerCase().includes(term)) ||
-      (station.crsCode && station.crsCode.toLowerCase().includes(term)) ||
-      (station.tiploc && station.tiploc.toLowerCase().includes(term)) ||
-      (station.country && station.country.toLowerCase().includes(term)) ||
-      (station.county && station.county.toLowerCase().includes(term)) ||
-      (station.toc && station.toc.toLowerCase().includes(term)) ||
-      (station.stnarea && station.stnarea.toLowerCase().includes(term)) ||
-      (station.id && station.id.toLowerCase().includes(term))
-    )
-  }, [stations, searchTerm])
-
-  const formatYearlyPassengers = (passengers: Record<string, number> | number | string | null): string => {
-    if (!passengers) return 'N/A'
-    
-    // If it's already a number, format it
-    if (typeof passengers === 'number') {
-      return passengers.toLocaleString()
+    // Filter by TOC
+    if (selectedTOC) {
+      filtered = filtered.filter(station => station.toc === selectedTOC)
     }
-    
-    // If it's an object with year-based data
-    if (typeof passengers === 'object') {
-      // Check if it's a year-based object (keys are years)
-      const years = Object.keys(passengers)
-      if (years.length > 0 && /^\d{4}$/.test(years[0])) {
-        // Sort years in descending order (most recent first)
-        const sortedYears = years.sort((a, b) => parseInt(b) - parseInt(a))
-        
-        // Create a formatted display showing all years
-        const yearEntries = sortedYears.map(year => {
-          const count = passengers[year]
-          if (typeof count === 'number') {
-            return `${year}: ${count.toLocaleString()}`
+
+    // Filter by Country
+    if (selectedCountry) {
+      filtered = filtered.filter(station => station.country === selectedCountry)
+    }
+
+    // Filter by County
+    if (selectedCounty) {
+      filtered = filtered.filter(station => station.county === selectedCounty)
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'name-asc':
+          return (a.stationName || '').localeCompare(b.stationName || '')
+        case 'name-desc':
+          return (b.stationName || '').localeCompare(a.stationName || '')
+        case 'toc-asc':
+          return (a.toc || '').localeCompare(b.toc || '')
+        case 'toc-desc':
+          return (b.toc || '').localeCompare(a.toc || '')
+        case 'passengers-asc':
+        case 'passengers-desc': {
+          const getLatestPassengers = (station: Station): number => {
+            if (!station.yearlyPassengers || typeof station.yearlyPassengers !== 'object') return 0
+            const years = Object.keys(station.yearlyPassengers)
+              .filter(y => /^\d{4}$/.test(y))
+              .sort((a, b) => parseInt(b) - parseInt(a))
+            if (years.length === 0) return 0
+            const latest = station.yearlyPassengers[years[0]]
+            return typeof latest === 'number' ? latest : 0
           }
-          return `${year}: N/A`
-        })
-        
-        // Show up to 5 most recent years, with "..." if there are more
-        if (yearEntries.length <= 5) {
-          return yearEntries.join('\n')
-        } else {
-          return yearEntries.slice(0, 5).join('\n') + '\n...and ' + (yearEntries.length - 5) + ' more years'
+          const aPassengers = getLatestPassengers(a)
+          const bPassengers = getLatestPassengers(b)
+          return sortOption === 'passengers-asc' 
+            ? aPassengers - bPassengers 
+            : bPassengers - aPassengers
         }
+        default:
+          return 0
       }
-      
-      // Check common property names that might contain the number
-      const possibleKeys = ['value', 'count', 'total', 'passengers', 'number']
-      for (const key of possibleKeys) {
-        if (passengers[key] && typeof passengers[key] === 'number') {
-          return passengers[key].toLocaleString()
-        }
-      }
-      
-      // If no number found, show the object structure for debugging
-      return `Object: ${JSON.stringify(passengers).substring(0, 50)}...`
-    }
-    
-    // If it's a string, try to parse it as a number
-    if (typeof passengers === 'string') {
-      const num = parseFloat(passengers)
-      if (!isNaN(num)) {
-        return num.toLocaleString()
-      }
-      return passengers
-    }
-    
-    return 'N/A'
+    })
+
+    return sorted
+  }, [stations, debouncedSearchTerm, selectedTOC, selectedCountry, selectedCounty, sortOption])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedStations.length / itemsPerPage)
+  const paginatedStations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredAndSortedStations.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredAndSortedStations, currentPage, itemsPerPage])
+
+  // Reset to first page when filters change
+  // Use searchTerm (not debouncedSearchTerm) to ensure immediate reset on any filter change
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedTOC, selectedCountry, selectedCounty, sortOption])
+
+  const handleStationClick = (station: Station) => {
+    setSelectedStation(station)
+    setIsModalOpen(true)
   }
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setSelectedTOC('')
+    setSelectedCountry('')
+    setSelectedCounty('')
+    setSortOption('name-asc')
+  }
+
+  // Count active data filters (excludes UI state like showFilters)
+  const activeFilterCount = [searchTerm, selectedTOC, selectedCountry, selectedCounty].filter(Boolean).length
+  const hasActiveFilters = activeFilterCount > 0
 
   if (loading) {
     return (
@@ -138,7 +204,7 @@ const Stations: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Section */}
+      {/* Search and Filters Section */}
       <div className="search-section">
         <div className="search-container">
           <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,11 +219,113 @@ const Stations: React.FC = () => {
             placeholder="Search stations by name, code, TOC, or location..."
             autoComplete="off"
           />
+          {hasActiveFilters && (
+            <button 
+              className="clear-search-button"
+              onClick={clearFilters}
+              aria-label="Clear filters"
+              title="Clear all filters"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="controls-row">
+          <button 
+            className="filter-toggle-button"
+            onClick={() => setShowFilters(!showFilters)}
+            aria-label="Toggle filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filters
+            {hasActiveFilters && <span className="filter-badge">{activeFilterCount}</span>}
+          </button>
+
+          <div className="sort-container">
+            <label htmlFor="sort-select" className="sort-label">Sort by:</label>
+            <select 
+              id="sort-select"
+              value={sortOption} 
+              onChange={(e) => setSortOption(e.target.value as SortOption)}
+              className="sort-select"
+            >
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="toc-asc">TOC (A-Z)</option>
+              <option value="toc-desc">TOC (Z-A)</option>
+              <option value="passengers-desc">Passengers (High to Low)</option>
+              <option value="passengers-asc">Passengers (Low to High)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showFilters && (
+          <div className="filters-panel">
+            <div className="filter-group">
+              <label htmlFor="toc-filter" className="filter-label">TOC (Train Operating Company)</label>
+              <select 
+                id="toc-filter"
+                value={selectedTOC} 
+                onChange={(e) => setSelectedTOC(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All TOCs</option>
+                {uniqueTOCs.map(toc => (
+                  <option key={toc} value={toc}>{toc}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="country-filter" className="filter-label">Country</label>
+              <select 
+                id="country-filter"
+                value={selectedCountry} 
+                onChange={(e) => setSelectedCountry(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Countries</option>
+                {uniqueCountries.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="county-filter" className="filter-label">County</label>
+              <select 
+                id="county-filter"
+                value={selectedCounty} 
+                onChange={(e) => setSelectedCounty(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Counties</option>
+                {uniqueCounties.map(county => (
+                  <option key={county} value={county}>{county}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Results count */}
+        <div className="results-count">
+          Showing {paginatedStations.length} of {filteredAndSortedStations.length} stations
+          {filteredAndSortedStations.length !== stations.length && (
+            <span className="filtered-indicator"> (filtered)</span>
+          )}
         </div>
       </div>
 
       {/* No Results State */}
-      {filteredStations.length === 0 && searchTerm && (
+      {filteredAndSortedStations.length === 0 && (debouncedSearchTerm || selectedTOC || selectedCountry || selectedCounty) && (
         <div className="no-results">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/>
@@ -166,73 +334,132 @@ const Stations: React.FC = () => {
             <line x1="8" y1="11" x2="14" y2="11"/>
           </svg>
           <h3>No Stations Found</h3>
-          <p>Try adjusting your search terms or clear the search to see all stations.</p>
+          <p>Try adjusting your search terms or filters to see more stations.</p>
+          <button className="clear-filters-button" onClick={clearFilters}>
+            Clear All Filters
+          </button>
         </div>
       )}
 
       {/* Stations Grid */}
-      {filteredStations.length > 0 && (
-        <div className="stations-grid">
-          {filteredStations.map(station => (
-            <div key={station.id} className="station-card">
-              <div className="station-header">
-                <h3 className="station-name">{station.stationName || 'Unknown Station'}</h3>
-                {station.crsCode && <span className="station-crs">{station.crsCode}</span>}
-              </div>
-              
-              <div className="station-details">
-                <div className="detail-item">
-                  <span className="detail-label">Station ID</span>
-                  <span className="detail-value">{station.id || 'N/A'}</span>
+      {paginatedStations.length > 0 && (
+        <>
+          <div className="stations-grid">
+            {paginatedStations.map(station => (
+              <div 
+                key={station.id} 
+                className="station-card"
+                onClick={() => handleStationClick(station)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleStationClick(station)
+                  }
+                }}
+                aria-label={`View details for ${station.stationName || 'Unknown Station'}`}
+              >
+                <div className="station-header">
+                  <h3 className="station-name">{station.stationName || 'Unknown Station'}</h3>
+                  {station.crsCode && <span className="station-crs">{station.crsCode}</span>}
                 </div>
-                <div className="detail-item">
-                  <span className="detail-label">Country</span>
-                  <span className="detail-value">{station.country || 'N/A'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">County</span>
-                  <span className="detail-value">{station.county || 'N/A'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">TOC</span>
-                  <span className="detail-value">{station.toc || 'N/A'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Tiploc</span>
-                  <span className="detail-value">{station.tiploc || 'N/A'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Station Area</span>
-                  <span className="detail-value">{station.stnarea || 'N/A'}</span>
-                </div>
-              </div>
-              
-              <div className="coordinates">
-                <div className="detail-item">
-                  <span className="detail-label">Coordinates</span>
-                  <span className="detail-value">
-                    {station.latitude !== 0 && station.longitude !== 0 
-                      ? `${station.latitude.toFixed(6)}, ${station.longitude.toFixed(6)}`
-                      : 'N/A'
-                    }
-                  </span>
-                </div>
-              </div>
-              
-              {station.yearlyPassengers && (
-                <div className="yearly-passengers">
+                
+                <div className="station-details">
                   <div className="detail-item">
-                    <span className="detail-label">Yearly Passengers</span>
-                    <span className="detail-value" style={{whiteSpace: 'pre-line'}}>
-                      {formatYearlyPassengers(station.yearlyPassengers)}
-                    </span>
+                    <span className="detail-label">Country</span>
+                    <span className="detail-value">{station.country || 'N/A'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">County</span>
+                    <span className="detail-value">{station.county || 'N/A'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">TOC</span>
+                    <span className="detail-value">{station.toc || 'N/A'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Tiploc</span>
+                    <span className="detail-value">{station.tiploc || 'N/A'}</span>
                   </div>
                 </div>
-              )}
+                
+                {station.yearlyPassengers && (
+                  <div className="yearly-passengers">
+                    <div className="detail-item">
+                      <span className="detail-label">Latest Year Passengers</span>
+                      <span className="detail-value">
+                        {(() => {
+                          if (typeof station.yearlyPassengers === 'object') {
+                            const years = Object.keys(station.yearlyPassengers)
+                              .filter(y => /^\d{4}$/.test(y))
+                              .sort((a, b) => parseInt(b) - parseInt(a))
+                            if (years.length > 0) {
+                              const latest = station.yearlyPassengers[years[0]]
+                              return typeof latest === 'number' ? latest.toLocaleString() : 'N/A'
+                            }
+                          }
+                          return 'N/A'
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="station-card-footer">
+                  <span className="view-details-text">Click to view full details</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="pagination-button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Previous
+              </button>
+              
+              <div className="pagination-info">
+                Page {currentPage} of {totalPages}
+              </div>
+              
+              <button 
+                className="pagination-button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                Next
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
+      
+      {/* Station Detail Modal */}
+      <StationModal 
+        station={selectedStation}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedStation(null)
+        }}
+      />
     </div>
   )
 }
