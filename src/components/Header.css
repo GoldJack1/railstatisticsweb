@@ -60,11 +60,9 @@
     color: var(--accent-color);
 }
 
-/* Desktop Navigation */
+/* Desktop Navigation - hidden (no nav buttons on desktop) */
 .desktop-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    display: none;
 }
 
 /* Mobile Menu Button - Hidden on Desktop */
@@ -137,9 +135,9 @@
         gap: var(--space-xs);
     }
     
-    /* Show mobile menu button on mobile */
+    /* Hamburger hidden on mobile */
     .mobile-menu-button {
-        display: flex;
+        display: none;
     }
     
     /* Hide desktop navigation on mobile */

@@ -45,26 +45,10 @@ const Header: React.FC = () => {
         <div className="header-right">
           <nav className="header-nav desktop-nav">
             <NavigationButton 
-              to="/" 
-              variant="wide" 
-              width="hug"
-              isActive={location.pathname === '/'}
-            >
-              Home
-            </NavigationButton>
-            <NavigationButton 
-              to="/stations" 
-              variant="wide" 
-              width="hug"
-              isActive={location.pathname === '/stations'}
-            >
-              Stations
-            </NavigationButton>
-            <NavigationButton 
               to="/migration" 
               variant="wide" 
               width="hug"
-              isActive={location.pathname === '/migration'}
+              isActive={location.pathname === '/' || location.pathname === '/migration'}
             >
               Migration
             </NavigationButton>
@@ -147,25 +131,7 @@ const Header: React.FC = () => {
             variant="wide" 
             width="fill" 
             onClick={closeMobileMenu}
-            isActive={location.pathname === '/'}
-          >
-            Home
-          </NavigationButton>
-          <NavigationButton 
-            to="/stations" 
-            variant="wide" 
-            width="fill" 
-            onClick={closeMobileMenu}
-            isActive={location.pathname === '/stations'}
-          >
-            Stations
-          </NavigationButton>
-          <NavigationButton 
-            to="/migration" 
-            variant="wide" 
-            width="fill" 
-            onClick={closeMobileMenu}
-            isActive={location.pathname === '/migration'}
+            isActive={location.pathname === '/' || location.pathname === '/migration'}
           >
             Migration
           </NavigationButton>

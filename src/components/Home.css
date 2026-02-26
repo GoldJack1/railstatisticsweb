@@ -107,16 +107,6 @@
 }
 
 
-/* Footer */
-.footer {
-    margin-top: var(--space-4xl);
-    padding: var(--space-2xl) 0;
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-}
-
 /* Responsive Design */
 /* Large Desktop (1440px+) */
 @media (min-width: 1440px) {

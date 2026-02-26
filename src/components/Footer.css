@@ -1,0 +1,35 @@
+.site-footer {
+  margin-top: auto;
+  padding: var(--space-2xl) 0;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-family: 'Geologica Cursive', 'Geologica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.site-footer-inner {
+  max-width: var(--container-2xl);
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.site-footer-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.site-footer-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.site-footer-link:hover {
+  color: var(--accent-color);
+  text-decoration: underline;
+}

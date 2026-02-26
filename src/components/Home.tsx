@@ -89,11 +89,6 @@ const Home: React.FC = () => {
           </NavigationButton>
         </section>
       </main>
-
-      {/* Footer */}
-      <footer className="footer">
-        <p>&copy; 2024 Rail Statistics</p>
-      </footer>
     </div>
   )
 }
