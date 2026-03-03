@@ -25,6 +25,14 @@ Station Name,Country,County,Operator,Visited,Visit Date,Favorite,Latitude,Longit
 Abbey Wood,England,London (City Of),Elizabeth Line,No,,No,51.49106056,0.121394025,0,7118664
 ```
 
+### Format 1 variant (no year columns)
+CSVs that use the same Format 1 columns but **without** year columns (e.g. only station info and visit data) are also supported. A trailing comma on the header row is handled automatically; missing year columns are filled with zero in the converted output.
+
+**Example:** `Stations list 03-03-2026.csv` with headers:
+```csv
+"Station Name","Country","County","Operator","Visited","Visit Date","Favorite","Latitude","Longitude",
+```
+
 ---
 
 ## Format 2: New Format (with Type Column)

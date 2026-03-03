@@ -26,8 +26,8 @@ export const detectCSVFormatFromContent = (csvContent: string): { format: string
   if (lines.length < 1) {
     return { format: 'unknown', description: 'Unable to detect format' }
   }
-  
-  const headers = parseCSVLine(lines[0])
+
+  const headers = trimTrailingEmptyColumns(parseCSVLine(lines[0]))
   const format = detectCSVFormat(headers)
   
   if (format === 'format2') {
@@ -83,17 +83,17 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
     throw new Error('CSV file must have at least a header and one data row')
   }
 
-  const headers = parseCSVLine(lines[0])
+  let headers = trimTrailingEmptyColumns(parseCSVLine(lines[0]))
   console.log('CSV Headers:', headers)
   console.log('Number of headers:', headers.length)
-  
+
   // Detect which format we're dealing with
   const format = detectCSVFormat(headers)
-  
+
   const stations: OldFormatStation[] = []
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i])
+    const values = trimTrailingEmptyColumns(parseCSVLine(lines[i]))
     if (i <= 3) { // Log first few rows for debugging
       console.log(`Row ${i + 1} raw line:`, lines[i].substring(0, 200) + '...')
       console.log(`Row ${i + 1} parsed values (first 10):`, values.slice(0, 10))
@@ -180,10 +180,10 @@ const parseCSVLine = (line: string): string[] => {
   const result: string[] = []
   let current = ''
   let inQuotes = false
-  
+
   for (let i = 0; i < line.length; i++) {
     const char = line[i]
-    
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         // Escaped quote
@@ -200,9 +200,18 @@ const parseCSVLine = (line: string): string[] => {
       current += char
     }
   }
-  
+
   result.push(current.trim())
   return result
+}
+
+// Strip trailing empty columns so header/row length matches when CSV has trailing commas
+const trimTrailingEmptyColumns = (columns: string[]): string[] => {
+  const trimmed = [...columns]
+  while (trimmed.length > 0 && trimmed[trimmed.length - 1].trim() === '') {
+    trimmed.pop()
+  }
+  return trimmed
 }
 
 // Load stations from Firebase for matching
