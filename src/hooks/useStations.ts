@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { fetchStationsFromFirebase } from '../services/firebase'
 import { calculateStats } from '../services/localData'
 import type { Station, StationStats, UseStationsReturn } from '../types'
+import { useStationCollection } from '../contexts/StationCollectionContext'
 
 export const useStations = (): UseStationsReturn => {
+  const { collectionId } = useStationCollection()
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +21,7 @@ export const useStations = (): UseStationsReturn => {
       setLoading(true)
       setError(null)
 
-      // Fetch stations from Firebase
+      // Fetch stations from Firebase (uses current collection from localStorage)
       const firebaseStations = await fetchStationsFromFirebase()
       
       if (firebaseStations.length > 0) {
@@ -39,7 +41,7 @@ export const useStations = (): UseStationsReturn => {
 
   useEffect(() => {
     loadStations()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collectionId]) // Refetch when user toggles station collection
 
 
   const refetch = (): void => {

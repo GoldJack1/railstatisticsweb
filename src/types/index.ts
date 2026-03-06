@@ -18,6 +18,49 @@ export interface YearlyPassengers {
   [year: string]: number
 }
 
+/** Sandbox collection (newsandboxstations1) full document shape for modal detail view */
+export interface SandboxStationDoc {
+  id?: string
+  location?: unknown
+  stnarea?: string
+  stationname?: string
+  CrsCode?: string
+  tiploc?: string
+  country?: string
+  county?: string
+  TOC?: string
+  operatorCode?: string
+  staffingLevel?: string
+  nlc?: string
+  'min-connection-time'?: string | number
+  urlSlug?: string
+  toilets?: {
+    toiletsAccessible?: string
+    toiletsChangingPlace?: string
+    toiletsBabyChanging?: string
+  }
+  stepFree?: {
+    stepFreeCode?: string
+    stepFreeNote?: string
+  }
+  lift?: {
+    liftAvailable?: string
+    liftNotes?: string
+    liftDetails?: string
+  }
+  connections?: {
+    connectionBus?: string
+    connectionTaxi?: string
+    connectionUnderground?: string
+  }
+  is?: {
+    isrequeststop?: string | boolean
+    Islimitedservice?: string | boolean
+  }
+  facilities?: Record<string, unknown>
+  yearlyPassengers?: Record<string, number | null>
+}
+
 export interface StationStats {
   totalStations: number
   withCoordinates: number

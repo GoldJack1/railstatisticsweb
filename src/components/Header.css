@@ -60,6 +60,36 @@
     color: var(--accent-color);
 }
 
+/* Station collection toggle (Production / Sandbox) */
+.station-collection-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    white-space: nowrap;
+}
+
+.station-collection-toggle-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.station-collection-select {
+    font-size: var(--text-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    min-height: 32px;
+}
+
+.station-collection-select:hover,
+.station-collection-select:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
 /* Desktop Navigation - hidden (no nav buttons on desktop) */
 .desktop-nav {
     display: none;

@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from 'firebase/app'
-import { getFirestore, collection, getDocs, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
+import { getFirestore, collection, doc, getDocs, getDoc, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 
@@ -64,6 +64,17 @@ export const initializeFirebase = async () => {
 export const getFirebaseApp = (): FirebaseApp | null => app
 export const getFirebaseDB = (): Firestore | null => db
 export const getFirebaseAnalytics = (): Analytics | null => analytics
+
+// Station collection toggle: 'stations' (production) or 'newsandboxstations1' (sandbox). Persisted in localStorage.
+export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'
+
+export type StationCollectionId = 'stations' | 'newsandboxstations1'
+
+export const getStationCollectionName = (): StationCollectionId => {
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(STATION_COLLECTION_STORAGE_KEY) : null
+  if (stored === 'newsandboxstations1' || stored === 'stations') return stored
+  return 'stations'
+}
 
 // Parse location string helper
 export const parseLocationString = (locationString: string): { latitude: number; longitude: number } | null => {
@@ -136,8 +147,8 @@ export const parseLocationString = (locationString: string): { latitude: number;
   }
 }
 
-// Fetch stations from Firebase
-export const fetchStationsFromFirebase = async (): Promise<Station[]> => {
+// Fetch stations from Firebase (optional collection override so caller can pass dropdown value at click time)
+export const fetchStationsFromFirebase = async (collectionOverride?: StationCollectionId): Promise<Station[]> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
@@ -148,7 +159,8 @@ export const fetchStationsFromFirebase = async (): Promise<Station[]> => {
   }
 
   try {
-    const stationsRef = collection(db, 'stations')
+    const collectionName = collectionOverride ?? getStationCollectionName()
+    const stationsRef = collection(db, collectionName)
     const snapshot = await getDocs(stationsRef)
     
     const stations: Station[] = []
@@ -238,5 +250,24 @@ export const fetchStationsFromFirebase = async (): Promise<Station[]> => {
   } catch (error) {
     console.error('Firebase fetch error:', error)
     throw error
+  }
+}
+
+/** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */
+export const fetchStationDocumentById = async (stationId: string): Promise<Record<string, unknown> | null> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) return null
+  try {
+    const collectionName = getStationCollectionName()
+    const docRef = doc(db, collectionName, stationId)
+    const snapshot = await getDoc(docRef)
+    if (!snapshot.exists()) return null
+    return snapshot.data() as Record<string, unknown>
+  } catch (error) {
+    console.error('Firebase fetch station doc error:', error)
+    return null
   }
 }

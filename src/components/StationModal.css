@@ -164,6 +164,16 @@
   border-radius: var(--radius-md);
 }
 
+.modal-sandbox-loading {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.modal-facilities-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .modal-overlay {

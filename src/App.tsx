@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { StationCollectionProvider } from './contexts/StationCollectionContext'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import './styles/App.css'
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   }, [pathname])
 
   return (
+    <StationCollectionProvider>
     <div className="app">
       <Header />
       <main className="main-content">
@@ -58,6 +60,7 @@ const App: React.FC = () => {
       </main>
       <Footer />
     </div>
+    </StationCollectionProvider>
   )
 }
 

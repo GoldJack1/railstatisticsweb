@@ -1,23 +1,63 @@
 // Migration service for converting old format CSV to new format
-import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult } from '../types/migration'
-import { fetchStationsFromFirebase } from './firebase'
+import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult, ColumnMapping } from '../types/migration'
+import { fetchStationsFromFirebase, getStationCollectionName, type StationCollectionId } from './firebase'
 
-// Detect CSV format based on headers
-const detectCSVFormat = (headers: string[]): 'format1' | 'format2' => {
-  // Format 1: Has "Station Name" header
-  // Format 2: Has "Type" and "Station" headers
-  
-  if (headers.includes('Type') && headers.includes('Station')) {
-    console.log('Detected Format 2 (new format with Type column)')
-    return 'format2'
-  } else if (headers.includes('Station Name')) {
-    console.log('Detected Format 1 (original format)')
+// Normalize a header for comparison (strip BOM, trim, collapse spaces)
+const normalizeHeader = (h: string): string =>
+  h.replace(/\uFEFF/g, '').trim().replace(/\s+/g, ' ').replace(/\u00A0/g, ' ')
+
+// Detect CSV format based on headers (order matters: prefer format1/2 when they match)
+const detectCSVFormat = (headers: string[]): 'format1' | 'format2' | 'format3' => {
+  const normalized = headers.map(normalizeHeader)
+  const lower = normalized.map((h) => h.toLowerCase())
+
+  // Format 1: "Station Name" (two words) – check before format3 so we don’t mis-detect
+  if (normalized.some((h) => h.toLowerCase() === 'station name')) {
+    console.log('Detected Format 1 (original format with Station Name column)')
     return 'format1'
   }
-  
-  // Default to format 1 if unclear
+  // Format 2: Type + Station
+  if (normalized.some((h) => h === 'Type') && normalized.some((h) => h === 'Station')) {
+    console.log('Detected Format 2 (new format with Type column)')
+    return 'format2'
+  }
+  // Format 3: stationname (one word) + location (JSON) – no "Station Name" or separate Lat/Long
+  const hasStationName = lower.some((h) => h === 'station name')
+  const hasSeparateLatLong = lower.includes('latitude') && lower.includes('longitude')
+  if (
+    lower.includes('stationname') &&
+    lower.includes('location') &&
+    !hasStationName &&
+    !hasSeparateLatLong
+  ) {
+    console.log('Detected Format 3 (stationname, country, county, TOC, location)')
+    return 'format3'
+  }
   console.log('Could not detect format clearly, defaulting to Format 1')
   return 'format1'
+}
+
+// Get value from row by header name (case-insensitive), for format3
+const getByHeader = (station: Record<string, string>, headers: string[], headerName: string): string => {
+  const key = headers.find((h) => h.toLowerCase().trim() === headerName.toLowerCase())
+  return (key ? station[key] : '') || ''
+}
+
+// Parse location JSON e.g. {"_latitude":51.49,"_longitude":0.12} or {"_latitude":-2.334345,"_longitude":2.334345}
+const parseLocationField = (value: string): { latitude: string; longitude: string } => {
+  const out = { latitude: '', longitude: '' }
+  if (!value || typeof value !== 'string') return out
+  try {
+    const raw = value.trim()
+    const parsed = raw.startsWith('{') ? JSON.parse(raw) : {}
+    const lat = parsed._latitude ?? parsed.latitude ?? parsed.lat
+    const lng = parsed._longitude ?? parsed.longitude ?? parsed.long ?? parsed.lng
+    if (lat != null && !isNaN(Number(lat))) out.latitude = String(lat)
+    if (lng != null && !isNaN(Number(lng))) out.longitude = String(lng)
+  } catch {
+    // ignore
+  }
+  return out
 }
 
 // Public function to detect format from CSV content
@@ -30,16 +70,21 @@ export const detectCSVFormatFromContent = (csvContent: string): { format: string
   const headers = trimTrailingEmptyColumns(parseCSVLine(lines[0]))
   const format = detectCSVFormat(headers)
   
+  if (format === 'format3') {
+    return {
+      format: 'Format 3',
+      description: 'Headers: stationname, country, county, TOC, location (JSON with _latitude/_longitude)'
+    }
+  }
   if (format === 'format2') {
-    return { 
-      format: 'Format 2', 
-      description: 'New format with Type column (e.g., stations_20250917214403.csv)' 
+    return {
+      format: 'Format 2',
+      description: 'New format with Type column (e.g., stations_20250917214403.csv)'
     }
-  } else {
-    return { 
-      format: 'Format 1', 
-      description: 'Original format with Station Name column' 
-    }
+  }
+  return {
+    format: 'Format 1',
+    description: 'Original format with Station Name column'
   }
 }
 
@@ -76,14 +121,109 @@ const cleanNumberString = (value: string): string => {
   return value.replace(/,/g, '').replace(/"/g, '').trim()
 }
 
+// Parse lat/long for output: return 0 when missing, null, or invalid so JSON is valid
+const safeLatLng = (value: string | undefined | null): number => {
+  if (value === undefined || value === null || String(value).trim() === '') return 0
+  const n = parseFloat(String(value).trim())
+  return isNaN(n) ? 0 : n
+}
+
+/** Parse CSV to raw headers and rows (no format detection). Used for mapping step. */
+export const getRawCSV = (csvContent: string): { headers: string[]; rows: string[][] } => {
+  const content = csvContent.replace(/^\uFEFF/, '')
+  const lines = content.split(/\r?\n/).filter((line) => line.trim())
+  if (lines.length < 2) throw new Error('CSV must have a header and at least one row')
+  const headers = trimTrailingEmptyColumns(parseCSVLine(lines[0])).map(normalizeHeader)
+  const expectedLen = headers.length
+  const rows: string[][] = []
+  for (let i = 1; i < lines.length; i++) {
+    const values = trimTrailingEmptyColumns(parseCSVLine(lines[i]))
+    // Normalize row length so we never drop rows: take first N columns or pad with ''
+    if (values.length >= expectedLen) {
+      rows.push(values.slice(0, expectedLen))
+    } else {
+      rows.push([...values, ...Array(expectedLen - values.length).fill('')])
+    }
+  }
+  return { headers, rows }
+}
+
+/** Suggest column mapping from headers (case-insensitive match). */
+export const suggestColumnMapping = (headers: string[]): ColumnMapping => {
+  const lower = headers.map((h) => h.toLowerCase())
+  const find = (...names: string[]): string => {
+    const i = lower.findIndex((l) => names.some((n) => l === n.toLowerCase()))
+    return i >= 0 ? headers[i] : ''
+  }
+  return {
+    stationName: find('Station Name', 'Station', 'stationname'),
+    country: find('Country', 'country'),
+    county: find('County', 'county'),
+    operator: find('Operator', 'Operator', 'TOC', 'toc'),
+    visited: find('Visited', 'Is Visited', 'visited'),
+    visitDate: find('Visit Date', 'Visit Dates', 'Visit Date DD/MM/YYYY', 'visit date'),
+    favorite: find('Favorite', 'Is Favorite', 'Favourite', 'favorite'),
+    latitude: find('Latitude', 'latitude'),
+    longitude: find('Longitude', 'longitude'),
+    location: find('location', 'Location') || undefined
+  }
+}
+
+/** Parse CSV using user-provided column mapping into OldFormatStation[]. */
+export const parseCSVWithColumnMapping = (csvContent: string, mapping: ColumnMapping): OldFormatStation[] => {
+  const { headers, rows } = getRawCSV(csvContent)
+  const idx = (headerName: string): number => (headerName ? headers.indexOf(headerName) : -1)
+  const get = (row: string[], key: keyof ColumnMapping): string => {
+    const h = mapping[key]
+    if (!h) return ''
+    const i = idx(h)
+    return i >= 0 ? (row[i] ?? '').trim() : ''
+  }
+  const stations: OldFormatStation[] = []
+  const locCol = mapping.location ? idx(mapping.location) : -1
+  for (const row of rows) {
+    let lat = get(row, 'latitude')
+    let lng = get(row, 'longitude')
+    if (locCol >= 0 && row[locCol]) {
+      const parsed = parseLocationField(row[locCol].trim())
+      if (parsed.latitude || parsed.longitude) {
+        lat = parsed.latitude
+        lng = parsed.longitude
+      }
+    }
+    const yearEntries = Object.fromEntries(
+      headers
+        .filter((h) => /^\d{4}$/.test(h))
+        .map((h) => {
+          const colIdx = headers.indexOf(h)
+          return [h, cleanNumberString((row[colIdx] ?? '') as string)]
+        })
+    )
+    stations.push({
+      stationName: get(row, 'stationName'),
+      country: get(row, 'country'),
+      county: get(row, 'county'),
+      operator: get(row, 'operator'),
+      visited: get(row, 'visited'),
+      visitDate: get(row, 'visitDate'),
+      favorite: get(row, 'favorite'),
+      latitude: lat,
+      longitude: lng,
+      ...yearEntries
+    })
+  }
+  return stations
+}
+
 // Parse CSV content with auto-detection of format
 export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
-  const lines = csvContent.split('\n').filter(line => line.trim())
+  const content = csvContent.replace(/^\uFEFF/, '') // strip BOM
+  const lines = content.split(/\r?\n/).filter(line => line.trim())
   if (lines.length < 2) {
     throw new Error('CSV file must have at least a header and one data row')
   }
 
-  let headers = trimTrailingEmptyColumns(parseCSVLine(lines[0]))
+  let headers = trimTrailingEmptyColumns(parseCSVLine(lines[0])).map(normalizeHeader)
   console.log('CSV Headers:', headers)
   console.log('Number of headers:', headers.length)
 
@@ -113,44 +253,59 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
 
     // Map CSV headers to OldFormatStation interface properties based on format
     let mappedStation: OldFormatStation
-    
-    if (format === 'format2') {
-      // New format with Type column
+
+    if (format === 'format3') {
+      // stationname, country, county, TOC, location (JSON)
+      const loc = parseLocationField(getByHeader(station, headers, 'location'))
       mappedStation = {
-        type: station['Type'] || '',
-        stationName: station['Station'] || '',
-        country: station['Country'] || '',
-        county: station['County'] || '',
-        operator: station['Operator'] || '',
-        visited: station['Visited'] || '',
-        visitDate: station['Visit Date DD/MM/YYYY'] || '',
-        favorite: station['Favourite'] || '', // Note: British spelling
-        latitude: station['Latitude'] || '',
-        longitude: station['Longitude'] || '',
-        // Copy all year columns, cleaning numeric values
+        stationName: getByHeader(station, headers, 'stationname'),
+        country: getByHeader(station, headers, 'country'),
+        county: getByHeader(station, headers, 'county'),
+        operator: getByHeader(station, headers, 'TOC'),
+        visited: getByHeader(station, headers, 'Visited') || getByHeader(station, headers, 'Is Visited') || '',
+        visitDate: getByHeader(station, headers, 'Visit Date') || getByHeader(station, headers, 'Visit Dates') || '',
+        favorite: getByHeader(station, headers, 'Favorite') || getByHeader(station, headers, 'Is Favorite') || getByHeader(station, headers, 'Favourite') || '',
+        latitude: loc.latitude,
+        longitude: loc.longitude,
         ...Object.fromEntries(
           Object.entries(station)
-            .filter(([key]) => /^\d{4}$/.test(key)) // Only year columns (4 digits)
+            .filter(([key]) => /^\d{4}$/.test(key))
+            .map(([key, value]) => [key, cleanNumberString(value as string)])
+        )
+      }
+    } else if (format === 'format2') {
+      // New format with Type column (case-insensitive header lookup)
+      mappedStation = {
+        type: getByHeader(station, headers, 'Type'),
+        stationName: getByHeader(station, headers, 'Station'),
+        country: getByHeader(station, headers, 'Country'),
+        county: getByHeader(station, headers, 'County'),
+        operator: getByHeader(station, headers, 'Operator'),
+        visited: getByHeader(station, headers, 'Visited'),
+        visitDate: getByHeader(station, headers, 'Visit Date DD/MM/YYYY'),
+        favorite: getByHeader(station, headers, 'Favourite') || getByHeader(station, headers, 'Favorite'),
+        latitude: getByHeader(station, headers, 'Latitude'),
+        longitude: getByHeader(station, headers, 'Longitude'),
+        ...Object.fromEntries(
+          Object.entries(station)
+            .filter(([key]) => /^\d{4}$/.test(key))
             .map(([key, value]) => [key, cleanNumberString(value as string)])
         )
       }
     } else {
-      // Original format without Type column
+      // Format 1: original format (case-insensitive header lookup so Visited/Station Name always found)
       mappedStation = {
-        stationName: station['Station Name'] || '',
-        country: station['Country'] || '',
-        county: station['County'] || '',
-        operator: station['Operator'] || '',
-        visited: station['Visited'] || '',
-        visitDate: station['Visit Date'] || '',
-        favorite: station['Favorite'] || '',
-        latitude: station['Latitude'] || '',
-        longitude: station['Longitude'] || '',
-        // Copy all year columns
+        stationName: getByHeader(station, headers, 'Station Name'),
+        country: getByHeader(station, headers, 'Country'),
+        county: getByHeader(station, headers, 'County'),
+        operator: getByHeader(station, headers, 'Operator'),
+        visited: getByHeader(station, headers, 'Visited'),
+        visitDate: getByHeader(station, headers, 'Visit Date'),
+        favorite: getByHeader(station, headers, 'Favorite'),
+        latitude: getByHeader(station, headers, 'Latitude'),
+        longitude: getByHeader(station, headers, 'Longitude'),
         ...Object.fromEntries(
-          Object.entries(station).filter(([key]) => 
-            /^\d{4}$/.test(key) // Only year columns (4 digits)
-          )
+          Object.entries(station).filter(([key]) => /^\d{4}$/.test(key))
         )
       }
     }
@@ -214,11 +369,11 @@ const trimTrailingEmptyColumns = (columns: string[]): string[] => {
   return trimmed
 }
 
-// Load stations from Firebase for matching
-const loadStationsForMatching = async (): Promise<any[]> => {
+// Load stations from Firebase for matching (collection from caller so dropdown value at click time is used)
+const loadStationsForMatching = async (collectionName: StationCollectionId): Promise<any[]> => {
   try {
-    console.log('Loading stations from Cloud Database for migration matching')
-    const firebaseStations = await fetchStationsFromFirebase()
+    console.log(`Loading stations from Cloud Database for migration matching (collection: ${collectionName})`)
+    const firebaseStations = await fetchStationsFromFirebase(collectionName)
     
     if (firebaseStations.length > 0) {
       console.log(`Loaded ${firebaseStations.length} Firebase stations for matching`)
@@ -232,13 +387,15 @@ const loadStationsForMatching = async (): Promise<any[]> => {
   }
 }
 
-// Match old format stations with available stations from Firebase
+// Match old format stations with available stations from Firebase (pass collectionId so dropdown value is used)
 export const matchStations = async (
-  oldStations: OldFormatStation[], 
-  onProgress?: (progress: number, currentStation: string) => void
+  oldStations: OldFormatStation[],
+  onProgress?: (progress: number, currentStation: string) => void,
+  collectionId?: StationCollectionId
 ): Promise<{ matches: StationMatch[], availableStations: any[] }> => {
   try {
-    const availableStations = await loadStationsForMatching()
+    const collection = collectionId ?? getStationCollectionName()
+    const availableStations = await loadStationsForMatching(collection)
     console.log(`Loaded ${availableStations.length} stations for matching`)
     
     // Log sample of available stations for debugging
@@ -314,6 +471,42 @@ export const matchStations = async (
   }
 }
 
+// Country/county must agree when both sides have them (avoids cross-country or wrong-region matches)
+const countryCountyCompatible = (
+  oldCountry: string,
+  oldCounty: string,
+  fbCountry: string,
+  fbCounty: string
+): boolean => {
+  if (oldCountry && fbCountry && oldCountry !== fbCountry) return false
+  if (!oldCounty || !fbCounty) return true
+  if (oldCounty === fbCounty) return true
+  // Allow "London" vs "Greater London" / "London (Ealing)" etc.
+  return oldCounty.includes(fbCounty) || fbCounty.includes(oldCounty)
+}
+
+// Normalize station name for comparison: "Leeds (city)" → "leeds", "Hall i' th' Wood" ↔ "Hall-i'-th'-wood"
+// " and " and " & " are treated as the same (e.g. "Cam and Dudley" ↔ "Cam & Dudley")
+const normalizeStationNameForMatch = (name: string): string => {
+  if (!name || typeof name !== 'string') return ''
+  const original = name.toLowerCase().trim()
+  let s = original
+  s = s.replace(/\s+and\s+/g, ' & ') // "cam and dudley" → "cam & dudley"
+  s = s.replace(/\s*\([^)]*\)\s*$/g, '') // strip trailing parenthetical e.g. " (city)", " (Ealing)"
+  s = s.replace(/-/g, ' ') // hyphens to spaces so "Hall-i'-th'-wood" matches "Hall i' th' Wood"
+  s = s.replace(/'/g, '') // strip all apostrophes so "Bishop's Stortford" matches "Bishops Stortford"
+  if (original.endsWith("'s")) s = s.replace(/[^s]s$/, (m) => m[0]) // "Bishopton's" → "bishopton"
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
+// Extract trailing parenthetical qualifier for disambiguation: "Dalston (Kingsland)" → "kingsland"
+const getTrailingParentheticalQualifier = (name: string): string => {
+  if (!name || typeof name !== 'string') return ''
+  const m = name.trim().match(/\s*\(([^)]*)\)\s*$/)
+  return m ? m[1].toLowerCase().trim() : ''
+}
+
 // Find the best match for a station
 const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): StationMatch => {
   // Safety check for station name
@@ -331,11 +524,15 @@ const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): S
   }
   
   const stationName = oldStation.stationName.toLowerCase().trim()
+  const normalizedStationName = normalizeStationNameForMatch(oldStation.stationName)
   const oldCountry = (oldStation.country || '').toLowerCase().trim()
   const oldCounty = (oldStation.county || '').toLowerCase().trim()
   const oldTOC = (oldStation.operator || '').toLowerCase().trim()
   const oldLat = parseFloat(oldStation.latitude)
   const oldLng = parseFloat(oldStation.longitude)
+  // Treat missing, null, or (0,0) as "no coordinates" – don't use for distance or coordinate matching
+  const hasValidCoords =
+    !isNaN(oldLat) && !isNaN(oldLng) && (oldLat !== 0 || oldLng !== 0)
 
   let bestMatch: any = null
   let matchType: 'exact' | 'fuzzy' | 'coordinates' | 'none' = 'none'
@@ -344,140 +541,177 @@ const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): S
   let suggestedCrsCode = ''
   let suggestedTiploc = ''
 
-  // 1. Try exact name match
+  // 1. Try exact name match – literal or normalized (Leeds vs Leeds (city), Bishopton vs Bishopton's)
+  // When CSV normalizes to a single word (e.g. "Dalston"), also include FB stations that start with that word (e.g. "Dalston Junction")
+  // so we can disambiguate by coordinates (London "Dalston" → Dalston Junction, Cumbria → Dalston (Cumbria))
+  const exactMatches: any[] = []
+  const csvNameIsSingleWord = normalizedStationName.length > 0 && !normalizedStationName.includes(' ')
   for (const fbStation of firebaseStations) {
     const fbNameRaw = fbStation.stationName || fbStation.stationname || ''
     if (typeof fbNameRaw !== 'string') continue
-    
     const fbName = fbNameRaw.toLowerCase().trim()
-    if (fbName === stationName) {
-      bestMatch = fbStation
+    const normalizedFb = normalizeStationNameForMatch(fbNameRaw)
+    const literalMatch = fbName === stationName
+    const normalizedMatch = normalizedStationName && normalizedFb === normalizedStationName
+    const csvSingleWordPrefixMatch =
+      csvNameIsSingleWord && normalizedFb.startsWith(normalizedStationName + ' ')
+    if (literalMatch || normalizedMatch || csvSingleWordPrefixMatch) {
+      exactMatches.push(fbStation)
+    }
+  }
+  // When CSV has a (placename) qualifier, only allow candidates that contain that qualifier – avoids e.g. all 3 Whitchurches matching to one
+  const qualifier = getTrailingParentheticalQualifier(oldStation.stationName)
+  let candidates = exactMatches
+  if (qualifier) {
+    candidates = exactMatches.filter((fb) => {
+      const raw = (fb.stationName || fb.stationname || '').toLowerCase()
+      return raw.includes(qualifier)
+    })
+  }
+  if (candidates.length === 1) {
+    bestMatch = candidates[0]
+    matchType = 'exact'
+    confidence = 1.0
+    suggestedId = bestMatch.id || suggestedId
+    suggestedCrsCode = bestMatch.crsCode || bestMatch.CrsCode || ''
+    suggestedTiploc = bestMatch.tiploc || ''
+  } else if (candidates.length > 1) {
+    // Prefer the candidate that contains the qualifier within reasonable distance – else pick by coords
+    const MAX_QUALIFIER_DISTANCE_KM = 30
+    if (qualifier && hasValidCoords) {
+      const byQualifier = candidates.find((fb) => {
+        const raw = (fb.stationName || fb.stationname || '').toLowerCase()
+        return raw.includes(qualifier)
+      })
+      if (byQualifier && typeof byQualifier.latitude === 'number' && typeof byQualifier.longitude === 'number') {
+        const distKm = calculateDistance(oldLat, oldLng, byQualifier.latitude, byQualifier.longitude)
+        if (distKm <= MAX_QUALIFIER_DISTANCE_KM) {
+          bestMatch = byQualifier
+        }
+      }
+    }
+    if (!bestMatch) {
+      const withCoords = candidates.filter(
+        (fb) => typeof fb.latitude === 'number' && typeof fb.longitude === 'number' &&
+          !isNaN(fb.latitude) && !isNaN(fb.longitude) && (fb.latitude !== 0 || fb.longitude !== 0)
+      )
+      if (hasValidCoords && withCoords.length > 0) {
+        let closest = withCoords[0]
+        let minDist = Infinity
+        for (const fb of withCoords) {
+          const d = calculateDistance(oldLat, oldLng, fb.latitude, fb.longitude)
+          if (d < minDist) {
+            minDist = d
+            closest = fb
+          }
+        }
+        bestMatch = closest
+      } else {
+        bestMatch = candidates[0]
+      }
+    }
+    if (bestMatch) {
       matchType = 'exact'
       confidence = 1.0
-      suggestedId = fbStation.id || suggestedId
-      suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
-      suggestedTiploc = fbStation.tiploc || ''
-      break
+      suggestedId = bestMatch.id || suggestedId
+      suggestedCrsCode = bestMatch.crsCode || bestMatch.CrsCode || ''
+      suggestedTiploc = bestMatch.tiploc || ''
     }
   }
 
-  // 2. Try fuzzy name match with location/TOC validation
+  // 2. Try fuzzy name match (strict threshold to avoid e.g. "Acton Bridge" → "Haydon Bridge")
+  const FUZZY_MIN_SIMILARITY = 0.82
+  const nameForFuzzy = (n: string) => n.replace(/\s+and\s+/g, ' & ')
   if (!bestMatch) {
     for (const fbStation of firebaseStations) {
+      const fbCountry = (fbStation.country || '').toLowerCase().trim()
+      const fbCounty = (fbStation.county || '').toLowerCase().trim()
+      if (!countryCountyCompatible(oldCountry, oldCounty, fbCountry, fbCounty)) continue
       const fbNameRaw = fbStation.stationName || fbStation.stationname || ''
       if (typeof fbNameRaw !== 'string') continue
-      
       const fbName = fbNameRaw.toLowerCase().trim()
-      const similarity = calculateSimilarity(stationName, fbName)
-      
-      if (similarity > 0.3) { // Very permissive threshold for testing
-        let matchConfidence = similarity
-        
-        // Boost confidence if country matches
-        const fbCountry = (fbStation.country || '').toLowerCase().trim()
-        if (oldCountry && fbCountry && fbCountry === oldCountry) {
-          matchConfidence += 0.2
-        }
-        
-        // Boost confidence if county matches
-        const fbCounty = (fbStation.county || '').toLowerCase().trim()
-        if (oldCounty && fbCounty && fbCounty === oldCounty) {
-          matchConfidence += 0.15
-        }
-        
-        // Boost confidence if TOC matches
-        const fbTOC = (fbStation.toc || fbStation.TOC || '').toLowerCase().trim()
-        if (oldTOC && fbTOC && fbTOC === oldTOC) {
-          matchConfidence += 0.1
-        }
-        
-        // Cap confidence at 1.0
-        matchConfidence = Math.min(1.0, matchConfidence)
-        
-        if (matchConfidence > confidence) {
-          bestMatch = fbStation
-          matchType = 'fuzzy'
-          confidence = matchConfidence
-          suggestedId = fbStation.id || suggestedId
-          suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
-          suggestedTiploc = fbStation.tiploc || ''
-        }
+      const similarity = calculateSimilarity(nameForFuzzy(stationName), nameForFuzzy(fbName))
+      if (similarity < FUZZY_MIN_SIMILARITY) continue
+      // Require first word to match for multi-word names (avoids Acton vs Haydon)
+      const oldWords = stationName.split(/\s+/)
+      const fbWords = fbName.split(/\s+/)
+      if (oldWords.length > 1 && fbWords.length > 1 && oldWords[0] !== fbWords[0]) continue
+      let matchConfidence = similarity
+      if (oldCountry && fbCountry && fbCountry === oldCountry) matchConfidence += 0.2
+      if (oldCounty && fbCounty && fbCounty === oldCounty) matchConfidence += 0.15
+      const fbTOC = (fbStation.toc || fbStation.TOC || '').toLowerCase().trim()
+      if (oldTOC && fbTOC && fbTOC === oldTOC) matchConfidence += 0.1
+      matchConfidence = Math.min(1.0, matchConfidence)
+      if (matchConfidence > confidence) {
+        bestMatch = fbStation
+        matchType = 'fuzzy'
+        confidence = matchConfidence
+        suggestedId = fbStation.id || suggestedId
+        suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
+        suggestedTiploc = fbStation.tiploc || ''
       }
     }
   }
 
-  // 3. Try coordinate match if no name match
-  if (!bestMatch && !isNaN(oldLat) && !isNaN(oldLng)) {
+  // 3. Try coordinate match if no name match (skip when lat/long missing, 0, or null)
+  if (!bestMatch && hasValidCoords) {
     for (const fbStation of firebaseStations) {
+      const fbCountry = (fbStation.country || '').toLowerCase().trim()
+      const fbCounty = (fbStation.county || '').toLowerCase().trim()
+      if (!countryCountyCompatible(oldCountry, oldCounty, fbCountry, fbCounty)) continue
       const fbLat = fbStation.latitude
       const fbLng = fbStation.longitude
-      
-      if (fbLat && fbLng) {
-        const distance = calculateDistance(oldLat, oldLng, fbLat, fbLng)
-        
-        // If within 500 meters, consider it a match (increased from 100m)
-        if (distance < 0.5) {
-          let coordConfidence = Math.max(0.3, 1 - (distance * 2)) // Convert distance to confidence
-          
-          // Boost confidence if country matches
-          const fbCountry = (fbStation.country || '').toLowerCase().trim()
-          if (oldCountry && fbCountry && fbCountry === oldCountry) {
-            coordConfidence += 0.2
-          }
-          
-          if (coordConfidence > confidence) {
-            bestMatch = fbStation
-            matchType = 'coordinates'
-            confidence = Math.min(1.0, coordConfidence)
-            suggestedId = fbStation.id || suggestedId
-            suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
-            suggestedTiploc = fbStation.tiploc || ''
-          }
-        }
+      if (!fbLat || !fbLng) continue
+      const distance = calculateDistance(oldLat, oldLng, fbLat, fbLng)
+      if (distance >= 0.5) continue
+      const fbNameRaw = fbStation.stationName || fbStation.stationname || ''
+      const fbName = (typeof fbNameRaw === 'string' ? fbNameRaw : '').toLowerCase().trim()
+      const nameSimilarity = fbName ? calculateSimilarity(stationName, fbName) : 0
+      if (nameSimilarity < 0.4) continue // Don't assign a totally different name by coords alone
+      let coordConfidence = Math.max(0.3, 1 - (distance * 2))
+      if (oldCountry && fbCountry && fbCountry === oldCountry) coordConfidence += 0.2
+      if (coordConfidence > confidence) {
+        bestMatch = fbStation
+        matchType = 'coordinates'
+        confidence = Math.min(1.0, coordConfidence)
+        suggestedId = fbStation.id || suggestedId
+        suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
+        suggestedTiploc = fbStation.tiploc || ''
       }
     }
   }
 
-  // 4. Try partial name match (contains) as last resort
+  // 4. Try partial name match (contains) as last resort – require good similarity and country/county compatible
+  // Require the shorter (contained) name to have at least two words so we don't match "Dalston" → "Dalston (Cumbria)"
+  // or allow single-word prefix matches that could be wrong (e.g. multiple "Dalston" stations).
   if (!bestMatch) {
     for (const fbStation of firebaseStations) {
+      const fbCountry = (fbStation.country || '').toLowerCase().trim()
+      const fbCounty = (fbStation.county || '').toLowerCase().trim()
+      if (!countryCountyCompatible(oldCountry, oldCounty, fbCountry, fbCounty)) continue
       const fbNameRaw = fbStation.stationName || fbStation.stationname || ''
       if (typeof fbNameRaw !== 'string') continue
-      
       const fbName = fbNameRaw.toLowerCase().trim()
-      
-      // Check if either name contains the other
-      if ((stationName.includes(fbName) || fbName.includes(stationName)) && 
-          Math.min(stationName.length, fbName.length) > 3) { // Avoid very short matches
-        
-        let partialConfidence = 0.4 // Base confidence for partial match
-        
-        // Boost confidence if country matches
-        const fbCountry = (fbStation.country || '').toLowerCase().trim()
-        if (oldCountry && fbCountry && fbCountry === oldCountry) {
-          partialConfidence += 0.3
-        }
-        
-        // Boost confidence if county matches
-        const fbCounty = (fbStation.county || '').toLowerCase().trim()
-        if (oldCounty && fbCounty && fbCounty === oldCounty) {
-          partialConfidence += 0.2
-        }
-        
-        // Boost confidence if TOC matches
-        const fbTOC = (fbStation.toc || fbStation.TOC || '').toLowerCase().trim()
-        if (oldTOC && fbTOC && fbTOC === oldTOC) {
-          partialConfidence += 0.1
-        }
-        
-        if (partialConfidence > confidence) {
-          bestMatch = fbStation
-          matchType = 'fuzzy'
-          confidence = Math.min(1.0, partialConfidence)
-          suggestedId = fbStation.id || suggestedId
-          suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
-          suggestedTiploc = fbStation.tiploc || ''
-        }
+      const minLen = Math.min(stationName.length, fbName.length)
+      if (minLen <= 3) continue
+      const contains = stationName.includes(fbName) || fbName.includes(stationName)
+      if (!contains) continue
+      const shorterName = stationName.length <= fbName.length ? stationName : fbName
+      if (!shorterName.includes(' ')) continue // avoid single-word contained match (e.g. "dalston" in "dalston (cumbria)")
+      const similarity = calculateSimilarity(stationName, fbName)
+      if (similarity < 0.65) continue // Avoid "X Bridge" matching wrong "Y Bridge"
+      let partialConfidence = 0.4
+      if (oldCountry && fbCountry && fbCountry === oldCountry) partialConfidence += 0.3
+      if (oldCounty && fbCounty && fbCounty === oldCounty) partialConfidence += 0.2
+      const fbTOC = (fbStation.toc || fbStation.TOC || '').toLowerCase().trim()
+      if (oldTOC && fbTOC && fbTOC === oldTOC) partialConfidence += 0.1
+      if (partialConfidence > confidence) {
+        bestMatch = fbStation
+        matchType = 'fuzzy'
+        confidence = Math.min(1.0, partialConfidence)
+        suggestedId = fbStation.id || suggestedId
+        suggestedCrsCode = fbStation.crsCode || fbStation.CrsCode || ''
+        suggestedTiploc = fbStation.tiploc || ''
       }
     }
   }
@@ -587,16 +821,16 @@ const formatDate = (dateString: string): string => {
   return dateString
 }
 
-// Convert new stations from database to new format
-const convertNewStationsToFormat = (newStations: any[], startingIndex: number): NewFormatStation[] => {
+// Convert new stations from database to new format (use Firebase IDs)
+const convertNewStationsToFormat = (newStations: any[]): NewFormatStation[] => {
   const converted: NewFormatStation[] = []
   
   for (let i = 0; i < newStations.length; i++) {
     const station = newStations[i]
-    const sequentialId = String(startingIndex + i + 1).padStart(4, '0')
+    const stationId = station.id != null ? String(station.id) : String(i + 1).padStart(4, '0')
     
     const newStation: NewFormatStation = {
-      id: sequentialId,
+      id: stationId,
       stnarea: 'GBNR',
       stationname: station.stationName || station.stationname || '',
       CrsCode: station.crsCode || station.CrsCode || '',
@@ -635,18 +869,27 @@ const convertNewStationsToFormat = (newStations: any[], startingIndex: number): 
 // Convert matched stations to new format
 export const convertToNewFormat = (matches: StationMatch[], newStations: any[] = []): NewFormatStation[] => {
   const converted: NewFormatStation[] = []
-  
+  let unmatchedIndex = 0
+
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]
     const old = match.oldStation
     const firebase = match.firebaseStation
-    
-    // Generate zero-padded sequential ID (0001, 0002, etc.)
-    const sequentialId = String(i + 1).padStart(4, '0')
+
+    // Matched (or user-corrected): use Firebase ID. Unmatched: use 9xxx (9001, 9002, ...)
+    const firebaseId = firebase && (firebase.id ?? match.suggestedId ?? '')
+    const hasMatch = firebase && (String(firebaseId).trim() !== '')
+    let outputId: string
+    if (hasMatch) {
+      outputId = String(firebaseId).trim()
+    } else {
+      unmatchedIndex += 1
+      outputId = String(9000 + unmatchedIndex)
+    }
     
     // Use matched station data when available, otherwise use old data
     const newStation: NewFormatStation = {
-      id: sequentialId,
+      id: outputId,
       stnarea: 'GBNR',
       // Use matched station name if available, otherwise use old station name
       stationname: firebase ? (firebase.stationName || firebase.stationname || old.stationName) : old.stationName,
@@ -656,10 +899,10 @@ export const convertToNewFormat = (matches: StationMatch[], newStations: any[] =
       country: firebase ? (firebase.country || old.country) : old.country,
       county: firebase ? (firebase.county || old.county) : old.county,
       TOC: firebase ? (firebase.toc || firebase.TOC || old.operator) : old.operator,
-      // Use old coordinates with proper JSON format to match newformat.csv
+      // Use old coordinates when present; use 0 when missing, null, or invalid so JSON is valid
       location: JSON.stringify({
-        _latitude: parseFloat(old.latitude),
-        _longitude: parseFloat(old.longitude)
+        _latitude: safeLatLng(old.latitude),
+        _longitude: safeLatLng(old.longitude)
       }),
       // Preserve user data from old format, keeping Yes/No as strings
       'Is Visited': old.visited && old.visited.toLowerCase() === 'yes' ? 'Yes' : 'No',
@@ -697,7 +940,7 @@ export const convertToNewFormat = (matches: StationMatch[], newStations: any[] =
 
   // Add new stations (ID >= 2588) to the converted output
   if (newStations.length > 0) {
-    const newStationsConverted = convertNewStationsToFormat(newStations, converted.length)
+    const newStationsConverted = convertNewStationsToFormat(newStations)
     converted.push(...newStationsConverted)
     console.log(`Added ${newStationsConverted.length} new stations (ID >= 2588) to converted output`)
   }
@@ -735,6 +978,43 @@ export const generateMigrationResult = (
   
   // Convert matches and automatically add new stations
   const converted = convertToNewFormat(matches, newStations)
+
+  // Duplicate detection: same output ID on more than one row; also build outputIds[] for prev/next in UI
+  let unmatchedIndex = 0
+  const outputIds: string[] = []
+  const idToIndices: Record<string, number[]> = {}
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i]
+    const firebase = m.firebaseStation
+    const hasMatch = firebase && (String(firebase.id ?? m.suggestedId ?? '').trim() !== '')
+    const outputId = hasMatch
+      ? String(firebase!.id ?? m.suggestedId).trim()
+      : String(9000 + (++unmatchedIndex))
+    outputIds.push(outputId)
+    if (!idToIndices[outputId]) idToIndices[outputId] = []
+    idToIndices[outputId].push(i)
+  }
+  const duplicateGroups: MigrationResult['duplicateGroups'] = Object.entries(idToIndices)
+    .filter(([, indices]) => indices.length > 1)
+    .map(([id, matchIndices]) => ({
+      id,
+      matchIndices,
+      stationNames: matchIndices.map((idx) => matches[idx].oldStation.stationName || '')
+    }))
+
+  // Mis-matched detection: fuzzy with low confidence, or CSV had (placename) but matched station doesn't contain it
+  const mismatchedMatchIndices: number[] = []
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i]
+    if (!m.firebaseStation) continue
+    const qualifier = getTrailingParentheticalQualifier(m.oldStation.stationName)
+    if (qualifier) {
+      const fbName = (m.firebaseStation.stationName || m.firebaseStation.stationname || '').toLowerCase()
+      if (!fbName.includes(qualifier)) mismatchedMatchIndices.push(i)
+    } else if (m.matchType === 'fuzzy' && m.confidence < 0.9) {
+      mismatchedMatchIndices.push(i)
+    }
+  }
   
   // Count visited and favorite stations
   const visitedCount = matches.filter(m => 
@@ -758,7 +1038,9 @@ export const generateMigrationResult = (
     fuzzyMatches: matches.filter(m => m.matchType === 'fuzzy').length,
     coordinateMatches: matches.filter(m => m.matchType === 'coordinates').length,
     visited: visitedCount,
-    favorites: favoritesCount
+    favorites: favoritesCount,
+    duplicateIds: duplicateGroups.length,
+    mismatched: mismatchedMatchIndices.length
   }
 
   return {
@@ -768,6 +1050,10 @@ export const generateMigrationResult = (
     untracked: untrackedStations,
     newStations: newStations,
     converted,
+    availableStations,
+    duplicateGroups,
+    outputIds,
+    mismatchedMatchIndices,
     stats
   }
 }

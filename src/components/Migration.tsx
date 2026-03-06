@@ -1,20 +1,23 @@
 import React, { useState, useCallback } from 'react'
 import { useStations } from '../hooks/useStations'
+import { useStationCollection } from '../contexts/StationCollectionContext'
 import { 
-  parseOldFormatCSV, 
   matchStations, 
   generateMigrationResult, 
   downloadCSV,
-  detectCSVFormatFromContent,
   filterStationsByCountry,
-  downloadRejectedStationsCSV
+  downloadRejectedStationsCSV,
+  getRawCSV,
+  suggestColumnMapping,
+  parseCSVWithColumnMapping
 } from '../services/migration'
-import type { MigrationState } from '../types/migration'
+import type { MigrationState, ColumnMapping } from '../types/migration'
 import Button from './Button'
 import './Migration.css'
 
 const Migration: React.FC = () => {
   const { stations: firebaseStations, loading: firebaseLoading } = useStations()
+  const { collectionId } = useStationCollection()
   const [state, setState] = useState<MigrationState>({
     file: null,
     oldFormatData: [],
@@ -25,17 +28,19 @@ const Migration: React.FC = () => {
     loading: false,
     error: null,
     step: 'upload',
-    // Search functionality
+    rawCsvContent: null,
+    rawHeaders: [],
+    rawPreviewRows: [],
+    columnMapping: null,
     searchQuery: '',
     searchResults: [],
     selectedMatchIndex: null,
     showSearchModal: false,
-    // Progress tracking
     showProgressModal: false,
     matchingProgress: 0,
     currentStationName: '',
-    // Format detection
-    detectedFormat: null
+    detectedFormat: null,
+    correctionsCount: 0
   })
 
   // Table search and display state
@@ -61,29 +66,47 @@ const Migration: React.FC = () => {
     reader.onload = (e) => {
       try {
         const csvContent = e.target?.result as string
-        const formatInfo = detectCSVFormatFromContent(csvContent)
-        const allStations = parseOldFormatCSV(csvContent)
-        
-        // Filter stations by country (England, Scotland, Wales only)
-        const { allowed, rejected } = filterStationsByCountry(allStations)
-        
-        setState(prev => ({ 
-          ...prev, 
-          oldFormatData: allowed, 
-          rejectedStations: rejected,
-          step: 'matching',
-          error: null,
-          detectedFormat: formatInfo.description
+        const { headers, rows } = getRawCSV(csvContent)
+        const preview = rows.slice(0, 5)
+        const suggested = suggestColumnMapping(headers)
+        setState(prev => ({
+          ...prev,
+          rawCsvContent: csvContent,
+          rawHeaders: headers,
+          rawPreviewRows: preview,
+          columnMapping: suggested,
+          step: 'mapping',
+          error: null
         }))
       } catch (error) {
-        setState(prev => ({ 
-          ...prev, 
-          error: `Error parsing CSV: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        setState(prev => ({
+          ...prev,
+          error: `Error reading CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
         }))
       }
     }
     reader.readAsText(file)
   }, [])
+
+  const handleConfirmMapping = useCallback(() => {
+    if (!state.rawCsvContent || !state.columnMapping) return
+    try {
+      const allStations = parseCSVWithColumnMapping(state.rawCsvContent, state.columnMapping)
+      const { allowed, rejected } = filterStationsByCountry(allStations)
+      setState(prev => ({
+        ...prev,
+        oldFormatData: allowed,
+        rejectedStations: rejected,
+        step: 'matching',
+        error: null
+      }))
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: `Error applying mapping: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }))
+    }
+  }, [state.rawCsvContent, state.columnMapping])
 
   const handleStartMatching = useCallback(async () => {
     if (state.oldFormatData.length === 0) return
@@ -98,13 +121,17 @@ const Migration: React.FC = () => {
     }))
 
     try {
-      const { matches, availableStations } = await matchStations(state.oldFormatData, (progress, currentStation) => {
-        setState(prev => ({
-          ...prev,
-          matchingProgress: progress,
-          currentStationName: currentStation
-        }))
-      })
+      const { matches, availableStations } = await matchStations(
+        state.oldFormatData,
+        (progress, currentStation) => {
+          setState(prev => ({
+            ...prev,
+            matchingProgress: progress,
+            currentStationName: currentStation
+          }))
+        },
+        collectionId
+      )
       const result = generateMigrationResult(matches, state.rejectedStations, availableStations)
       
       setState(prev => ({ 
@@ -113,7 +140,8 @@ const Migration: React.FC = () => {
         result, 
         step: 'review',
         loading: false,
-        showProgressModal: false
+        showProgressModal: false,
+        correctionsCount: 0
       }))
     } catch (error) {
       setState(prev => ({ 
@@ -123,13 +151,29 @@ const Migration: React.FC = () => {
         showProgressModal: false
       }))
     }
-  }, [state.oldFormatData, state.rejectedStations])
+  }, [state.oldFormatData, state.rejectedStations, collectionId])
 
   const handleDownload = useCallback(() => {
     if (!state.result) return
     downloadCSV(state.result.converted, 'migrated-stations.csv')
     setState(prev => ({ ...prev, step: 'complete' }))
   }, [state.result])
+
+  const handleContinueToDuplicates = useCallback(() => {
+    setState(prev => ({ ...prev, step: 'duplicates' }))
+  }, [])
+
+  const handleBackToReview = useCallback(() => {
+    setState(prev => ({ ...prev, step: 'review' }))
+  }, [])
+
+  const handleContinueToSummary = useCallback(() => {
+    const duplicateIds = state.result?.stats?.duplicateIds ?? 0
+    if (duplicateIds > 0 && !window.confirm(`You still have ${duplicateIds} duplicate ID(s). Continue to summary anyway?`)) {
+      return
+    }
+    setState(prev => ({ ...prev, step: 'complete' }))
+  }, [state.result?.stats?.duplicateIds])
 
   const handleDownloadRejected = useCallback(() => {
     if (!state.result || !state.result.rejected || state.result.rejected.length === 0) return
@@ -149,18 +193,29 @@ const Migration: React.FC = () => {
       loading: false,
       error: null,
       step: 'upload',
-      // Search functionality
+      rawCsvContent: null,
+      rawHeaders: [],
+      rawPreviewRows: [],
+      columnMapping: null,
       searchQuery: '',
       searchResults: [],
       selectedMatchIndex: null,
       showSearchModal: false,
-      // Progress tracking
       showProgressModal: false,
       matchingProgress: 0,
       currentStationName: '',
-      // Format detection
-      detectedFormat: null
+      detectedFormat: null,
+      correctionsCount: 0
     })
+  }, [])
+
+  const setColumnMappingField = useCallback((field: keyof ColumnMapping, value: string) => {
+    setState(prev => ({
+      ...prev,
+      columnMapping: prev.columnMapping
+        ? { ...prev.columnMapping, [field]: value }
+        : null
+    }))
   }, [])
 
   // Search functionality
@@ -199,8 +254,9 @@ const Migration: React.FC = () => {
         suggestedCrsCode: selectedStation.crsCode || '',
         suggestedTiploc: selectedStation.tiploc || ''
       }
-      
-      const newResult = generateMigrationResult(newMatches, prev.rejectedStations, firebaseStations)
+      // Use the same availableStations as the current result (same collection), not current hook list
+      const availableStations = prev.result?.availableStations ?? firebaseStations
+      const newResult = generateMigrationResult(newMatches, prev.rejectedStations, availableStations)
       
       return {
         ...prev,
@@ -209,7 +265,8 @@ const Migration: React.FC = () => {
         showSearchModal: false,
         selectedMatchIndex: null,
         searchQuery: '',
-        searchResults: []
+        searchResults: [],
+        correctionsCount: (prev.correctionsCount ?? 0) + 1
       }
     })
   }, [firebaseStations])
@@ -338,10 +395,172 @@ const Migration: React.FC = () => {
         </div>
       )}
 
-      {/* Step 2: Matching */}
+      {/* Step 2: Column mapping */}
+      {state.step === 'mapping' && state.columnMapping && (
+        <div className="migration-step mapping-step">
+          <h2>Step 2: Map your columns</h2>
+          <p className="mapping-intro">
+            Match each required field to a column from your CSV. First 5 rows are shown below.
+          </p>
+          <div className="mapping-grid">
+            <div className="mapping-fields">
+              <label className="mapping-field">
+                <span className="mapping-label">Station Name</span>
+                <select
+                  value={state.columnMapping.stationName}
+                  onChange={(e) => setColumnMappingField('stationName', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Country</span>
+                <select
+                  value={state.columnMapping.country}
+                  onChange={(e) => setColumnMappingField('country', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">County</span>
+                <select
+                  value={state.columnMapping.county}
+                  onChange={(e) => setColumnMappingField('county', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Operator / TOC</span>
+                <select
+                  value={state.columnMapping.operator}
+                  onChange={(e) => setColumnMappingField('operator', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Visited</span>
+                <select
+                  value={state.columnMapping.visited}
+                  onChange={(e) => setColumnMappingField('visited', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Visit Date</span>
+                <select
+                  value={state.columnMapping.visitDate}
+                  onChange={(e) => setColumnMappingField('visitDate', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Favorite</span>
+                <select
+                  value={state.columnMapping.favorite}
+                  onChange={(e) => setColumnMappingField('favorite', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Latitude</span>
+                <select
+                  value={state.columnMapping.latitude}
+                  onChange={(e) => setColumnMappingField('latitude', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Longitude</span>
+                <select
+                  value={state.columnMapping.longitude}
+                  onChange={(e) => setColumnMappingField('longitude', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="mapping-field">
+                <span className="mapping-label">Location (JSON, optional)</span>
+                <select
+                  value={state.columnMapping.location ?? ''}
+                  onChange={(e) => setColumnMappingField('location', e.target.value)}
+                >
+                  <option value="">(Don't map)</option>
+                  {state.rawHeaders.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mapping-preview">
+              <p className="preview-title">Preview (first 5 rows)</p>
+              <div className="preview-table-wrap">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      {state.rawHeaders.map((h) => (
+                        <th key={h} title={h}>{h.length > 12 ? h.slice(0, 11) + '…' : h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.rawPreviewRows.map((row, ri) => (
+                      <tr key={ri}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} title={cell}>{String(cell).length > 15 ? String(cell).slice(0, 14) + '…' : cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div className="mapping-actions">
+            <Button onClick={handleConfirmMapping} variant="wide" width="hug">
+              Continue to matching
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Matching */}
       {state.step === 'matching' && (
         <div className="migration-step">
-          <h2>Step 2: Station Matching</h2>
+          <h2>Step 3: Station Matching</h2>
           <div className="matching-info">
             <p>Found {state.oldFormatData.length} Stations | In Cloud Database: {firebaseStations.length}</p>
             <div>
@@ -400,6 +619,12 @@ const Migration: React.FC = () => {
                 <span className="stat-number">{state.result.stats.rejected}</span>
               </div>
             )}
+            {state.result.stats.duplicateIds > 0 && (
+              <div className="stat-card duplicates">
+                <h3>Duplicate IDs</h3>
+                <span className="stat-number">{state.result.stats.duplicateIds}</span>
+              </div>
+            )}
           </div>
 
           <div className="match-breakdown">
@@ -408,6 +633,9 @@ const Migration: React.FC = () => {
               <li>Exact matches: {state.result.stats.exactMatches}</li>
               <li>Fuzzy matches: {state.result.stats.fuzzyMatches}</li>
               <li>No matches: {state.result.stats.unmatched}</li>
+              {state.result.stats.duplicateIds > 0 && (
+                <li>Duplicate IDs: {state.result.stats.duplicateIds}</li>
+              )}
             </ul>
           </div>
 
@@ -529,6 +757,57 @@ const Migration: React.FC = () => {
             </div>
           )}
 
+          {/* No matches – show all so user can correct */}
+          {state.result.stats.unmatched > 0 && (() => {
+            const noMatchEntries = state.result.matches
+              .map((m, i) => ({ match: m, index: i }))
+              .filter(({ match }) => match.matchType === 'none')
+            return (
+              <div className="no-matches-section rejected-stations-section">
+                <div>
+                  <h3>⚠️ No match ({noMatchEntries.length})</h3>
+                  <p className="section-description">
+                    These stations had no automatic match. Use <strong>Correct</strong> to search and pick the right station from the database.
+                  </p>
+                </div>
+                <div className="rejected-stations-list">
+                  <table className="rejected-table">
+                    <thead>
+                      <tr>
+                        <th>Station Name</th>
+                        <th>Country</th>
+                        <th>County</th>
+                        <th>Operator</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {noMatchEntries.map(({ match, index }) => (
+                        <tr key={index}>
+                          <td className="station-name-cell">{match.oldStation.stationName}</td>
+                          <td className="country-cell">{match.oldStation.country}</td>
+                          <td className="county-cell">{match.oldStation.county || '-'}</td>
+                          <td className="operator-cell">{match.oldStation.operator || '-'}</td>
+                          <td className="action-cell">
+                            <Button
+                              onClick={() => handleOpenSearchModal(index)}
+                              variant="wide"
+                              width="hug"
+                              className="rank-match-button"
+                              ariaLabel={`Search for a station to match ${match.oldStation.stationName}`}
+                            >
+                              Correct
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Rejected Stations Section */}
           {state.result.rejected && state.result.rejected.length > 0 && (
             <div className="rejected-stations-section">
@@ -580,17 +859,237 @@ const Migration: React.FC = () => {
             </div>
           )}
 
+          <div className="action-buttons">
+            <Button onClick={handleContinueToDuplicates} variant="wide" width="hug" className="action-button">
+              Next: Check duplicates
+            </Button>
+            <Button onClick={handleReset} variant="wide" width="hug" className="action-button">
+              Start Over
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Duplicates */}
+      {state.step === 'duplicates' && state.result && (
+        <div className="migration-step">
+          <h2>Step 4: Check duplicate IDs</h2>
+          <p className="step-description">
+            Fix any rows that share the same output ID (e.g. same station name in different places). Use <strong>Correct</strong> to assign the right station, then continue to summary.
+          </p>
+          {state.result.duplicateGroups && state.result.duplicateGroups.length > 0 && state.result.outputIds ? (
+            <>
+              {state.result.duplicateGroups.map((group, gIdx) => {
+                const idNum = parseInt(group.id, 10)
+                const isNumeric = !isNaN(idNum)
+                const rangeStart = isNumeric ? idNum - 2 : 0
+                const rangeEnd = isNumeric ? idNum + 2 : 0
+                const pad = (n: number) => (group.id.length >= 4 ? String(n).padStart(4, '0') : String(n))
+                const expectedIds: string[] = isNumeric
+                  ? Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => pad(rangeStart + i))
+                  : [group.id]
+                const idRangeSet = new Set(expectedIds)
+                const indicesInRange = state.result!.outputIds
+                  .map((id, k) => (idRangeSet.has(id) ? k : -1))
+                  .filter((k) => k >= 0)
+                const rangeLabel = expectedIds.length ? `${expectedIds[0]}–${expectedIds[expectedIds.length - 1]}` : group.id
+                return (
+                  <div key={gIdx} className="duplicate-group-block">
+                    <h4 className="duplicate-group-title">Duplicate ID: {group.id} ({group.matchIndices.length} rows)</h4>
+                    <p className="duplicate-range-label">Actual output — IDs {rangeLabel}</p>
+                    <div className="rejected-stations-list">
+                      <table className="rejected-table duplicate-ids-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>ID</th>
+                            <th>Station Name</th>
+                            <th>Country</th>
+                            <th>County</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {indicesInRange.map((matchIndex) => {
+                            const match = state.result!.matches[matchIndex]
+                            const outputId = state.result!.outputIds[matchIndex]
+                            return (
+                              <tr key={matchIndex}>
+                                <td className="row-num-cell">{matchIndex + 1}</td>
+                                <td className="id-cell">{outputId}</td>
+                                <td className="station-name-cell">{match.oldStation.stationName}</td>
+                                <td className="country-cell">{match.oldStation.country}</td>
+                                <td className="county-cell">{match.oldStation.county || '–'}</td>
+                                <td className="action-cell">
+                                  <Button
+                                    onClick={() => handleOpenSearchModal(matchIndex)}
+                                    variant="wide"
+                                    width="hug"
+                                    className="rank-match-button"
+                                    ariaLabel={`Change station for ${match.oldStation.stationName}`}
+                                  >
+                                    Correct
+                                  </Button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="duplicate-expected">
+                      <p className="duplicate-expected-label">Expected IDs in this range:</p>
+                      <p className="duplicate-expected-ids">{expectedIds.join(', ')}</p>
+                      <p className="duplicate-expected-note">
+                        {group.matchIndices.length} rows currently have {group.id}; all but one should have different IDs. Use <strong>Correct</strong> on the wrong rows above to assign the right station.
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          ) : (
+            <p className="no-duplicates-message">No duplicate IDs. All output IDs are unique.</p>
+          )}
+          {state.result.mismatchedMatchIndices && state.result.mismatchedMatchIndices.length > 0 && (
+            <div className="mismatched-section duplicate-group-block">
+              <h4 className="duplicate-group-title">Possible mis-matches ({state.result.mismatchedMatchIndices.length})</h4>
+              <p className="step-description">These rows may be matched to the wrong station (e.g. low-confidence fuzzy or qualifier mismatch). Use <strong>Correct</strong> to fix.</p>
+              <div className="rejected-stations-list">
+                <table className="rejected-table duplicate-ids-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>CSV station</th>
+                      <th>Matched to</th>
+                      <th>Confidence</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.result.mismatchedMatchIndices.map((matchIndex) => {
+                      const match = state.result!.matches[matchIndex]
+                      const fbName = match.firebaseStation?.stationName ?? match.firebaseStation?.stationname ?? '–'
+                      return (
+                        <tr key={matchIndex}>
+                          <td className="row-num-cell">{matchIndex + 1}</td>
+                          <td className="station-name-cell">{match.oldStation.stationName}</td>
+                          <td className="station-name-cell">{fbName}</td>
+                          <td className="id-cell">{match.matchType === 'fuzzy' ? `${Math.round((match.confidence ?? 0) * 100)}%` : '–'}</td>
+                          <td className="action-cell">
+                            <Button
+                              onClick={() => handleOpenSearchModal(matchIndex)}
+                              variant="wide"
+                              width="hug"
+                              className="rank-match-button"
+                              ariaLabel={`Change station for ${match.oldStation.stationName}`}
+                            >
+                              Correct
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <div className="action-buttons">
+            <Button onClick={handleBackToReview} variant="wide" width="hug" className="action-button">
+              Back to review
+            </Button>
+            <Button onClick={handleContinueToSummary} variant="wide" width="hug" className="action-button">
+              Continue to summary
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 5: Complete */}
+      {state.step === 'complete' && state.result && (
+        <div className="migration-complete-container">
+          {/* Success Header */}
+          <div className="success-header">
+            <div className="success-icon">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22,4 12,14.01 9,11.01"/>
+              </svg>
+            </div>
+            <h1>Summary</h1>
+            <p className="success-subtitle">Matches made, duplicates, and output preview. Download your converted CSV below.</p>
+          </div>
+
+          {/* Migration Summary Cards */}
+          <div className="migration-summary summary-grid">
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Total</h3>
+                <div className="card-number">{state.result.stats.total}</div>
+                <p>Stations in output</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Matched</h3>
+                <div className="card-number">{state.result.stats.matched}</div>
+                <p>Stations matched to database</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Unmatched</h3>
+                <div className="card-number">{state.result.stats.unmatched}</div>
+                <p>No automatic match</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Duplicate IDs</h3>
+                <div className="card-number">{state.result.stats.duplicateIds}</div>
+                <p>IDs on multiple rows</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Rejected</h3>
+                <div className="card-number">{state.result.stats.rejected}</div>
+                <p>Not in England/Scotland/Wales</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Data corrected</h3>
+                <div className="card-number">{state.correctionsCount ?? 0}</div>
+                <p>Manual corrections made</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Stations visited</h3>
+                <div className="card-number">{state.result.stats.visited ?? 0}</div>
+                <p>Marked as visited in output</p>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="card-content">
+                <h3>Favorites</h3>
+                <div className="card-number">{state.result.stats.favorites ?? 0}</div>
+                <p>Marked as favorite in output</p>
+              </div>
+            </div>
+          </div>
+
           {/* Output Preview */}
-          <div className="output-preview">
-            <h3>Output Preview</h3>
-            
-            {/* Data Preview */}
+          <div className="output-preview complete-output-preview">
+            <h3>Output preview</h3>
             <div className="preview-section">
               <div className="preview-header">
                 <div className="preview-header-text">
-                  <h4>Converted Data</h4>
+                  <h4>Converted data</h4>
                   <p className="preview-description">
-                    This shows the complete converted data including all yearly usage statistics.
+                    Full converted data. Download the CSV below.
                   </p>
                 </div>
                 <Button
@@ -602,8 +1101,6 @@ const Migration: React.FC = () => {
                   {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
                 </Button>
               </div>
-              
-              {/* Search controls */}
               <div className="table-controls">
                 <div className="search-container">
                   <input
@@ -627,7 +1124,6 @@ const Migration: React.FC = () => {
                   {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
                 </Button>
               </div>
-
               <div className="preview-table-container">
                 <table className="preview-table full-data">
                   <thead>
@@ -645,10 +1141,8 @@ const Migration: React.FC = () => {
                   </thead>
                   <tbody>
                     {getDisplayData(state.result.converted, tableState.allDataSearch, tableState.showAllAllData).map((station, index) => {
-                      // Get year columns
                       const yearColumns = Object.keys(station).filter(key => /^\d{4}$/.test(key))
                       const yearData = yearColumns.map(year => `${year}: ${station[year] || '0'}`).join(', ')
-                      
                       return (
                         <tr key={index}>
                           <td className="id-cell">{station.id}</td>
@@ -672,49 +1166,6 @@ const Migration: React.FC = () => {
                     No stations found matching your search.
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          <div className="action-buttons">
-            <Button onClick={handleDownload} variant="wide" width="hug" className="action-button">
-              Download Converted CSV
-            </Button>
-            <Button onClick={handleReset} variant="wide" width="hug" className="action-button">
-              Start Over
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4: Complete */}
-      {state.step === 'complete' && state.result && (
-        <div className="migration-complete-container">
-          {/* Success Header */}
-          <div className="success-header">
-            <div className="success-icon">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22,4 12,14.01 9,11.01"/>
-              </svg>
-            </div>
-            <h1>Migration Complete!</h1>
-            <p className="success-subtitle">Your CSV file has been successfully converted and downloaded</p>
-          </div>
-
-          {/* Migration Summary Cards */}
-          <div className="migration-summary">
-            <div className="summary-card">
-              <div className="card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                </svg>
-              </div>
-              <div className="card-content">
-                <h3>Total Stations</h3>
-                <div className="card-number">{state.result.stats.total}</div>
-                <p>Stations processed from your CSV</p>
               </div>
             </div>
           </div>
@@ -778,15 +1229,15 @@ const Migration: React.FC = () => {
             </div>
           </div>
 
-          {/* Manual Download Section */}
+          {/* Download Section */}
           <div className="manual-download-section">
-            <h3>Download Your File</h3>
+            <h3>Download your converted CSV</h3>
             <p className="manual-download-description">
-              Your file was automatically downloaded. If the download didn't start, click the button below to download manually.
+              Click below to download the migrated stations file.
             </p>
             <div className="manual-download-button-container">
               <Button 
-                onClick={() => state.result && downloadCSV(state.result.converted, 'migrated-stations.csv')}
+                onClick={handleDownload}
                 variant="wide"
                 width="hug"
                 icon={
@@ -797,7 +1248,7 @@ const Migration: React.FC = () => {
                   </svg>
                 }
               >
-                Download CSV Manually
+                Download converted CSV
               </Button>
             </div>
           </div>
