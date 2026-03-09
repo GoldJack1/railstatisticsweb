@@ -65,15 +65,14 @@ export const getFirebaseApp = (): FirebaseApp | null => app
 export const getFirebaseDB = (): Firestore | null => db
 export const getFirebaseAnalytics = (): Analytics | null => analytics
 
-// Station collection toggle: 'stations' (production) or 'newsandboxstations1' (sandbox). Persisted in localStorage.
+// Production collection only. Sandbox option removed; website always uses stations2603.
 export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'
 
-export type StationCollectionId = 'stations' | 'newsandboxstations1'
+export type StationCollectionId = 'stations2603' | 'newsandboxstations1'
 
+/** Always returns production collection. Sandbox is no longer selectable. */
 export const getStationCollectionName = (): StationCollectionId => {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(STATION_COLLECTION_STORAGE_KEY) : null
-  if (stored === 'newsandboxstations1' || stored === 'stations') return stored
-  return 'stations'
+  return 'stations2603'
 }
 
 // Parse location string helper

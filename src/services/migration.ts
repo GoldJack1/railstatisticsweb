@@ -1065,10 +1065,10 @@ export const downloadCSV = (data: NewFormatStation[], filename: string = 'conver
     return
   }
 
-  // Define the exact column order with yearly usage grouped after Is Favorite
+  // Column order for export (station usage / year columns excluded)
   const orderedHeaders = [
     'id',
-    'stnarea', 
+    'stnarea',
     'stationname',
     'CrsCode',
     'tiploc',
@@ -1081,18 +1081,10 @@ export const downloadCSV = (data: NewFormatStation[], filename: string = 'conver
     'Is Favorite'
   ]
 
-  // Add year columns in descending order (2024 to 1998) after Is Favorite
-  const yearColumns = []
-  for (let year = 2024; year >= 1998; year--) {
-    yearColumns.push(year.toString())
-  }
-  
-  const allHeaders = [...orderedHeaders, ...yearColumns]
-
   const csvContent = [
-    allHeaders.join(','),
-    ...data.map(row => 
-      allHeaders.map(header => {
+    orderedHeaders.join(','),
+    ...data.map(row =>
+      orderedHeaders.map(header => {
         const value = row[header] || ''
         // Convert value to string to handle numbers, booleans, etc.
         const stringValue = String(value)

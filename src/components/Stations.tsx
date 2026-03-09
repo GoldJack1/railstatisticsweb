@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useCallback } from 'react'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
 import StationModal from './StationModal'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
+import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
 import './Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
@@ -21,8 +22,13 @@ const Stations: React.FC = () => {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const resultsSectionRef = useRef<HTMLDivElement>(null)
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  const scrollToResults = useCallback(() => {
+    resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
   const itemsPerPage = 24
 
   // Get unique filter options
@@ -253,6 +259,12 @@ const Stations: React.FC = () => {
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                scrollToResults()
+              }
+            }}
             className="search-input" 
             placeholder="Search stations by name, code, TOC, or location..."
             autoComplete="off"
@@ -273,6 +285,18 @@ const Stations: React.FC = () => {
         </div>
 
         <div className="controls-row">
+          <button 
+            type="button"
+            className="search-submit-button"
+            onClick={scrollToResults}
+            aria-label="Search by station name and current filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            Search
+          </button>
           <button 
             className="filter-toggle-button"
             onClick={() => setShowFilters(!showFilters)}
@@ -384,7 +408,7 @@ const Stations: React.FC = () => {
         )}
 
         {/* Results count */}
-        <div className="results-count">
+        <div className="results-count" ref={resultsSectionRef}>
           Showing {paginatedStations.length} of {filteredAndSortedStations.length} stations
           {filteredAndSortedStations.length !== stations.length && (
             <span className="filtered-indicator"> (filtered)</span>
@@ -435,14 +459,16 @@ const Stations: React.FC = () => {
                 
                 <div className="station-details">
                   <div className="detail-item">
-                    <span className="detail-label">Country</span>
-                    <span className="detail-value">{station.country || 'N/A'}</span>
+                    <span className="detail-label">Location</span>
+                    <span className="detail-value">
+                      {formatStationLocationDisplay({
+                        county: station.county,
+                        country: station.country,
+                        londonBorough: station.londonBorough
+                      }) || 'N/A'}
+                    </span>
                   </div>
-                  <div className="detail-item">
-                    <span className="detail-label">County</span>
-                    <span className="detail-value">{station.county || 'N/A'}</span>
-                  </div>
-                  {station.londonBorough && (
+                  {station.londonBorough && !isGreaterLondonCounty(station.county) && (
                     <div className="detail-item">
                       <span className="detail-label">London Borough</span>
                       <span className="detail-value">{station.londonBorough}</span>

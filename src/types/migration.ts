@@ -38,6 +38,8 @@ export interface StationMatch {
   suggestedId: string
   suggestedCrsCode: string
   suggestedTiploc: string
+  /** Set when user corrects from the no-match section so the row stays visible there */
+  correctedFromNoMatch?: boolean
 }
 
 /** One duplicate ID and the match indices + names that share it */
@@ -114,6 +116,8 @@ export interface MigrationState {
   // Search functionality
   searchQuery: string
   searchResults: any[]
+  /** Active "Search by" filter: name, crs, tiploc, county, country; null when none */
+  searchByField: 'name' | 'crs' | 'tiploc' | 'county' | 'country' | null
   selectedMatchIndex: number | null
   showSearchModal: boolean
   // Progress tracking
@@ -124,4 +128,6 @@ export interface MigrationState {
   detectedFormat: string | null
   /** Number of manual corrections (Correct/search) made this session */
   correctionsCount: number
+  /** Snapshot of duplicate groups when entering Step 4 so sections don't disappear after corrections */
+  duplicateGroupsSnapshot: DuplicateGroup[] | null
 }

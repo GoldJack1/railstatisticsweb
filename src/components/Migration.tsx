@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import { 
@@ -14,6 +15,7 @@ import {
 import type { MigrationState, ColumnMapping } from '../types/migration'
 import Button from './Button'
 import './Migration.css'
+import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
 
 const Migration: React.FC = () => {
   const { stations: firebaseStations, loading: firebaseLoading } = useStations()
@@ -34,14 +36,18 @@ const Migration: React.FC = () => {
     columnMapping: null,
     searchQuery: '',
     searchResults: [],
+    searchByField: null,
     selectedMatchIndex: null,
     showSearchModal: false,
     showProgressModal: false,
     matchingProgress: 0,
     currentStationName: '',
     detectedFormat: null,
-    correctionsCount: 0
+    correctionsCount: 0,
+    duplicateGroupsSnapshot: null
   })
+
+  const selectedMatch = state.selectedMatchIndex !== null ? state.matches[state.selectedMatchIndex] : null
 
   // Table search and display state
   const [tableState, setTableState] = useState({
@@ -50,6 +56,41 @@ const Migration: React.FC = () => {
     showAllFinalData: false,
     showAllAllData: false
   })
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const searchMatchIndexParam = searchParams.get('matchIndex')
+  const isSearchPageMode = searchParams.get('search') === '1' && searchMatchIndexParam !== null && searchMatchIndexParam !== ''
+
+  const savedScrollPositionRef = useRef(0)
+  const prevSearchPageModeRef = useRef(false)
+
+  // Sync selectedMatchIndex from URL when on search page
+  useEffect(() => {
+    if (isSearchPageMode && searchMatchIndexParam !== null) {
+      const idx = parseInt(searchMatchIndexParam, 10)
+      if (!Number.isNaN(idx)) {
+        setState(prev => (prev.selectedMatchIndex === idx ? prev : { ...prev, selectedMatchIndex: idx, showSearchModal: true }))
+      }
+    }
+  }, [isSearchPageMode, searchMatchIndexParam])
+
+  // Scroll to top when opening search page; restore scroll when leaving
+  useEffect(() => {
+    if (isSearchPageMode) {
+      window.scrollTo(0, 0)
+    } else if (prevSearchPageModeRef.current) {
+      const saved = savedScrollPositionRef.current
+      requestAnimationFrame(() => {
+        window.scrollTo(0, saved)
+      })
+    }
+    prevSearchPageModeRef.current = isSearchPageMode
+  }, [isSearchPageMode])
+
+  // Scroll to top when navigating to a new step
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [state.step])
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -160,11 +201,16 @@ const Migration: React.FC = () => {
   }, [state.result])
 
   const handleContinueToDuplicates = useCallback(() => {
-    setState(prev => ({ ...prev, step: 'duplicates' }))
+    setState(prev => {
+      const snapshot = prev.result?.duplicateGroups?.length
+        ? [...(prev.result.duplicateGroups)]
+        : null
+      return { ...prev, step: 'duplicates', duplicateGroupsSnapshot: snapshot }
+    })
   }, [])
 
   const handleBackToReview = useCallback(() => {
-    setState(prev => ({ ...prev, step: 'review' }))
+    setState(prev => ({ ...prev, step: 'review', duplicateGroupsSnapshot: null }))
   }, [])
 
   const handleContinueToSummary = useCallback(() => {
@@ -172,7 +218,7 @@ const Migration: React.FC = () => {
     if (duplicateIds > 0 && !window.confirm(`You still have ${duplicateIds} duplicate ID(s). Continue to summary anyway?`)) {
       return
     }
-    setState(prev => ({ ...prev, step: 'complete' }))
+    setState(prev => ({ ...prev, step: 'complete', duplicateGroupsSnapshot: null }))
   }, [state.result?.stats?.duplicateIds])
 
   const handleDownloadRejected = useCallback(() => {
@@ -199,13 +245,15 @@ const Migration: React.FC = () => {
       columnMapping: null,
       searchQuery: '',
       searchResults: [],
+      searchByField: null,
       selectedMatchIndex: null,
       showSearchModal: false,
       showProgressModal: false,
       matchingProgress: 0,
       currentStationName: '',
       detectedFormat: null,
-      correctionsCount: 0
+      correctionsCount: 0,
+      duplicateGroupsSnapshot: null
     })
   }, [])
 
@@ -218,33 +266,88 @@ const Migration: React.FC = () => {
     }))
   }, [])
 
-  // Search functionality
+  // Normalize text for search: lowercase, strip apostrophes so "st john's" and "st johns" match the same, collapse spaces/parens
+  const normalizeSearchText = useCallback((s: string) => {
+    if (!s || typeof s !== 'string') return ''
+    return s
+      .toLowerCase()
+      .replace(/[\u2018\u2019\u201A\u201B\u2032']/g, '')
+      .replace(/[()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }, [])
+
+  // Search by name, tiploc, CRS, county, country, borough. Uses word-based matching so "Queen Park London" finds "Queen's Park (London)".
   const handleSearchStations = useCallback((query: string) => {
     if (!query.trim()) {
-      setState(prev => ({ ...prev, searchResults: [] }))
+      setState(prev => ({ ...prev, searchQuery: query, searchResults: [] }))
       return
     }
 
+    const normalizedQuery = normalizeSearchText(query)
+    const queryWords = normalizedQuery.split(/\s+/).filter(Boolean)
+
     const results = firebaseStations.filter(station => {
-      const stationName = station.stationName || ''
-      const crsCode = station.crsCode || ''
+      const name = station.stationName || ''
+      const crs = station.crsCode || ''
       const tiploc = station.tiploc || ''
-      
-      return stationName.toLowerCase().includes(query.toLowerCase()) ||
-             crsCode.toLowerCase().includes(query.toLowerCase()) ||
-             tiploc.toLowerCase().includes(query.toLowerCase())
+      const country = station.country || ''
+      const county = station.county || ''
+      const borough = station.londonBorough || ''
+      const searchable = normalizeSearchText([name, crs, tiploc, country, county, borough].join(' '))
+
+      if (!searchable) return false
+      if (normalizedQuery.length <= 1) {
+        return searchable.includes(normalizedQuery)
+      }
+      return queryWords.every(word => searchable.includes(word))
     })
 
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       searchQuery: query,
-      searchResults: results.slice(0, 10) // Limit to 10 results
+      searchResults: results.slice(0, 15),
+      searchByField: null
     }))
-  }, [firebaseStations])
+  }, [firebaseStations, normalizeSearchText])
+
+  // Search by a single field only (does not fill the search box). Used by "Search by" buttons.
+  type SearchByField = 'name' | 'crs' | 'tiploc' | 'county' | 'country'
+  const handleSearchByField = useCallback((field: SearchByField, value: string) => {
+    if (!value?.trim()) {
+      setState(prev => ({ ...prev, searchByField: null, searchResults: [] }))
+      return
+    }
+    const term = value.trim().toLowerCase()
+
+    const results = firebaseStations.filter(station => {
+      switch (field) {
+        case 'name':
+          return normalizeSearchText(station.stationName || '').includes(normalizeSearchText(value))
+        case 'crs':
+          return (station.crsCode || '').toLowerCase().includes(term)
+        case 'tiploc':
+          return (station.tiploc || '').toLowerCase().includes(term)
+        case 'county':
+          return normalizeSearchText(station.county || '').includes(normalizeSearchText(value))
+        case 'country':
+          return normalizeSearchText(station.country || '').includes(normalizeSearchText(value))
+        default:
+          return false
+      }
+    })
+
+    setState(prev => ({
+      ...prev,
+      searchByField: field,
+      searchResults: results.slice(0, 15)
+    }))
+  }, [firebaseStations, normalizeSearchText])
 
   const handleSelectStation = useCallback((matchIndex: number, selectedStation: any) => {
     setState(prev => {
       const newMatches = [...prev.matches]
+      const wasNoMatch = newMatches[matchIndex].matchType === 'none'
       newMatches[matchIndex] = {
         ...newMatches[matchIndex],
         firebaseStation: selectedStation,
@@ -252,7 +355,8 @@ const Migration: React.FC = () => {
         confidence: 1.0,
         suggestedId: selectedStation.id || '',
         suggestedCrsCode: selectedStation.crsCode || '',
-        suggestedTiploc: selectedStation.tiploc || ''
+        suggestedTiploc: selectedStation.tiploc || '',
+        ...(wasNoMatch ? { correctedFromNoMatch: true } : {})
       }
       // Use the same availableStations as the current result (same collection), not current hook list
       const availableStations = prev.result?.availableStations ?? firebaseStations
@@ -272,21 +376,36 @@ const Migration: React.FC = () => {
   }, [firebaseStations])
 
   const handleOpenSearchModal = useCallback((matchIndex: number) => {
+    savedScrollPositionRef.current = window.scrollY
+    setSearchParams({ search: '1', matchIndex: String(matchIndex) })
     setState(prev => ({
       ...prev,
       selectedMatchIndex: matchIndex,
       showSearchModal: true,
       searchQuery: '',
-      searchResults: []
+      searchResults: [],
+      searchByField: null
     }))
-  }, [])
+  }, [setSearchParams])
 
   const handleCloseSearchModal = useCallback(() => {
+    if (isSearchPageMode) {
+      setSearchParams({})
+    }
     setState(prev => ({
       ...prev,
       showSearchModal: false,
       selectedMatchIndex: null,
       searchQuery: '',
+      searchResults: [],
+      searchByField: null
+    }))
+  }, [isSearchPageMode, setSearchParams])
+
+  const handleClearSearchByField = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      searchByField: null,
       searchResults: []
     }))
   }, [])
@@ -350,6 +469,112 @@ const Migration: React.FC = () => {
     )
   }
 
+  // Full-page station search (URL has ?search=1&matchIndex=N) – used on all screen sizes
+  if (isSearchPageMode && state.selectedMatchIndex !== null) {
+    return (
+      <div className="search-page-container">
+        <header className="search-page-header">
+          <button
+            type="button"
+            className="search-page-back"
+            onClick={handleCloseSearchModal}
+            aria-label="Back to migration"
+          >
+            ← Back to migration
+          </button>
+          <h1 className="search-page-title">Search for Station</h1>
+          <p className="search-page-subtitle">Match this row from your file to a station in the database</p>
+        </header>
+        <main className="search-page-content">
+          <div className="search-modal-controls">
+            <div className="current-station">
+              <h4>From your file</h4>
+              <p className="current-station-name">{selectedMatch?.oldStation.stationName}</p>
+              <p className="current-station-location">
+                {formatStationLocationDisplay({
+                  county: selectedMatch?.oldStation.county,
+                  country: selectedMatch?.oldStation.country
+                })}
+              </p>
+            </div>
+            <section className="quick-fill-section" aria-labelledby="quick-fill-heading">
+              <h3 id="quick-fill-heading" className="quick-fill-heading">Quick fill</h3>
+              <p className="quick-fill-description">
+                Fill the search box with data from your file, then search the database.
+              </p>
+              <div className="quick-search-buttons" aria-label="Quick fill options">
+                <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch?.oldStation.stationName || '')}>+ Station name</button>
+                {selectedMatch?.oldStation.county && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.county}`)}>+ County</button>}
+                {selectedMatch?.oldStation.country && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.country}`)}>+ Country</button>}
+                {selectedMatch?.suggestedCrsCode && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedCrsCode)}>CRS</button>}
+                {selectedMatch?.suggestedTiploc && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedTiploc)}>TIPLOC</button>}
+              </div>
+            </section>
+            <div className="search-input">
+              <label htmlFor="migration-search-field-page" className="search-field-label">Search</label>
+              <div className="search-input-row">
+                <input
+                  id="migration-search-field-page"
+                  type="text"
+                  placeholder="Name, CRS, TIPLOC, county, country or borough..."
+                  value={state.searchQuery}
+                  onChange={(e) => handleSearchStations(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchStations(state.searchQuery) } }}
+                  className="search-field"
+                  autoFocus
+                />
+                <button type="button" className="search-run-button" onClick={() => handleSearchStations(state.searchQuery)}>Search</button>
+              </div>
+              <p className="search-by-label">Search by field only</p>
+              <div className="search-by-row">
+                <div className="search-by-buttons" aria-label="Search by field only">
+                  <button type="button" className={`search-by-btn ${state.searchByField === 'name' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('name', selectedMatch?.oldStation.stationName || '')}>Name</button>
+                  <button type="button" className={`search-by-btn ${state.searchByField === 'crs' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('crs', state.searchQuery.trim().slice(0, 3))} title="Search by CRS code (3 characters)">CRS</button>
+                  <button type="button" className={`search-by-btn ${state.searchByField === 'tiploc' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('tiploc', state.searchQuery.trim())} title="Search by TIPLOC">TIPLOC</button>
+                  {selectedMatch?.oldStation.county && <button type="button" className={`search-by-btn ${state.searchByField === 'county' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('county', selectedMatch.oldStation.county)}>County</button>}
+                  {selectedMatch?.oldStation.country && <button type="button" className={`search-by-btn ${state.searchByField === 'country' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('country', selectedMatch.oldStation.country)}>Country</button>}
+                </div>
+                {state.searchByField !== null && <button type="button" className="search-by-clear" onClick={handleClearSearchByField} aria-label="Remove search-by filter" title="Remove filter">×</button>}
+              </div>
+            </div>
+          </div>
+          <div className="search-modal-results">
+            <h4 className="search-results-heading">Results</h4>
+            <div className="search-results">
+              {state.searchResults.length > 0 ? (
+                <div className="results-list">
+                  {state.searchResults.map((station, index) => (
+                    <div
+                      key={index}
+                      className="search-result-item"
+                      onClick={() => {
+                        handleSelectStation(state.selectedMatchIndex!, station)
+                        if (isSearchPageMode) setSearchParams({})
+                      }}
+                    >
+                      <div className="result-station-name">{station.stationName}</div>
+                      <div className="result-details">
+                        <span className="result-crs">{station.crsCode}</span>
+                        <span className="result-tiploc">{station.tiploc}</span>
+                        <span className="result-location">
+                          {formatStationLocationDisplay({ county: station.county, country: station.country, londonBorough: station.londonBorough })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : state.searchQuery || state.searchByField !== null ? (
+                <div className="no-results">No stations found. Try another search or filter.</div>
+              ) : (
+                <div className="search-hint">Use quick fill, type in the search box, or choose a search-by field to see results.</div>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="migration-container">
       <div className="migration-header">
@@ -369,6 +594,7 @@ const Migration: React.FC = () => {
       {state.step === 'upload' && (
         <div className="migration-step">
           <h2>Step 1: Upload Old Format CSV</h2>
+          <p className="step-description">Choose a CSV file from your device to convert to the new format.</p>
           <div className="upload-area">
             <input
               type="file"
@@ -561,6 +787,7 @@ const Migration: React.FC = () => {
       {state.step === 'matching' && (
         <div className="migration-step">
           <h2>Step 3: Station Matching</h2>
+          <p className="step-description">Match your stations to the cloud database. This may take a moment.</p>
           <div className="matching-info">
             <p>Found {state.oldFormatData.length} Stations | In Cloud Database: {firebaseStations.length}</p>
             <div>
@@ -591,7 +818,7 @@ const Migration: React.FC = () => {
       {state.step === 'review' && state.result && (
         <div className="migration-step">
           <h2>Step 3: Review Results</h2>
-          
+          <p className="step-description">Check unmatched and fuzzy matches, then fix any issues with Correct before continuing.</p>
           <div className="migration-stats">
             <div className="stat-card">
               <h3>Total Stations</h3>
@@ -643,6 +870,11 @@ const Migration: React.FC = () => {
           {state.result.stats.fuzzyMatches > 0 && (
             <div className="fuzzy-match-ranks">
               <h3>Fuzzy Match Confidence Rankings</h3>
+              <p className="rank-legend">
+                <span className="rank-legend-from">From your file</span>
+                <span className="rank-legend-arrow">→</span>
+                <span className="rank-legend-to">Matched in database</span>
+              </p>
               <div className="confidence-ranks">
                 {/* Amber - Medium Confidence (60-79%) */}
                 {(() => {
@@ -659,33 +891,59 @@ const Migration: React.FC = () => {
                       <div className="rank-matches">
                         {amberMatches.slice(0, 5).map((match, index) => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
+                          const fb = match.firebaseStation
                           return (
                             <div key={index} className="rank-match">
                               <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
-                              <div className="station-details">
-                                <span className="match-name">{match.oldStation.stationName}</span>
+                              <div className="station-details rank-from">
+                                <span className="rank-label">From your file</span>
+                                <div className="match-name-row">
+                                  <span className="match-name">{match.oldStation.stationName}</span>
+                                </div>
                                 <div className="match-location">
-                                  <small>{match.oldStation.country}, {match.oldStation.county}</small>
+                                  <small>
+                                    {formatStationLocationDisplay({
+                                      county: match.oldStation.county,
+                                      country: match.oldStation.country
+                                    })}
+                                  </small>
                                 </div>
                               </div>
                               <div className="match-arrow">→</div>
-                              {match.firebaseStation && (
-                                <div className="station-details">
-                                  <span className="match-name">{match.firebaseStation.stationName || match.firebaseStation.stationname}</span>
-                                  <div className="match-location">
-                                    <small>{match.firebaseStation.country}, {match.firebaseStation.county}</small>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="station-details rank-to">
+                                <span className="rank-label">Matched in database</span>
+                                {fb ? (
+                                  <>
+                                    <div className="match-name-row">
+                                      {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                      <span className="match-name">{fb.stationName || fb.stationname}</span>
+                                    </div>
+                                    <div className="match-location">
+                                      <small>
+                                        {formatStationLocationDisplay({
+                                          county: fb.county,
+                                          country: fb.country,
+                                          londonBorough: fb.londonBorough
+                                        })}
+                                      </small>
+                                    </div>
+                                    {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
+                                      <span className="match-borough">{fb.londonBorough}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="match-empty">—</span>
+                                )}
+                              </div>
                               <div className="rank-match-button-wrapper">
                                 <Button 
                                   onClick={() => handleOpenSearchModal(originalIndex)}
                                   variant="wide"
                                   width="hug"
                                   className="rank-match-button"
-                                  ariaLabel="Search for a different station"
+                                  ariaLabel={match.firebaseStation ? 'Change matched station' : 'Search for a different station'}
                                 >
-                                  Correct
+                                  {match.firebaseStation ? 'Re-correct' : 'Correct'}
                                 </Button>
                               </div>
                             </div>
@@ -714,33 +972,59 @@ const Migration: React.FC = () => {
                       <div className="rank-matches">
                         {redMatches.slice(0, 5).map((match, index) => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
+                          const fb = match.firebaseStation
                           return (
                             <div key={index} className="rank-match">
                               <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
-                              <div className="station-details">
-                                <span className="match-name">{match.oldStation.stationName}</span>
+                              <div className="station-details rank-from">
+                                <span className="rank-label">From your file</span>
+                                <div className="match-name-row">
+                                  <span className="match-name">{match.oldStation.stationName}</span>
+                                </div>
                                 <div className="match-location">
-                                  <small>{match.oldStation.country}, {match.oldStation.county}</small>
+                                  <small>
+                                    {formatStationLocationDisplay({
+                                      county: match.oldStation.county,
+                                      country: match.oldStation.country
+                                    })}
+                                  </small>
                                 </div>
                               </div>
                               <div className="match-arrow">→</div>
-                              {match.firebaseStation && (
-                                <div className="station-details">
-                                  <span className="match-name">{match.firebaseStation.stationName || match.firebaseStation.stationname}</span>
-                                  <div className="match-location">
-                                    <small>{match.firebaseStation.country}, {match.firebaseStation.county}</small>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="station-details rank-to">
+                                <span className="rank-label">Matched in database</span>
+                                {fb ? (
+                                  <>
+                                    <div className="match-name-row">
+                                      {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                      <span className="match-name">{fb.stationName || fb.stationname}</span>
+                                    </div>
+                                    <div className="match-location">
+                                      <small>
+                                        {formatStationLocationDisplay({
+                                          county: fb.county,
+                                          country: fb.country,
+                                          londonBorough: fb.londonBorough
+                                        })}
+                                      </small>
+                                    </div>
+                                    {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
+                                      <span className="match-borough">{fb.londonBorough}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="match-empty">—</span>
+                                )}
+                              </div>
                               <div className="rank-match-button-wrapper">
                                 <Button 
                                   onClick={() => handleOpenSearchModal(originalIndex)}
                                   variant="wide"
                                   width="hug"
                                   className="rank-match-button"
-                                  ariaLabel="Search for a different station"
+                                  ariaLabel={match.firebaseStation ? 'Change matched station' : 'Search for a different station'}
                                 >
-                                  Correct
+                                  {match.firebaseStation ? 'Re-correct' : 'Correct'}
                                 </Button>
                               </div>
                             </div>
@@ -757,52 +1041,85 @@ const Migration: React.FC = () => {
             </div>
           )}
 
-          {/* No matches – show all so user can correct */}
-          {state.result.stats.unmatched > 0 && (() => {
+          {/* No automatic match – show unmatched and user-corrected so they can re-correct if needed */}
+          {(() => {
             const noMatchEntries = state.result.matches
               .map((m, i) => ({ match: m, index: i }))
-              .filter(({ match }) => match.matchType === 'none')
+              .filter(({ match }) => match.matchType === 'none' || match.correctedFromNoMatch === true)
+            if (noMatchEntries.length === 0) return null
             return (
               <div className="no-matches-section rejected-stations-section">
                 <div>
-                  <h3>⚠️ No match ({noMatchEntries.length})</h3>
+                  <h3>⚠️ No automatic match ({noMatchEntries.length})</h3>
                   <p className="section-description">
-                    These stations had no automatic match. Use <strong>Correct</strong> to search and pick the right station from the database.
+                    These stations had no automatic match. Use <strong>Correct</strong> to search and pick a station (or change your choice). Matched rows stay here so you can fix any errors.
+                  </p>
+                  <p className="rank-legend">
+                    <span className="rank-legend-from">From your file</span>
+                    <span className="rank-legend-arrow">→</span>
+                    <span className="rank-legend-to">Matched in database</span>
                   </p>
                 </div>
-                <div className="rejected-stations-list">
-                  <table className="rejected-table">
-                    <thead>
-                      <tr>
-                        <th>Station Name</th>
-                        <th>Country</th>
-                        <th>County</th>
-                        <th>Operator</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {noMatchEntries.map(({ match, index }) => (
-                        <tr key={index}>
-                          <td className="station-name-cell">{match.oldStation.stationName}</td>
-                          <td className="country-cell">{match.oldStation.country}</td>
-                          <td className="county-cell">{match.oldStation.county || '-'}</td>
-                          <td className="operator-cell">{match.oldStation.operator || '-'}</td>
-                          <td className="action-cell">
-                            <Button
-                              onClick={() => handleOpenSearchModal(index)}
-                              variant="wide"
-                              width="hug"
-                              className="rank-match-button"
-                              ariaLabel={`Search for a station to match ${match.oldStation.stationName}`}
-                            >
-                              Correct
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="rank-matches no-match-cards">
+                  {noMatchEntries.map(({ match, index }) => {
+                    const fb = match.firebaseStation
+                    const isCorrected = match.matchType === 'manual'
+                    return (
+                      <div key={index} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
+                        <div className="station-details rank-from">
+                          <span className="rank-label">From your file</span>
+                          <div className="match-name-row">
+                            <span className="match-name">{match.oldStation.stationName}</span>
+                          </div>
+                          <div className="match-location">
+                            <small>
+                              {formatStationLocationDisplay({
+                                county: match.oldStation.county,
+                                country: match.oldStation.country
+                              })}
+                            </small>
+                          </div>
+                        </div>
+                        <div className="match-arrow">→</div>
+                        <div className="station-details rank-to">
+                          <span className="rank-label">Matched in database</span>
+                          {fb ? (
+                            <>
+                              <div className="match-name-row">
+                                {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                <span className="match-name">{fb.stationName || fb.stationname}</span>
+                              </div>
+                              <div className="match-location">
+                                <small>
+                                  {formatStationLocationDisplay({
+                                    county: fb.county,
+                                    country: fb.country,
+                                    londonBorough: fb.londonBorough
+                                  })}
+                                </small>
+                              </div>
+                              {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
+                                <span className="match-borough">{fb.londonBorough}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="match-empty">—</span>
+                          )}
+                        </div>
+                        <div className="rank-match-button-wrapper">
+                          <Button
+                            onClick={() => handleOpenSearchModal(index)}
+                            variant="wide"
+                            width="hug"
+                            className="rank-match-button"
+                            ariaLabel={match.firebaseStation ? `Change matched station for ${match.oldStation.stationName}` : `Search for a station to match ${match.oldStation.stationName}`}
+                          >
+                            {match.firebaseStation ? 'Re-correct' : 'Correct'}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -877,66 +1194,165 @@ const Migration: React.FC = () => {
           <p className="step-description">
             Fix any rows that share the same output ID (e.g. same station name in different places). Use <strong>Correct</strong> to assign the right station, then continue to summary.
           </p>
-          {state.result.duplicateGroups && state.result.duplicateGroups.length > 0 && state.result.outputIds ? (
-            <>
-              {state.result.duplicateGroups.map((group, gIdx) => {
-                const idNum = parseInt(group.id, 10)
-                const isNumeric = !isNaN(idNum)
-                const rangeStart = isNumeric ? idNum - 2 : 0
-                const rangeEnd = isNumeric ? idNum + 2 : 0
-                const pad = (n: number) => (group.id.length >= 4 ? String(n).padStart(4, '0') : String(n))
-                const expectedIds: string[] = isNumeric
-                  ? Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => pad(rangeStart + i))
-                  : [group.id]
-                const idRangeSet = new Set(expectedIds)
-                const indicesInRange = state.result!.outputIds
-                  .map((id, k) => (idRangeSet.has(id) ? k : -1))
-                  .filter((k) => k >= 0)
-                const rangeLabel = expectedIds.length ? `${expectedIds[0]}–${expectedIds[expectedIds.length - 1]}` : group.id
-                return (
-                  <div key={gIdx} className="duplicate-group-block">
-                    <h4 className="duplicate-group-title">Duplicate ID: {group.id} ({group.matchIndices.length} rows)</h4>
-                    <p className="duplicate-range-label">Actual output — IDs {rangeLabel}</p>
-                    <div className="rejected-stations-list">
-                      <table className="rejected-table duplicate-ids-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>ID</th>
-                            <th>Station Name</th>
-                            <th>Country</th>
-                            <th>County</th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {indicesInRange.map((matchIndex) => {
-                            const match = state.result!.matches[matchIndex]
-                            const outputId = state.result!.outputIds[matchIndex]
-                            return (
-                              <tr key={matchIndex}>
-                                <td className="row-num-cell">{matchIndex + 1}</td>
-                                <td className="id-cell">{outputId}</td>
-                                <td className="station-name-cell">{match.oldStation.stationName}</td>
-                                <td className="country-cell">{match.oldStation.country}</td>
-                                <td className="county-cell">{match.oldStation.county || '–'}</td>
-                                <td className="action-cell">
-                                  <Button
-                                    onClick={() => handleOpenSearchModal(matchIndex)}
-                                    variant="wide"
-                                    width="hug"
-                                    className="rank-match-button"
-                                    ariaLabel={`Change station for ${match.oldStation.stationName}`}
-                                  >
-                                    Correct
-                                  </Button>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+          <div className="migration-stats">
+            <div className="stat-card">
+              <h3>Total Stations</h3>
+              <span className="stat-number">{state.result.stats.total}</span>
+            </div>
+            <div className="stat-card">
+              <h3>Matched</h3>
+              <span className="stat-number">{state.result.stats.matched}</span>
+            </div>
+            <div className="stat-card">
+              <h3>Unmatched</h3>
+              <span className="stat-number">{state.result.stats.unmatched}</span>
+            </div>
+            <div className="stat-card visited">
+              <h3>Visited</h3>
+              <span className="stat-number">{state.result.stats.visited}</span>
+            </div>
+            <div className="stat-card favorites">
+              <h3>Favorites</h3>
+              <span className="stat-number">{state.result.stats.favorites}</span>
+            </div>
+            {state.result.stats.rejected > 0 && (
+              <div className="stat-card rejected">
+                <h3>Rejected</h3>
+                <span className="stat-number">{state.result.stats.rejected}</span>
+              </div>
+            )}
+            {state.result.stats.duplicateIds > 0 && (
+              <div className="stat-card duplicates">
+                <h3>Duplicate IDs</h3>
+                <span className="stat-number">{state.result.stats.duplicateIds}</span>
+              </div>
+            )}
+          </div>
+          <div className="match-breakdown">
+            <h3>Match Types</h3>
+            <ul>
+              <li>Exact matches: {state.result.stats.exactMatches}</li>
+              <li>Fuzzy matches: {state.result.stats.fuzzyMatches}</li>
+              <li>No matches: {state.result.stats.unmatched}</li>
+              {state.result.stats.duplicateIds > 0 && (
+                <li>Duplicate IDs: {state.result.stats.duplicateIds}</li>
+              )}
+            </ul>
+          </div>
+          {(() => {
+            const duplicateGroupsToShow = (state.step === 'duplicates' && state.duplicateGroupsSnapshot && state.duplicateGroupsSnapshot.length > 0)
+              ? state.duplicateGroupsSnapshot
+              : (state.result?.duplicateGroups ?? [])
+            const hasDuplicateSections = duplicateGroupsToShow.length > 0 && state.result?.outputIds
+            return hasDuplicateSections ? (
+            <section className="duplicates-step-section" aria-labelledby="duplicate-ids-heading">
+              <h3 id="duplicate-ids-heading" className="duplicates-step-section-title">Duplicate IDs</h3>
+              <p className="duplicates-step-section-desc">Rows that share the same output ID. Use <strong>Correct</strong> to assign the right station for each row.</p>
+              <p className="rank-legend">
+                <span className="rank-legend-from">From your file</span>
+                <span className="rank-legend-arrow">→</span>
+                <span className="rank-legend-to">Matched in database</span>
+              </p>
+              {(() => {
+                const outputIds = state.result!.outputIds
+                const groupsWithRanges = duplicateGroupsToShow.map((group) => {
+                  const idNum = parseInt(group.id, 10)
+                  const isNumeric = !isNaN(idNum)
+                  const rangeStart = isNumeric ? idNum - 2 : 0
+                  const rangeEnd = isNumeric ? idNum + 2 : 0
+                  const pad = (n: number) => (group.id.length >= 4 ? String(n).padStart(4, '0') : String(n))
+                  const expectedIds: string[] = isNumeric
+                    ? Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => pad(rangeStart + i))
+                    : [group.id]
+                  const idRangeSet = new Set(expectedIds)
+                  const indicesInRange = outputIds
+                    .map((id, k) => (idRangeSet.has(id) ? k : -1))
+                    .filter((k) => k >= 0)
+                  const rangeLabel = expectedIds.length ? `${expectedIds[0]}–${expectedIds[expectedIds.length - 1]}` : group.id
+                  return { group, indicesInRange, rangeLabel, expectedIds, idRangeSet }
+                })
+                const firstOpenIndex = groupsWithRanges.findIndex((g) => g.indicesInRange.length > 0)
+                return groupsWithRanges.map(({ group, indicesInRange, rangeLabel, expectedIds }, gIdx) => {
+                  const isResolved = indicesInRange.length === 0
+                  const isOpen = !isResolved && gIdx === firstOpenIndex
+                  return (
+                  <details
+                    key={gIdx}
+                    className={`duplicate-group-details duplicate-group-block${isResolved ? ' duplicate-group-resolved' : ''}`}
+                    open={isOpen}
+                  >
+                    <summary className="duplicate-group-summary">
+                      {isResolved && (
+                        <span className="duplicate-group-resolved-check" aria-hidden="true">✓</span>
+                      )}
+                      <span className="duplicate-group-title">Duplicate ID: {group.id} ({indicesInRange.length} rows)</span>
+                      <span className="duplicate-range-label"> — IDs {rangeLabel}</span>
+                    </summary>
+                    <div className="rank-matches no-match-cards">
+                      {indicesInRange.length === 0 ? (
+                        <p className="duplicate-group-all-resolved">All rows in this group have been assigned new IDs.</p>
+                      ) : indicesInRange.map((matchIndex) => {
+                        const match = state.result!.matches[matchIndex]
+                        const fb = match.firebaseStation
+                        const isCorrected = match.matchType === 'manual'
+                        return (
+                          <div key={matchIndex} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
+                            <div className="station-details rank-from">
+                              <span className="rank-label">From your file</span>
+                              <div className="match-name-row">
+                                <span className="match-name">{match.oldStation.stationName}</span>
+                              </div>
+                              <div className="match-location">
+                                <small>
+                                  {formatStationLocationDisplay({
+                                    county: match.oldStation.county,
+                                    country: match.oldStation.country
+                                  })}
+                                </small>
+                              </div>
+                            </div>
+                            <div className="match-arrow">→</div>
+                            <div className="station-details rank-to">
+                              <span className="rank-label">Matched in database</span>
+                              {fb ? (
+                                <>
+                                  <div className="match-name-row">
+                                    {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                    <span className="match-name">{fb.stationName || fb.stationname}</span>
+                                  </div>
+                                  <div className="match-location">
+                                    <small>
+                                      {formatStationLocationDisplay({
+                                        county: fb.county,
+                                        country: fb.country,
+                                        londonBorough: fb.londonBorough
+                                      })}
+                                    </small>
+                                  </div>
+                                  {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
+                                    <span className="match-borough">{fb.londonBorough}</span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="match-empty">—</span>
+                              )}
+                            </div>
+                            <div className="rank-match-button-wrapper">
+                              <Button
+                                onClick={() => handleOpenSearchModal(matchIndex)}
+                                variant="wide"
+                                width="hug"
+                                className="rank-match-button"
+                                ariaLabel={match.firebaseStation ? `Change matched station for ${match.oldStation.stationName}` : `Change station for ${match.oldStation.stationName}`}
+                              >
+                                {match.firebaseStation ? 'Re-correct' : 'Correct'}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
+                    {indicesInRange.length > 0 && (
                     <div className="duplicate-expected">
                       <p className="duplicate-expected-label">Expected IDs in this range:</p>
                       <p className="duplicate-expected-ids">{expectedIds.join(', ')}</p>
@@ -944,56 +1360,92 @@ const Migration: React.FC = () => {
                         {group.matchIndices.length} rows currently have {group.id}; all but one should have different IDs. Use <strong>Correct</strong> on the wrong rows above to assign the right station.
                       </p>
                     </div>
-                  </div>
-                )
-              })}
-            </>
+                    )}
+                  </details>
+                  )
+                })
+              })()}
+            </section>
           ) : (
             <p className="no-duplicates-message">No duplicate IDs. All output IDs are unique.</p>
-          )}
+          )
+          })()}
           {state.result.mismatchedMatchIndices && state.result.mismatchedMatchIndices.length > 0 && (
-            <div className="mismatched-section duplicate-group-block">
-              <h4 className="duplicate-group-title">Possible mis-matches ({state.result.mismatchedMatchIndices.length})</h4>
-              <p className="step-description">These rows may be matched to the wrong station (e.g. low-confidence fuzzy or qualifier mismatch). Use <strong>Correct</strong> to fix.</p>
-              <div className="rejected-stations-list">
-                <table className="rejected-table duplicate-ids-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>CSV station</th>
-                      <th>Matched to</th>
-                      <th>Confidence</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.result.mismatchedMatchIndices.map((matchIndex) => {
-                      const match = state.result!.matches[matchIndex]
-                      const fbName = match.firebaseStation?.stationName ?? match.firebaseStation?.stationname ?? '–'
-                      return (
-                        <tr key={matchIndex}>
-                          <td className="row-num-cell">{matchIndex + 1}</td>
-                          <td className="station-name-cell">{match.oldStation.stationName}</td>
-                          <td className="station-name-cell">{fbName}</td>
-                          <td className="id-cell">{match.matchType === 'fuzzy' ? `${Math.round((match.confidence ?? 0) * 100)}%` : '–'}</td>
-                          <td className="action-cell">
-                            <Button
-                              onClick={() => handleOpenSearchModal(matchIndex)}
-                              variant="wide"
-                              width="hug"
-                              className="rank-match-button"
-                              ariaLabel={`Change station for ${match.oldStation.stationName}`}
-                            >
-                              Correct
-                            </Button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+            <section className="mismatched-step-section" aria-labelledby="mismatched-heading">
+              <h3 id="mismatched-heading" className="mismatched-step-section-title">Possible mis-matches</h3>
+              <p className="mismatched-step-section-desc">These rows may be matched to the wrong station (e.g. low-confidence fuzzy or qualifier mismatch). Use <strong>Correct</strong> to fix.</p>
+              <p className="rank-legend">
+                <span className="rank-legend-from">From your file</span>
+                <span className="rank-legend-arrow">→</span>
+                <span className="rank-legend-to">Matched in database</span>
+              </p>
+              <div className="rank-matches no-match-cards">
+                {state.result.mismatchedMatchIndices.map((matchIndex) => {
+                  const match = state.result!.matches[matchIndex]
+                  const fb = match.firebaseStation
+                  const showConfidence = match.matchType === 'fuzzy' && match.confidence != null
+                  const isCorrected = match.matchType === 'manual'
+                  return (
+                    <div key={matchIndex} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
+                      {showConfidence && (
+                        <span className="match-confidence">{(match.confidence! * 100).toFixed(1)}%</span>
+                      )}
+                      <div className="station-details rank-from">
+                        <span className="rank-label">From your file</span>
+                        <div className="match-name-row">
+                          <span className="match-name">{match.oldStation.stationName}</span>
+                        </div>
+                        <div className="match-location">
+                          <small>
+                            {formatStationLocationDisplay({
+                              county: match.oldStation.county,
+                              country: match.oldStation.country
+                            })}
+                          </small>
+                        </div>
+                      </div>
+                      <div className="match-arrow">→</div>
+                      <div className="station-details rank-to">
+                        <span className="rank-label">Matched in database</span>
+                        {fb ? (
+                          <>
+                            <div className="match-name-row">
+                              {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                              <span className="match-name">{fb.stationName || fb.stationname}</span>
+                            </div>
+                            <div className="match-location">
+                              <small>
+                                {formatStationLocationDisplay({
+                                  county: fb.county,
+                                  country: fb.country,
+                                  londonBorough: fb.londonBorough
+                                })}
+                              </small>
+                            </div>
+                            {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
+                              <span className="match-borough">{fb.londonBorough}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="match-empty">—</span>
+                        )}
+                      </div>
+                      <div className="rank-match-button-wrapper">
+                        <Button
+                          onClick={() => handleOpenSearchModal(matchIndex)}
+                          variant="wide"
+                          width="hug"
+                          className="rank-match-button"
+                          ariaLabel={match.firebaseStation ? `Change matched station for ${match.oldStation.stationName}` : `Change station for ${match.oldStation.stationName}`}
+                        >
+                          {match.firebaseStation ? 'Re-correct' : 'Correct'}
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            </div>
+            </section>
           )}
           <div className="action-buttons">
             <Button onClick={handleBackToReview} variant="wide" width="hug" className="action-button">
@@ -1328,73 +1780,6 @@ const Migration: React.FC = () => {
             >
               View Stations
             </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Search Modal */}
-      {state.showSearchModal && state.selectedMatchIndex !== null && (
-        <div className="search-modal-overlay">
-          <div className="search-modal">
-            <div className="search-modal-header">
-              <h3>Search for Station</h3>
-              <button 
-                onClick={handleCloseSearchModal}
-                className="close-button"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="search-modal-content">
-              <div className="current-station">
-                <h4>Current Station:</h4>
-                <p><strong>{state.matches[state.selectedMatchIndex]?.oldStation.stationName}</strong></p>
-                <p>{state.matches[state.selectedMatchIndex]?.oldStation.country}, {state.matches[state.selectedMatchIndex]?.oldStation.county}</p>
-              </div>
-
-              <div className="search-input">
-                <input
-                  type="text"
-                  placeholder="Search by station name, CRS code, or TIPLOC..."
-                  value={state.searchQuery}
-                  onChange={(e) => handleSearchStations(e.target.value)}
-                  className="search-field"
-                  autoFocus
-                />
-              </div>
-
-              <div className="search-results">
-                {state.searchResults.length > 0 ? (
-                  <div className="results-list">
-                    {state.searchResults.map((station, index) => (
-                      <div 
-                        key={index} 
-                        className="search-result-item"
-                        onClick={() => handleSelectStation(state.selectedMatchIndex!, station)}
-                      >
-                        <div className="result-station-name">
-                          {station.stationName}
-                        </div>
-                        <div className="result-details">
-                          <span className="result-crs">{station.crsCode}</span>
-                          <span className="result-tiploc">{station.tiploc}</span>
-                          <span className="result-location">{station.country}, {station.county}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : state.searchQuery ? (
-                  <div className="no-results">
-                    No stations found matching "{state.searchQuery}"
-                  </div>
-                ) : (
-                  <div className="search-hint">
-                    Start typing to search for stations...
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       )}

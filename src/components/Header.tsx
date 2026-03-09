@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
-import { useStationCollection } from '../contexts/StationCollectionContext'
-import type { StationCollectionId } from '../services/firebase'
 import NavigationButton from './NavigationButton'
 import Button from './Button'
 import './Header.css'
 
 const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme()
-  const { collectionId, setCollectionId } = useStationCollection()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -57,19 +54,6 @@ const Header: React.FC = () => {
             </NavigationButton>
           </nav>
 
-          <label className="station-collection-toggle" title="Switch station data source">
-            <span className="station-collection-toggle-label">Data:</span>
-            <select
-              value={collectionId}
-              onChange={(e) => setCollectionId(e.target.value as StationCollectionId)}
-              aria-label="Station collection"
-              className="station-collection-select"
-            >
-              <option value="stations">Production</option>
-              <option value="newsandboxstations1">Sandbox</option>
-            </select>
-          </label>
-          
           <Button
             variant="circle"
             onClick={toggleTheme}
