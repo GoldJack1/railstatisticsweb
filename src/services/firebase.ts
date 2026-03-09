@@ -228,6 +228,23 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         }
       }
       
+      const fareZoneRaw = data.fareZone ?? data.fare_zone ?? data.FareZone ?? data['Fare Zone'] ?? data.farezone
+      const fareZone = fareZoneRaw != null && fareZoneRaw !== '' ? String(fareZoneRaw) : null
+
+      let londonBorough: string | null =
+        data.londonBorough ??
+        data['London Borough'] ??
+        data.LondonBorough ??
+        data.london_borough ??
+        data.borough ??
+        data.Borough ??
+        null
+      if (londonBorough == null && typeof data.address === 'object' && data.address !== null) {
+        const addr = data.address as Record<string, unknown>
+        const b = addr.borough ?? addr.londonBorough ?? addr['London Borough']
+        if (b != null && b !== '') londonBorough = String(b)
+      }
+
       const station = {
         id: doc.id,
         stationName: data.stationname || data.stationName || '',
@@ -239,6 +256,8 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         county: data.county || null,
         toc: data.TOC || data.toc || null,
         stnarea: data.stnarea || null,
+        londonBorough: londonBorough != null && londonBorough !== '' ? String(londonBorough) : null,
+        fareZone,
         yearlyPassengers: data.yearlyPassengers || null
       }
       

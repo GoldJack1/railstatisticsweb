@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import type { Station, SandboxStationDoc } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
+import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { fetchStationDocumentById } from '../services/firebase'
 import './StationModal.css'
 
@@ -14,6 +15,37 @@ const formatValue = (v: unknown): string => {
   if (v === null || v === undefined) return 'N/A'
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+/** Get London borough from station or raw doc (tries common field names). */
+const getLondonBorough = (station: Station | null, doc: Record<string, unknown> | null | undefined): string | null => {
+  if (station?.londonBorough) return station.londonBorough
+  if (!doc) return null
+  let v: unknown =
+    doc.londonBorough ??
+    doc['London Borough'] ??
+    doc.LondonBorough ??
+    doc.london_borough ??
+    doc.borough ??
+    doc.Borough
+  if (v == null || v === '') {
+    const addr = doc.address
+    if (typeof addr === 'object' && addr !== null) {
+      const a = addr as Record<string, unknown>
+      v = a.borough ?? a.londonBorough ?? a['London Borough']
+    }
+  }
+  if (v == null || v === '') return null
+  return String(v)
+}
+
+/** Get fare zone from station or raw doc (tries common field names). */
+const getFareZone = (station: Station | null, doc: Record<string, unknown> | null | undefined): string | null => {
+  if (station?.fareZone) return station.fareZone
+  if (!doc) return null
+  const v = doc.fareZone ?? doc.fare_zone ?? doc.FareZone ?? doc['Fare Zone'] ?? doc.farezone
+  if (v == null || v === '') return null
   return String(v)
 }
 
@@ -139,6 +171,17 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
               <div className="modal-detail-item">
                 <span className="modal-detail-label">Station Area</span>
                 <span className="modal-detail-value">{(station.stnarea || sandboxDoc?.stnarea) ?? 'N/A'}</span>
+              </div>
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">London Borough</span>
+                <span className="modal-detail-value">{getLondonBorough(station, sandboxDoc as Record<string, unknown> | undefined) ?? 'N/A'}</span>
+              </div>
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Fare Zone</span>
+                <span className="modal-detail-value">{(() => {
+                  const z = getFareZone(station, sandboxDoc as Record<string, unknown> | undefined)
+                  return z ? (formatFareZoneDisplay(z) || z) : 'N/A'
+                })()}</span>
               </div>
               {isSandbox && sandboxDoc && (
                 <>

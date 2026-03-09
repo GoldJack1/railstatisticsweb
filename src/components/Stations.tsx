@@ -3,6 +3,7 @@ import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
 import StationModal from './StationModal'
 import type { Station } from '../types'
+import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import './Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
@@ -13,6 +14,8 @@ const Stations: React.FC = () => {
   const [selectedTOC, setSelectedTOC] = useState<string>('')
   const [selectedCountry, setSelectedCountry] = useState<string>('')
   const [selectedCounty, setSelectedCounty] = useState<string>('')
+  const [selectedLondonBorough, setSelectedLondonBorough] = useState<string>('')
+  const [selectedFareZone, setSelectedFareZone] = useState<string>('')
   const [sortOption, setSortOption] = useState<SortOption>('name-asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
@@ -47,6 +50,27 @@ const Stations: React.FC = () => {
     return Array.from(counties).sort()
   }, [stations])
 
+  const uniqueLondonBoroughs = useMemo(() => {
+    const boroughs = new Set<string>()
+    stations.forEach(station => {
+      if (station.londonBorough) boroughs.add(station.londonBorough)
+    })
+    return Array.from(boroughs).sort()
+  }, [stations])
+
+  const uniqueFareZones = useMemo(() => {
+    const zones = new Set<string>()
+    stations.forEach(station => {
+      if (station.fareZone) zones.add(station.fareZone)
+    })
+    return Array.from(zones).sort((a, b) => {
+      const na = parseInt(a, 10)
+      const nb = parseInt(b, 10)
+      if (!isNaN(na) && !isNaN(nb)) return na - nb
+      return a.localeCompare(b)
+    })
+  }, [stations])
+
   // Filter and sort stations
   const filteredAndSortedStations = useMemo(() => {
     let filtered = stations
@@ -62,6 +86,8 @@ const Stations: React.FC = () => {
         (station.county && station.county.toLowerCase().includes(term)) ||
         (station.toc && station.toc.toLowerCase().includes(term)) ||
         (station.stnarea && station.stnarea.toLowerCase().includes(term)) ||
+        (station.londonBorough && station.londonBorough.toLowerCase().includes(term)) ||
+        (station.fareZone && station.fareZone.toLowerCase().includes(term)) ||
         (station.id && station.id.toLowerCase().includes(term))
       )
     }
@@ -79,6 +105,16 @@ const Stations: React.FC = () => {
     // Filter by County
     if (selectedCounty) {
       filtered = filtered.filter(station => station.county === selectedCounty)
+    }
+
+    // Filter by London Borough
+    if (selectedLondonBorough) {
+      filtered = filtered.filter(station => station.londonBorough === selectedLondonBorough)
+    }
+
+    // Filter by Fare Zone
+    if (selectedFareZone) {
+      filtered = filtered.filter(station => station.fareZone === selectedFareZone)
     }
 
     // Sort
@@ -115,7 +151,7 @@ const Stations: React.FC = () => {
     })
 
     return sorted
-  }, [stations, debouncedSearchTerm, selectedTOC, selectedCountry, selectedCounty, sortOption])
+  }, [stations, debouncedSearchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone, sortOption])
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedStations.length / itemsPerPage)
@@ -128,7 +164,7 @@ const Stations: React.FC = () => {
   // Use searchTerm (not debouncedSearchTerm) to ensure immediate reset on any filter change
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedTOC, selectedCountry, selectedCounty, sortOption])
+  }, [searchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone, sortOption])
 
   const handleStationClick = (station: Station) => {
     setSelectedStation(station)
@@ -140,11 +176,13 @@ const Stations: React.FC = () => {
     setSelectedTOC('')
     setSelectedCountry('')
     setSelectedCounty('')
+    setSelectedLondonBorough('')
+    setSelectedFareZone('')
     setSortOption('name-asc')
   }
 
   // Count active data filters (excludes UI state like showFilters)
-  const activeFilterCount = [searchTerm, selectedTOC, selectedCountry, selectedCounty].filter(Boolean).length
+  const activeFilterCount = [searchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone].filter(Boolean).length
   const hasActiveFilters = activeFilterCount > 0
 
   if (loading) {
@@ -312,6 +350,36 @@ const Stations: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div className="filter-group">
+              <label htmlFor="london-borough-filter" className="filter-label">London Borough</label>
+              <select 
+                id="london-borough-filter"
+                value={selectedLondonBorough} 
+                onChange={(e) => setSelectedLondonBorough(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All London Boroughs</option>
+                {uniqueLondonBoroughs.map(borough => (
+                  <option key={borough} value={borough}>{borough}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="fare-zone-filter" className="filter-label">Fare Zone</label>
+              <select 
+                id="fare-zone-filter"
+                value={selectedFareZone} 
+                onChange={(e) => setSelectedFareZone(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Fare Zones</option>
+                {uniqueFareZones.map(zone => (
+                  <option key={zone} value={zone}>{formatFareZoneDisplay(zone) || zone}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 
@@ -325,7 +393,7 @@ const Stations: React.FC = () => {
       </div>
 
       {/* No Results State */}
-      {filteredAndSortedStations.length === 0 && (debouncedSearchTerm || selectedTOC || selectedCountry || selectedCounty) && (
+      {filteredAndSortedStations.length === 0 && (debouncedSearchTerm || selectedTOC || selectedCountry || selectedCounty || selectedLondonBorough || selectedFareZone) && (
         <div className="no-results">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/>
@@ -374,6 +442,18 @@ const Stations: React.FC = () => {
                     <span className="detail-label">County</span>
                     <span className="detail-value">{station.county || 'N/A'}</span>
                   </div>
+                  {station.londonBorough && (
+                    <div className="detail-item">
+                      <span className="detail-label">London Borough</span>
+                      <span className="detail-value">{station.londonBorough}</span>
+                    </div>
+                  )}
+                  {station.fareZone && (
+                    <div className="detail-item">
+                      <span className="detail-label">Fare Zone</span>
+                      <span className="detail-value">{formatFareZoneDisplay(station.fareZone) || station.fareZone}</span>
+                    </div>
+                  )}
                   <div className="detail-item">
                     <span className="detail-label">TOC</span>
                     <span className="detail-value">{station.toc || 'N/A'}</span>

@@ -11,6 +11,10 @@ export interface Station {
   county: string | null
   toc: string | null
   stnarea: string | null
+  /** London borough (e.g. Greater London stations) */
+  londonBorough?: string | null
+  /** Fare zone (e.g. 1, 2, 3 for TfL) */
+  fareZone?: string | null
   yearlyPassengers: YearlyPassengers | null
 }
 
@@ -59,6 +63,8 @@ export interface SandboxStationDoc {
   }
   facilities?: Record<string, unknown>
   yearlyPassengers?: Record<string, number | null>
+  londonBorough?: string
+  fareZone?: string | number
 }
 
 export interface StationStats {
