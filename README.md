@@ -66,6 +66,22 @@ To use Firebase emulator for local development:
 VITE_USE_FIREBASE_EMULATOR=true
 ```
 
+### Firebase App Check (Firestore protection)
+App Check uses reCAPTCHA v3 to ensure only your app can access Firestore.
+
+- **Site key** (public): set in `.env.local` and in Netlify as `VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY`.
+- **Secret key**: never put in code. In [Firebase Console](https://console.firebase.google.com) → **App Check** → your web app → **reCAPTCHA v3** → paste the **secret key** there.
+
+To enforce App Check for Firestore: **App Check** → **APIs** → **Cloud Firestore** → turn **Enforce** on (you can use “Monitor” first to confirm tokens are valid).
+
+### Sign in with Google and Apple
+The login page supports Email/Password, **Google**, and **Apple**. No extra env vars are needed in the app.
+
+**Step-by-step setup:** see **[docs/SETUP_GOOGLE_APPLE_SIGNIN.md](docs/SETUP_GOOGLE_APPLE_SIGNIN.md)** for full instructions.
+
+- **Google**: Create a Web OAuth client in [Google Cloud Console](https://console.cloud.google.com), then in Firebase → **Authentication** → **Sign-in method** → **Google** enter the Web client ID and secret.
+- **Apple**: Configure Sign in with Apple in [Apple Developer](https://developer.apple.com) (Services ID, key), then in Firebase → **Authentication** → **Sign-in method** → **Apple** enter Service ID, Team ID, Key ID, and private key. Details in the guide above.
+
 ## 📁 Project Structure
 
 ```
@@ -94,7 +110,7 @@ The application is configured for Netlify deployment:
 
 1. **Build Command**: `npm run build`
 2. **Publish Directory**: `dist`
-3. **Environment Variables**: Set Firebase configuration in Netlify dashboard
+3. **Environment Variables**: Set Firebase configuration and `VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY` (reCAPTCHA v3 site key) in Netlify dashboard
 
 ### Manual Deployment
 ```bash

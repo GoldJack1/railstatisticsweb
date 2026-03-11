@@ -1,4 +1,17 @@
 import { initializeApp, FirebaseApp } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  OAuthProvider,
+  Auth,
+  User
+} from 'firebase/auth'
 import { getFirestore, collection, doc, getDocs, getDoc, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
@@ -25,14 +38,28 @@ console.log('  - All env vars:', Object.keys(import.meta.env).filter(k => k.star
 
 // Initialize Firebase
 let app: FirebaseApp | null = null
+let auth: Auth | null = null
 let db: Firestore | null = null
 let analytics: Analytics | null = null
 
 export const initializeFirebase = async () => {
-  if (app) return { app, db, analytics }
+  if (app) return { app, auth, db, analytics }
   
   try {
     app = initializeApp(firebaseConfig)
+    auth = getAuth(app)
+
+    // App Check: protect Firestore in production only. Skipped in dev so localhost works without adding it to reCAPTCHA domains.
+    const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY
+    const isDev = import.meta.env.DEV
+    if (!isDev && appCheckSiteKey && appCheckSiteKey !== 'placeholder') {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true
+      })
+      console.log('🔥 Firebase App Check enabled (reCAPTCHA v3)')
+    }
+
     db = getFirestore(app)
     
     // Connect to Firebase emulator in development if explicitly enabled
@@ -54,7 +81,7 @@ export const initializeFirebase = async () => {
       analytics = null
     }
     
-    return { app, db, analytics }
+    return { app, auth, db, analytics }
   } catch (error) {
     console.error('Firebase initialization failed:', error)
     throw error
@@ -62,8 +89,40 @@ export const initializeFirebase = async () => {
 }
 
 export const getFirebaseApp = (): FirebaseApp | null => app
+export const getFirebaseAuth = (): Auth | null => auth
 export const getFirebaseDB = (): Firestore | null => db
 export const getFirebaseAnalytics = (): Analytics | null => analytics
+
+// Auth helpers (call after initializeFirebase)
+export const loginWithEmail = (email: string, password: string) =>
+  signInWithEmailAndPassword(auth!, email, password)
+export const signUpWithEmail = (email: string, password: string) =>
+  createUserWithEmailAndPassword(auth!, email, password)
+export const logout = () => firebaseSignOut(auth!)
+
+/** Sign in with Google (popup). Enable Google in Firebase Console → Authentication → Sign-in method and use the Web client ID/secret there. */
+export const loginWithGoogle = async () => {
+  if (!auth) await initializeFirebase().then(() => {})
+  const a = getFirebaseAuth()
+  if (!a) throw new Error('Firebase Auth not initialized')
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+  return signInWithPopup(a, provider)
+}
+
+/** Sign in with Apple (popup). Service ID, Team ID, key etc. are configured in Firebase Console → Authentication → Apple. */
+export const loginWithApple = async () => {
+  if (!auth) await initializeFirebase().then(() => {})
+  const a = getFirebaseAuth()
+  if (!a) throw new Error('Firebase Auth not initialized')
+  const provider = new OAuthProvider('apple.com')
+  provider.addScope('email')
+  provider.addScope('name')
+  return signInWithPopup(a, provider)
+}
+
+export { onAuthStateChanged }
+export type { User }
 
 // Production collection only. Sandbox option removed; website always uses stations2603.
 export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
+import { useAuth } from '../contexts/AuthContext'
 import NavigationButton from './NavigationButton'
 import Button from './Button'
 import './Header.css'
 
 const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -52,6 +54,32 @@ const Header: React.FC = () => {
             >
               Migration
             </NavigationButton>
+            <NavigationButton 
+              to="/stations" 
+              variant="wide" 
+              width="hug"
+              isActive={location.pathname === '/stations'}
+            >
+              Stations
+            </NavigationButton>
+            {user ? (
+              <button
+                type="button"
+                className="header-auth-btn"
+                onClick={() => { closeMobileMenu(); logout() }}
+              >
+                Log out
+              </button>
+            ) : (
+              <NavigationButton 
+                to="/log-in" 
+                variant="wide" 
+                width="hug"
+                isActive={location.pathname === '/log-in'}
+              >
+                Log in
+              </NavigationButton>
+            )}
           </nav>
 
           <Button
@@ -135,6 +163,34 @@ const Header: React.FC = () => {
           >
             Migration
           </NavigationButton>
+          <NavigationButton 
+            to="/stations" 
+            variant="wide" 
+            width="fill" 
+            onClick={closeMobileMenu}
+            isActive={location.pathname === '/stations'}
+          >
+            Stations
+          </NavigationButton>
+          {user ? (
+            <button
+              type="button"
+              className="header-auth-btn mobile-auth-btn"
+              onClick={() => { closeMobileMenu(); logout() }}
+            >
+              Log out
+            </button>
+          ) : (
+            <NavigationButton 
+              to="/log-in" 
+              variant="wide" 
+              width="fill" 
+              onClick={closeMobileMenu}
+              isActive={location.pathname === '/log-in'}
+            >
+              Log in
+            </NavigationButton>
+          )}
         </nav>
       )}
     </header>

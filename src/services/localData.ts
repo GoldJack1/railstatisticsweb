@@ -3,22 +3,24 @@
 
 import type { Station, StationStats } from '../types'
 
+/** Try stations.json first, then stations-sample.json so dev works without a full copy. */
 export const fetchLocalStations = async (): Promise<Station[]> => {
-  try {
-    const response = await fetch('/data/stations.json')
-    
-    if (response.ok) {
-      const stations = await response.json()
-      return stations
-    } else {
-      console.warn('Could not load local data file')
-      return []
+  for (const path of ['/data/stations.json', '/data/stations-sample.json']) {
+    try {
+      const response = await fetch(path)
+      if (response.ok) {
+        const stations = await response.json()
+        if (Array.isArray(stations) && stations.length > 0) {
+          console.log(`Loaded ${stations.length} stations from ${path}`)
+          return stations
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to load ${path}:`, error)
     }
-    
-  } catch (error) {
-    console.error('Failed to load local data:', error)
-    return []
   }
+  console.warn('No local station data found')
+  return []
 }
 
 export const fetchLocalStats = async (): Promise<StationStats | null> => {

@@ -1,13 +1,16 @@
 import React, { Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
 import { StationCollectionProvider } from './contexts/StationCollectionContext'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import ProtectedRoute from './components/ProtectedRoute'
 import './styles/App.css'
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Rail Statistics',
   '/home': 'Home | Rail Statistics',
+  '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
   '/buttons': 'Button Components | Rail Statistics',
@@ -17,6 +20,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 // Lazy load components for better performance
 const Home = React.lazy(() => import('./components/Home'))
+const LogIn = React.lazy(() => import('./components/LogIn'))
 const Stations = React.lazy(() => import('./components/Stations'))
 const Migration = React.lazy(() => import('./components/Migration'))
 const ButtonDemo = React.lazy(() => import('./components/ButtonDemo'))
@@ -31,6 +35,7 @@ const App: React.FC = () => {
   }, [pathname])
 
   return (
+    <AuthProvider>
     <StationCollectionProvider>
     <div className="app">
       <Header />
@@ -50,7 +55,8 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Migration />} />
             <Route path="/home" element={<Home />} />
-            <Route path="/stations" element={<Stations />} />
+            <Route path="/log-in" element={<LogIn />} />
+            <Route path="/stations" element={<ProtectedRoute><Stations /></ProtectedRoute>} />
             <Route path="/migration" element={<Migration />} />
             <Route path="/buttons" element={<ButtonDemo />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -61,6 +67,7 @@ const App: React.FC = () => {
       <Footer />
     </div>
     </StationCollectionProvider>
+    </AuthProvider>
   )
 }
 
