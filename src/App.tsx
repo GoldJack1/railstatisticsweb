@@ -12,6 +12,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
+  '/station-database-edit': 'Edit Station Database | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
   '/buttons': 'Button Components | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
@@ -22,6 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
 const Home = React.lazy(() => import('./components/Home'))
 const LogIn = React.lazy(() => import('./components/LogIn'))
 const Stations = React.lazy(() => import('./components/Stations'))
+const StationDatabaseEdit = React.lazy(() => import('./components/StationDatabaseEdit'))
 const Migration = React.lazy(() => import('./components/Migration'))
 const ButtonDemo = React.lazy(() => import('./components/ButtonDemo'))
 const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'))
@@ -57,6 +59,7 @@ const App: React.FC = () => {
             <Route path="/home" element={<Home />} />
             <Route path="/log-in" element={<LogIn />} />
             <Route path="/stations" element={<ProtectedRoute><Stations /></ProtectedRoute>} />
+            <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEdit /></ProtectedRoute>} />
             <Route path="/migration" element={<Migration />} />
             <Route path="/buttons" element={<ButtonDemo />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />

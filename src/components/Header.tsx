@@ -62,6 +62,14 @@ const Header: React.FC = () => {
             >
               Stations
             </NavigationButton>
+            <NavigationButton 
+              to="/station-database-edit" 
+              variant="wide" 
+              width="hug"
+              isActive={location.pathname === '/station-database-edit'}
+            >
+              Edit DB
+            </NavigationButton>
             {user ? (
               <button
                 type="button"
@@ -171,6 +179,15 @@ const Header: React.FC = () => {
             isActive={location.pathname === '/stations'}
           >
             Stations
+          </NavigationButton>
+          <NavigationButton 
+            to="/station-database-edit" 
+            variant="wide" 
+            width="fill" 
+            onClick={closeMobileMenu}
+            isActive={location.pathname === '/station-database-edit'}
+          >
+            Edit DB
           </NavigationButton>
           {user ? (
             <button

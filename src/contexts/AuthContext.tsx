@@ -24,6 +24,13 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** When true (dev only), skip Firebase auth and act as logged in for local testing. */
+const isBypassAuth = (): boolean =>
+  import.meta.env.DEV === true && import.meta.env.VITE_BYPASS_AUTH === 'true'
+
+/** Minimal user shape used when VITE_BYPASS_AUTH is set in dev. */
+const bypassUser = { uid: 'local-bypass', email: 'dev@local' } as User
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,6 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribe: (() => void) | undefined
     const init = async () => {
       await initializeFirebase()
+      if (isBypassAuth()) {
+        console.log('🔓 Auth bypass enabled (VITE_BYPASS_AUTH=true). You are treated as logged in.')
+        setUser(bypassUser)
+        setLoading(false)
+        return
+      }
       const auth = getFirebaseAuth()
       if (auth) {
         // Consume redirect result first (must run on page load after returning from Google/Apple)
@@ -76,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const logout = useCallback(async () => {
+    if (isBypassAuth()) return
     await firebaseLogout()
   }, [])
 

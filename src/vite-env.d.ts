@@ -12,6 +12,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY: string
   readonly VITE_USE_LOCAL_DATA_ONLY: string
   readonly VITE_USE_FIREBASE_EMULATOR: string
+  readonly VITE_BYPASS_AUTH: string
   readonly DEV: boolean
 }
 

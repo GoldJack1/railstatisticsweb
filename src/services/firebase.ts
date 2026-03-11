@@ -13,7 +13,7 @@ import {
   Auth,
   User
 } from 'firebase/auth'
-import { getFirestore, collection, doc, getDocs, getDoc, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
+import { getFirestore, collection, doc, getDocs, getDoc, updateDoc, GeoPoint, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 
@@ -338,6 +338,45 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
     console.error('Firebase fetch error:', error)
     throw error
   }
+}
+
+/**
+ * Map our Station type to Firestore document fields (same names as used when reading).
+ * Only includes fields that are provided (non-undefined).
+ */
+const stationToFirestoreUpdate = (data: Partial<Station>): Record<string, unknown> => {
+  const update: Record<string, unknown> = {}
+  if (data.stationName !== undefined) update.stationname = data.stationName
+  if (data.crsCode !== undefined) update.CrsCode = data.crsCode
+  if (data.tiploc !== undefined) update.tiploc = data.tiploc
+  if (data.country !== undefined) update.country = data.country
+  if (data.county !== undefined) update.county = data.county
+  if (data.toc !== undefined) update.TOC = data.toc
+  if (data.stnarea !== undefined) update.stnarea = data.stnarea
+  if (data.londonBorough !== undefined) update.londonBorough = data.londonBorough
+  if (data.fareZone !== undefined) update.fareZone = data.fareZone
+  if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers
+  if (data.latitude !== undefined && data.longitude !== undefined) {
+    update.location = new GeoPoint(data.latitude, data.longitude)
+  }
+  return update
+}
+
+/** Update a station document in Firestore. Uses current collection (stations2603). */
+export const updateStationInFirebase = async (
+  stationId: string,
+  data: Partial<Station>
+): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const collectionName = getStationCollectionName()
+  const docRef = doc(db, collectionName, stationId)
+  const update = stationToFirestoreUpdate(data)
+  if (Object.keys(update).length === 0) return
+  await updateDoc(docRef, update)
 }
 
 /** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */
