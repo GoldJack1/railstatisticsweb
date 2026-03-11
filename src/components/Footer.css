@@ -33,3 +33,11 @@
   color: var(--accent-color);
   text-decoration: underline;
 }
+
+.site-footer-logout {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}

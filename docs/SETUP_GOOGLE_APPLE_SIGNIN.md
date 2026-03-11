@@ -16,8 +16,8 @@ This guide walks you through enabling **Sign in with Google** and **Sign in with
 4. Create the OAuth client:
    - **Application type**: Web application.
    - **Name**: e.g. `Rail Statistics Web`.
-   - **Authorized JavaScript origins**:
-     - `http://localhost:5173` (or your local dev URL)
+   - **Authorized JavaScript origins** (add all you need for production and local):
+     - `http://localhost:3000` (this project’s Vite dev server – **required for local login**)
      - `https://railstatistics.co.uk`
      - `https://www.railstatistics.co.uk`
      - Your Netlify preview URL if you use it (e.g. `https://something.netlify.app`).
@@ -101,12 +101,43 @@ By default, during sign-in users may see “Continue to: https://YOUR_PROJECT_ID
 
 ---
 
+## Local development (login on localhost)
+
+For **Sign in with Google** and **Sign in with Apple** to work when testing at `http://localhost:3000`, do the following.
+
+### 1. Firebase: allow localhost
+
+1. **[Firebase Console](https://console.firebase.google.com)** → your project → **Build** → **Authentication**.
+2. Open the **Settings** tab (or **Authorized domains** in the main Auth screen).
+3. Under **Authorized domains**, ensure **localhost** is listed. If it’s missing, click **Add domain** and add `localhost`, then save.
+
+Without this, Firebase will reject the redirect back to your app after sign-in on localhost.
+
+### 2. Google: allow localhost origin
+
+1. **[Google Cloud Console](https://console.cloud.google.com)** → **APIs & Services** → **Credentials**.
+2. Open your **OAuth 2.0 Web client** used for this app.
+3. Under **Authorized JavaScript origins**, add:
+   - `http://localhost:3000`
+4. Save.
+
+Use the same port as your dev server (this project uses **3000** in `vite.config.js`).
+
+### 3. Apple: optional localhost
+
+1. In **Apple Developer** → **Identifiers** → your **Services ID** → **Configure** (Sign in with Apple).
+2. Under **Domains and Subdomains**, you can try adding **localhost**. Some accounts allow it for development; if it’s rejected, test Google on localhost and Apple on your deployed site.
+
+After these steps, run `npm run dev`, open `http://localhost:3000/log-in`, and use “Continue with Google” (and Apple if you added localhost).
+
+---
+
 ## Quick checklist
 
 **Google**
 
 - [ ] OAuth 2.0 Web client created in Google Cloud Console (Client ID + Client secret).
-- [ ] Authorized JavaScript origins include your site and localhost.
+- [ ] Authorized JavaScript origins include your site and `http://localhost:3000` for local login.
 - [ ] Google provider enabled in Firebase with that Web client ID and secret.
 
 **Apple**
@@ -129,7 +160,10 @@ By default, during sign-in users may see “Continue to: https://YOUR_PROJECT_ID
 - **Apple: “Invalid client”**  
   Double-check Services ID, Team ID, Key ID, and that the pasted private key is complete and has no extra line breaks or spaces.
 
+- **Login doesn’t work on localhost**  
+  See [Local development (login on localhost)](#local-development-login-on-localhost) above: add **localhost** to Firebase Authorized domains and `http://localhost:3000` to Google Authorized JavaScript origins.
+
 - **Popup blocked**  
-  Users must allow popups for your site. The app shows a message if the popup was blocked.
+  The app uses redirect (not popup) for Google/Apple, so this should be rare. If you see it, allow redirects for your site.
 
 If you hit a specific error message, you can search for it in [Firebase Auth docs](https://firebase.google.com/docs/auth) or [Apple Sign in with Apple docs](https://developer.apple.com/sign-in-with-apple/).

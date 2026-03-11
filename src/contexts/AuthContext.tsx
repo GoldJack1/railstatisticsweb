@@ -3,6 +3,7 @@ import {
   initializeFirebase,
   getFirebaseAuth,
   onAuthStateChanged,
+  handleRedirectResult,
   loginWithEmail,
   signUpWithEmail,
   loginWithGoogle as firebaseLoginWithGoogle,
@@ -37,6 +38,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(u)
           setLoading(false)
         })
+        // Complete sign-in when returning from Google/Apple redirect (no popup)
+        try {
+          await handleRedirectResult()
+        } catch {
+          // No redirect result or error; auth state will still update via onAuthStateChanged
+        }
       } else {
         setLoading(false)
       }

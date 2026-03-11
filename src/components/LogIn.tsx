@@ -1,11 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import './LogIn.css'
 
 const LogIn: React.FC = () => {
-  const { login, signUp, loginWithGoogle, loginWithApple } = useAuth()
+  const { user, login, signUp, loginWithGoogle, loginWithApple } = useAuth()
   const navigate = useNavigate()
+
+  // After returning from Google/Apple redirect, or if already logged in, go to stations
+  useEffect(() => {
+    if (user) {
+      navigate('/stations', { replace: true })
+    }
+  }, [user, navigate])
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -70,7 +77,7 @@ const LogIn: React.FC = () => {
     setSocialLoading('google')
     try {
       await loginWithGoogle()
-      navigate('/stations', { replace: true })
+      // Redirect flow: page navigates away to Google; no further action here
     } catch (err) {
       const message = handleSocialError(err)
       if (message) setError(message)
@@ -84,7 +91,7 @@ const LogIn: React.FC = () => {
     setSocialLoading('apple')
     try {
       await loginWithApple()
-      navigate('/stations', { replace: true })
+      // Redirect flow: page navigates away to Apple; no further action here
     } catch (err) {
       const message = handleSocialError(err)
       if (message) setError(message)

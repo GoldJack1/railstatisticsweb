@@ -4,7 +4,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -100,17 +101,18 @@ export const signUpWithEmail = (email: string, password: string) =>
   createUserWithEmailAndPassword(auth!, email, password)
 export const logout = () => firebaseSignOut(auth!)
 
-/** Sign in with Google (popup). Enable Google in Firebase Console → Authentication → Sign-in method and use the Web client ID/secret there. */
+/** Sign in with Google. Uses redirect (no popup) so it works when popups are blocked. */
 export const loginWithGoogle = async () => {
   if (!auth) await initializeFirebase().then(() => {})
   const a = getFirebaseAuth()
   if (!a) throw new Error('Firebase Auth not initialized')
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
-  return signInWithPopup(a, provider)
+  await signInWithRedirect(a, provider)
+  // Page will navigate away to Google; after sign-in user returns and getRedirectResult() runs on load
 }
 
-/** Sign in with Apple (popup). Service ID, Team ID, key etc. are configured in Firebase Console → Authentication → Apple. */
+/** Sign in with Apple. Uses redirect (no popup) so it works when popups are blocked. */
 export const loginWithApple = async () => {
   if (!auth) await initializeFirebase().then(() => {})
   const a = getFirebaseAuth()
@@ -118,10 +120,18 @@ export const loginWithApple = async () => {
   const provider = new OAuthProvider('apple.com')
   provider.addScope('email')
   provider.addScope('name')
-  return signInWithPopup(a, provider)
+  await signInWithRedirect(a, provider)
+  // Page will navigate away to Apple; after sign-in user returns and getRedirectResult() runs on load
 }
 
-export { onAuthStateChanged }
+/** Call once on app load to complete sign-in after returning from Google/Apple redirect. */
+export const handleRedirectResult = async () => {
+  const a = getFirebaseAuth()
+  if (!a) return null
+  return getRedirectResult(a)
+}
+
+export { onAuthStateChanged, getRedirectResult }
 export type { User }
 
 // Production collection only. Sandbox option removed; website always uses stations2603.
