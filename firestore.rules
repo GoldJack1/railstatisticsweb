@@ -2,42 +2,12 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Stations collection - public read access, admin write access
-    match /stations/{stationId} {
-      // Allow anyone to read station data (public information)
-      allow read: if true;
-      
-      // Only allow authenticated users with admin role to write
-      allow write: if request.auth != null 
-        && request.auth.token.admin == true;
-    }
-    
-    // Statistics collection - public read access, admin write access
-    match /stats/{statId} {
-      // Allow anyone to read statistics
-      allow read: if true;
-      
-      // Only allow authenticated users with admin role to write
-      allow write: if request.auth != null 
-        && request.auth.token.admin == true;
-    }
-    
-    // User preferences collection - users can only access their own data
-    match /users/{userId} {
-      // Users can read and write their own data
-      allow read, write: if request.auth != null 
-        && request.auth.uid == userId;
-    }
-    
-    // Admin collection - only admin users can access
-    match /admin/{document=**} {
-      allow read, write: if request.auth != null 
-        && request.auth.token.admin == true;
-    }
-    
-    // Default rule - deny all other access
     match /{document=**} {
-      allow read, write: if false;
+      // ✅ FIX: Extend the expiration date to a future time (e.g., Dec 31, 2026)
+      allow read: if request.time < timestamp.date(2026, 12, 31);
+
+      // Only signed-in users can write (site can push when users are logged in)
+      allow write: if request.auth != null;
     }
   }
 }
