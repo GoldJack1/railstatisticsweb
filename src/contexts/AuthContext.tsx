@@ -34,16 +34,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await initializeFirebase()
       const auth = getFirebaseAuth()
       if (auth) {
+        // Consume redirect result first (must run on page load after returning from Google/Apple)
+        try {
+          const result = await handleRedirectResult()
+          if (result?.user) {
+            setUser(result.user)
+            setLoading(false)
+          }
+        } catch (err) {
+          console.warn('Redirect result error:', err)
+        }
+        // Listen for auth changes (covers redirect sign-in and normal login/logout)
         unsubscribe = onAuthStateChanged(auth, (u) => {
           setUser(u)
           setLoading(false)
         })
-        // Complete sign-in when returning from Google/Apple redirect (no popup)
-        try {
-          await handleRedirectResult()
-        } catch {
-          // No redirect result or error; auth state will still update via onAuthStateChanged
-        }
       } else {
         setLoading(false)
       }

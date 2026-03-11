@@ -95,9 +95,47 @@ Sign in with Apple requires an **Apple Developer Program** membership and setup 
 
 You’re done for Apple. Users can now use “Continue with Apple” on the `/log-in` page.
 
-### 2.4 (Optional) Custom auth domain for Apple
+### 2.4 Show “Rail Statistics” (or your domain) instead of rail-statistics.firebaseapp.com
 
-By default, during sign-in users may see “Continue to: https://YOUR_PROJECT_ID.firebaseapp.com”. To use your own domain (e.g. `auth.railstatistics.co.uk`) you’d need to set up a [custom auth domain with Firebase Hosting](https://firebase.google.com/docs/auth/web/apple#customizing_the_redirect_domain_for_apple_sign-in). That’s optional; the default domain works fine.
+By default, sign-in shows **“Continue to: rail-statistics.firebaseapp.com”**. To show your own domain (e.g. **railstatistics.co.uk** or **auth.railstatistics.co.uk**) and a friendlier name:
+
+**A. Use a custom auth domain (recommended)**
+
+1. **Firebase Hosting – add custom domain**
+   - [Firebase Console](https://console.firebase.google.com) → your project → **Build** → **Hosting**.
+   - Click **Add custom domain**. Use a subdomain like **auth.railstatistics.co.uk** (or your main domain if you’re not using it for the main site).
+   - Follow the steps to verify ownership (DNS: add the A/CNAME and optional TXT records Firebase shows). Wait until the domain is verified and the SSL certificate is active.
+
+2. **Auth – allow the custom domain**
+   - **Authentication** → **Settings** (or the Auth tab) → **Authorized domains**.
+   - Click **Add domain** and add your custom domain, e.g. `auth.railstatistics.co.uk` → Save.
+
+3. **App – use the custom auth domain**
+   - In Netlify (and `.env.local` for local), set:
+     - **Key:** `VITE_FIREBASE_AUTH_DOMAIN`
+     - **Value:** your custom domain only, e.g. `auth.railstatistics.co.uk` (no `https://`).
+   - Redeploy. The app already reads `authDomain` from this env var, so sign-in will redirect via your domain and users will see e.g. “Continue to: auth.railstatistics.co.uk”.
+
+4. **Google – add redirect URI**
+   - [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services** → **Credentials** → your OAuth Web client.
+   - Under **Authorized redirect URIs**, add:  
+     `https://auth.railstatistics.co.uk/__/auth/handler`  
+     (use your actual custom domain). Save.
+
+5. **Apple – update Return URL**
+   - [Apple Developer](https://developer.apple.com/account) → **Identifiers** → your **Services ID** → **Configure** (Sign in with Apple).
+   - In **Return URLs**, add:  
+     `https://auth.railstatistics.co.uk/__/auth/handler`  
+     (you can keep the firebaseapp.com one for backwards compatibility or replace it). Save.
+   - If Apple asks for domain verification, serve the file they give you at  
+     `https://auth.railstatistics.co.uk/.well-known/apple-developer-domain-association.txt`  
+     (Firebase Hosting or your host).
+
+After this, sign-in will show your domain instead of `rail-statistics.firebaseapp.com`.
+
+**B. App name on the Google sign-in screen**
+
+- In [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services** → **OAuth consent screen**, set **App name** to **Rail Statistics** (and upload a logo if you want). That name appears on the Google account picker; the “Continue to: [domain]” line is controlled by the custom domain above.
 
 ---
 
