@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import type { Station, YearlyPassengers } from '../types'
+import type { Station, YearlyPassengers, SandboxStationDoc } from '../types'
 import './StationModal.css'
 import './StationEditModal.css'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
+import { useStationCollection } from '../contexts/StationCollectionContext'
+import { fetchStationDocumentById } from '../services/firebase'
+import { formatFareZoneDisplay } from '../utils/formatFareZone'
 
 interface StationEditModalProps {
   station: Station | null
@@ -33,6 +36,10 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
   const [isReviewing, setIsReviewing] = useState(false)
   const [preparedYearlyPassengers, setPreparedYearlyPassengers] = useState<YearlyPassengers | null>(null)
   const { upsertPendingChange } = usePendingStationChanges()
+  const { collectionId } = useStationCollection()
+  const [sandboxDoc, setSandboxDoc] = useState<SandboxStationDoc | null>(null)
+  const [sandboxLoading, setSandboxLoading] = useState(false)
+  const isSandbox = collectionId === 'newsandboxstations1'
 
   useEffect(() => {
     if (!station) {
@@ -70,6 +77,24 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
         : null
     )
   }, [station])
+
+  useEffect(() => {
+    if (!isOpen || !station || !isSandbox) {
+      setSandboxDoc(null)
+      return
+    }
+    let cancelled = false
+    setSandboxLoading(true)
+    setSandboxDoc(null)
+    fetchStationDocumentById(station.id)
+      .then((data) => {
+        if (!cancelled && data) setSandboxDoc(data as SandboxStationDoc)
+      })
+      .finally(() => {
+        if (!cancelled) setSandboxLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [isOpen, isSandbox, station?.id])
 
   if (!isOpen || !station) return null
 
@@ -336,6 +361,158 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   placeholder='{"2020": 12345, "2021": 67890}'
                 />
               </div>
+
+              {isSandbox && (
+                <div className="modal-section">
+                  <h3 className="modal-section-title">Additional sandbox details (read-only)</h3>
+                  {sandboxLoading && (
+                    <p className="modal-sandbox-loading">Loading sandbox details…</p>
+                  )}
+                  {sandboxDoc && !sandboxLoading && (
+                    <>
+                      <div className="modal-details-grid">
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">Operator Code</span>
+                          <span className="modal-detail-value">{sandboxDoc.operatorCode ?? 'N/A'}</span>
+                        </div>
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">Staffing Level</span>
+                          <span className="modal-detail-value">{sandboxDoc.staffingLevel ?? 'N/A'}</span>
+                        </div>
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">NLC</span>
+                          <span className="modal-detail-value">{sandboxDoc.nlc ?? 'N/A'}</span>
+                        </div>
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">Min connection time</span>
+                          <span className="modal-detail-value">{sandboxDoc['min-connection-time'] ?? 'N/A'}</span>
+                        </div>
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">URL slug</span>
+                          <span className="modal-detail-value">{sandboxDoc.urlSlug ?? 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      {sandboxDoc.toilets && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Toilets</h4>
+                          <div className="modal-details-grid">
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Accessible</span>
+                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsAccessible ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Changing Place</span>
+                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsChangingPlace ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Baby changing</span>
+                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsBabyChanging ?? 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxDoc.stepFree && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Step-free access</h4>
+                          <div className="modal-details-grid">
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Code</span>
+                              <span className="modal-detail-value">{sandboxDoc.stepFree.stepFreeCode ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Note</span>
+                              <span className="modal-detail-value">{sandboxDoc.stepFree.stepFreeNote ?? 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxDoc.lift && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Lift</h4>
+                          <div className="modal-details-grid">
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Available</span>
+                              <span className="modal-detail-value">{sandboxDoc.lift.liftAvailable ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Notes</span>
+                              <span className="modal-detail-value">{sandboxDoc.lift.liftNotes ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Details</span>
+                              <span className="modal-detail-value">{sandboxDoc.lift.liftDetails ?? 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxDoc.connections && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Connections</h4>
+                          <div className="modal-details-grid">
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Bus</span>
+                              <span className="modal-detail-value">{sandboxDoc.connections.connectionBus ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Taxi</span>
+                              <span className="modal-detail-value">{sandboxDoc.connections.connectionTaxi ?? 'N/A'}</span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Underground</span>
+                              <span className="modal-detail-value">{sandboxDoc.connections.connectionUnderground ?? 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxDoc.is && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Service</h4>
+                          <div className="modal-details-grid">
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Request stop</span>
+                              <span className="modal-detail-value">
+                                {String(sandboxDoc.is.isrequeststop ?? 'N/A')}
+                              </span>
+                            </div>
+                            <div className="modal-detail-item">
+                              <span className="modal-detail-label">Limited service</span>
+                              <span className="modal-detail-value">
+                                {String(sandboxDoc.is.Islimitedservice ?? 'N/A')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {sandboxDoc.facilities && Object.keys(sandboxDoc.facilities).length > 0 && (
+                        <div className="modal-section">
+                          <h4 className="modal-section-title">Facilities</h4>
+                          <div className="modal-details-grid modal-facilities-grid">
+                            {Object.entries(sandboxDoc.facilities).map(([key, value]) => (
+                              <div key={key} className="modal-detail-item">
+                                <span className="modal-detail-label">
+                                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                                </span>
+                                <span className="modal-detail-value">
+                                  {value === null || value === undefined ? 'N/A' : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {!sandboxLoading && !sandboxDoc && (
+                    <p className="modal-sandbox-loading">No additional sandbox details for this station.</p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="modal-section edit-review-section">

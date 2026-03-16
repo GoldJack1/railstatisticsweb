@@ -239,6 +239,10 @@ const NewStationModal: React.FC<NewStationModalProps> = ({ isOpen, onClose, next
               Yearly passengers will be initialised for 1998–2025 with values set to N/A. You can edit them later in the
               station editor.
             </p>
+            <p className="edit-hint">
+              Additional sandbox-only details (toilets, step-free, lifts, connections, facilities, etc.) are managed in the
+              source sandbox data and will appear in the View modal once available for this station.
+            </p>
           </div>
 
           {saveError && (
