@@ -19,7 +19,7 @@ export interface Station {
 }
 
 export interface YearlyPassengers {
-  [year: string]: number
+  [year: string]: number | null
 }
 
 /** Sandbox collection (newsandboxstations1) full document shape for modal detail view */

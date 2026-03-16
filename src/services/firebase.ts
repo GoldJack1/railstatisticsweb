@@ -13,7 +13,7 @@ import {
   Auth,
   User
 } from 'firebase/auth'
-import { getFirestore, collection, doc, getDocs, getDoc, updateDoc, GeoPoint, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
+import { getFirestore, collection, doc, getDocs, getDoc, updateDoc, setDoc, GeoPoint, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 
@@ -401,6 +401,25 @@ export const updateStationInFirebase = async (
   const update = stationToFirestoreUpdate(data)
   if (Object.keys(update).length === 0) return
   await updateDoc(docRef, update)
+}
+
+/** Create a new station document in Firestore with a specific ID. Uses current collection selection. */
+export const createStationInFirebase = async (
+  stationId: string,
+  data: Partial<Station>
+): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const collectionName = getStationCollectionName()
+  const docRef = doc(db, collectionName, stationId)
+  const payload = stationToFirestoreUpdate(data)
+  if (Object.keys(payload).length === 0) {
+    throw new Error('No data provided to create station')
+  }
+  await setDoc(docRef, payload)
 }
 
 /** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */

@@ -3,13 +3,14 @@ import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
 import StationModal from './StationModal'
 import StationEditModal from './StationEditModal'
+import NewStationModal from './NewStationModal'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
-import { updateStationInFirebase } from '../services/firebase'
+import { updateStationInFirebase, createStationInFirebase } from '../services/firebase'
 import './Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
@@ -31,6 +32,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const resultsSectionRef = useRef<HTMLDivElement>(null)
   const { collectionId, setCollectionId } = useStationCollection()
   const { pendingChanges, clearAllPendingChanges } = usePendingStationChanges()
@@ -206,6 +208,18 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
 
   const pendingCount = Object.keys(pendingChanges).length
 
+  const nextNumericStationId = useMemo(() => {
+    const numericStations = stations.filter(station => /^\d+$/.test(station.id))
+    if (numericStations.length === 0) {
+      return '0001'
+    }
+
+    const maxNumericId = Math.max(...numericStations.map(s => parseInt(s.id, 10)))
+    const next = maxNumericId + 1
+    const maxLength = Math.max(4, ...numericStations.map(s => s.id.length))
+    return String(next).padStart(maxLength, '0')
+  }, [stations])
+
   const handlePublishAll = async () => {
     if (pendingCount === 0) return
     if (!window.confirm(`Are you sure you want to publish ${pendingCount} pending change${pendingCount > 1 ? 's' : ''} to the database?`)) {
@@ -215,7 +229,11 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
     setIsPublishingAll(true)
     try {
       for (const [stationId, entry] of Object.entries(pendingChanges)) {
-        await updateStationInFirebase(stationId, entry.updated)
+        if (entry.isNew) {
+          await createStationInFirebase(stationId, entry.updated)
+        } else {
+          await updateStationInFirebase(stationId, entry.updated)
+        }
       }
       clearAllPendingChanges()
       await refetch()
@@ -308,6 +326,17 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                     <option value="newsandboxstations1">Sandbox (newsandboxstations1)</option>
                   </select>
                 </div>
+                {isEditMode && collectionId === 'newsandboxstations1' && (
+                  <div className="station-add-wrapper">
+                    <button
+                      type="button"
+                      className="station-add-button"
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
+                      + Add new station
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -333,7 +362,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
 
               <div className="pending-review-list">
                 {Object.entries(pendingChanges).map(([stationId, entry]) => {
-                  const { original, updated } = entry
+                  const { original, updated, isNew } = entry
 
                   const formatValue = (value: unknown): string => {
                     if (value === null || value === undefined || value === '') return '—'
@@ -342,7 +371,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
 
                   const changes: Array<{ label: string; from: string; to: string }> = []
                   const addChange = (label: string, fromValue: unknown, toValue: unknown) => {
-                    const fromStr = formatValue(fromValue)
+                    const fromStr = isNew ? '—' : formatValue(fromValue)
                     const toStr = formatValue(toValue)
                     if (fromStr !== toStr) {
                       changes.push({ label, from: fromStr, to: toStr })
@@ -362,7 +391,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                   addChange('Longitude', original.longitude ?? '', updated.longitude ?? original.longitude ?? '')
 
                   const originalPassengers =
-                    original.yearlyPassengers && typeof original.yearlyPassengers === 'object' && !Array.isArray(original.yearlyPassengers)
+                    !isNew && original.yearlyPassengers && typeof original.yearlyPassengers === 'object' && !Array.isArray(original.yearlyPassengers)
                       ? JSON.stringify(original.yearlyPassengers)
                       : ''
                   const updatedPassengers =
@@ -777,6 +806,11 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
           }}
         />
       )}
+      <NewStationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        nextStationId={nextNumericStationId}
+      />
         </main>
       </div>
     </div>
