@@ -105,6 +105,7 @@ html {
     -ms-text-size-adjust: 100%;
     width: 100%;
     overflow-x: hidden;
+    overflow-y: scroll; /* Prevent layout shift when scrollbar appears/disappears */
 }
 
 body {

@@ -45,11 +45,11 @@ export const useStations = (): UseStationsReturn => {
           setTimeout(() => reject(new Error('Firebase request timed out')), FIREBASE_TIMEOUT_MS)
         )
         firebaseStations = await Promise.race([
-          fetchStationsFromFirebase(),
+          fetchStationsFromFirebase(collectionId),
           timeoutPromise
         ])
       } else {
-        firebaseStations = await fetchStationsFromFirebase()
+        firebaseStations = await fetchStationsFromFirebase(collectionId)
       }
 
       if (firebaseStations.length > 0) {

@@ -2,15 +2,24 @@ import React, { useState, useMemo, useRef, useCallback } from 'react'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
 import StationModal from './StationModal'
+import StationEditModal from './StationEditModal'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
+import { useStationCollection } from '../contexts/StationCollectionContext'
+import type { StationCollectionId } from '../services/firebase'
+import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
+import { updateStationInFirebase } from '../services/firebase'
 import './Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
 
-const Stations: React.FC = () => {
-  const { stations, loading, error, stats } = useStations()
+interface StationsProps {
+  initialMode?: 'view' | 'edit'
+}
+
+const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
+  const { stations, loading, error, refetch } = useStations()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTOC, setSelectedTOC] = useState<string>('')
   const [selectedCountry, setSelectedCountry] = useState<string>('')
@@ -21,8 +30,12 @@ const Stations: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+  const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
   const resultsSectionRef = useRef<HTMLDivElement>(null)
+  const { collectionId, setCollectionId } = useStationCollection()
+  const { pendingChanges, clearAllPendingChanges } = usePendingStationChanges()
+  const [isPublishingAll, setIsPublishingAll] = useState(false)
+  const [showPendingReview, setShowPendingReview] = useState(false)
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -191,6 +204,27 @@ const Stations: React.FC = () => {
   const activeFilterCount = [searchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone].filter(Boolean).length
   const hasActiveFilters = activeFilterCount > 0
 
+  const pendingCount = Object.keys(pendingChanges).length
+
+  const handlePublishAll = async () => {
+    if (pendingCount === 0) return
+    if (!window.confirm(`Are you sure you want to publish ${pendingCount} pending change${pendingCount > 1 ? 's' : ''} to the database?`)) {
+      return
+    }
+
+    setIsPublishingAll(true)
+    try {
+      for (const [stationId, entry] of Object.entries(pendingChanges)) {
+        await updateStationInFirebase(stationId, entry.updated)
+      }
+      clearAllPendingChanges()
+      await refetch()
+      setShowPendingReview(false)
+    } finally {
+      setIsPublishingAll(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container">
@@ -220,203 +254,365 @@ const Stations: React.FC = () => {
 
   return (
     <div className="container">
-      {/* Page Header */}
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Station Database</h1>
-          <p style={{color: 'var(--text-secondary)', margin: '0.5rem 0 0 0'}}>Explore railway stations and passenger data</p>
-        </div>
-      </header>
+      <div className="stations-layout">
+        <aside className="stations-sidebar">
+          <header className="page-header">
+            <div>
+              <h1 className="page-title">Station Database</h1>
+              <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0 0' }}>
+                {isEditMode
+                  ? 'View or edit station fields and prepare changes for publishing'
+                  : 'Explore railway stations and passenger data'}
+              </p>
+            </div>
+          </header>
 
-      {/* Statistics */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-number">{stats.totalStations.toLocaleString()}</div>
-          <div className="stat-label">Total Stations</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.withCoordinates.toLocaleString()}</div>
-          <div className="stat-label">With Coordinates</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.withTOC.toLocaleString()}</div>
-          <div className="stat-label">With TOC</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.withPassengers.toLocaleString()}</div>
-          <div className="stat-label">With Passenger Data</div>
-        </div>
-      </div>
+          {/* Database mode + data source + pending changes */}
+          <section className="sidebar-card">
+            <div className="station-controls-strip">
+              <div className="station-controls-left">
+                <div>
+                  <span className="sort-label" style={{ marginRight: '0.5rem' }}>
+                    Mode:
+                  </span>
+                  <div className="mode-toggle" role="group" aria-label="Mode">
+                    <button
+                      type="button"
+                      className={`mode-toggle-button ${!isEditMode ? 'mode-toggle-button--active' : ''}`}
+                      onClick={() => setIsEditMode(false)}
+                      aria-pressed={!isEditMode}
+                    >
+                      View only
+                    </button>
+                    <button
+                      type="button"
+                      className={`mode-toggle-button ${isEditMode ? 'mode-toggle-button--active' : ''}`}
+                      onClick={() => setIsEditMode(true)}
+                      aria-pressed={isEditMode}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="station-collection-select" className="sort-label" style={{ marginRight: '0.5rem' }}>
+                    Data source:
+                  </label>
+                  <select
+                    id="station-collection-select"
+                    value={collectionId}
+                    onChange={(e) => setCollectionId(e.target.value as StationCollectionId)}
+                    className="sort-select"
+                  >
+                    <option value="stations2603">Production (stations2603)</option>
+                    <option value="newsandboxstations1">Sandbox (newsandboxstations1)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-      {/* Search and Filters Section */}
-      <div className="search-section">
-        <div className="search-container">
-          <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input 
-            type="text" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                scrollToResults()
-              }
-            }}
-            className="search-input" 
-            placeholder="Search stations by name, code, TOC, or location..."
-            autoComplete="off"
-          />
-          {hasActiveFilters && (
-            <button 
-              className="clear-search-button"
-              onClick={clearFilters}
-              aria-label="Clear filters"
-              title="Clear all filters"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
+            {pendingCount > 0 && (
+              <div className="sidebar-pending-summary">
+                <button
+                  type="button"
+                  className="pending-changes-button"
+                  onClick={() => setShowPendingReview(prev => !prev)}
+                >
+                  {pendingCount} pending change{pendingCount > 1 ? 's' : ''} ·{' '}
+                  {showPendingReview ? 'Hide review' : 'Review changes'}
+                </button>
+              </div>
+            )}
+
+            {pendingCount > 0 && showPendingReview && (
+              <section className="pending-review-section" aria-label="Review pending station changes before publishing">
+              <h2 className="pending-review-title">Review pending changes</h2>
+              <p className="pending-review-subtitle">
+                These edits are staged locally and will be written to the selected data source when you publish.
+              </p>
+
+              <div className="pending-review-list">
+                {Object.entries(pendingChanges).map(([stationId, entry]) => {
+                  const { original, updated } = entry
+
+                  const formatValue = (value: unknown): string => {
+                    if (value === null || value === undefined || value === '') return '—'
+                    return String(value)
+                  }
+
+                  const changes: Array<{ label: string; from: string; to: string }> = []
+                  const addChange = (label: string, fromValue: unknown, toValue: unknown) => {
+                    const fromStr = formatValue(fromValue)
+                    const toStr = formatValue(toValue)
+                    if (fromStr !== toStr) {
+                      changes.push({ label, from: fromStr, to: toStr })
+                    }
+                  }
+
+                  addChange('Station name', original.stationName ?? '', updated.stationName ?? original.stationName ?? '')
+                  addChange('CRS code', original.crsCode ?? '', updated.crsCode ?? original.crsCode ?? '')
+                  addChange('Tiploc', original.tiploc ?? '', updated.tiploc ?? original.tiploc ?? '')
+                  addChange('TOC', original.toc ?? '', updated.toc ?? original.toc ?? '')
+                  addChange('Country', original.country ?? '', updated.country ?? original.country ?? '')
+                  addChange('County', original.county ?? '', updated.county ?? original.county ?? '')
+                  addChange('Station area', original.stnarea ?? '', updated.stnarea ?? original.stnarea ?? '')
+                  addChange('London Borough', original.londonBorough ?? '', updated.londonBorough ?? original.londonBorough ?? '')
+                  addChange('Fare Zone', original.fareZone ?? '', updated.fareZone ?? original.fareZone ?? '')
+                  addChange('Latitude', original.latitude ?? '', updated.latitude ?? original.latitude ?? '')
+                  addChange('Longitude', original.longitude ?? '', updated.longitude ?? original.longitude ?? '')
+
+                  const originalPassengers =
+                    original.yearlyPassengers && typeof original.yearlyPassengers === 'object' && !Array.isArray(original.yearlyPassengers)
+                      ? JSON.stringify(original.yearlyPassengers)
+                      : ''
+                  const updatedPassengers =
+                    updated.yearlyPassengers && typeof updated.yearlyPassengers === 'object'
+                      ? JSON.stringify(updated.yearlyPassengers)
+                      : originalPassengers
+
+                  if (originalPassengers !== updatedPassengers) {
+                    changes.push({
+                      label: 'Yearly passengers',
+                      from: originalPassengers || '—',
+                      to: updatedPassengers || '—'
+                    })
+                  }
+
+                  return (
+                    <article key={stationId} className="pending-review-item">
+                      <header className="pending-review-item-header">
+                        <div>
+                          <div className="pending-review-station-name">
+                            {original.stationName || 'Untitled station'}
+                          </div>
+                          <div className="pending-review-station-meta">
+                            <span>{original.crsCode || 'No CRS'}</span>
+                            <span>·</span>
+                            <span>ID: {stationId}</span>
+                          </div>
+                        </div>
+                      </header>
+
+                      {changes.length === 0 ? (
+                        <p className="pending-review-no-changes">
+                          No field-level differences detected for this station.
+                        </p>
+                      ) : (
+                        <ul className="pending-review-change-list">
+                          {changes.map(change => (
+                            <li key={change.label} className="pending-review-change">
+                              <div className="pending-review-change-label">{change.label}</div>
+                              <div className="pending-review-change-values">
+                                <span className="pending-review-change-from">{change.from}</span>
+                                <span className="pending-review-change-arrow">→</span>
+                                <span className="pending-review-change-to">{change.to}</span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+
+              <div className="pending-review-actions">
+                <button
+                  type="button"
+                  className="pending-review-cancel"
+                  onClick={() => setShowPendingReview(false)}
+                  disabled={isPublishingAll}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="pending-review-publish"
+                  onClick={handlePublishAll}
+                  disabled={isPublishingAll}
+                >
+                  {isPublishingAll ? 'Publishing…' : 'Publish all changes'}
+                </button>
+              </div>
+            </section>
+            )}
+          </section>
+
+          {/* Search section */}
+          <section className="sidebar-card">
+            <div className="search-container">
+              <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
               </svg>
-            </button>
-          )}
-        </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    scrollToResults()
+                  }
+                }}
+                className="search-input"
+                placeholder="Search by station name, code, TOC, or location"
+                autoComplete="off"
+              />
+              {hasActiveFilters && (
+                <button
+                  className="clear-search-button"
+                  onClick={clearFilters}
+                  aria-label="Clear filters"
+                  title="Clear all filters"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </section>
 
-        <div className="controls-row">
-          <button 
-            type="button"
-            className="search-submit-button"
-            onClick={scrollToResults}
-            aria-label="Search by station name and current filters"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
-            </svg>
-            Search
-          </button>
-          <button 
-            className="filter-toggle-button"
-            onClick={() => setShowFilters(!showFilters)}
-            aria-label="Toggle filters"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-            </svg>
-            Filters
-            {hasActiveFilters && <span className="filter-badge">{activeFilterCount}</span>}
-          </button>
+          {/* Filters section */}
+          <section className="sidebar-card">
+            <div className="sidebar-card-header">
+              <span className="sidebar-card-title">Filters</span>
+              {hasActiveFilters && <span className="filter-badge">{activeFilterCount}</span>}
+            </div>
 
-          <div className="sort-container">
-            <label htmlFor="sort-select" className="sort-label">Sort by:</label>
-            <select 
-              id="sort-select"
-              value={sortOption} 
-              onChange={(e) => setSortOption(e.target.value as SortOption)}
-              className="sort-select"
-            >
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
-              <option value="toc-asc">TOC (A-Z)</option>
-              <option value="toc-desc">TOC (Z-A)</option>
-              <option value="passengers-desc">Passengers (High to Low)</option>
-              <option value="passengers-asc">Passengers (Low to High)</option>
-            </select>
-          </div>
-        </div>
+            <div className="filters-panel filters-panel-inline">
+                <div className="filter-group">
+                  <label htmlFor="toc-filter" className="filter-label">
+                    TOC
+                  </label>
+                  <select
+                    id="toc-filter"
+                    value={selectedTOC}
+                    onChange={(e) => setSelectedTOC(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All TOCs</option>
+                    {uniqueTOCs.map(toc => (
+                      <option key={toc} value={toc}>
+                        {toc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Advanced Filters */}
-        {showFilters && (
-          <div className="filters-panel">
-            <div className="filter-group">
-              <label htmlFor="toc-filter" className="filter-label">TOC (Train Operating Company)</label>
-              <select 
-                id="toc-filter"
-                value={selectedTOC} 
-                onChange={(e) => setSelectedTOC(e.target.value)}
-                className="filter-select"
+                <div className="filter-group">
+                  <label htmlFor="country-filter" className="filter-label">
+                    Country
+                  </label>
+                  <select
+                    id="country-filter"
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All Countries</option>
+                    {uniqueCountries.map(country => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="county-filter" className="filter-label">
+                    County
+                  </label>
+                  <select
+                    id="county-filter"
+                    value={selectedCounty}
+                    onChange={(e) => setSelectedCounty(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All Counties</option>
+                    {uniqueCounties.map(county => (
+                      <option key={county} value={county}>
+                        {county}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="london-borough-filter" className="filter-label">
+                    London Borough
+                  </label>
+                  <select
+                    id="london-borough-filter"
+                    value={selectedLondonBorough}
+                    onChange={(e) => setSelectedLondonBorough(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All London Boroughs</option>
+                    {uniqueLondonBoroughs.map(borough => (
+                      <option key={borough} value={borough}>
+                        {borough}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="fare-zone-filter" className="filter-label">
+                    Fare Zone
+                  </label>
+                  <select
+                    id="fare-zone-filter"
+                    value={selectedFareZone}
+                    onChange={(e) => setSelectedFareZone(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All Fare Zones</option>
+                    {uniqueFareZones.map(zone => (
+                      <option key={zone} value={zone}>
+                        {formatFareZoneDisplay(zone) || zone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            
+          </section>
+
+          {/* Sort / results section */}
+          <section className="sidebar-card">
+            <div className="sort-container">
+              <label htmlFor="sort-select" className="sort-label">
+                Sort
+              </label>
+              <select
+                id="sort-select"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                className="sort-select"
               >
-                <option value="">All TOCs</option>
-                {uniqueTOCs.map(toc => (
-                  <option key={toc} value={toc}>{toc}</option>
-                ))}
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="toc-asc">TOC (A-Z)</option>
+                <option value="toc-desc">TOC (Z-A)</option>
+                <option value="passengers-desc">Passengers (High to Low)</option>
+                <option value="passengers-asc">Passengers (Low to High)</option>
               </select>
             </div>
 
-            <div className="filter-group">
-              <label htmlFor="country-filter" className="filter-label">Country</label>
-              <select 
-                id="country-filter"
-                value={selectedCountry} 
-                onChange={(e) => setSelectedCountry(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Countries</option>
-                {uniqueCountries.map(country => (
-                  <option key={country} value={country}>{country}</option>
-                ))}
-              </select>
+            <div className="results-count" ref={resultsSectionRef}>
+              Showing {paginatedStations.length} of {filteredAndSortedStations.length} stations
+              {filteredAndSortedStations.length !== stations.length && (
+                <span className="filtered-indicator"> (filtered)</span>
+              )}
             </div>
+          </section>
+        </aside>
 
-            <div className="filter-group">
-              <label htmlFor="county-filter" className="filter-label">County</label>
-              <select 
-                id="county-filter"
-                value={selectedCounty} 
-                onChange={(e) => setSelectedCounty(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Counties</option>
-                {uniqueCounties.map(county => (
-                  <option key={county} value={county}>{county}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label htmlFor="london-borough-filter" className="filter-label">London Borough</label>
-              <select 
-                id="london-borough-filter"
-                value={selectedLondonBorough} 
-                onChange={(e) => setSelectedLondonBorough(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All London Boroughs</option>
-                {uniqueLondonBoroughs.map(borough => (
-                  <option key={borough} value={borough}>{borough}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label htmlFor="fare-zone-filter" className="filter-label">Fare Zone</label>
-              <select 
-                id="fare-zone-filter"
-                value={selectedFareZone} 
-                onChange={(e) => setSelectedFareZone(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Fare Zones</option>
-                {uniqueFareZones.map(zone => (
-                  <option key={zone} value={zone}>{formatFareZoneDisplay(zone) || zone}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Results count */}
-        <div className="results-count" ref={resultsSectionRef}>
-          Showing {paginatedStations.length} of {filteredAndSortedStations.length} stations
-          {filteredAndSortedStations.length !== stations.length && (
-            <span className="filtered-indicator"> (filtered)</span>
-          )}
-        </div>
-      </div>
-
-      {/* No Results State */}
+        <main className="stations-main">
+          {/* No Results State */}
       {filteredAndSortedStations.length === 0 && (debouncedSearchTerm || selectedTOC || selectedCountry || selectedCounty || selectedLondonBorough || selectedFareZone) && (
         <div className="no-results">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -433,7 +629,7 @@ const Stations: React.FC = () => {
         </div>
       )}
 
-      {/* Stations Grid */}
+          {/* Stations Grid */}
       {paginatedStations.length > 0 && (
         <>
           <div className="stations-grid">
@@ -450,70 +646,75 @@ const Stations: React.FC = () => {
                     handleStationClick(station)
                   }
                 }}
-                aria-label={`View details for ${station.stationName || 'Unknown Station'}`}
+                aria-label={`${isEditMode ? 'Edit' : 'View details for'} ${station.stationName || 'Unknown Station'}`}
               >
                 <div className="station-header">
-                  <h3 className="station-name">{station.stationName || 'Unknown Station'}</h3>
-                  {station.crsCode && <span className="station-crs">{station.crsCode}</span>}
-                </div>
-                
-                <div className="station-details">
-                  <div className="detail-item">
-                    <span className="detail-label">Location</span>
-                    <span className="detail-value">
-                      {formatStationLocationDisplay({
-                        county: station.county,
-                        country: station.country,
-                        londonBorough: station.londonBorough
-                      }) || 'N/A'}
-                    </span>
+                  <div>
+                    <h3 className="station-name">{station.stationName || 'Unknown Station'}</h3>
+                    <div className="station-subtitle">
+                      <span>
+                        {formatStationLocationDisplay({
+                          county: station.county,
+                          country: station.country,
+                          londonBorough: station.londonBorough
+                        }) || 'Location unknown'}
+                      </span>
+                    </div>
                   </div>
-                  {station.londonBorough && !isGreaterLondonCounty(station.county) && (
-                    <div className="detail-item">
-                      <span className="detail-label">London Borough</span>
-                      <span className="detail-value">{station.londonBorough}</span>
-                    </div>
-                  )}
-                  {station.fareZone && (
-                    <div className="detail-item">
-                      <span className="detail-label">Fare Zone</span>
-                      <span className="detail-value">{formatFareZoneDisplay(station.fareZone) || station.fareZone}</span>
-                    </div>
-                  )}
+                  <div className="station-header-right">
+                    {station.crsCode && <span className="station-chip station-chip-primary">{station.crsCode}</span>}
+                    {station.tiploc && <span className="station-chip">{station.tiploc}</span>}
+                    {pendingChanges[station.id] && (
+                      <span className="station-chip station-chip-muted" aria-label="This station has unpublished edits">
+                        Edited
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="station-details station-details-two-column">
                   <div className="detail-item">
                     <span className="detail-label">TOC</span>
                     <span className="detail-value">{station.toc || 'N/A'}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-label">Tiploc</span>
-                    <span className="detail-value">{station.tiploc || 'N/A'}</span>
+                    <span className="detail-label">Fare zone</span>
+                    <span className="detail-value">
+                      {station.fareZone ? (formatFareZoneDisplay(station.fareZone) || station.fareZone) : 'N/A'}
+                    </span>
                   </div>
-                </div>
-                
-                {station.yearlyPassengers && (
-                  <div className="yearly-passengers">
-                    <div className="detail-item">
-                      <span className="detail-label">Latest Year Passengers</span>
-                      <span className="detail-value">
-                        {(() => {
-                          if (typeof station.yearlyPassengers === 'object') {
-                            const years = Object.keys(station.yearlyPassengers)
-                              .filter(y => /^\d{4}$/.test(y))
-                              .sort((a, b) => parseInt(b) - parseInt(a))
-                            if (years.length > 0) {
-                              const latest = station.yearlyPassengers[years[0]]
-                              return typeof latest === 'number' ? latest.toLocaleString() : 'N/A'
-                            }
-                          }
-                          return 'N/A'
-                        })()}
-                      </span>
+                  {station.londonBorough && !isGreaterLondonCounty(station.county) && (
+                    <div className="detail-item detail-item-full">
+                      <span className="detail-label">London borough</span>
+                      <span className="detail-value">{station.londonBorough}</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                <div className="station-meta-line">
+                  <span>
+                    Latest passengers:{' '}
+                    {(() => {
+                      if (station.yearlyPassengers && typeof station.yearlyPassengers === 'object') {
+                        const years = Object.keys(station.yearlyPassengers)
+                          .filter(y => /^\d{4}$/.test(y))
+                          .sort((a, b) => parseInt(b) - parseInt(a))
+                        if (years.length > 0) {
+                          const latest = station.yearlyPassengers[years[0]]
+                          return typeof latest === 'number' ? latest.toLocaleString() : 'N/A'
+                        }
+                      }
+                      return 'N/A'
+                    })()}
+                  </span>
+                  <span className="station-meta-separator">·</span>
+                  <span>ID: {station.id}</span>
+                </div>
 
                 <div className="station-card-footer">
-                  <span className="view-details-text">Click to view full details</span>
+                  <span className="view-details-text">
+                    {isEditMode ? 'Click to edit' : 'Click to view full details'}
+                  </span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
                   </svg>
@@ -557,15 +758,27 @@ const Stations: React.FC = () => {
         </>
       )}
       
-      {/* Station Detail Modal */}
-      <StationModal 
-        station={selectedStation}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setSelectedStation(null)
-        }}
-      />
+      {isEditMode ? (
+        <StationEditModal
+          station={selectedStation}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setSelectedStation(null)
+          }}
+        />
+      ) : (
+        <StationModal 
+          station={selectedStation}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setSelectedStation(null)
+          }}
+        />
+      )}
+        </main>
+      </div>
     </div>
   )
 }

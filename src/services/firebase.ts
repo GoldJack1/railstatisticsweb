@@ -134,14 +134,38 @@ export const handleRedirectResult = async () => {
 export { onAuthStateChanged, getRedirectResult }
 export type { User }
 
-// Production collection only. Sandbox option removed; website always uses stations2603.
 export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'
 
 export type StationCollectionId = 'stations2603' | 'newsandboxstations1'
 
-/** Always returns production collection. Sandbox is no longer selectable. */
+const DEFAULT_STATION_COLLECTION: StationCollectionId = 'stations2603'
+
+/** Read the currently selected station collection from localStorage (falls back to production). */
 export const getStationCollectionName = (): StationCollectionId => {
-  return 'stations2603'
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return DEFAULT_STATION_COLLECTION
+  }
+  try {
+    const stored = window.localStorage.getItem(STATION_COLLECTION_STORAGE_KEY)
+    if (stored === 'stations2603' || stored === 'newsandboxstations1') {
+      return stored
+    }
+  } catch {
+    // Ignore storage errors and fall back to default
+  }
+  return DEFAULT_STATION_COLLECTION
+}
+
+/** Persist the selected station collection to localStorage so it can be read by Firebase helpers. */
+export const setStationCollectionName = (id: StationCollectionId): void => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(STATION_COLLECTION_STORAGE_KEY, id)
+  } catch {
+    // Ignore storage errors; selection just won't persist
+  }
 }
 
 // Parse location string helper

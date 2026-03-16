@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useCallback } from 'react'
+import React, { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import type { StationCollectionId } from '../services/firebase'
+import { getStationCollectionName, setStationCollectionName } from '../services/firebase'
 
 interface StationCollectionContextValue {
   collectionId: StationCollectionId
@@ -8,12 +9,17 @@ interface StationCollectionContextValue {
 
 const StationCollectionContext = createContext<StationCollectionContextValue | null>(null)
 
-const PRODUCTION_COLLECTION: StationCollectionId = 'stations2603'
-
 export const StationCollectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const collectionId = PRODUCTION_COLLECTION
-  const setCollectionId = useCallback((_id: StationCollectionId) => {
-    // No-op: website always uses production; collection cannot be changed.
+  const [collectionId, setCollectionIdState] = useState<StationCollectionId>(() => getStationCollectionName())
+
+  // Keep localStorage in sync if the initial value changes (e.g. between server/client)
+  useEffect(() => {
+    setStationCollectionName(collectionId)
+  }, [collectionId])
+
+  const setCollectionId = useCallback((id: StationCollectionId) => {
+    setCollectionIdState(id)
+    setStationCollectionName(id)
   }, [])
 
   return (

@@ -2,6 +2,7 @@ import React, { Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { StationCollectionProvider } from './contexts/StationCollectionContext'
+import { PendingStationChangesProvider } from './contexts/PendingStationChangesContext'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -38,38 +39,44 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
-    <StationCollectionProvider>
-    <div className="app">
-      <Header />
-      <main className="main-content">
-        <Suspense fallback={
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '200px',
-            fontSize: '18px',
-            color: 'var(--text-secondary)'
-          }}>
-            Loading...
+      <StationCollectionProvider>
+        <PendingStationChangesProvider>
+          <div className="app">
+            <Header />
+            <main className="main-content">
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      height: '200px',
+                      fontSize: '18px',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    Loading...
+                  </div>
+                }
+              >
+                <Routes>
+                  <Route path="/" element={<Migration />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/log-in" element={<LogIn />} />
+                  <Route path="/stations" element={<ProtectedRoute><Stations /></ProtectedRoute>} />
+                  <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEdit /></ProtectedRoute>} />
+                  <Route path="/migration" element={<Migration />} />
+                  <Route path="/buttons" element={<ButtonDemo />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/eula" element={<Eula />} />
+                </Routes>
+              </Suspense>
+            </main>
+            <Footer />
           </div>
-        }>
-          <Routes>
-            <Route path="/" element={<Migration />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/log-in" element={<LogIn />} />
-            <Route path="/stations" element={<ProtectedRoute><Stations /></ProtectedRoute>} />
-            <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEdit /></ProtectedRoute>} />
-            <Route path="/migration" element={<Migration />} />
-            <Route path="/buttons" element={<ButtonDemo />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/eula" element={<Eula />} />
-          </Routes>
-        </Suspense>
-      </main>
-      <Footer />
-    </div>
-    </StationCollectionProvider>
+        </PendingStationChangesProvider>
+      </StationCollectionProvider>
     </AuthProvider>
   )
 }
