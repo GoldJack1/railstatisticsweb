@@ -20,6 +20,7 @@ export interface ButtonProps {
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
   className?: string
   ariaLabel?: string
+  title?: string
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -34,7 +35,8 @@ const Button: React.FC<ButtonProps> = ({
   children,
   onClick,
   className = '',
-  ariaLabel
+  ariaLabel,
+  title
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   
@@ -76,6 +78,7 @@ const Button: React.FC<ButtonProps> = ({
       onClick={handleClick}
       disabled={disabled}
       aria-label={ariaLabel}
+      title={title}
     >
       {icon && <span className="rs-button__icon">{icon}</span>}
       {children && <span className="rs-button__text">{children}</span>}

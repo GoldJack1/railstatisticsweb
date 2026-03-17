@@ -121,23 +121,13 @@
 }
 
 .modal-map-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
+  /* Allow `Button` design-system styles to apply. */
   margin-top: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--accent-color);
-  color: white;
-  text-decoration: none;
-  border-radius: var(--radius-md);
-  font-weight: 500;
-  transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .modal-map-link:hover {
-  background: var(--accent-color-dark, var(--accent-color));
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  /* `Button` handles hover styling. */
 }
 
 .modal-passengers {

@@ -12,7 +12,11 @@ import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/fo
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
-import { updateStationInFirebase, createStationInFirebase } from '../services/firebase'
+import {
+  updateStationInFirebase,
+  createStationInFirebase,
+  mergeStationAdditionalDetailsInFirebase
+} from '../services/firebase'
 import './Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
@@ -233,8 +237,14 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
       for (const [stationId, entry] of Object.entries(pendingChanges)) {
         if (entry.isNew) {
           await createStationInFirebase(stationId, entry.updated)
+          if (entry.sandboxUpdated && Object.keys(entry.sandboxUpdated).length > 0) {
+            await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated)
+          }
         } else {
           await updateStationInFirebase(stationId, entry.updated)
+          if (entry.sandboxUpdated && Object.keys(entry.sandboxUpdated).length > 0) {
+            await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated)
+          }
         }
       }
       clearAllPendingChanges()
@@ -323,7 +333,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                     <option value="newsandboxstations1">Sandbox (newsandboxstations1)</option>
                   </select>
                 </div>
-                {isEditMode && collectionId === 'newsandboxstations1' && (
+                {isEditMode && (
                   <div className="station-add-wrapper">
                     <Button
                       variant="wide"

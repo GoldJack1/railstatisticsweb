@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { fetchStationsFromFirebase } from '../services/firebase'
-import { fetchLocalStations, calculateStats } from '../services/localData'
+import { calculateStats, fetchLocalStations } from '../services/localData'
 import type { Station, StationStats, UseStationsReturn } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 
 const FIREBASE_TIMEOUT_MS = 12_000
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return 'Unknown error'
+  }
+}
 
 export const useStations = (): UseStationsReturn => {
   const { collectionId } = useStationCollection()
@@ -60,20 +70,12 @@ export const useStations = (): UseStationsReturn => {
       }
     } catch (err) {
       console.error('Failed to load stations:', err)
+      const details = getErrorMessage(err)
       const isDev = import.meta.env.DEV
-      if (isDev) {
-        // In dev, fall back to local data so local testing doesn't block
-        const localStations = await fetchLocalStations()
-        if (localStations.length > 0) {
-          setStations(localStations)
-          setStats(calculateStats(localStations))
-          console.warn('Using local data after Firebase failed. Set VITE_USE_LOCAL_DATA_ONLY=true to skip Firebase in dev.')
-        } else {
-          setError('Unable to fetch station data from Firebase, and no local data found.')
-        }
-      } else {
-        setError('Unable to fetch station data from Firebase')
-      }
+      const hint = isDev
+        ? 'Check your `.env.local` Firebase config (VITE_FIREBASE_*). Local JSON fallback is disabled.'
+        : 'Please try again later.'
+      setError(`Unable to fetch station data from Firebase. ${hint}${details ? ` (${details})` : ''}`)
     } finally {
       setLoading(false)
     }

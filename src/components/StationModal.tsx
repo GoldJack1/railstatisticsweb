@@ -58,7 +58,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
   const isSandbox = collectionId === 'newsandboxstations1'
 
   useEffect(() => {
-    if (!isOpen || !station || !isSandbox) {
+    if (!isOpen || !station) {
       setSandboxDoc(null)
       return
     }
@@ -73,7 +73,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
         if (!cancelled) setSandboxLoading(false)
       })
     return () => { cancelled = true }
-  }, [isOpen, station?.id, isSandbox])
+  }, [isOpen, station?.id, collectionId])
 
   if (!isOpen || !station) return null
 
@@ -191,7 +191,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
                   return z ? (formatFareZoneDisplay(z) || z) : 'N/A'
                 })()}</span>
               </div>
-              {isSandbox && sandboxDoc && (
+              {sandboxDoc && (
                 <>
                   <div className="modal-detail-item">
                     <span className="modal-detail-label">Operator Code</span>
@@ -232,29 +232,35 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
                 </div>
               </div>
               {(googleMapsUrl || (geoLat != null && geoLng != null)) && (
-                <a
-                  href={googleMapsUrl || `https://www.google.com/maps?q=${geoLat},${geoLng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Button
+                  type="button"
+                  variant="wide"
+                  width="hug"
                   className="modal-map-link"
+                  onClick={() => {
+                    const url = googleMapsUrl || `https://www.google.com/maps?q=${geoLat},${geoLng}`
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                  }}
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                  }
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
                   View on Google Maps
-                </a>
+                </Button>
               )}
             </div>
           )}
 
-          {isSandbox && sandboxLoading && (
+          {sandboxLoading && (
             <div className="modal-section">
-              <p className="modal-sandbox-loading">Loading sandbox details…</p>
+              <p className="modal-sandbox-loading">Loading additional details…</p>
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.toilets && (
+          {sandboxDoc?.toilets && (
             <div className="modal-section">
               <h3 className="modal-section-title">Toilets</h3>
               <div className="modal-details-grid">
@@ -274,7 +280,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.stepFree && (
+          {sandboxDoc?.stepFree && (
             <div className="modal-section">
               <h3 className="modal-section-title">Step-free access</h3>
               <div className="modal-details-grid">
@@ -290,7 +296,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.lift && (
+          {sandboxDoc?.lift && (
             <div className="modal-section">
               <h3 className="modal-section-title">Lift</h3>
               <div className="modal-details-grid">
@@ -310,7 +316,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.connections && (
+          {sandboxDoc?.connections && (
             <div className="modal-section">
               <h3 className="modal-section-title">Connections</h3>
               <div className="modal-details-grid">
@@ -330,7 +336,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.is && (
+          {sandboxDoc?.is && (
             <div className="modal-section">
               <h3 className="modal-section-title">Service</h3>
               <div className="modal-details-grid">
@@ -346,26 +352,25 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
-          {isSandbox && sandboxDoc?.facilities && Object.keys(sandboxDoc.facilities).length > 0 && (
+          {sandboxDoc?.facilities && (
             <div className="modal-section">
               <h3 className="modal-section-title">Facilities</h3>
-              <div className="modal-details-grid modal-facilities-grid">
-                {Object.entries(sandboxDoc.facilities).map(([key, value]) => (
-                  <div key={key} className="modal-detail-item">
-                    <span className="modal-detail-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
-                    <span className="modal-detail-value">{formatValue(value)}</span>
-                  </div>
-                ))}
-              </div>
+              {Object.keys(sandboxDoc.facilities).length === 0 ? (
+                <p className="modal-sandbox-loading">No facilities listed for this station.</p>
+              ) : (
+                <div className="modal-details-grid modal-facilities-grid">
+                  {Object.entries(sandboxDoc.facilities).map(([key, value]) => (
+                    <div key={key} className="modal-detail-item">
+                      <span className="modal-detail-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
+                      <span className="modal-detail-value">{formatValue(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          <div className="modal-section">
-            <p className="edit-hint">
-              Additional sandbox-only details (toilets, step-free access, lifts, connections, facilities, etc.) are managed in
-              the sandbox source data and will appear here when available for this station.
-            </p>
-          </div>
+          {/* Additional details are shown above when present on the station document */}
 
           {(station.yearlyPassengers || (isSandbox && sandboxDoc?.yearlyPassengers)) && (
             <div className="modal-section">

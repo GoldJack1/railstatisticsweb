@@ -16,6 +16,7 @@ import {
 import { getFirestore, collection, doc, getDocs, getDoc, updateDoc, setDoc, GeoPoint, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
+import type { SandboxStationDoc } from '../types'
 
 // Firebase configuration from environment variables (set in Netlify or .env.local)
 const firebaseConfig = {
@@ -27,6 +28,31 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || 'placeholder',
   appId: import.meta.env.VITE_FIREBASE_APP_ID || 'placeholder',
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'placeholder'
+}
+
+const isPlaceholder = (value: unknown): boolean =>
+  typeof value !== 'string' || value.trim() === '' || value === 'placeholder'
+
+/**
+ * In local development we want to fail fast if Firebase env vars
+ * are missing, rather than silently using placeholder config.
+ */
+const validateFirebaseConfigForDev = (): void => {
+  if (!import.meta.env.DEV) return
+
+  const missing: string[] = []
+  if (isPlaceholder(firebaseConfig.apiKey)) missing.push('VITE_FIREBASE_API_KEY')
+  if (isPlaceholder(firebaseConfig.authDomain)) missing.push('VITE_FIREBASE_AUTH_DOMAIN')
+  if (isPlaceholder(firebaseConfig.projectId)) missing.push('VITE_FIREBASE_PROJECT_ID')
+  if (isPlaceholder(firebaseConfig.appId)) missing.push('VITE_FIREBASE_APP_ID')
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Firebase env vars missing: ${missing.join(
+        ', '
+      )}. Create a \`.env.local\` (copy from \`.env.example\`) and restart the dev server.`
+    )
+  }
 }
 
 // Debug logging to verify environment variables are loaded
@@ -47,6 +73,7 @@ export const initializeFirebase = async () => {
   if (app) return { app, auth, db, analytics }
   
   try {
+    validateFirebaseConfigForDev()
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
 
@@ -420,6 +447,44 @@ export const createStationInFirebase = async (
     throw new Error('No data provided to create station')
   }
   await setDoc(docRef, payload)
+}
+
+/**
+ * Update "additional details" fields on a station document.
+ * This intentionally accepts a partial raw document shape so we can write nested sections
+ * like toilets/lift/stepFree/facilities as-is.
+ */
+export const updateStationAdditionalDetailsInFirebase = async (
+  stationId: string,
+  data: Partial<SandboxStationDoc>
+): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const collectionName = getStationCollectionName()
+  const docRef = doc(db, collectionName, stationId)
+  const payload = data as Record<string, unknown>
+  if (!payload || Object.keys(payload).length === 0) return
+  await updateDoc(docRef, payload)
+}
+
+/** Create/merge additional details for a station document (safe for new stations). */
+export const mergeStationAdditionalDetailsInFirebase = async (
+  stationId: string,
+  data: Partial<SandboxStationDoc>
+): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const collectionName = getStationCollectionName()
+  const docRef = doc(db, collectionName, stationId)
+  const payload = data as Record<string, unknown>
+  if (!payload || Object.keys(payload).length === 0) return
+  await setDoc(docRef, payload, { merge: true })
 }
 
 /** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */

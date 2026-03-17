@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
-import type { Station } from '../types'
+import type { SandboxStationDoc, Station } from '../types'
 
 interface PendingChangeEntry {
   original: Station
   updated: Partial<Station>
+  /** Optional sandbox-only extra fields (for newsandboxstations1). */
+  sandboxUpdated?: Partial<SandboxStationDoc> | null
   isNew?: boolean
 }
 
 interface PendingStationChangesContextValue {
   pendingChanges: Record<string, PendingChangeEntry>
-  upsertPendingChange: (station: Station, updated: Partial<Station>) => void
-  addNewPendingStation: (stationId: string, updated: Partial<Station>) => void
+  upsertPendingChange: (station: Station, updated: Partial<Station>, sandboxUpdated?: Partial<SandboxStationDoc> | null) => void
+  addNewPendingStation: (stationId: string, updated: Partial<Station>, sandboxUpdated?: Partial<SandboxStationDoc> | null) => void
   clearPendingChange: (stationId: string) => void
   clearAllPendingChanges: () => void
 }
@@ -20,18 +22,27 @@ const PendingStationChangesContext = createContext<PendingStationChangesContextV
 export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChangeEntry>>({})
 
-  const upsertPendingChange = useCallback((station: Station, updated: Partial<Station>) => {
+  const upsertPendingChange = useCallback((
+    station: Station,
+    updated: Partial<Station>,
+    sandboxUpdated?: Partial<SandboxStationDoc> | null
+  ) => {
     setPendingChanges(prev => ({
       ...prev,
       [station.id]: {
         original: station,
         updated,
+        sandboxUpdated: sandboxUpdated ?? prev[station.id]?.sandboxUpdated ?? null,
         isNew: prev[station.id]?.isNew
       }
     }))
   }, [])
 
-  const addNewPendingStation = useCallback((stationId: string, updated: Partial<Station>) => {
+  const addNewPendingStation = useCallback((
+    stationId: string,
+    updated: Partial<Station>,
+    sandboxUpdated?: Partial<SandboxStationDoc> | null
+  ) => {
     const original: Station = {
       id: stationId,
       stationName: updated.stationName ?? '',
@@ -53,6 +64,7 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
       [stationId]: {
         original,
         updated,
+        sandboxUpdated: sandboxUpdated ?? prev[stationId]?.sandboxUpdated ?? null,
         isNew: true
       }
     }))

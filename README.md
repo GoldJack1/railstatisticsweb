@@ -73,6 +73,8 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 ### Local Development
 For local development, create a `.env.local` file with your Firebase configuration values.
 
+**Important:** Local development now expects Firebase to be configured and will **not** automatically fall back to `public/data/*.json` if Firebase is unavailable/misconfigured.
+
 ### Firebase Emulator (Optional)
 To use Firebase emulator for local development:
 ```env

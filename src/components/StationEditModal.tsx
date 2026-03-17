@@ -28,26 +28,56 @@ const emptyStationForm = (): Partial<Station> => ({
   yearlyPassengers: null
 })
 
+const pickAdditionalDetails = (doc: SandboxStationDoc | null): Partial<SandboxStationDoc> => {
+  if (!doc) return {}
+  const picked: Partial<SandboxStationDoc> = {}
+  const keys: Array<keyof SandboxStationDoc> = [
+    'operatorCode',
+    'staffingLevel',
+    'nlc',
+    'min-connection-time',
+    'urlSlug',
+    'toilets',
+    'stepFree',
+    'lift',
+    'connections',
+    'is',
+    'facilities'
+  ]
+  for (const k of keys) {
+    const v = doc[k]
+    if (v !== undefined) {
+      ;(picked as Record<string, unknown>)[k] = v as unknown
+    }
+  }
+  return picked
+}
+
 const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, onClose }) => {
   const [form, setForm] = useState<Partial<Station>>(emptyStationForm)
-  const [yearlyPassengersJson, setYearlyPassengersJson] = useState('')
+  const [yearlyPassengersRows, setYearlyPassengersRows] = useState<Array<{ year: string; value: string }>>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isReviewing, setIsReviewing] = useState(false)
   const [preparedYearlyPassengers, setPreparedYearlyPassengers] = useState<YearlyPassengers | null>(null)
+  const [additionalForm, setAdditionalForm] = useState<Partial<SandboxStationDoc>>({})
+  const [facilitiesRows, setFacilitiesRows] = useState<Array<{ key: string; value: string }>>([])
+  const [preparedAdditionalDetails, setPreparedAdditionalDetails] = useState<Partial<SandboxStationDoc> | null>(null)
   const { upsertPendingChange } = usePendingStationChanges()
   const { collectionId } = useStationCollection()
   const [sandboxDoc, setSandboxDoc] = useState<SandboxStationDoc | null>(null)
   const [sandboxLoading, setSandboxLoading] = useState(false)
-  const isSandbox = collectionId === 'newsandboxstations1'
 
   useEffect(() => {
     if (!station) {
       setForm(emptyStationForm())
-      setYearlyPassengersJson('')
+      setYearlyPassengersRows([])
+      setAdditionalForm({})
+      setFacilitiesRows([])
       setSaveError(null)
       setIsReviewing(false)
       setPreparedYearlyPassengers(null)
+      setPreparedAdditionalDetails(null)
       return
     }
     setForm({
@@ -64,11 +94,17 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
       fareZone: station.fareZone ?? '',
       yearlyPassengers: station.yearlyPassengers ?? null
     })
-    setYearlyPassengersJson(
-      station.yearlyPassengers && typeof station.yearlyPassengers === 'object'
-        ? JSON.stringify(station.yearlyPassengers, null, 2)
-        : ''
-    )
+    const yp =
+      station.yearlyPassengers && typeof station.yearlyPassengers === 'object' && !Array.isArray(station.yearlyPassengers)
+        ? (station.yearlyPassengers as YearlyPassengers)
+        : null
+    const ypRows = yp
+      ? Object.entries(yp)
+          .filter(([k]) => /^\d{4}$/.test(k))
+          .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+          .map(([year, value]) => ({ year, value: value == null ? '' : String(value) }))
+      : []
+    setYearlyPassengersRows(ypRows)
     setSaveError(null)
     setIsReviewing(false)
     setPreparedYearlyPassengers(
@@ -76,10 +112,11 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
         ? (station.yearlyPassengers as YearlyPassengers)
         : null
     )
+    setPreparedAdditionalDetails(null)
   }, [station])
 
   useEffect(() => {
-    if (!isOpen || !station || !isSandbox) {
+    if (!isOpen || !station) {
       setSandboxDoc(null)
       return
     }
@@ -88,13 +125,25 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
     setSandboxDoc(null)
     fetchStationDocumentById(station.id)
       .then((data) => {
-        if (!cancelled && data) setSandboxDoc(data as SandboxStationDoc)
+        if (!cancelled && data) {
+          const doc = data as SandboxStationDoc
+          setSandboxDoc(doc)
+          // Only set initial values when not reviewing, so we don't clobber user edits mid-flow.
+          const picked = pickAdditionalDetails(doc)
+          setAdditionalForm(picked)
+          const facilities =
+            picked.facilities && typeof picked.facilities === 'object' && !Array.isArray(picked.facilities)
+              ? (picked.facilities as Record<string, unknown>)
+              : {}
+          const rows = Object.entries(facilities).map(([k, v]) => ({ key: k, value: v == null ? '' : String(v) }))
+          setFacilitiesRows(rows.length > 0 ? rows : [])
+        }
       })
       .finally(() => {
         if (!cancelled) setSandboxLoading(false)
       })
     return () => { cancelled = true }
-  }, [isOpen, isSandbox, station?.id])
+  }, [isOpen, collectionId, station?.id])
 
   if (!isOpen || !station) return null
 
@@ -104,19 +153,79 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
 
   const validateAndPrepareYearlyPassengers = (): YearlyPassengers | null | 'error' => {
     setSaveError(null)
-    let yearlyPassengers: YearlyPassengers | null = null
-    if (yearlyPassengersJson.trim()) {
-      try {
-        const parsed = JSON.parse(yearlyPassengersJson)
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          yearlyPassengers = parsed
-        }
-      } catch {
-        setSaveError('Yearly passengers must be valid JSON (e.g. {"2020": 12345, "2021": 67890})')
+    if (yearlyPassengersRows.length === 0) return null
+
+    const out: YearlyPassengers = {}
+    const seen = new Set<string>()
+
+    for (const row of yearlyPassengersRows) {
+      const year = row.year.trim()
+      if (!year) continue
+      if (!/^\d{4}$/.test(year)) {
+        setSaveError('Year must be a 4-digit year (e.g. 2021)')
         return 'error'
       }
+      if (seen.has(year)) {
+        setSaveError(`Duplicate year: ${year}`)
+        return 'error'
+      }
+      seen.add(year)
+
+      const raw = row.value.trim()
+      if (raw === '') {
+        out[year] = null
+        continue
+      }
+      const num = Number(raw.replace(/,/g, ''))
+      if (Number.isNaN(num)) {
+        setSaveError(`Passenger value for ${year} must be a number`)
+        return 'error'
+      }
+      out[year] = num
     }
-    return yearlyPassengers
+    return Object.keys(out).length > 0 ? out : null
+  }
+
+  const addYearlyPassengerRow = () => {
+    setYearlyPassengersRows(prev => [...prev, { year: '', value: '' }])
+  }
+
+  const validateAndPrepareAdditionalDetails = (): Partial<SandboxStationDoc> | null | 'error' => {
+    setSaveError(null)
+    const picked = pickAdditionalDetails(additionalForm as SandboxStationDoc)
+
+    const facilities: Record<string, unknown> = {}
+    for (const row of facilitiesRows) {
+      const k = row.key.trim()
+      if (!k) continue
+      const raw = row.value.trim()
+      if (raw === '') continue
+      if (raw === 'true') facilities[k] = true
+      else if (raw === 'false') facilities[k] = false
+      else if (!Number.isNaN(Number(raw)) && raw !== '') facilities[k] = Number(raw)
+      else facilities[k] = raw
+    }
+    if (Object.keys(facilities).length > 0) {
+      picked.facilities = facilities
+    } else {
+      delete picked.facilities
+    }
+    // If nothing is set, return null so we don't write empty merges.
+    return Object.keys(picked).length > 0 ? picked : null
+  }
+
+  const updateAdditional = (updates: Partial<SandboxStationDoc>) => {
+    setAdditionalForm(prev => ({ ...prev, ...updates }))
+  }
+
+  const updateAdditionalNested = <K extends keyof SandboxStationDoc>(
+    key: K,
+    nested: Record<string, unknown>
+  ) => {
+    setAdditionalForm(prev => ({
+      ...prev,
+      [key]: { ...(typeof prev[key] === 'object' && prev[key] !== null ? (prev[key] as object) : {}), ...nested }
+    }))
   }
 
   const handleBeginReview = () => {
@@ -125,6 +234,9 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
       return
     }
     setPreparedYearlyPassengers(result as YearlyPassengers | null)
+    const addl = validateAndPrepareAdditionalDetails()
+    if (addl === 'error') return
+    setPreparedAdditionalDetails(addl as Partial<SandboxStationDoc> | null)
     setIsReviewing(true)
   }
 
@@ -135,26 +247,61 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
       setIsReviewing(false)
       return
     }
+    const additionalDetails =
+      preparedAdditionalDetails !== null ? preparedAdditionalDetails : validateAndPrepareAdditionalDetails()
+    if (additionalDetails === 'error') {
+      setIsReviewing(false)
+      return
+    }
 
     setSaving(true)
     try {
+      const requiredMissing: string[] = []
+      const stationName = String(form.stationName ?? '').trim()
+      const crsCode = String(form.crsCode ?? '').trim()
+      const tiploc = String(form.tiploc ?? '').trim()
+      const toc = String(form.toc ?? '').trim()
+      const country = String(form.country ?? '').trim()
+      const county = String(form.county ?? '').trim()
+      const stnarea = String(form.stnarea ?? '').trim()
+      const latRaw = String(form.latitude ?? '').trim()
+      const lngRaw = String(form.longitude ?? '').trim()
+      const urlSlug = String((additionalForm.urlSlug ?? (sandboxDoc?.urlSlug ?? ''))).trim()
+
+      if (!stationName) requiredMissing.push('Station name')
+      if (!crsCode) requiredMissing.push('CRS Code')
+      if (!tiploc) requiredMissing.push('Tiploc')
+      if (!toc) requiredMissing.push('TOC')
+      if (!country) requiredMissing.push('Country')
+      if (!county) requiredMissing.push('County')
+      if (!stnarea) requiredMissing.push('Station area')
+      if (!latRaw) requiredMissing.push('Latitude')
+      if (!lngRaw) requiredMissing.push('Longitude')
+      if (!urlSlug) requiredMissing.push('URL slug')
+
+      if (requiredMissing.length > 0) {
+        setSaveError(`Missing required fields: ${requiredMissing.join(', ')}.`)
+        setSaving(false)
+        return
+      }
+
       const lat = typeof form.latitude === 'number' ? form.latitude : parseFloat(String(form.latitude)) || 0
       const lng = typeof form.longitude === 'number' ? form.longitude : parseFloat(String(form.longitude)) || 0
 
       upsertPendingChange(station, {
-        stationName: form.stationName ?? '',
-        crsCode: form.crsCode ?? '',
-        tiploc: form.tiploc || null,
+        stationName,
+        crsCode,
+        tiploc: tiploc || null,
         latitude: lat,
         longitude: lng,
-        country: form.country || null,
-        county: form.county || null,
-        toc: form.toc || null,
-        stnarea: form.stnarea || null,
+        country: country || null,
+        county: county || null,
+        toc: toc || null,
+        stnarea: stnarea || null,
         londonBorough: form.londonBorough || null,
         fareZone: form.fareZone || null,
         yearlyPassengers
-      })
+      }, { ...(additionalDetails as Partial<SandboxStationDoc> | null), urlSlug })
       onClose()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save')
@@ -166,6 +313,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
   const handleClose = () => {
     setIsReviewing(false)
     setPreparedYearlyPassengers(null)
+    setPreparedAdditionalDetails(null)
     onClose()
   }
 
@@ -204,12 +352,25 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
     const newPassengers =
       preparedYearlyPassengers && typeof preparedYearlyPassengers === 'object'
         ? JSON.stringify(preparedYearlyPassengers)
-        : yearlyPassengersJson.trim()
+        : ''
     if (originalPassengers !== newPassengers) {
       changes.push({
         label: 'Yearly passengers',
         from: originalPassengers || '—',
         to: newPassengers || '—'
+      })
+    }
+
+    const originalAdditional = JSON.stringify(pickAdditionalDetails(sandboxDoc), null, 2)
+    const newAdditional =
+      preparedAdditionalDetails && typeof preparedAdditionalDetails === 'object'
+        ? JSON.stringify(preparedAdditionalDetails, null, 2)
+        : JSON.stringify(pickAdditionalDetails(additionalForm as SandboxStationDoc), null, 2)
+    if ((originalAdditional || '').trim() !== (newAdditional || '').trim()) {
+      changes.push({
+        label: 'Additional details',
+        from: originalAdditional.trim() ? originalAdditional : '—',
+        to: newAdditional.trim() ? newAdditional : '—'
       })
     }
   }
@@ -242,9 +403,11 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                 <span className="modal-detail-value">{station.id}</span>
               </div>
 
+              <p className="edit-hint">Required fields are marked *</p>
+
               <div className="edit-form-grid">
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-stationName">Station name</label>
+                  <label className="edit-label" htmlFor="edit-stationName">Station name *</label>
                   <input
                     id="edit-stationName"
                     type="text"
@@ -254,7 +417,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-crsCode">CRS Code</label>
+                  <label className="edit-label" htmlFor="edit-crsCode">CRS Code *</label>
                   <input
                     id="edit-crsCode"
                     type="text"
@@ -264,7 +427,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-tiploc">Tiploc</label>
+                  <label className="edit-label" htmlFor="edit-tiploc">Tiploc *</label>
                   <input
                     id="edit-tiploc"
                     type="text"
@@ -274,7 +437,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-toc">TOC</label>
+                  <label className="edit-label" htmlFor="edit-toc">TOC *</label>
                   <input
                     id="edit-toc"
                     type="text"
@@ -284,7 +447,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-country">Country</label>
+                  <label className="edit-label" htmlFor="edit-country">Country *</label>
                   <input
                     id="edit-country"
                     type="text"
@@ -294,7 +457,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-county">County</label>
+                  <label className="edit-label" htmlFor="edit-county">County *</label>
                   <input
                     id="edit-county"
                     type="text"
@@ -304,7 +467,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-stnarea">Station area</label>
+                  <label className="edit-label" htmlFor="edit-stnarea">Station area *</label>
                   <input
                     id="edit-stnarea"
                     type="text"
@@ -334,7 +497,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-latitude">Latitude</label>
+                  <label className="edit-label" htmlFor="edit-latitude">Latitude *</label>
                   <input
                     id="edit-latitude"
                     type="number"
@@ -345,7 +508,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   />
                 </div>
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-longitude">Longitude</label>
+                  <label className="edit-label" htmlFor="edit-longitude">Longitude *</label>
                   <input
                     id="edit-longitude"
                     type="number"
@@ -357,176 +520,323 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                 </div>
               </div>
 
-              <div className="edit-field edit-field-full">
-                <label className="edit-label" htmlFor="edit-yearlyPassengers">Yearly passengers (JSON)</label>
-                <textarea
-                  id="edit-yearlyPassengers"
-                  value={yearlyPassengersJson}
-                  onChange={e => setYearlyPassengersJson(e.target.value)}
-                  className="edit-textarea"
-                  rows={4}
-                  placeholder='{"2020": 12345, "2021": 67890}'
-                />
-              </div>
-
-              {isSandbox && (
-                <div className="modal-section">
-                  <h3 className="modal-section-title">Additional sandbox details (read-only)</h3>
-                  {sandboxLoading && (
-                    <p className="modal-sandbox-loading">Loading sandbox details…</p>
-                  )}
-                  {sandboxDoc && !sandboxLoading && (
-                    <>
-                      <div className="modal-details-grid">
-                        <div className="modal-detail-item">
-                          <span className="modal-detail-label">Operator Code</span>
-                          <span className="modal-detail-value">{sandboxDoc.operatorCode ?? 'N/A'}</span>
-                        </div>
-                        <div className="modal-detail-item">
-                          <span className="modal-detail-label">Staffing Level</span>
-                          <span className="modal-detail-value">{sandboxDoc.staffingLevel ?? 'N/A'}</span>
-                        </div>
-                        <div className="modal-detail-item">
-                          <span className="modal-detail-label">NLC</span>
-                          <span className="modal-detail-value">{sandboxDoc.nlc ?? 'N/A'}</span>
-                        </div>
-                        <div className="modal-detail-item">
-                          <span className="modal-detail-label">Min connection time</span>
-                          <span className="modal-detail-value">{sandboxDoc['min-connection-time'] ?? 'N/A'}</span>
-                        </div>
-                        <div className="modal-detail-item">
-                          <span className="modal-detail-label">URL slug</span>
-                          <span className="modal-detail-value">{sandboxDoc.urlSlug ?? 'N/A'}</span>
-                        </div>
+              <div className="modal-section">
+                <h3 className="modal-section-title">Yearly passengers</h3>
+                {yearlyPassengersRows.length === 0 && (
+                  <p className="edit-hint">No yearly passenger rows set.</p>
+                )}
+                {yearlyPassengersRows.map((row, idx) => (
+                  <div key={`${idx}-${row.year}`} className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor={`edit-year-${idx}`}>Year</label>
+                      <input
+                        id={`edit-year-${idx}`}
+                        type="text"
+                        value={row.year}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setYearlyPassengersRows(prev => prev.map((r, i) => (i === idx ? { ...r, year: v } : r)))
+                        }}
+                        className="edit-input"
+                        placeholder="e.g. 2021"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor={`edit-passengers-${idx}`}>Passengers</label>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          id={`edit-passengers-${idx}`}
+                          type="text"
+                          value={row.value}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setYearlyPassengersRows(prev => prev.map((r, i) => (i === idx ? { ...r, value: v } : r)))
+                          }}
+                          className="edit-input"
+                          placeholder="e.g. 123456"
+                          style={{ flex: 1 }}
+                        />
+                        <Button
+                          type="button"
+                          variant="circle"
+                          ariaLabel="Remove yearly passenger row"
+                          onClick={() => setYearlyPassengersRows(prev => prev.filter((_, i) => i !== idx))}
+                          icon={
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          }
+                        />
                       </div>
-
-                      {sandboxDoc.toilets && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Toilets</h4>
-                          <div className="modal-details-grid">
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Accessible</span>
-                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsAccessible ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Changing Place</span>
-                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsChangingPlace ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Baby changing</span>
-                              <span className="modal-detail-value">{sandboxDoc.toilets.toiletsBabyChanging ?? 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sandboxDoc.stepFree && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Step-free access</h4>
-                          <div className="modal-details-grid">
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Code</span>
-                              <span className="modal-detail-value">{sandboxDoc.stepFree.stepFreeCode ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Note</span>
-                              <span className="modal-detail-value">{sandboxDoc.stepFree.stepFreeNote ?? 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sandboxDoc.lift && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Lift</h4>
-                          <div className="modal-details-grid">
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Available</span>
-                              <span className="modal-detail-value">{sandboxDoc.lift.liftAvailable ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Notes</span>
-                              <span className="modal-detail-value">{sandboxDoc.lift.liftNotes ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Details</span>
-                              <span className="modal-detail-value">{sandboxDoc.lift.liftDetails ?? 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sandboxDoc.connections && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Connections</h4>
-                          <div className="modal-details-grid">
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Bus</span>
-                              <span className="modal-detail-value">{sandboxDoc.connections.connectionBus ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Taxi</span>
-                              <span className="modal-detail-value">{sandboxDoc.connections.connectionTaxi ?? 'N/A'}</span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Underground</span>
-                              <span className="modal-detail-value">{sandboxDoc.connections.connectionUnderground ?? 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sandboxDoc.is && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Service</h4>
-                          <div className="modal-details-grid">
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Request stop</span>
-                              <span className="modal-detail-value">
-                                {String(sandboxDoc.is.isrequeststop ?? 'N/A')}
-                              </span>
-                            </div>
-                            <div className="modal-detail-item">
-                              <span className="modal-detail-label">Limited service</span>
-                              <span className="modal-detail-value">
-                                {String(sandboxDoc.is.Islimitedservice ?? 'N/A')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sandboxDoc.facilities && Object.keys(sandboxDoc.facilities).length > 0 && (
-                        <div className="modal-section">
-                          <h4 className="modal-section-title">Facilities</h4>
-                          <div className="modal-details-grid modal-facilities-grid">
-                            {Object.entries(sandboxDoc.facilities).map(([key, value]) => (
-                              <div key={key} className="modal-detail-item">
-                                <span className="modal-detail-label">
-                                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                                </span>
-                                <span className="modal-detail-value">
-                                  {value === null || value === undefined ? 'N/A' : String(value)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {!sandboxLoading && !sandboxDoc && (
-                    <p className="modal-sandbox-loading">No additional sandbox details for this station.</p>
-                  )}
-                </div>
-              )}
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="wide"
+                  width="hug"
+                  onClick={addYearlyPassengerRow}
+                >
+                  + Add year
+                </Button>
+              </div>
 
               <div className="modal-section">
-                <p className="edit-hint">
-                  Additional sandbox-only details (toilets, step-free access, lifts, connections, facilities, etc.) are
-                  managed in the sandbox source data and will appear in the View modal when available for this station.
-                </p>
+                <h3 className="modal-section-title">Additional details</h3>
+                {sandboxLoading && (
+                  <p className="modal-sandbox-loading">Loading additional details…</p>
+                )}
+
+                <div className="edit-form-grid">
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-operatorCode">Operator Code</label>
+                    <input
+                      id="edit-operatorCode"
+                      type="text"
+                      value={String(additionalForm.operatorCode ?? '')}
+                      onChange={e => updateAdditional({ operatorCode: e.target.value })}
+                      className="edit-input"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-staffingLevel">Staffing Level</label>
+                    <input
+                      id="edit-staffingLevel"
+                      type="text"
+                      value={String(additionalForm.staffingLevel ?? '')}
+                      onChange={e => updateAdditional({ staffingLevel: e.target.value })}
+                      className="edit-input"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-nlc">NLC</label>
+                    <input
+                      id="edit-nlc"
+                      type="text"
+                      value={String(additionalForm.nlc ?? '')}
+                      onChange={e => updateAdditional({ nlc: e.target.value })}
+                      className="edit-input"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-minConnectionTime">Min connection time</label>
+                    <input
+                      id="edit-minConnectionTime"
+                      type="text"
+                      value={String((additionalForm['min-connection-time'] as unknown) ?? '')}
+                      onChange={e => updateAdditional({ 'min-connection-time': e.target.value })}
+                      className="edit-input"
+                    />
+                  </div>
+                  <div className="edit-field edit-field-full">
+                    <label className="edit-label" htmlFor="edit-urlSlug">URL slug *</label>
+                    <input
+                      id="edit-urlSlug"
+                      type="text"
+                      value={String(additionalForm.urlSlug ?? '')}
+                      onChange={e => updateAdditional({ urlSlug: e.target.value })}
+                      className="edit-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Toilets</h4>
+                  <div className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-toiletsAccessible">Accessible</label>
+                      <input
+                        id="edit-toiletsAccessible"
+                        type="text"
+                        value={String(additionalForm.toilets?.toiletsAccessible ?? '')}
+                        onChange={e => updateAdditionalNested('toilets', { toiletsAccessible: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-toiletsChangingPlace">Changing Place</label>
+                      <input
+                        id="edit-toiletsChangingPlace"
+                        type="text"
+                        value={String(additionalForm.toilets?.toiletsChangingPlace ?? '')}
+                        onChange={e => updateAdditionalNested('toilets', { toiletsChangingPlace: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-toiletsBabyChanging">Baby changing</label>
+                      <input
+                        id="edit-toiletsBabyChanging"
+                        type="text"
+                        value={String(additionalForm.toilets?.toiletsBabyChanging ?? '')}
+                        onChange={e => updateAdditionalNested('toilets', { toiletsBabyChanging: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Step-free access</h4>
+                  <div className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-stepFreeCode">Code</label>
+                      <input
+                        id="edit-stepFreeCode"
+                        type="text"
+                        value={String(additionalForm.stepFree?.stepFreeCode ?? '')}
+                        onChange={e => updateAdditionalNested('stepFree', { stepFreeCode: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field edit-field-full">
+                      <label className="edit-label" htmlFor="edit-stepFreeNote">Note</label>
+                      <input
+                        id="edit-stepFreeNote"
+                        type="text"
+                        value={String(additionalForm.stepFree?.stepFreeNote ?? '')}
+                        onChange={e => updateAdditionalNested('stepFree', { stepFreeNote: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Lift</h4>
+                  <div className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-liftAvailable">Available</label>
+                      <input
+                        id="edit-liftAvailable"
+                        type="text"
+                        value={String(additionalForm.lift?.liftAvailable ?? '')}
+                        onChange={e => updateAdditionalNested('lift', { liftAvailable: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field edit-field-full">
+                      <label className="edit-label" htmlFor="edit-liftNotes">Notes</label>
+                      <input
+                        id="edit-liftNotes"
+                        type="text"
+                        value={String(additionalForm.lift?.liftNotes ?? '')}
+                        onChange={e => updateAdditionalNested('lift', { liftNotes: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field edit-field-full">
+                      <label className="edit-label" htmlFor="edit-liftDetails">Details</label>
+                      <input
+                        id="edit-liftDetails"
+                        type="text"
+                        value={String(additionalForm.lift?.liftDetails ?? '')}
+                        onChange={e => updateAdditionalNested('lift', { liftDetails: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Connections</h4>
+                  <div className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-connectionBus">Bus</label>
+                      <input
+                        id="edit-connectionBus"
+                        type="text"
+                        value={String(additionalForm.connections?.connectionBus ?? '')}
+                        onChange={e => updateAdditionalNested('connections', { connectionBus: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-connectionTaxi">Taxi</label>
+                      <input
+                        id="edit-connectionTaxi"
+                        type="text"
+                        value={String(additionalForm.connections?.connectionTaxi ?? '')}
+                        onChange={e => updateAdditionalNested('connections', { connectionTaxi: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-connectionUnderground">Underground</label>
+                      <input
+                        id="edit-connectionUnderground"
+                        type="text"
+                        value={String(additionalForm.connections?.connectionUnderground ?? '')}
+                        onChange={e => updateAdditionalNested('connections', { connectionUnderground: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Service</h4>
+                  <div className="edit-form-grid">
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-requestStop">Request stop</label>
+                      <input
+                        id="edit-requestStop"
+                        type="text"
+                        value={String(additionalForm.is?.isrequeststop ?? '')}
+                        onChange={e => updateAdditionalNested('is', { isrequeststop: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-limitedService">Limited service</label>
+                      <input
+                        id="edit-limitedService"
+                        type="text"
+                        value={String(additionalForm.is?.Islimitedservice ?? '')}
+                        onChange={e => updateAdditionalNested('is', { Islimitedservice: e.target.value })}
+                        className="edit-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modal-section">
+                  <h4 className="modal-section-title">Facilities</h4>
+                  {facilitiesRows.length === 0 && (
+                    <p className="edit-hint">
+                      No facilities set for this station.
+                    </p>
+                  )}
+                  {facilitiesRows.length > 0 && (
+                    <div className="edit-form-grid">
+                      {facilitiesRows.map((row, idx) => {
+                        const label = row.key
+                          .replace(/([A-Z])/g, ' $1')
+                          .replace(/[_-]+/g, ' ')
+                          .replace(/^./, (s) => s.toUpperCase())
+                        return (
+                          <div key={`${idx}-${row.key}`} className="edit-field">
+                            <label className="edit-label" htmlFor={`edit-facility-${idx}`}>{label}</label>
+                            <input
+                              id={`edit-facility-${idx}`}
+                              type="text"
+                              value={row.value}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                setFacilitiesRows(prev => prev.map((r, i) => (i === idx ? { ...r, value: v } : r)))
+                              }}
+                              className="edit-input"
+                              placeholder="—"
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
+
             </div>
           ) : (
             <div className="modal-section edit-review-section">
