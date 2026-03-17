@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
+  '/stations/new': 'New Station | Rail Statistics',
   '/station-database-edit': 'Edit Station Database | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
   '/buttons': 'Button Components | Rail Statistics',
@@ -32,6 +33,8 @@ const HomePage = React.lazy(() => import('./pages/HomePage'))
 const LoginPage = React.lazy(() => import('./pages/LoginPage'))
 const StationsPage = React.lazy(() => import('./pages/StationsPage'))
 const StationDatabaseEditPage = React.lazy(() => import('./pages/StationDatabaseEditPage'))
+const StationDetailsPage = React.lazy(() => import('./pages/StationDetailsPage'))
+const NewStationPage = React.lazy(() => import('./pages/NewStationPage'))
 const MigrationPage = React.lazy(() => import('./pages/MigrationPage'))
 const ButtonDemoPage = React.lazy(() => import('./pages/ButtonDemoPage'))
 const DesignSystemHomePage = React.lazy(() => import('./pages/designSystem/DesignSystemHomePage'))
@@ -79,6 +82,9 @@ const App: React.FC = () => {
                   <Route path="/home" element={<HomePage />} />
                   <Route path="/log-in" element={<LoginPage />} />
                   <Route path="/stations" element={<ProtectedRoute><StationsPage /></ProtectedRoute>} />
+                  <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
+                  <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
+                  <Route path="/stations/:stationId/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
                   <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEditPage /></ProtectedRoute>} />
                   <Route path="/migration" element={<MigrationPage />} />
                   <Route path="/buttons" element={<ButtonDemoPage />} />

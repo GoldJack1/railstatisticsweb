@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
-import StationModal from '../components/StationModal'
-import StationEditModal from '../components/StationEditModal'
-import NewStationModal from '../components/NewStationModal'
 import ButtonBar from '../components/ButtonBar'
 import Button from '../components/Button'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
+import { buildStationPath } from '../utils/stationAreaSlug'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
@@ -27,6 +26,7 @@ interface StationsProps {
 
 const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const { stations, loading, error, refetch } = useStations()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTOC, setSelectedTOC] = useState<string>('')
   const [selectedCountry, setSelectedCountry] = useState<string>('')
@@ -35,10 +35,7 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const [selectedFareZone, setSelectedFareZone] = useState<string>('')
   const [sortOption, setSortOption] = useState<SortOption>('name-asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const resultsSectionRef = useRef<HTMLDivElement>(null)
   const { collectionId, setCollectionId } = useStationCollection()
   const { pendingChanges, clearAllPendingChanges } = usePendingStationChanges()
@@ -194,8 +191,7 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   }, [searchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone, sortOption])
 
   const handleStationClick = (station: Station) => {
-    setSelectedStation(station)
-    setIsModalOpen(true)
+    navigate(isEditMode ? `/stations/${buildStationPath(station)}/edit` : `/stations/${buildStationPath(station)}`)
   }
 
   const clearFilters = () => {
@@ -213,18 +209,6 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const hasActiveFilters = activeFilterCount > 0
 
   const pendingCount = Object.keys(pendingChanges).length
-
-  const nextNumericStationId = useMemo(() => {
-    const numericStations = stations.filter(station => /^\d+$/.test(station.id))
-    if (numericStations.length === 0) {
-      return '0001'
-    }
-
-    const maxNumericId = Math.max(...numericStations.map(s => parseInt(s.id, 10)))
-    const next = maxNumericId + 1
-    const maxLength = Math.max(4, ...numericStations.map(s => s.id.length))
-    return String(next).padStart(maxLength, '0')
-  }, [stations])
 
   const handlePublishAll = async () => {
     if (pendingCount === 0) return
@@ -339,7 +323,7 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                       variant="wide"
                       width="fill"
                       className="station-add-button"
-                      onClick={() => setIsCreateModalOpen(true)}
+                      onClick={() => navigate('/stations/new')}
                     >
                       + Add new station
                     </Button>
@@ -818,31 +802,6 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
           )}
         </>
       )}
-      
-      {isEditMode ? (
-        <StationEditModal
-          station={selectedStation}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSelectedStation(null)
-          }}
-        />
-      ) : (
-        <StationModal 
-          station={selectedStation}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSelectedStation(null)
-          }}
-        />
-      )}
-      <NewStationModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        nextStationId={nextNumericStationId}
-      />
         </main>
       </div>
     </div>
