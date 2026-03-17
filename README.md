@@ -12,6 +12,19 @@ A modern React application for railway station tracking with Firebase integratio
 - **Real-time Updates** with Firebase integration
 - **Local Data Fallback** for offline development
 
+## 📱 Responsive breakpoints
+
+This project intentionally uses **only 3 responsive tiers**:
+
+- **Mobile**: `<= 639px`
+- **Tablet**: `640px–1023px`
+- **Desktop**: `>= 1024px`
+
+To keep things consistent, viewport-width media queries should only use:
+
+- `@media (max-width: 1023px)` (tablet and down)
+- `@media (max-width: 639px)` (mobile only)
+
 ## 🛠️ Development
 
 ### Prerequisites

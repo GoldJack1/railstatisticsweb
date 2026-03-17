@@ -159,7 +159,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .button-demo {
     padding: var(--space-3xl) 0;
   }
@@ -173,7 +173,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .button-demo {
     padding: var(--space-2xl) 0;
   }
@@ -224,7 +224,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .button-demo {
     padding: var(--space-xl) 0;
   }

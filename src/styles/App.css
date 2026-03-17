@@ -13,7 +13,7 @@
 }
 
 /* Responsive padding for mobile */
-@media (max-width: 480px) {
+@media (max-width: 639px) {
     .main-content {
         padding-top: 3.5rem; /* Account for smaller mobile header height */
     }

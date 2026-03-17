@@ -5,6 +5,7 @@ import './StationEditModal.css'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import { fetchStationDocumentById } from '../services/firebase'
+import Button from './Button'
 
 interface StationEditModalProps {
   station: Station | null
@@ -218,12 +219,19 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
       <div className="modal-content modal-content-edit" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Edit: {station.stationName || 'Station'}</h2>
-          <button className="modal-close" onClick={handleClose} aria-label="Close modal" type="button">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <Button
+            type="button"
+            variant="circle"
+            className="modal-close"
+            ariaLabel="Close modal"
+            onClick={() => handleClose()}
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            }
+          />
         </div>
 
         <div className="modal-body">
@@ -556,21 +564,28 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
           )}
 
           <div className="modal-edit-actions">
-            <button
+            <Button
               type="button"
+              variant="wide"
+              width="hug"
               className="edit-cancel-button"
-              onClick={isReviewing ? () => setIsReviewing(false) : handleClose}
+              onClick={() => {
+                if (isReviewing) setIsReviewing(false)
+                else handleClose()
+              }}
             >
               {isReviewing ? 'Back to editing' : 'Cancel'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="wide"
+              width="hug"
               className="edit-save-button"
-              onClick={isReviewing ? handlePublish : handleBeginReview}
+              onClick={() => (isReviewing ? handlePublish() : handleBeginReview())}
               disabled={saving}
             >
-              {saving ? (isReviewing ? 'Saving…' : 'Saving…') : isReviewing ? 'Save changes' : 'Save changes'}
-            </button>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
           </div>
         </div>
       </div>

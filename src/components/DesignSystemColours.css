@@ -91,7 +91,7 @@
   gap: var(--space-lg);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .ds-colours {
     padding: var(--space-3xl) 0;
   }

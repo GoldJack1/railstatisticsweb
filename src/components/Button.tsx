@@ -5,17 +5,19 @@ export type ButtonVariant = 'wide' | 'circle' | 'square' | 'tab' | 'chip'
 export type ButtonShape = 'rounded' | 'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-rounded' | 'squared'
 export type ButtonState = 'active' | 'pressed' | 'disabled'
 export type ButtonWidth = 'fixed' | 'hug' | 'fill'
+export type ButtonType = 'button' | 'submit' | 'reset'
 
 export interface ButtonProps {
   variant?: ButtonVariant
   shape?: ButtonShape
   state?: ButtonState
   width?: ButtonWidth
+  type?: ButtonType
   disabled?: boolean
   pressed?: boolean
   icon?: React.ReactNode
   children?: React.ReactNode
-  onClick?: () => void
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
   className?: string
   ariaLabel?: string
 }
@@ -25,6 +27,7 @@ const Button: React.FC<ButtonProps> = ({
   shape = 'rounded',
   state,
   width = 'fixed',
+  type = 'button',
   disabled = false,
   pressed = false,
   icon,
@@ -38,17 +41,23 @@ const Button: React.FC<ButtonProps> = ({
   // Determine the actual state
   const actualState: ButtonState = state || (disabled ? 'disabled' : (pressed || isPressed) ? 'pressed' : 'active')
   
-  const handleClick = () => {
-    if (!disabled && onClick) {
-      // Show pressed state
-      setIsPressed(true)
-      
-      // Wait for animation, then trigger action and release
-      setTimeout(() => {
-        onClick()
-        setIsPressed(false)
-      }, 300)
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || !onClick) return
+
+    // Never delay form submission/reset actions.
+    if (type !== 'button') {
+      onClick(event)
+      return
     }
+
+    // Show pressed state
+    setIsPressed(true)
+
+    // Wait for animation, then trigger action and release
+    setTimeout(() => {
+      onClick(event)
+      setIsPressed(false)
+    }, 300)
   }
 
   const buttonClasses = [
@@ -63,6 +72,7 @@ const Button: React.FC<ButtonProps> = ({
   return (
     <button
       className={buttonClasses}
+      type={type}
       onClick={handleClick}
       disabled={disabled}
       aria-label={ariaLabel}

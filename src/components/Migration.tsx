@@ -474,14 +474,16 @@ const Migration: React.FC = () => {
     return (
       <div className="search-page-container">
         <header className="search-page-header">
-          <button
+          <Button
             type="button"
+            variant="wide"
+            width="hug"
             className="search-page-back"
-            onClick={handleCloseSearchModal}
-            aria-label="Back to migration"
+            ariaLabel="Back to migration"
+            onClick={() => handleCloseSearchModal()}
           >
             ← Back to migration
-          </button>
+          </Button>
           <h1 className="search-page-title">Search for Station</h1>
           <p className="search-page-subtitle">Match this row from your file to a station in the database</p>
         </header>
@@ -503,11 +505,11 @@ const Migration: React.FC = () => {
                 Fill the search box with data from your file, then search the database.
               </p>
               <div className="quick-search-buttons" aria-label="Quick fill options">
-                <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch?.oldStation.stationName || '')}>+ Station name</button>
-                {selectedMatch?.oldStation.county && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.county}`)}>+ County</button>}
-                {selectedMatch?.oldStation.country && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.country}`)}>+ Country</button>}
-                {selectedMatch?.suggestedCrsCode && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedCrsCode)}>CRS</button>}
-                {selectedMatch?.suggestedTiploc && <button type="button" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedTiploc)}>TIPLOC</button>}
+                <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch?.oldStation.stationName || '')}>+ Station name</Button>
+                {selectedMatch?.oldStation.county && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.county}`)}>+ County</Button>}
+                {selectedMatch?.oldStation.country && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.country}`)}>+ Country</Button>}
+                {selectedMatch?.suggestedCrsCode && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedCrsCode)}>CRS</Button>}
+                {selectedMatch?.suggestedTiploc && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedTiploc)}>TIPLOC</Button>}
               </div>
             </section>
             <div className="search-input">
@@ -523,18 +525,31 @@ const Migration: React.FC = () => {
                   className="search-field"
                   autoFocus
                 />
-                <button type="button" className="search-run-button" onClick={() => handleSearchStations(state.searchQuery)}>Search</button>
+                <Button type="button" variant="wide" width="hug" className="search-run-button" onClick={() => handleSearchStations(state.searchQuery)}>Search</Button>
               </div>
               <p className="search-by-label">Search by field only</p>
               <div className="search-by-row">
                 <div className="search-by-buttons" aria-label="Search by field only">
-                  <button type="button" className={`search-by-btn ${state.searchByField === 'name' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('name', selectedMatch?.oldStation.stationName || '')}>Name</button>
-                  <button type="button" className={`search-by-btn ${state.searchByField === 'crs' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('crs', state.searchQuery.trim().slice(0, 3))} title="Search by CRS code (3 characters)">CRS</button>
-                  <button type="button" className={`search-by-btn ${state.searchByField === 'tiploc' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('tiploc', state.searchQuery.trim())} title="Search by TIPLOC">TIPLOC</button>
-                  {selectedMatch?.oldStation.county && <button type="button" className={`search-by-btn ${state.searchByField === 'county' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('county', selectedMatch.oldStation.county)}>County</button>}
-                  {selectedMatch?.oldStation.country && <button type="button" className={`search-by-btn ${state.searchByField === 'country' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('country', selectedMatch.oldStation.country)}>Country</button>}
+                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'name' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('name', selectedMatch?.oldStation.stationName || '')}>Name</Button>
+                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'crs' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('crs', state.searchQuery.trim().slice(0, 3))} title="Search by CRS code (3 characters)">CRS</Button>
+                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'tiploc' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('tiploc', state.searchQuery.trim())} title="Search by TIPLOC">TIPLOC</Button>
+                  {selectedMatch?.oldStation.county && <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'county' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('county', selectedMatch.oldStation.county)}>County</Button>}
+                  {selectedMatch?.oldStation.country && <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'country' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('country', selectedMatch.oldStation.country)}>Country</Button>}
                 </div>
-                {state.searchByField !== null && <button type="button" className="search-by-clear" onClick={handleClearSearchByField} aria-label="Remove search-by filter" title="Remove filter">×</button>}
+                {state.searchByField !== null && (
+                  <Button
+                    type="button"
+                    variant="circle"
+                    className="search-by-clear"
+                    ariaLabel="Remove search-by filter"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleClearSearchByField()
+                    }}
+                  >
+                    ×
+                  </Button>
+                )}
               </div>
             </div>
           </div>

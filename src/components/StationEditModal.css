@@ -148,43 +148,28 @@
 }
 
 .edit-cancel-button {
-  padding: var(--space-sm) var(--space-lg);
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: inherit;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .edit-cancel-button:hover {
-  background: var(--bg-tertiary, #e5e7eb);
-  color: var(--text-primary);
+  /* `Button` handles hover styling. */
 }
 
 .edit-save-button {
-  padding: var(--space-sm) var(--space-lg);
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: #fff;
-  background: var(--primary, #2563eb);
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: inherit;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .edit-save-button:hover:not(:disabled) {
-  background: var(--primary-hover, #1d4ed8);
+  /* `Button` handles hover styling. */
 }
 
 .edit-save-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  /* `Button` handles disabled styling. */
 }
 
-@media (max-width: 600px) {
+@media (max-width: 639px) {
   .edit-form-grid {
     grid-template-columns: 1fr;
   }

@@ -273,7 +273,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   }
 
   return (
-    <div className="container">
+    <div className="container container--stations">
       <div className="stations-layout">
         <aside className="stations-sidebar">
           <header className="page-header">
@@ -292,9 +292,6 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
             <div className="station-controls-strip">
               <div className="station-controls-left">
                 <div>
-                  <span className="sort-label" style={{ marginRight: '0.5rem' }}>
-                    Mode:
-                  </span>
                   <div className="mode-toggle" role="group" aria-label="Mode">
                     <ButtonBar
                       buttons={[
@@ -330,7 +327,7 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                   <div className="station-add-wrapper">
                     <Button
                       variant="wide"
-                      width="hug"
+                      width="fill"
                       className="station-add-button"
                       onClick={() => setIsCreateModalOpen(true)}
                     >
@@ -343,14 +340,16 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
 
             {pendingCount > 0 && (
               <div className="sidebar-pending-summary">
-                <button
+                <Button
                   type="button"
+                  variant="chip"
+                  width="hug"
                   className="pending-changes-button"
                   onClick={() => setShowPendingReview(prev => !prev)}
                 >
                   {pendingCount} pending change{pendingCount > 1 ? 's' : ''} ·{' '}
                   {showPendingReview ? 'Hide review' : 'Review changes'}
-                </button>
+                </Button>
               </div>
             )}
 
@@ -447,22 +446,26 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
               </div>
 
               <div className="pending-review-actions">
-                <button
+                <Button
                   type="button"
+                  variant="wide"
+                  width="hug"
                   className="pending-review-cancel"
                   onClick={() => setShowPendingReview(false)}
                   disabled={isPublishingAll}
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="wide"
+                  width="hug"
                   className="pending-review-publish"
                   onClick={handlePublishAll}
                   disabled={isPublishingAll}
                 >
                   {isPublishingAll ? 'Publishing…' : 'Publish all changes'}
-                </button>
+                </Button>
               </div>
             </section>
             )}
@@ -490,17 +493,19 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                 autoComplete="off"
               />
               {hasActiveFilters && (
-                <button
+                <Button
+                  type="button"
+                  variant="circle"
                   className="clear-search-button"
-                  onClick={clearFilters}
-                  aria-label="Clear filters"
-                  title="Clear all filters"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+                  ariaLabel="Clear all filters"
+                  onClick={() => clearFilters()}
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  }
+                />
               )}
             </div>
           </section>
@@ -653,9 +658,15 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
           </svg>
           <h3>No Stations Found</h3>
           <p>Try adjusting your search terms or filters to see more stations.</p>
-          <button className="clear-filters-button" onClick={clearFilters}>
+          <Button
+            type="button"
+            variant="wide"
+            width="hug"
+            className="clear-filters-button"
+            onClick={() => clearFilters()}
+          >
             Clear All Filters
-          </button>
+          </Button>
         </div>
       )}
 
@@ -756,33 +767,43 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination">
-              <button 
+              <Button
+                type="button"
+                variant="wide"
+                width="hug"
                 className="pagination-button"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                aria-label="Previous page"
+                ariaLabel="Previous page"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                  </svg>
+                }
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
                 Previous
-              </button>
+              </Button>
               
               <div className="pagination-info">
                 Page {currentPage} of {totalPages}
               </div>
               
-              <button 
+              <Button
+                type="button"
+                variant="wide"
+                width="hug"
                 className="pagination-button"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                aria-label="Next page"
+                ariaLabel="Next page"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                }
               >
                 Next
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </button>
+              </Button>
             </div>
           )}
         </>

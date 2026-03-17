@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import Button from './Button'
 import './LogIn.css'
 
 const LogIn: React.FC = () => {
@@ -93,14 +94,22 @@ const LogIn: React.FC = () => {
             minLength={6}
           />
           {error && <p className="login-error" role="alert">{error}</p>}
-          <button type="submit" className="login-submit" disabled={submitting}>
+          <Button
+            type="submit"
+            variant="wide"
+            width="fill"
+            className="login-submit"
+            disabled={submitting}
+          >
             {submitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Log in'}
-          </button>
+          </Button>
         </form>
         <p className="login-toggle">
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
+          <Button
             type="button"
+            variant="chip"
+            width="hug"
             className="login-toggle-btn"
             onClick={() => {
               setIsSignUp(!isSignUp)
@@ -108,7 +117,7 @@ const LogIn: React.FC = () => {
             }}
           >
             {isSignUp ? 'Log in' : 'Create account'}
-          </button>
+          </Button>
         </p>
       </div>
     </div>

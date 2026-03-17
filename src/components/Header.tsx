@@ -82,13 +82,15 @@ const Header: React.FC = () => {
               </NavigationButton>
             )}
             {user ? (
-              <button
+              <Button
                 type="button"
+                variant="wide"
+                width="hug"
                 className="header-auth-btn"
                 onClick={() => { closeMobileMenu(); logout() }}
               >
                 Log out
-              </button>
+              </Button>
             ) : (
               <NavigationButton 
                 to="/log-in" 
@@ -212,13 +214,15 @@ const Header: React.FC = () => {
             </NavigationButton>
           )}
           {user ? (
-            <button
+            <Button
               type="button"
+              variant="wide"
+              width="fill"
               className="header-auth-btn mobile-auth-btn"
               onClick={() => { closeMobileMenu(); logout() }}
             >
               Log out
-            </button>
+            </Button>
           ) : (
             <NavigationButton 
               to="/log-in" 

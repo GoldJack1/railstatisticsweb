@@ -72,7 +72,7 @@ const DesignSystemHome: React.FC = () => {
               <Button variant="wide" width="hug">
                 Primary
               </Button>
-              <Button variant="chip">Token</Button>
+              <Button variant="wide" width="hug">Token</Button>
             </div>
           </div>
         </section>

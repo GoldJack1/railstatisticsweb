@@ -221,7 +221,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .rs-button--wide {
     font-size: 15px;
   }
@@ -248,7 +248,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .rs-button--wide {
     font-size: 14px;
     padding: 10px 18px;

@@ -197,7 +197,7 @@
   margin-top: var(--space-lg);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .mapping-grid {
     grid-template-columns: 1fr;
   }
@@ -1676,7 +1676,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
+@media (max-width: 1023px) {
   .migration-stats {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1686,7 +1686,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .migration-stats {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1701,7 +1701,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .migration-container {
     padding: var(--space-lg);
   }
@@ -2251,7 +2251,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .migration-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-sm);
@@ -2271,7 +2271,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .migration-container {
     padding: var(--space-md);
   }
@@ -2513,21 +2513,12 @@
 .search-page-header .search-page-back {
   display: inline-block;
   margin-bottom: var(--space-md);
-  padding: var(--space-sm) 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--accent-color);
-  background: none;
-  border: none;
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: background-color 0.2s ease, color 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .search-page-back:hover {
-  color: var(--accent-color);
-  background: transparent;
-  text-decoration: underline;
+  /* `Button` handles hover styling. */
 }
 
 [data-theme="dark"] .search-page-back,
@@ -2556,33 +2547,34 @@
 .search-page-content {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  min-height: calc(100vh - 140px);
   overflow: hidden;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
 }
 
-@media (min-width: 769px) {
+@media (max-width: 1023px) {
   .search-page-content {
-    display: grid;
-    grid-template-columns: 440px 1fr;
-    min-height: calc(100vh - 140px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 }
 
 .search-page-content .search-modal-controls {
-  border-right: none;
-  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  border-bottom: none;
   padding: var(--space-xl);
   overflow-y: auto;
 }
 
-@media (min-width: 769px) {
+@media (max-width: 1023px) {
   .search-page-content .search-modal-controls {
-    border-right: 1px solid var(--border-color);
-    border-bottom: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
@@ -2794,20 +2786,12 @@
 }
 
 .quick-search-btn {
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .quick-search-btn:hover {
-  background: var(--bg-tertiary);
-  transform: translateY(-1px);
+  /* `Button` handles hover styling. */
 }
 
 .search-field-label {
@@ -2841,19 +2825,12 @@
 
 .search-run-button {
   flex-shrink: 0;
-  padding: 0 var(--space-lg);
-  border-radius: 8px;
-  border: 2px solid var(--accent-color);
-  background: var(--accent-color);
-  color: white;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  cursor: pointer;
-  transition: filter 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .search-run-button:hover {
-  filter: brightness(1.1);
+  /* `Button` handles hover styling. */
 }
 
 .search-by-label {
@@ -2881,35 +2858,25 @@
 }
 
 .search-by-btn {
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .search-by-btn:hover:not(:disabled) {
-  background: var(--bg-tertiary);
+  /* `Button` handles hover styling. */
 }
 
 .search-by-btn:disabled,
 .search-by-btn-disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  /* `Button` handles disabled styling. */
 }
 
 .search-by-btn-active {
-  border-color: var(--accent-color);
-  background: var(--accent-light);
-  color: var(--accent-color);
+  /* Keep as a semantic marker; avoid overriding `Button` styling. */
 }
 
 .search-by-btn-active:hover {
-  background: var(--accent-light);
+  /* `Button` handles hover styling. */
 }
 
 [data-theme="dark"] .search-by-btn-active {
@@ -2919,24 +2886,12 @@
 
 .search-by-clear {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  border-radius: var(--radius-md);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .search-by-clear:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+  /* `Button` handles hover styling. */
 }
 
 .search-field:focus {
@@ -3092,7 +3047,7 @@
   margin-bottom: var(--space-2xl);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .migration-summary.summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -3414,7 +3369,7 @@
 }
 
 /* Responsive Design for Complete Screen */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .migration-complete-container {
     padding: var(--space-lg);
   }
@@ -3602,7 +3557,7 @@
 }
 
 /* Responsive Design for Progress Modal */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .progress-modal {
     margin: var(--space-lg);
     max-width: none;

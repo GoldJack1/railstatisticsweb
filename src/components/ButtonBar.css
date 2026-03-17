@@ -108,7 +108,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .rs-button-bar__button {
     font-size: 15px;
     padding: 10px 20px;
@@ -123,7 +123,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
   .rs-button-bar {
     width: 100%;
   }

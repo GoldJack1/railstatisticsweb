@@ -65,21 +65,12 @@
 }
 
 .modal-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: var(--space-sm);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  /* Allow `Button` design-system styles to apply. */
+  min-width: 0;
 }
 
 .modal-close:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  /* `Button` handles hover styling. */
 }
 
 .modal-body {
@@ -175,7 +166,7 @@
 }
 
 /* Mobile Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .modal-overlay {
     padding: var(--space-md);
   }

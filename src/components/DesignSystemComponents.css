@@ -159,7 +159,7 @@
   font-size: var(--text-sm);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .ds-components {
     padding: var(--space-3xl) 0;
   }

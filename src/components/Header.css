@@ -95,21 +95,12 @@
 
 /* Auth button in nav (Log out) - matches nav link style */
 .header-auth-btn {
-    background: none;
-    border: none;
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--text-base);
-    font-weight: 500;
-    color: var(--text-primary);
-    cursor: pointer;
-    text-decoration: none;
-    border-radius: var(--radius-md);
-    transition: color 0.2s ease, background 0.2s ease;
+    /* Allow `Button` design-system styles to apply. */
+    min-width: 0;
 }
 
 .header-auth-btn:hover {
-    color: var(--accent-color);
-    background: var(--accent-light);
+    /* `Button` handles hover styling. */
 }
 
 .mobile-auth-btn {
@@ -180,7 +171,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
     .header-container {
         padding: 0 var(--space-xl);
         height: 4rem;
@@ -211,7 +202,7 @@
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
     .header-container {
         padding: 0 var(--space-lg);
         height: 3.5rem;

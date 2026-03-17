@@ -3,6 +3,7 @@ import type { Station, SandboxStationDoc } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { fetchStationDocumentById } from '../services/firebase'
+import Button from './Button'
 import './StationModal.css'
 
 interface StationModalProps {
@@ -132,12 +133,19 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{station.stationName || 'Unknown Station'}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close modal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <Button
+            type="button"
+            variant="circle"
+            className="modal-close"
+            ariaLabel="Close modal"
+            onClick={() => onClose()}
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            }
+          />
         </div>
 
         <div className="modal-body">
