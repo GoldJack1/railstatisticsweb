@@ -134,20 +134,65 @@ const Migration: React.FC = () => {
     try {
       const allStations = parseCSVWithColumnMapping(state.rawCsvContent, state.columnMapping)
       const { allowed, rejected } = filterStationsByCountry(allStations)
+      // Store parsed rows, then immediately start matching (skips the old "Step 3" page)
       setState(prev => ({
         ...prev,
         oldFormatData: allowed,
         rejectedStations: rejected,
-        step: 'matching',
         error: null
       }))
+      // Kick off matching right away using the parsed data we already have
+      void (async () => {
+        if (allowed.length === 0) return
+
+        setState(prev => ({
+          ...prev,
+          step: 'mapping',
+          loading: true,
+          error: null,
+          showProgressModal: true,
+          matchingProgress: 0,
+          currentStationName: ''
+        }))
+
+        try {
+          const { matches, availableStations } = await matchStations(
+            allowed,
+            (progress, currentStation) => {
+              setState(prev => ({
+                ...prev,
+                matchingProgress: progress,
+                currentStationName: currentStation
+              }))
+            },
+            collectionId
+          )
+          const result = generateMigrationResult(matches, rejected, availableStations)
+          setState(prev => ({
+            ...prev,
+            matches,
+            result,
+            step: 'review',
+            loading: false,
+            showProgressModal: false,
+            correctionsCount: 0
+          }))
+        } catch (error) {
+          setState(prev => ({
+            ...prev,
+            error: `Error matching stations: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            loading: false,
+            showProgressModal: false
+          }))
+        }
+      })()
     } catch (error) {
       setState(prev => ({
         ...prev,
         error: `Error applying mapping: ${error instanceof Error ? error.message : 'Unknown error'}`
       }))
     }
-  }, [state.rawCsvContent, state.columnMapping])
+  }, [state.rawCsvContent, state.columnMapping, collectionId])
 
   const handleStartMatching = useCallback(async () => {
     if (state.oldFormatData.length === 0) return
@@ -792,38 +837,7 @@ const Migration: React.FC = () => {
           </div>
           <div className="mapping-actions">
             <Button onClick={handleConfirmMapping} variant="wide" width="hug">
-              Continue to matching
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Matching */}
-      {state.step === 'matching' && (
-        <div className="migration-step">
-          <h2>Step 3: Station Matching</h2>
-          <p className="step-description">Match your stations to the cloud database. This may take a moment.</p>
-          <div className="matching-info">
-            <p>Found {state.oldFormatData.length} Stations | In Cloud Database: {firebaseStations.length}</p>
-            <div>
-              {state.rejectedStations.length > 0 && (
-                <div className="rejected-chip">
-                  {state.rejectedStations.length} Stations Rejected (Not in England, Scotland or Wales)
-                </div>
-              )}
-            </div>
-            {state.file && (
-              <p className="uploaded-file-info">
-                <strong>Uploaded File:</strong> {state.file.name}
-              </p>
-            )}
-            <Button 
-              onClick={handleStartMatching}
-              disabled={state.loading}
-              variant="wide"
-              width="hug"
-            >
-              {state.loading ? 'Matching...' : 'Start Matching'}
+              Continue
             </Button>
           </div>
         </div>
