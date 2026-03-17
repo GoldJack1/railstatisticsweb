@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useTheme } from '../../hooks/useTheme'
+import { getTileLayersConfig } from '../../utils/mapTiles'
 
 // Same as view: precise circle marker (draggable in edit mode)
 const CIRCLE_ICON = L.divIcon({
@@ -10,22 +11,6 @@ const CIRCLE_ICON = L.divIcon({
   iconSize: [20, 20],
   iconAnchor: [10, 10]
 })
-
-// Light: OSM. Dark: Stadia Alidade Smooth Dark (match view map)
-const TILE_LAYERS = {
-  light: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    options: {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }
-  },
-  dark: {
-    url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
-    options: {
-      attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }
-  }
-} as const
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
 const USER_AGENT = 'RailStatisticsWebsite/1.0 (station location picker)'
@@ -74,6 +59,7 @@ export function LocationMapPicker({
   const tileLayerRef = useRef<L.TileLayer | null>(null)
   const { theme } = useTheme()
   const themeKey = theme === 'dark' ? 'dark' : 'light'
+  const tileLayers = getTileLayersConfig()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -106,7 +92,7 @@ export function LocationMapPicker({
   // Initialize map once (theme-based tiles + optional circle marker)
   useEffect(() => {
     if (!mapRef.current) return
-    const config = TILE_LAYERS[themeKey]
+    const config = tileLayers[themeKey]
     const map = L.map(mapRef.current).setView(center, DEFAULT_ZOOM)
     const tiles = L.tileLayer(config.url, config.options)
     tiles.addTo(map)
@@ -132,7 +118,7 @@ export function LocationMapPicker({
   // When theme changes, swap tile layer (match view map)
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return
-    const config = TILE_LAYERS[themeKey]
+    const config = tileLayers[themeKey]
     mapInstanceRef.current.removeLayer(tileLayerRef.current)
     const newTiles = L.tileLayer(config.url, config.options)
     newTiles.addTo(mapInstanceRef.current)

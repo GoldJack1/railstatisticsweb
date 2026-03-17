@@ -212,7 +212,7 @@
   display: block;
 }
 
-/* OpenStreetMap view (Leaflet) - taller aspect so it doesn’t look letterboxed */
+/* OpenStreetMap view (Leaflet) - taller aspect so it doesn't look letterboxed */
 .location-map-preview-osm {
   min-height: 320px;
   aspect-ratio: 4 / 3;

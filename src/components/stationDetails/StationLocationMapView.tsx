@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useTheme } from '../../hooks/useTheme'
+import { getTileLayersConfig } from '../../utils/mapTiles'
 
 // Precise circle marker: center is exactly the station coordinates (no anchor ambiguity)
 const PRECISE_MARKER_OPTIONS: L.CircleMarkerOptions = {
@@ -11,22 +12,6 @@ const PRECISE_MARKER_OPTIONS: L.CircleMarkerOptions = {
   weight: 2,
   fillOpacity: 0.95
 }
-
-// Light: standard OSM. Dark: Stadia Alidade Smooth Dark for better contrast and detail (roads, labels)
-const TILE_LAYERS = {
-  light: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    options: {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }
-  },
-  dark: {
-    url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',
-    options: {
-      attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }
-  }
-} as const
 
 interface StationLocationMapViewProps {
   latitude: number
@@ -60,11 +45,12 @@ export function StationLocationMapView({
   const { theme } = useTheme()
   const themeKey = theme === 'dark' ? 'dark' : 'light'
   const center: L.LatLngTuple = [latitude, longitude]
+  const tileLayers = getTileLayersConfig()
 
   // Init map and precise circle marker once
   useEffect(() => {
     if (!mapRef.current || !isValidCoord(latitude, longitude)) return
-    const config = TILE_LAYERS[themeKey]
+    const config = tileLayers[themeKey]
     const map = L.map(mapRef.current).setView(center, DEFAULT_ZOOM)
     const tiles = L.tileLayer(config.url, config.options)
     tiles.addTo(map)
@@ -81,15 +67,15 @@ export function StationLocationMapView({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
 
-  // When theme changes, swap tile layer
+  // When theme changes, swap tile layer (same OSM for both; effect keeps layer in sync)
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return
-    const config = TILE_LAYERS[themeKey]
+    const config = tileLayers[themeKey]
     mapInstanceRef.current.removeLayer(tileLayerRef.current)
     const newTiles = L.tileLayer(config.url, config.options)
     newTiles.addTo(mapInstanceRef.current)
     tileLayerRef.current = newTiles
-  }, [themeKey])
+  }, [themeKey, tileLayers])
 
   // When lat/lng change (e.g. from props), update map view and marker
   useEffect(() => {
