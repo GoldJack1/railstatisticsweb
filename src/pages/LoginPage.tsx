@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Button from './Button'
-import './LogIn.css'
+import Button from '../components/Button'
+import '../components/LogIn.css'
 
-const LogIn: React.FC = () => {
+const LoginPage: React.FC = () => {
   const { user, login, signUp } = useAuth()
   const navigate = useNavigate()
 
@@ -124,4 +124,5 @@ const LogIn: React.FC = () => {
   )
 }
 
-export default LogIn
+export default LoginPage
+

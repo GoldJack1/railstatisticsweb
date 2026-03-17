@@ -12,12 +12,12 @@ import {
   suggestColumnMapping,
   parseCSVWithColumnMapping
 } from '../services/migration'
-import type { MigrationState, ColumnMapping } from '../types/migration'
-import Button from './Button'
-import './Migration.css'
+import type { MigrationState, ColumnMapping, FirebaseStationLike, NewFormatStation } from '../types/migration'
+import Button from '../components/Button'
+import '../components/Migration.css'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
 
-const Migration: React.FC = () => {
+const MigrationPage: React.FC = () => {
   const { stations: firebaseStations, loading: firebaseLoading } = useStations()
   const { collectionId } = useStationCollection()
   const [state, setState] = useState<MigrationState>({
@@ -194,51 +194,6 @@ const Migration: React.FC = () => {
     }
   }, [state.rawCsvContent, state.columnMapping, collectionId])
 
-  const handleStartMatching = useCallback(async () => {
-    if (state.oldFormatData.length === 0) return
-
-    setState(prev => ({ 
-      ...prev, 
-      loading: true, 
-      error: null,
-      showProgressModal: true,
-      matchingProgress: 0,
-      currentStationName: ''
-    }))
-
-    try {
-      const { matches, availableStations } = await matchStations(
-        state.oldFormatData,
-        (progress, currentStation) => {
-          setState(prev => ({
-            ...prev,
-            matchingProgress: progress,
-            currentStationName: currentStation
-          }))
-        },
-        collectionId
-      )
-      const result = generateMigrationResult(matches, state.rejectedStations, availableStations)
-      
-      setState(prev => ({ 
-        ...prev, 
-        matches, 
-        result, 
-        step: 'review',
-        loading: false,
-        showProgressModal: false,
-        correctionsCount: 0
-      }))
-    } catch (error) {
-      setState(prev => ({ 
-        ...prev, 
-        error: `Error matching stations: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        loading: false,
-        showProgressModal: false
-      }))
-    }
-  }, [state.oldFormatData, state.rejectedStations, collectionId])
-
   const handleDownload = useCallback(() => {
     if (!state.result) return
     downloadCSV(state.result.converted, 'migrated-stations.csv')
@@ -270,8 +225,6 @@ const Migration: React.FC = () => {
     if (!state.result || !state.result.rejected || state.result.rejected.length === 0) return
     downloadRejectedStationsCSV(state.result.rejected, 'rejected-stations.csv')
   }, [state.result])
-
-
 
   const handleReset = useCallback(() => {
     setState({
@@ -389,14 +342,14 @@ const Migration: React.FC = () => {
     }))
   }, [firebaseStations, normalizeSearchText])
 
-  const handleSelectStation = useCallback((matchIndex: number, selectedStation: any) => {
+  const handleSelectStation = useCallback((matchIndex: number, selectedStation: FirebaseStationLike) => {
     setState(prev => {
       const newMatches = [...prev.matches]
       const wasNoMatch = newMatches[matchIndex].matchType === 'none'
       newMatches[matchIndex] = {
         ...newMatches[matchIndex],
         firebaseStation: selectedStation,
-        matchType: 'manual' as any,
+          matchType: 'manual',
         confidence: 1.0,
         suggestedId: selectedStation.id || '',
         suggestedCrsCode: selectedStation.crsCode || '',
@@ -456,7 +409,7 @@ const Migration: React.FC = () => {
   }, [])
 
   // Table search and display functions
-  const filterTableData = useCallback((data: any[], searchQuery: string) => {
+  const filterTableData = useCallback((data: NewFormatStation[], searchQuery: string) => {
     if (!searchQuery.trim()) return data
     
     const query = searchQuery.toLowerCase()
@@ -470,7 +423,7 @@ const Migration: React.FC = () => {
     )
   }, [])
 
-  const getDisplayData = useCallback((data: any[], searchQuery: string, showAll: boolean) => {
+  const getDisplayData = useCallback((data: NewFormatStation[], searchQuery: string, showAll: boolean) => {
     const filtered = filterTableData(data, searchQuery)
     return showAll ? filtered : filtered.slice(0, 10)
   }, [filterTableData])
@@ -488,16 +441,6 @@ const Migration: React.FC = () => {
       [`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}`]: !prev[`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}` as keyof typeof prev]
     }))
   }, [])
-
-  // Future enhancement: Allow manual editing of matches
-  // const updateMatch = useCallback((index: number, updates: Partial<StationMatch>) => {
-  //   setState(prev => {
-  //     const newMatches = [...prev.matches]
-  //     newMatches[index] = { ...newMatches[index], ...updates }
-  //     const newResult = generateMigrationResult(newMatches)
-  //     return { ...prev, matches: newMatches, result: newResult }
-  //   })
-  // }, [])
 
   // Debug logging
   console.log('Migration component render - firebaseLoading:', firebaseLoading)
@@ -1863,4 +1806,5 @@ const Migration: React.FC = () => {
   )
 }
 
-export default Migration
+export default MigrationPage
+

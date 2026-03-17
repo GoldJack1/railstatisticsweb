@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import './DesignSystemLayout.css'
+import '../../components/DesignSystemLayout.css'
 
 const SPACING_TOKENS = [
   '--space-xs',
@@ -24,7 +24,7 @@ const CONTAINER_TOKENS = [
   '--container-3xl',
 ]
 
-const DesignSystemLayout: React.FC = () => {
+const LayoutPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-layout">
@@ -105,4 +105,5 @@ const DesignSystemLayout: React.FC = () => {
   )
 }
 
-export default DesignSystemLayout
+export default LayoutPage
+

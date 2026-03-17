@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import './DesignSystemTypography.css'
+import '../../components/DesignSystemTypography.css'
 
 const SCALE_TOKENS = [
   '--text-xs',
@@ -16,7 +16,7 @@ const SCALE_TOKENS = [
 
 const WEIGHTS = [300, 400, 500, 600, 700]
 
-const DesignSystemTypography: React.FC = () => {
+const TypographyPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-typography">
@@ -74,4 +74,5 @@ const DesignSystemTypography: React.FC = () => {
   )
 }
 
-export default DesignSystemTypography
+export default TypographyPage
+

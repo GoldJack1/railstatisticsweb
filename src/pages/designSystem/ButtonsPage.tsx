@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import Button from './Button'
-import ButtonBar from './ButtonBar'
-import VisitButton from './VisitButton'
-import ButtonDemo from './ButtonDemo'
-import './DesignSystemButtons.css'
+import Button from '../../components/Button'
+import ButtonBar from '../../components/ButtonBar'
+import VisitButton from '../../components/VisitButton'
+import ButtonDemoPage from '../ButtonDemoPage'
+import '../../components/DesignSystemButtons.css'
 
 const PlusIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
@@ -20,7 +20,7 @@ const SearchIcon = () => (
   </svg>
 )
 
-const DesignSystemButtons: React.FC = () => {
+const ButtonsPage: React.FC = () => {
   const [controlledIndex, setControlledIndex] = useState<number | null>(0)
   const [visited, setVisited] = useState(false)
 
@@ -103,7 +103,7 @@ const DesignSystemButtons: React.FC = () => {
           <h2>Full Button Library</h2>
           <p>The full existing component showcase is embedded below.</p>
           <div className="ds-buttons__demo-wrap">
-            <ButtonDemo />
+            <ButtonDemoPage />
           </div>
         </section>
       </div>
@@ -111,4 +111,5 @@ const DesignSystemButtons: React.FC = () => {
   )
 }
 
-export default DesignSystemButtons
+export default ButtonsPage
+

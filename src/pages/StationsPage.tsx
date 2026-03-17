@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
-import StationModal from './StationModal'
-import StationEditModal from './StationEditModal'
-import NewStationModal from './NewStationModal'
-import ButtonBar from './ButtonBar'
-import Button from './Button'
+import StationModal from '../components/StationModal'
+import StationEditModal from '../components/StationEditModal'
+import NewStationModal from '../components/NewStationModal'
+import ButtonBar from '../components/ButtonBar'
+import Button from '../components/Button'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
@@ -17,7 +17,7 @@ import {
   createStationInFirebase,
   mergeStationAdditionalDetailsInFirebase
 } from '../services/firebase'
-import './Stations.css'
+import '../components/Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
 
@@ -25,7 +25,7 @@ interface StationsProps {
   initialMode?: 'view' | 'edit'
 }
 
-const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
+const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const { stations, loading, error, refetch } = useStations()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTOC, setSelectedTOC] = useState<string>('')
@@ -849,4 +849,5 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   )
 }
 
-export default Stations
+export default StationsPage
+

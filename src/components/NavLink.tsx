@@ -7,7 +7,7 @@ interface NavLinkProps {
   className?: string
   onClick?: () => void
   replace?: boolean
-  state?: any
+  state?: unknown
 }
 
 const NavLink: React.FC<NavLinkProps> = ({

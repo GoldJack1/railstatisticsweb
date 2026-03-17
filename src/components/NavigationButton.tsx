@@ -2,10 +2,10 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button, { ButtonProps } from './Button'
 
-export interface NavigationButtonProps extends Omit<ButtonProps, 'onClick'> {
+export interface NavigationButtonProps extends Omit<ButtonProps, 'onClick' | 'state'> {
   to: string
   replace?: boolean
-  state?: any
+  state?: unknown
   onClick?: () => void
   isActive?: boolean
 }

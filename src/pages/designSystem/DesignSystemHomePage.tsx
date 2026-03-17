@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import Button from './Button'
-import './DesignSystemHome.css'
+import Button from '../../components/Button'
+import '../../components/DesignSystemHome.css'
 
 const SECTIONS = [
   {
@@ -36,7 +36,7 @@ const SECTIONS = [
   },
 ]
 
-const DesignSystemHome: React.FC = () => {
+const DesignSystemHomePage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-home">
@@ -94,4 +94,5 @@ const DesignSystemHome: React.FC = () => {
   )
 }
 
-export default DesignSystemHome
+export default DesignSystemHomePage
+

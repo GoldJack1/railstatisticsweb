@@ -1,8 +1,8 @@
 import React from 'react'
-import NavigationButton from './NavigationButton'
-import './Home.css'
+import NavigationButton from '../components/NavigationButton'
+import '../components/Home.css'
 
-const Home: React.FC = () => {
+const HomePage: React.FC = () => {
   return (
     <div className="container">
       <main className="main">
@@ -93,4 +93,5 @@ const Home: React.FC = () => {
   )
 }
 
-export default Home
+export default HomePage
+

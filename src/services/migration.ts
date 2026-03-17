@@ -1,5 +1,5 @@
 // Migration service for converting old format CSV to new format
-import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult, ColumnMapping } from '../types/migration'
+import type { OldFormatStation, NewFormatStation, StationMatch, MigrationResult, ColumnMapping, FirebaseStationLike } from '../types/migration'
 import { fetchStationsFromFirebase, getStationCollectionName, type StationCollectionId } from './firebase'
 
 // Normalize a header for comparison (strip BOM, trim, collapse spaces)
@@ -223,7 +223,7 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
     throw new Error('CSV file must have at least a header and one data row')
   }
 
-  let headers = trimTrailingEmptyColumns(parseCSVLine(lines[0])).map(normalizeHeader)
+  const headers = trimTrailingEmptyColumns(parseCSVLine(lines[0])).map(normalizeHeader)
   console.log('CSV Headers:', headers)
   console.log('Number of headers:', headers.length)
 
@@ -246,7 +246,7 @@ export const parseOldFormatCSV = (csvContent: string): OldFormatStation[] => {
       continue
     }
 
-    const station: any = {}
+    const station: Record<string, string> = {}
     headers.forEach((header, index) => {
       station[header] = values[index]
     })
@@ -370,13 +370,14 @@ const trimTrailingEmptyColumns = (columns: string[]): string[] => {
 }
 
 // Load stations from Firebase for matching (collection from caller so dropdown value at click time is used)
-const loadStationsForMatching = async (collectionName: StationCollectionId): Promise<any[]> => {
+const loadStationsForMatching = async (collectionName: StationCollectionId): Promise<FirebaseStationLike[]> => {
   try {
     console.log(`Loading stations from Cloud Database for migration matching (collection: ${collectionName})`)
     const firebaseStations = await fetchStationsFromFirebase(collectionName)
     
     if (firebaseStations.length > 0) {
       console.log(`Loaded ${firebaseStations.length} Firebase stations for matching`)
+      // `fetchStationsFromFirebase` returns our `Station` shape, which is compatible with `FirebaseStationLike`.
       return firebaseStations
     } else {
       throw new Error('No data available in Firebase')
@@ -392,7 +393,7 @@ export const matchStations = async (
   oldStations: OldFormatStation[],
   onProgress?: (progress: number, currentStation: string) => void,
   collectionId?: StationCollectionId
-): Promise<{ matches: StationMatch[], availableStations: any[] }> => {
+): Promise<{ matches: StationMatch[], availableStations: FirebaseStationLike[] }> => {
   try {
     const collection = collectionId ?? getStationCollectionName()
     const availableStations = await loadStationsForMatching(collection)
@@ -508,7 +509,7 @@ const getTrailingParentheticalQualifier = (name: string): string => {
 }
 
 // Find the best match for a station
-const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): StationMatch => {
+const findBestMatch = (oldStation: OldFormatStation, firebaseStations: FirebaseStationLike[]): StationMatch => {
   // Safety check for station name
   if (!oldStation.stationName || typeof oldStation.stationName !== 'string') {
     console.warn('Invalid station name:', oldStation.stationName)
@@ -534,7 +535,7 @@ const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): S
   const hasValidCoords =
     !isNaN(oldLat) && !isNaN(oldLng) && (oldLat !== 0 || oldLng !== 0)
 
-  let bestMatch: any = null
+  let bestMatch: FirebaseStationLike | null = null
   let matchType: 'exact' | 'fuzzy' | 'coordinates' | 'none' = 'none'
   let confidence = 0
   let suggestedId = generateId()
@@ -544,7 +545,7 @@ const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): S
   // 1. Try exact name match – literal or normalized (Leeds vs Leeds (city), Bishopton vs Bishopton's)
   // When CSV normalizes to a single word (e.g. "Dalston"), also include FB stations that start with that word (e.g. "Dalston Junction")
   // so we can disambiguate by coordinates (London "Dalston" → Dalston Junction, Cumbria → Dalston (Cumbria))
-  const exactMatches: any[] = []
+  const exactMatches: FirebaseStationLike[] = []
   const csvNameIsSingleWord = normalizedStationName.length > 0 && !normalizedStationName.includes(' ')
   for (const fbStation of firebaseStations) {
     const fbNameRaw = fbStation.stationName || fbStation.stationname || ''
@@ -561,7 +562,7 @@ const findBestMatch = (oldStation: OldFormatStation, firebaseStations: any[]): S
   }
   // When CSV has a (placename) qualifier, only allow candidates that contain that qualifier – avoids e.g. all 3 Whitchurches matching to one
   const qualifier = getTrailingParentheticalQualifier(oldStation.stationName)
-  let candidates = exactMatches
+  let candidates: FirebaseStationLike[] = exactMatches
   if (qualifier) {
     candidates = exactMatches.filter((fb) => {
       const raw = (fb.stationName || fb.stationname || '').toLowerCase()
@@ -813,7 +814,7 @@ const formatDate = (dateString: string): string => {
       const day = String(date.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
     }
-  } catch (error) {
+  } catch {
     // If parsing fails, return the original string
   }
   
@@ -822,7 +823,7 @@ const formatDate = (dateString: string): string => {
 }
 
 // Convert new stations from database to new format (use Firebase IDs)
-const convertNewStationsToFormat = (newStations: any[]): NewFormatStation[] => {
+const convertNewStationsToFormat = (newStations: FirebaseStationLike[]): NewFormatStation[] => {
   const converted: NewFormatStation[] = []
   
   for (let i = 0; i < newStations.length; i++) {
@@ -848,10 +849,11 @@ const convertNewStationsToFormat = (newStations: any[]): NewFormatStation[] => {
     }
 
     // Add yearly usage data if available
-    if (station.yearlyPassengers) {
+    if (station.yearlyPassengers && typeof station.yearlyPassengers === 'object') {
       for (let year = 2024; year >= 1998; year--) {
         const yearStr = year.toString()
-        newStation[yearStr] = station.yearlyPassengers[yearStr] || 0
+        const v = (station.yearlyPassengers as Record<string, number | null>)[yearStr]
+        newStation[yearStr] = typeof v === 'number' ? v : 0
       }
     } else {
       // Fill with zeros
@@ -867,7 +869,7 @@ const convertNewStationsToFormat = (newStations: any[]): NewFormatStation[] => {
 }
 
 // Convert matched stations to new format
-export const convertToNewFormat = (matches: StationMatch[], newStations: any[] = []): NewFormatStation[] => {
+export const convertToNewFormat = (matches: StationMatch[], newStations: FirebaseStationLike[] = []): NewFormatStation[] => {
   const converted: NewFormatStation[] = []
   let unmatchedIndex = 0
 
@@ -952,15 +954,15 @@ export const convertToNewFormat = (matches: StationMatch[], newStations: any[] =
 export const generateMigrationResult = (
   matches: StationMatch[], 
   rejectedStations: OldFormatStation[] = [],
-  availableStations: any[] = []
+  availableStations: FirebaseStationLike[] = []
 ): MigrationResult => {
   const unmatched = matches.filter(m => m.matchType === 'none').map(m => m.oldStation)
   
   // Find stations in database that were not matched (untracked stations)
   const matchedStationIds = new Set(
     matches
-      .filter(m => m.firebaseStation !== null)
-      .map(m => m.firebaseStation.id)
+      .map((m) => m.firebaseStation?.id)
+      .filter((id): id is string => typeof id === 'string' && id.trim() !== '')
   )
   
   const untrackedStations = availableStations.filter(
@@ -969,8 +971,9 @@ export const generateMigrationResult = (
   
   // Also find new stations (ID 2588 and above) that are likely not in CSV
   const newStations = availableStations.filter(station => {
-    const stationId = parseInt(station.id)
-    return !isNaN(stationId) && stationId >= 2588 && !matchedStationIds.has(station.id)
+    const stationIdRaw = station.id
+    const stationId = parseInt(stationIdRaw, 10)
+    return !isNaN(stationId) && stationId >= 2588 && !matchedStationIds.has(stationIdRaw)
   })
   
   console.log(`Found ${untrackedStations.length} untracked stations (in database but not in CSV)`)

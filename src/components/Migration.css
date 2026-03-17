@@ -2976,8 +2976,8 @@
 }
 
 .result-crs {
-  background: var(--accent-color) !important;
-  color: white !important;
+  background: rgb(59, 130, 246);
+  color: #ffffff;
 }
 
 .result-tiploc {

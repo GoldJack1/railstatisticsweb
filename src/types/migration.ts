@@ -1,5 +1,20 @@
 // Migration types for CSV conversion
 
+import type { Station, YearlyPassengers } from './index'
+
+/**
+ * Station shape used throughout migration + search.
+ * In practice this is the app's `Station` type plus a few legacy field aliases used in CSV tooling.
+ */
+export type FirebaseStationLike = Station & {
+  /** Legacy/alternate field names seen in Firestore/CSV tooling */
+  stationname?: string
+  CrsCode?: string
+  TOC?: string
+  /** Passenger stats as stored on some station docs */
+  yearlyPassengers?: YearlyPassengers | Record<string, number | null> | null
+}
+
 export interface OldFormatStation {
   type?: string // Optional, only in Format 2 (e.g., "GBNationalRail")
   stationName: string
@@ -32,7 +47,7 @@ export interface NewFormatStation {
 
 export interface StationMatch {
   oldStation: OldFormatStation
-  firebaseStation: any | null
+  firebaseStation: FirebaseStationLike | null
   matchType: 'exact' | 'fuzzy' | 'coordinates' | 'manual' | 'none'
   confidence: number
   suggestedId: string
@@ -53,11 +68,11 @@ export interface MigrationResult {
   matches: StationMatch[]
   unmatched: OldFormatStation[]
   rejected: OldFormatStation[]
-  untracked: any[] // Stations in database but not in CSV
-  newStations: any[] // Stations with ID >= 2588 (new additions to database)
+  untracked: FirebaseStationLike[] // Stations in database but not in CSV
+  newStations: FirebaseStationLike[] // Stations with ID >= 2588 (new additions to database)
   converted: NewFormatStation[]
   /** Same collection used for matching (so manual-match regeneration uses same list) */
-  availableStations: any[]
+  availableStations: FirebaseStationLike[]
   /** Output IDs that appear on more than one row; use Correct to assign a different station */
   duplicateGroups: DuplicateGroup[]
   /** Output ID per match index (so UI can show prev/next ID for duplicate rows) */
@@ -102,7 +117,7 @@ export interface MigrationState {
   file: File | null
   oldFormatData: OldFormatStation[]
   rejectedStations: OldFormatStation[]
-  firebaseStations: any[]
+  firebaseStations: FirebaseStationLike[]
   matches: StationMatch[]
   result: MigrationResult | null
   loading: boolean
@@ -115,7 +130,7 @@ export interface MigrationState {
   columnMapping: ColumnMapping | null
   // Search functionality
   searchQuery: string
-  searchResults: any[]
+  searchResults: FirebaseStationLike[]
   /** Active "Search by" filter: name, crs, tiploc, county, country; null when none */
   searchByField: 'name' | 'crs' | 'tiploc' | 'county' | 'country' | null
   selectedMatchIndex: number | null

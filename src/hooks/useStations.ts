@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { fetchStationsFromFirebase } from '../services/firebase'
 import { calculateStats, fetchLocalStations } from '../services/localData'
 import type { Station, StationStats, UseStationsReturn } from '../types'
@@ -28,7 +28,7 @@ export const useStations = (): UseStationsReturn => {
     withPassengers: 0
   })
 
-  const loadStations = async (): Promise<void> => {
+  const loadStations = useCallback(async (): Promise<void> => {
     try {
       setLoading(true)
       setError(null)
@@ -79,15 +79,15 @@ export const useStations = (): UseStationsReturn => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [collectionId])
 
   useEffect(() => {
-    loadStations()
-  }, [collectionId]) // Refetch when user toggles station collection
+    void loadStations()
+  }, [loadStations]) // Refetch when user toggles station collection
 
 
   const refetch = (): void => {
-    loadStations()
+    void loadStations()
   }
 
   return {

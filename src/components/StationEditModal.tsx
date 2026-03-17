@@ -143,7 +143,7 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
         if (!cancelled) setSandboxLoading(false)
       })
     return () => { cancelled = true }
-  }, [isOpen, collectionId, station?.id])
+  }, [isOpen, collectionId, station])
 
   if (!isOpen || !station) return null
 

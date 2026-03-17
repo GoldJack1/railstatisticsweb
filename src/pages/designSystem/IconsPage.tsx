@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import './DesignSystemIcons.css'
+import '../../components/DesignSystemIcons.css'
 
 const ICONS = [
   {
@@ -233,7 +233,7 @@ const ICONS = [
   },
 ]
 
-const DesignSystemIcons: React.FC = () => {
+const IconsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-icons">
@@ -265,4 +265,5 @@ const DesignSystemIcons: React.FC = () => {
   )
 }
 
-export default DesignSystemIcons
+export default IconsPage
+

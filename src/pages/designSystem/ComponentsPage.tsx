@@ -1,15 +1,15 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Station } from '../types'
-import Button from './Button'
-import ButtonBar from './ButtonBar'
-import NavigationButton from './NavigationButton'
-import NavLink from './NavLink'
-import VisitButton from './VisitButton'
-import StationModal from './StationModal'
-import StationEditModal from './StationEditModal'
-import NewStationModal from './NewStationModal'
-import './DesignSystemComponents.css'
+import type { Station } from '../../types'
+import Button from '../../components/Button'
+import ButtonBar from '../../components/ButtonBar'
+import NavigationButton from '../../components/NavigationButton'
+import NavLink from '../../components/NavLink'
+import VisitButton from '../../components/VisitButton'
+import StationModal from '../../components/StationModal'
+import StationEditModal from '../../components/StationEditModal'
+import NewStationModal from '../../components/NewStationModal'
+import '../../components/DesignSystemComponents.css'
 
 const COMPONENT_GROUPS = [
   {
@@ -59,7 +59,7 @@ const EXAMPLE_STATION: Station = {
   },
 }
 
-const DesignSystemComponents: React.FC = () => {
+const ComponentsPage: React.FC = () => {
   const [isVisited, setIsVisited] = useState(false)
   const [selectedButtonBar, setSelectedButtonBar] = useState<number | null>(0)
   const [showStationModal, setShowStationModal] = useState(false)
@@ -215,4 +215,5 @@ const DesignSystemComponents: React.FC = () => {
   )
 }
 
-export default DesignSystemComponents
+export default ComponentsPage
+

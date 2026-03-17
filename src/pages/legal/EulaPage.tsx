@@ -1,8 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import './Eula.css'
+import '../../components/Eula.css'
 
-const Eula: React.FC = () => {
+const EulaPage: React.FC = () => {
   return (
     <div className="container">
       <main className="eula-main">
@@ -226,4 +226,5 @@ const Eula: React.FC = () => {
   )
 }
 
-export default Eula
+export default EulaPage
+

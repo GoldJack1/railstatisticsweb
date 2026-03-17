@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import './DesignSystemColours.css'
+import '../../components/DesignSystemColours.css'
 
 type TokenItem = {
   label: string
@@ -39,7 +39,7 @@ const TokenCard: React.FC<TokenItem> = ({ label, token }) => {
   )
 }
 
-const DesignSystemColours: React.FC = () => {
+const ColoursPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-colours">
@@ -87,4 +87,5 @@ const DesignSystemColours: React.FC = () => {
   )
 }
 
-export default DesignSystemColours
+export default ColoursPage
+

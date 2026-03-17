@@ -1,8 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import './PrivacyPolicy.css'
+import '../../components/PrivacyPolicy.css'
 
-const PrivacyPolicy: React.FC = () => {
+const PrivacyPolicyPage: React.FC = () => {
   return (
     <div className="container">
       <main className="privacy-main">
@@ -82,4 +82,5 @@ const PrivacyPolicy: React.FC = () => {
   )
 }
 
-export default PrivacyPolicy
+export default PrivacyPolicyPage
+

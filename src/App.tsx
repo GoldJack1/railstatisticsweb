@@ -28,21 +28,21 @@ const PAGE_TITLES: Record<string, string> = {
 }
 
 // Lazy load components for better performance
-const Home = React.lazy(() => import('./components/Home'))
-const LogIn = React.lazy(() => import('./components/LogIn'))
-const Stations = React.lazy(() => import('./components/Stations'))
-const StationDatabaseEdit = React.lazy(() => import('./components/StationDatabaseEdit'))
-const Migration = React.lazy(() => import('./components/Migration'))
-const ButtonDemo = React.lazy(() => import('./components/ButtonDemo'))
-const DesignSystemHome = React.lazy(() => import('./components/DesignSystemHome'))
-const DesignSystemColours = React.lazy(() => import('./components/DesignSystemColours'))
-const DesignSystemTypography = React.lazy(() => import('./components/DesignSystemTypography'))
-const DesignSystemButtons = React.lazy(() => import('./components/DesignSystemButtons'))
-const DesignSystemLayout = React.lazy(() => import('./components/DesignSystemLayout'))
-const DesignSystemComponents = React.lazy(() => import('./components/DesignSystemComponents'))
-const DesignSystemIcons = React.lazy(() => import('./components/DesignSystemIcons'))
-const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'))
-const Eula = React.lazy(() => import('./components/Eula'))
+const HomePage = React.lazy(() => import('./pages/HomePage'))
+const LoginPage = React.lazy(() => import('./pages/LoginPage'))
+const StationsPage = React.lazy(() => import('./pages/StationsPage'))
+const StationDatabaseEditPage = React.lazy(() => import('./pages/StationDatabaseEditPage'))
+const MigrationPage = React.lazy(() => import('./pages/MigrationPage'))
+const ButtonDemoPage = React.lazy(() => import('./pages/ButtonDemoPage'))
+const DesignSystemHomePage = React.lazy(() => import('./pages/designSystem/DesignSystemHomePage'))
+const ColoursPage = React.lazy(() => import('./pages/designSystem/ColoursPage'))
+const TypographyPage = React.lazy(() => import('./pages/designSystem/TypographyPage'))
+const ButtonsPage = React.lazy(() => import('./pages/designSystem/ButtonsPage'))
+const LayoutPage = React.lazy(() => import('./pages/designSystem/LayoutPage'))
+const ComponentsPage = React.lazy(() => import('./pages/designSystem/ComponentsPage'))
+const IconsPage = React.lazy(() => import('./pages/designSystem/IconsPage'))
+const PrivacyPolicyPage = React.lazy(() => import('./pages/legal/PrivacyPolicyPage'))
+const EulaPage = React.lazy(() => import('./pages/legal/EulaPage'))
 
 const App: React.FC = () => {
   const { pathname } = useLocation()
@@ -75,22 +75,22 @@ const App: React.FC = () => {
                 }
               >
                 <Routes>
-                  <Route path="/" element={<Migration />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/log-in" element={<LogIn />} />
-                  <Route path="/stations" element={<ProtectedRoute><Stations /></ProtectedRoute>} />
-                  <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEdit /></ProtectedRoute>} />
-                  <Route path="/migration" element={<Migration />} />
-                  <Route path="/buttons" element={<ButtonDemo />} />
-                  <Route path="/design-system" element={<ProtectedRoute><DesignSystemHome /></ProtectedRoute>} />
-                  <Route path="/design-system/colours" element={<ProtectedRoute><DesignSystemColours /></ProtectedRoute>} />
-                  <Route path="/design-system/typography" element={<ProtectedRoute><DesignSystemTypography /></ProtectedRoute>} />
-                  <Route path="/design-system/buttons" element={<ProtectedRoute><DesignSystemButtons /></ProtectedRoute>} />
-                  <Route path="/design-system/layout" element={<ProtectedRoute><DesignSystemLayout /></ProtectedRoute>} />
-                  <Route path="/design-system/components" element={<ProtectedRoute><DesignSystemComponents /></ProtectedRoute>} />
-                  <Route path="/design-system/icons" element={<ProtectedRoute><DesignSystemIcons /></ProtectedRoute>} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/eula" element={<Eula />} />
+                  <Route path="/" element={<MigrationPage />} />
+                  <Route path="/home" element={<HomePage />} />
+                  <Route path="/log-in" element={<LoginPage />} />
+                  <Route path="/stations" element={<ProtectedRoute><StationsPage /></ProtectedRoute>} />
+                  <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEditPage /></ProtectedRoute>} />
+                  <Route path="/migration" element={<MigrationPage />} />
+                  <Route path="/buttons" element={<ButtonDemoPage />} />
+                  <Route path="/design-system" element={<ProtectedRoute><DesignSystemHomePage /></ProtectedRoute>} />
+                  <Route path="/design-system/colours" element={<ProtectedRoute><ColoursPage /></ProtectedRoute>} />
+                  <Route path="/design-system/typography" element={<ProtectedRoute><TypographyPage /></ProtectedRoute>} />
+                  <Route path="/design-system/buttons" element={<ProtectedRoute><ButtonsPage /></ProtectedRoute>} />
+                  <Route path="/design-system/layout" element={<ProtectedRoute><LayoutPage /></ProtectedRoute>} />
+                  <Route path="/design-system/components" element={<ProtectedRoute><ComponentsPage /></ProtectedRoute>} />
+                  <Route path="/design-system/icons" element={<ProtectedRoute><IconsPage /></ProtectedRoute>} />
+                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                  <Route path="/eula" element={<EulaPage />} />
                 </Routes>
               </Suspense>
             </main>

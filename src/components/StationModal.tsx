@@ -73,7 +73,7 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
         if (!cancelled) setSandboxLoading(false)
       })
     return () => { cancelled = true }
-  }, [isOpen, station?.id, collectionId])
+  }, [isOpen, station, collectionId])
 
   if (!isOpen || !station) return null
 

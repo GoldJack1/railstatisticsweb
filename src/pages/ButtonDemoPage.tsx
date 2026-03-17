@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import Button from './Button'
-import ButtonBar from './ButtonBar'
-import './ButtonDemo.css'
+import Button from '../components/Button'
+import ButtonBar from '../components/ButtonBar'
+import '../components/ButtonDemo.css'
 
-const ButtonDemo: React.FC = () => {
+const ButtonDemoPage: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState(0)
   const [clickedButtons, setClickedButtons] = useState<Record<string, boolean>>({})
 
@@ -637,5 +637,5 @@ const ButtonDemo: React.FC = () => {
   )
 }
 
-export default ButtonDemo
+export default ButtonDemoPage
 

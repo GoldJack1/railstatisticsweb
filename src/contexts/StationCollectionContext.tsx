@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import type { StationCollectionId } from '../services/firebase'
 import { getStationCollectionName, setStationCollectionName } from '../services/firebase'
