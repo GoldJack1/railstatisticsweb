@@ -16,7 +16,7 @@
 
 .eula-updated {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--text-disabled);
   margin-bottom: var(--space-2xl);
 }
 

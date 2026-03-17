@@ -14,6 +14,9 @@ const Footer: React.FC = () => {
           <Link to="/privacy" className="site-footer-link">Privacy Policy</Link>
           <Link to="/eula" className="site-footer-link">EULA</Link>
           {user && (
+            <Link to="/design-system" className="site-footer-link">Design System</Link>
+          )}
+          {user && (
             <button type="button" className="site-footer-link site-footer-logout" onClick={() => logout()}>
               Log out
             </button>

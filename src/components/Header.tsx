@@ -10,6 +10,7 @@ const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
   const location = useLocation()
+  const isDesignSystemRoute = location.pathname === '/design-system' || location.pathname.startsWith('/design-system/')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -70,6 +71,16 @@ const Header: React.FC = () => {
             >
               Edit DB
             </NavigationButton>
+            {user && (
+              <NavigationButton
+                to="/design-system"
+                variant="wide"
+                width="hug"
+                isActive={isDesignSystemRoute}
+              >
+                Design System
+              </NavigationButton>
+            )}
             {user ? (
               <button
                 type="button"
@@ -189,6 +200,17 @@ const Header: React.FC = () => {
           >
             Edit DB
           </NavigationButton>
+          {user && (
+            <NavigationButton
+              to="/design-system"
+              variant="wide"
+              width="fill"
+              onClick={closeMobileMenu}
+              isActive={isDesignSystemRoute}
+            >
+              Design System
+            </NavigationButton>
+          )}
           {user ? (
             <button
               type="button"

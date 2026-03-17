@@ -16,6 +16,13 @@ const PAGE_TITLES: Record<string, string> = {
   '/station-database-edit': 'Edit Station Database | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
   '/buttons': 'Button Components | Rail Statistics',
+  '/design-system': 'Design System | Rail Statistics',
+  '/design-system/colours': 'Design System Colours | Rail Statistics',
+  '/design-system/typography': 'Design System Typography | Rail Statistics',
+  '/design-system/buttons': 'Design System Buttons | Rail Statistics',
+  '/design-system/layout': 'Design System Layout | Rail Statistics',
+  '/design-system/components': 'Design System Components | Rail Statistics',
+  '/design-system/icons': 'Design System Icons | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
 }
@@ -27,6 +34,13 @@ const Stations = React.lazy(() => import('./components/Stations'))
 const StationDatabaseEdit = React.lazy(() => import('./components/StationDatabaseEdit'))
 const Migration = React.lazy(() => import('./components/Migration'))
 const ButtonDemo = React.lazy(() => import('./components/ButtonDemo'))
+const DesignSystemHome = React.lazy(() => import('./components/DesignSystemHome'))
+const DesignSystemColours = React.lazy(() => import('./components/DesignSystemColours'))
+const DesignSystemTypography = React.lazy(() => import('./components/DesignSystemTypography'))
+const DesignSystemButtons = React.lazy(() => import('./components/DesignSystemButtons'))
+const DesignSystemLayout = React.lazy(() => import('./components/DesignSystemLayout'))
+const DesignSystemComponents = React.lazy(() => import('./components/DesignSystemComponents'))
+const DesignSystemIcons = React.lazy(() => import('./components/DesignSystemIcons'))
 const PrivacyPolicy = React.lazy(() => import('./components/PrivacyPolicy'))
 const Eula = React.lazy(() => import('./components/Eula'))
 
@@ -68,6 +82,13 @@ const App: React.FC = () => {
                   <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEdit /></ProtectedRoute>} />
                   <Route path="/migration" element={<Migration />} />
                   <Route path="/buttons" element={<ButtonDemo />} />
+                  <Route path="/design-system" element={<ProtectedRoute><DesignSystemHome /></ProtectedRoute>} />
+                  <Route path="/design-system/colours" element={<ProtectedRoute><DesignSystemColours /></ProtectedRoute>} />
+                  <Route path="/design-system/typography" element={<ProtectedRoute><DesignSystemTypography /></ProtectedRoute>} />
+                  <Route path="/design-system/buttons" element={<ProtectedRoute><DesignSystemButtons /></ProtectedRoute>} />
+                  <Route path="/design-system/layout" element={<ProtectedRoute><DesignSystemLayout /></ProtectedRoute>} />
+                  <Route path="/design-system/components" element={<ProtectedRoute><DesignSystemComponents /></ProtectedRoute>} />
+                  <Route path="/design-system/icons" element={<ProtectedRoute><DesignSystemIcons /></ProtectedRoute>} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/eula" element={<Eula />} />
                 </Routes>

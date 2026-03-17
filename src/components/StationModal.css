@@ -118,7 +118,7 @@
 .modal-detail-label {
   font-size: var(--text-xs);
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

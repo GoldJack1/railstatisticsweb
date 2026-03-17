@@ -139,7 +139,7 @@
 }
 
 .edit-review-arrow {
-  color: var(--text-muted);
+  color: var(--text-disabled);
 }
 
 .edit-review-to {

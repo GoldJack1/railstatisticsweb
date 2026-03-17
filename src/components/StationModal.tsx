@@ -352,6 +352,13 @@ const StationModal: React.FC<StationModalProps> = ({ station, isOpen, onClose })
             </div>
           )}
 
+          <div className="modal-section">
+            <p className="edit-hint">
+              Additional sandbox-only details (toilets, step-free access, lifts, connections, facilities, etc.) are managed in
+              the sandbox source data and will appear here when available for this station.
+            </p>
+          </div>
+
           {(station.yearlyPassengers || (isSandbox && sandboxDoc?.yearlyPassengers)) && (
             <div className="modal-section">
               <h3 className="modal-section-title">Passenger Statistics</h3>

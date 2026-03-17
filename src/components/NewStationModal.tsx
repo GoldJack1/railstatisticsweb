@@ -240,8 +240,8 @@ const NewStationModal: React.FC<NewStationModalProps> = ({ isOpen, onClose, next
               station editor.
             </p>
             <p className="edit-hint">
-              Additional sandbox-only details (toilets, step-free, lifts, connections, facilities, etc.) are managed in the
-              source sandbox data and will appear in the View modal once available for this station.
+              Additional sandbox-only details (toilets, step-free access, lifts, connections, facilities, etc.) are managed in
+              the sandbox source data and will appear in the View modal once available for this station.
             </p>
           </div>
 

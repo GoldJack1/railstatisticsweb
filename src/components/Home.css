@@ -58,7 +58,6 @@
 .feature:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-lg);
-    border-color: var(--accent-color);
 }
 
 .feature-icon {

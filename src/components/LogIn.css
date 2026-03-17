@@ -56,7 +56,6 @@
 }
 
 .login-social-btn:hover:not(:disabled) {
-  border-color: var(--accent-color);
   background: var(--accent-light);
 }
 

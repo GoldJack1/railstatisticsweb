@@ -4,6 +4,8 @@ import { useDebounce } from '../hooks/useDebounce'
 import StationModal from './StationModal'
 import StationEditModal from './StationEditModal'
 import NewStationModal from './NewStationModal'
+import ButtonBar from './ButtonBar'
+import Button from './Button'
 import type { Station } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
@@ -294,22 +296,20 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                     Mode:
                   </span>
                   <div className="mode-toggle" role="group" aria-label="Mode">
-                    <button
-                      type="button"
-                      className={`mode-toggle-button ${!isEditMode ? 'mode-toggle-button--active' : ''}`}
-                      onClick={() => setIsEditMode(false)}
-                      aria-pressed={!isEditMode}
-                    >
-                      View only
-                    </button>
-                    <button
-                      type="button"
-                      className={`mode-toggle-button ${isEditMode ? 'mode-toggle-button--active' : ''}`}
-                      onClick={() => setIsEditMode(true)}
-                      aria-pressed={isEditMode}
-                    >
-                      Edit
-                    </button>
+                    <ButtonBar
+                      buttons={[
+                        { label: 'View only', value: 'view' },
+                        { label: 'Edit', value: 'edit' }
+                      ]}
+                      selectedIndex={isEditMode ? 1 : 0}
+                      onChange={(_, value) => {
+                        if (value === 'edit') {
+                          setIsEditMode(true)
+                        } else {
+                          setIsEditMode(false)
+                        }
+                      }}
+                    />
                   </div>
                 </div>
                 <div>
@@ -328,13 +328,14 @@ const Stations: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                 </div>
                 {isEditMode && collectionId === 'newsandboxstations1' && (
                   <div className="station-add-wrapper">
-                    <button
-                      type="button"
+                    <Button
+                      variant="wide"
+                      width="hug"
                       className="station-add-button"
                       onClick={() => setIsCreateModalOpen(true)}
                     >
                       + Add new station
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

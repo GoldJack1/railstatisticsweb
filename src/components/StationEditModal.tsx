@@ -5,7 +5,6 @@ import './StationEditModal.css'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import { fetchStationDocumentById } from '../services/firebase'
-import { formatFareZoneDisplay } from '../utils/formatFareZone'
 
 interface StationEditModalProps {
   station: Station | null
@@ -513,6 +512,13 @@ const StationEditModal: React.FC<StationEditModalProps> = ({ station, isOpen, on
                   )}
                 </div>
               )}
+
+              <div className="modal-section">
+                <p className="edit-hint">
+                  Additional sandbox-only details (toilets, step-free access, lifts, connections, facilities, etc.) are
+                  managed in the sandbox source data and will appear in the View modal when available for this station.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="modal-section edit-review-section">

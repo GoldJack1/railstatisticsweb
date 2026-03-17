@@ -106,7 +106,6 @@
 }
 
 .pending-changes-button:hover:not(:disabled) {
-    border-color: var(--accent-color);
 }
 
 .pending-changes-button:disabled {
@@ -170,7 +169,7 @@
     display: flex;
     gap: 0.5rem;
     font-size: var(--text-xs);
-    color: var(--text-muted);
+    color: var(--text-disabled);
 }
 
 .pending-review-no-changes {
@@ -215,7 +214,7 @@
 }
 
 .pending-review-change-arrow {
-    color: var(--text-muted);
+    color: var(--text-disabled);
 }
 
 .pending-review-change-to {
@@ -422,7 +421,7 @@
     transform: translateY(-50%);
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-disabled);
     cursor: pointer;
     padding: var(--space-xs);
     border-radius: var(--radius-sm);
@@ -461,7 +460,7 @@
     left: var(--space-md);
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-muted);
+    color: var(--text-disabled);
     width: 20px;
     height: 20px;
 }
@@ -535,7 +534,6 @@
 .station-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
-    border-color: var(--accent-color);
 }
 
 .station-card:focus {
@@ -621,7 +619,7 @@
 .detail-label {
     font-size: var(--text-xs);
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--text-disabled);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -686,7 +684,7 @@
 .station-metric-label {
     font-size: var(--text-xs);
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--text-disabled);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -708,7 +706,7 @@
     width: 4rem;
     height: 4rem;
     margin-bottom: var(--space-lg);
-    color: var(--text-muted);
+    color: var(--text-disabled);
 }
 
 /* Responsive Design */
@@ -962,7 +960,6 @@
 
 .filter-toggle-button:hover {
     background: var(--bg-secondary);
-    border-color: var(--accent-color);
 }
 
 .filter-badge {
@@ -1161,7 +1158,6 @@
 
 .pagination-button:hover:not(:disabled) {
     background: var(--bg-tertiary);
-    border-color: var(--accent-color);
 }
 
 .pagination-button:disabled {

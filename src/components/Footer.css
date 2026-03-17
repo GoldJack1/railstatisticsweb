@@ -2,9 +2,9 @@
   margin-top: auto;
   padding: var(--space-2xl) 0;
   border-top: 1px solid var(--border-color);
-  color: var(--text-muted);
+  color: var(--text-disabled);
   font-size: var(--text-sm);
-  font-family: 'Geologica Cursive', 'Geologica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .site-footer-inner {
@@ -25,7 +25,7 @@
 }
 
 .site-footer-link {
-  color: var(--text-muted);
+  color: var(--text-disabled);
   text-decoration: none;
 }
 

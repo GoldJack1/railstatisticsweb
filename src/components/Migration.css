@@ -94,7 +94,6 @@
 }
 
 .upload-area:hover {
-  border-color: var(--accent-color);
   background: var(--accent-light);
 }
 
@@ -447,7 +446,7 @@
 }
 
 .rank-legend-arrow {
-  color: var(--text-muted);
+  color: var(--text-disabled);
   font-weight: 400;
 }
 
@@ -465,7 +464,7 @@
 .station-details.rank-to .rank-label { color: var(--accent-color); }
 
 .match-empty {
-  color: var(--text-muted);
+  color: var(--text-disabled);
   font-style: italic;
 }
 
@@ -482,7 +481,7 @@
 }
 
 [data-theme="dark"] .match-empty {
-  color: var(--text-muted);
+  color: var(--text-disabled);
 }
 
 [data-theme="dark"] .rank-match .rank-label {
@@ -690,7 +689,6 @@
 
 .rank-match:hover {
   background: var(--bg-tertiary);
-  border-color: var(--border-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -1006,7 +1004,7 @@
 }
 
 .table-search-input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-disabled);
   opacity: 1;
 }
 
@@ -2808,7 +2806,6 @@
 }
 
 .quick-search-btn:hover {
-  border-color: var(--accent-color);
   background: var(--bg-tertiary);
   transform: translateY(-1px);
 }
@@ -2896,7 +2893,6 @@
 }
 
 .search-by-btn:hover:not(:disabled) {
-  border-color: var(--accent-color);
   background: var(--bg-tertiary);
 }
 
@@ -2914,7 +2910,6 @@
 
 .search-by-btn-active:hover {
   background: var(--accent-light);
-  border-color: var(--accent-color);
 }
 
 [data-theme="dark"] .search-by-btn-active {
@@ -2940,7 +2935,6 @@
 }
 
 .search-by-clear:hover {
-  border-color: var(--accent-color);
   color: var(--text-primary);
   background: var(--bg-tertiary);
 }
@@ -2999,7 +2993,6 @@
 }
 
 .search-result-item:hover {
-  border-color: var(--accent-color);
   background: var(--bg-secondary);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
