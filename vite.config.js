@@ -28,6 +28,8 @@ export default defineConfig({
           res.setHeader('Content-Type', 'font/woff')
         } else if (req.url.endsWith('.ttf')) {
           res.setHeader('Content-Type', 'font/ttf')
+        } else if (req.url.endsWith('.otf')) {
+          res.setHeader('Content-Type', 'font/otf')
         }
       }
       next()
