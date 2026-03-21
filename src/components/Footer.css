@@ -1,6 +1,14 @@
-.site-footer {
+/*
+ * Layout: .app > Header | main.app-main | footer.site-footer.app-footer — no extra wrapper.
+ * .app / .app-main use --bg-primary; the footer bar uses --bg-secondary.
+ */
+.site-footer.app-footer {
   margin-top: auto;
-  padding: var(--space-2xl) 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  --footer-pad-y: var(--space-2xl);
+  padding: var(--footer-pad-y) 0;
   border-top: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-disabled);
@@ -13,7 +21,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 var(--space-2xl);
+  padding: 0 calc(var(--space-2xl) + env(safe-area-inset-right, 0px)) 0
+    calc(var(--space-2xl) + env(safe-area-inset-left, 0px));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -67,11 +76,12 @@
 /* Match header / page horizontal padding at design breakpoints */
 @media (max-width: 1023px) {
   .site-footer {
-    padding: var(--space-xl) 0;
+    --footer-pad-y: var(--space-xl);
   }
 
   .site-footer-inner {
-    padding: 0 var(--space-xl);
+    padding: 0 calc(var(--space-xl) + env(safe-area-inset-right, 0px)) 0
+      calc(var(--space-xl) + env(safe-area-inset-left, 0px));
   }
 
   .site-footer-links {
@@ -81,12 +91,13 @@
 
 @media (max-width: 639px) {
   .site-footer {
-    padding: var(--space-lg) 0;
+    --footer-pad-y: var(--space-lg);
     font-size: var(--text-xs);
   }
 
   .site-footer-inner {
-    padding: 0 var(--space-lg);
+    padding: 0 calc(var(--space-lg) + env(safe-area-inset-right, 0px)) 0
+      calc(var(--space-lg) + env(safe-area-inset-left, 0px));
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);

@@ -60,7 +60,7 @@ const App: React.FC = () => {
         <PendingStationChangesProvider>
           <div className="app">
             <Header />
-            <main className="main-content">
+            <main className="main-content app-main">
               <Suspense
                 fallback={
                   <div

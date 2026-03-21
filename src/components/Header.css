@@ -1,16 +1,76 @@
-/* Universal Header — logo + theme only (site nav & auth live in the footer) */
-.universal-header {
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
+/*
+ * iOS Safari 26+ (in-browser): toolbar / status-area tint often ignores <meta name="theme-color">
+ * and samples position:fixed elements within ~4px of the top with a solid background-color.
+ * Our header uses backdrop-filter, which can yield a dark or mismatched sample. This layer is
+ * plain --bg-secondary only, sits under .universal-header (z-index), and matches the bar visually.
+ * Ref: https://github.com/andesco/safari-color-tinting — https://jahir.dev/blog/safari-toolbar
+ */
+.safari-toolbar-tint {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
+    width: 100%;
+    min-height: 12px;
+    height: max(12px, env(safe-area-inset-top, 0px));
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: none;
+    /* Must be background-color (not only backdrop) for Safari’s sampler */
+    background-color: var(--bg-secondary);
+    z-index: 1000;
+    pointer-events: none;
+    /* Own compositing layer: reduces fixed-header drift / tearing during iOS scroll */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+/* WebKit touch (iPhone / iPad Safari); wide max-width so iPad in-tab Safari still gets the strip */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 1199px) {
+        .safari-toolbar-tint {
+            display: block;
+        }
+    }
+}
+
+/* Universal Header — logo + theme only (site nav & auth live in the footer) */
+.universal-header {
+    /* Opaque fill so status-bar region isn’t only backdrop-filter (Safari can look washed out there) */
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    position: fixed;
+    /*
+     * iOS Safari: pull the fixed layer up by the top inset, then add 2× inset as padding.
+     * Net effect: toolbar still starts below the notch, but the header box (and its background)
+     * extends into the area behind the status bar so the tint reaches the physical top of the screen.
+     */
+    top: calc(-1 * env(safe-area-inset-top, 0px));
+    left: 0;
     right: 0;
     z-index: 1001;
+    padding-top: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-top, 0px));
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    /* Pin fixed layer during iOS overscroll / visual-viewport quirks */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Offset below .safari-toolbar-tint (same visibility as tint) */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 1199px) {
+        .universal-header {
+            padding-top: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-top, 0px) + 5px);
+        }
+    }
 }
 
 .header-container {
@@ -129,5 +189,10 @@
     .logo {
         font-size: var(--text-base);
         min-height: 40px;
+    }
+
+    /* Phone: hide the logo mark only; keep “Rail Statistics” as the home link */
+    .logo-mark {
+        display: none;
     }
 }

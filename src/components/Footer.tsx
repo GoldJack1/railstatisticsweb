@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
   const { user, logout } = useAuth()
 
   return (
-    <footer className="site-footer">
+    <footer className="site-footer app-footer">
       <div className="site-footer-inner">
         <p>&copy; {new Date().getFullYear()} Rail Statistics</p>
         <div className="site-footer-links">

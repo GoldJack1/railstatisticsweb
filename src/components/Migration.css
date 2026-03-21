@@ -7,6 +7,9 @@
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -5552,6 +5555,7 @@
   bottom: 0;
   /* Cover dynamic toolbars (mobile) so vertical centering matches the visible viewport */
   min-height: 100vh;
+  min-height: 100svh;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
   background: rgba(0, 0, 0, 0.72);
@@ -5564,7 +5568,7 @@
   box-sizing: border-box;
   padding: max(var(--space-md), env(safe-area-inset-top, 0px))
     max(var(--space-md), env(safe-area-inset-right, 0px))
-    max(var(--space-md), env(safe-area-inset-bottom, 0px))
+    var(--space-md)
     max(var(--space-md), env(safe-area-inset-left, 0px));
 }
 
@@ -5835,7 +5839,7 @@
     align-items: center;
     justify-content: center;
     padding-top: max(var(--space-md), env(safe-area-inset-top, 0px));
-    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--space-md);
   }
 
   .progress-modal {
@@ -5847,7 +5851,7 @@
   }
 
   .progress-modal-content {
-    padding: var(--space-lg) var(--space-md) max(var(--space-lg), env(safe-area-inset-bottom, 0px));
+    padding: var(--space-lg) var(--space-md) var(--space-lg);
   }
 
   .progress-modal-top {
@@ -5930,6 +5934,9 @@
 /* ——— Migration: full-page “match station” search (same shell as StationDetailsPage) ——— */
 .migration-station-search {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   box-sizing: border-box;
   background: var(--bg-primary);
 }

@@ -12,6 +12,13 @@ const Header: React.FC = () => {
 
   return (
     <header className="universal-header">
+      {/*
+        iOS Safari (esp. 26+ “Liquid Glass”): in-tab chrome tint is derived from fixed
+        elements with a solid background-color near the top — not theme-color. A plain strip
+        under the real header avoids backdrop-filter sampling a black/wrong tone.
+        https://github.com/andesco/safari-color-tinting
+      */}
+      <div className="safari-toolbar-tint" aria-hidden="true" />
       <div className="header-container">
         <div className="header-left">
           <Link to="/" replace={logoNavReplace} className="logo-link">

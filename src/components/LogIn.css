@@ -2,8 +2,10 @@
 .login-page {
   flex: 1 1 auto;
   width: 100%;
-  min-height: calc(100vh - 4rem - 5.5rem); /* fallback */
-  min-height: calc(100dvh - 4rem - 5.5rem); /* header offset + approximate footer */
+  /* Header offset matches App.css (4rem + safe-area); footer is approximate */
+  min-height: calc(100vh - 4rem - env(safe-area-inset-top, 0px) - 5.5rem);
+  min-height: calc(100svh - 4rem - env(safe-area-inset-top, 0px) - 5.5rem);
+  min-height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - 5.5rem);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -12,11 +14,37 @@
   overflow-y: auto; /* TOTP / long copy on small screens */
 }
 
+@media (max-width: 639px) {
+  .login-page {
+    min-height: calc(100vh - 3.5rem - env(safe-area-inset-top, 0px) - 5.5rem);
+    min-height: calc(100svh - 3.5rem - env(safe-area-inset-top, 0px) - 5.5rem);
+    min-height: calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - 5.5rem);
+  }
+}
+
 @media (max-width: 480px) {
   .login-page {
     padding: var(--space-xl) var(--space-md);
     align-items: flex-start;
-    padding-top: max(var(--space-xl), env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Header gains +5px top padding where .safari-toolbar-tint is used — keep vertical centering honest */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 1199px) {
+    .login-page {
+      min-height: calc(100vh - 4rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+      min-height: calc(100svh - 4rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+      min-height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .login-page {
+      min-height: calc(100vh - 3.5rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+      min-height: calc(100svh - 3.5rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+      min-height: calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - 5px - 5.5rem);
+    }
   }
 }
 

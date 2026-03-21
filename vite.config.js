@@ -1,9 +1,59 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: false,
+      includeAssets: [
+        'favicon.svg',
+        'favicon.png',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'fonts/*.otf',
+        'fonts/*.ttf',
+      ],
+      manifest: {
+        id: '/',
+        name: 'Rail Statistics',
+        short_name: 'Rail Stats',
+        description: 'Track your railway station visits and statistics',
+        theme_color: '#e8eaed',
+        background_color: '#e8eaed',
+        display: 'standalone',
+        display_override: ['standalone', 'minimal-ui', 'browser'],
+        orientation: 'any',
+        start_url: '/',
+        scope: '/',
+        lang: 'en',
+        dir: 'ltr',
+        categories: ['travel', 'utilities'],
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'favicon.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,otf}'],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/_/, /\/[^/?]+\.[^/]+$/],
+      },
+    }),
+  ],
   server: {
     port: 3000,
     open: true,

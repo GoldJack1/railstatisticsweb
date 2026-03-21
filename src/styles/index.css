@@ -121,6 +121,16 @@
     --container-3xl: 1920px;
 }
 
+/* Active color-scheme for Safari/WebKit form controls, scrollbars, and system UI hints */
+html[data-theme='light'],
+html:not([data-theme]) {
+    color-scheme: light;
+}
+
+html[data-theme='dark'] {
+    color-scheme: dark;
+}
+
 /* Dark Theme Colors */
 [data-theme="dark"] {
     --bg-primary: hsl(220, 10%, 10%);
@@ -140,6 +150,8 @@
 
 /* Base Styles */
 html {
+    /* Percentage height chain + viewport min heights — helps iOS fill behind safe areas */
+    min-height: 100%;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
@@ -148,9 +160,15 @@ html {
     overflow-y: scroll; /* Prevent layout shift when scrollbar appears/disappears */
     /* Same token as body — avoids light “gutter” when html shows through (zoom, subpixel, overflow) */
     background-color: var(--bg-primary);
+    /* iOS Safari / WebKit: svh = stable toolbar size; dvh = dynamic; fill-available last for in-tab Safari */
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
 }
 
 body {
+    min-height: 100%;
     font-family: var(--font-body);
     font-weight: 400;
     -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
@@ -160,6 +178,9 @@ body {
     background-color: var(--bg-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
     min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -211,14 +232,18 @@ button, a, input, select, textarea, [role="button"] {
 /* App Layout */
 #root {
     min-height: 100vh;
+    min-height: 100svh;
     min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }
 
 .app {
     min-height: 100vh;
+    min-height: 100svh;
     min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -235,22 +260,60 @@ button, a, input, select, textarea, [role="button"] {
     background-color: var(--bg-primary);
 }
 
+/*
+ * iOS in-tab Safari: stretch body → #root so .app (flex:1) + footer margin-top:auto fill the viewport.
+ */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 1199px) {
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
+            min-height: -webkit-fill-available;
+        }
+
+        #root {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+    }
+}
+
 /* Container */
 .container {
     max-width: var(--container-2xl);
     margin: 0 auto;
     padding: 0 var(--space-xl);
     min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
     * {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+/*
+ * iOS Safari zooms focused inputs when computed font-size is under ~16px.
+ * Keep common text-like controls at 16px on narrow viewports (checkbox/radio exempt via attribute selectors).
+ */
+@media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="range"]):not([type="color"]),
+    textarea,
+    select {
+        font-size: max(1rem, var(--text-base));
     }
 }
 

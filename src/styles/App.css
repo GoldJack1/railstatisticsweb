@@ -1,21 +1,44 @@
-/* App-specific styles */
+/*
+ * Flex shell: .app (column, full viewport min-height) → fixed Header | .app-main | .app-footer
+ * .app and .app-main share --bg-primary; .site-footer / .app-footer use --bg-secondary so any
+ * thin gap above the safe-area band still reads as “page” until padding-bottom + env() fills it.
+ */
 .app {
     min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }
 
-.main-content {
-    flex: 1;
+/* Fixed header height + notch / Dynamic Island (viewport-fit=cover + env safe-area) */
+.main-content.app-main {
+    flex: 1 0 auto;
     display: flex;
     flex-direction: column;
-    padding-top: 4rem; /* Account for fixed header height */
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     min-height: 0;
+    min-width: 0;
 }
 
-/* Responsive padding for mobile */
 @media (max-width: 639px) {
-    .main-content {
-        padding-top: 3.5rem; /* Account for smaller mobile header height */
+    .main-content.app-main {
+        padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+    }
+}
+
+/* Match +5px header padding where .safari-toolbar-tint is shown */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 1199px) {
+        .main-content.app-main {
+            padding-top: calc(4rem + env(safe-area-inset-top, 0px) + 5px);
+        }
+    }
+
+    @media (max-width: 639px) {
+        .main-content.app-main {
+            padding-top: calc(3.5rem + env(safe-area-inset-top, 0px) + 5px);
+        }
     }
 }
