@@ -147,7 +147,7 @@ export interface MigrationState {
   searchQuery: string
   searchResults: FirebaseStationLike[]
   /** Active "Search by" filter: name, crs, tiploc, county, country; null when none */
-  searchByField: 'name' | 'crs' | 'tiploc' | 'county' | 'country' | null
+  searchByField: 'identifiers' | 'county' | 'country' | null
   selectedMatchIndex: number | null
   showSearchModal: boolean
   // Progress tracking

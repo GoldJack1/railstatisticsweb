@@ -16,13 +16,54 @@ import type {
   MigrationState,
   ColumnMapping,
   FirebaseStationLike,
-  NewFormatStation,
   StationMatch,
   MigrationCorrectionLogEntry
 } from '../types/migration'
 import Button from '../components/Button'
 import '../components/Migration.css'
+import '../components/StationModal.css'
+import '../pages/StationDetailsPage.css'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
+
+/** Row card tint: no DB match (red) vs auto match not yet confirmed with Correct (amber). */
+function rankMatchHighlightClass(match: StationMatch): string {
+  if (match.matchType === 'manual') return ''
+  if (match.matchType === 'none') return 'rank-match--unmatched'
+  return 'rank-match--uncorrected'
+}
+
+function rankMatchCardClassName(match: StationMatch, extra?: string): string {
+  return ['rank-match', rankMatchHighlightClass(match), extra].filter(Boolean).join(' ')
+}
+
+/** Step 6 complete: chevron for native `<details>` accordions (matches duplicate-step pattern). */
+function MigrationCompleteDetailsChevron() {
+  return (
+    <span className="migration-complete-details-summary-chevron" aria-hidden="true">
+      <svg
+        className="migration-complete-details-chevron-icon"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </span>
+  )
+}
+
+/** Migrated CSV download name: `GBStationsDD-MM-YYYY.csv` (local date). */
+function getGbStationsDownloadFilename(date: Date = new Date()): string {
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(date.getFullYear())
+  return `GBStations${dd}-${mm}-${yyyy}.csv`
+}
 
 /** Step 2 — grouped column mapping (order + labels shown in UI) */
 const COLUMN_MAPPING_SECTIONS: {
@@ -72,6 +113,48 @@ const MATCHING_PROGRESS_MAX_PCT_PER_SEC = 4
 /** Slightly quicker crawl only in the first segment so the bar starts moving nicely */
 const MATCHING_PROGRESS_FAST_UNTIL_PCT = 20
 const MATCHING_PROGRESS_FAST_MAX_PCT_PER_SEC = 6.5
+
+/** Migration “match station” search: max rows shown & typing debounce (ms). */
+const MIGRATION_SEARCH_MAX_RESULTS = 28
+const MIGRATION_SEARCH_DEBOUNCE_MS = 260
+
+/** Rank free-text matches so name / CRS / TIPLOC hits surface first. */
+/** Remove `( … )` segments, including nested pairs, so e.g. `(Leeds)` does not affect search. */
+function stripParentheticalSegments(input: string): string {
+  let s = input
+  let prev = ''
+  while (s !== prev) {
+    prev = s
+    s = s.replace(/\([^()]*\)/g, ' ')
+  }
+  return s
+}
+
+function scoreStationForMigrationSearch(
+  station: FirebaseStationLike,
+  queryWords: string[],
+  normalizedQuery: string,
+  normalize: (s: string) => string
+): number {
+  const nameNorm = normalize(station.stationName || station.stationname || '')
+  const crs = (station.crsCode || station.CrsCode || '').toLowerCase().replace(/\s+/g, '')
+  const tip = (station.tiploc || '').toLowerCase().replace(/\s+/g, '')
+  const q = normalizedQuery.replace(/\s+/g, ' ').trim()
+  let score = 0
+
+  if (q.length >= 2 && crs && crs === q) score += 100
+  if (q.length >= 3 && tip && tip === q) score += 95
+  if (crs && q.length <= 4 && crs.startsWith(q)) score += 38
+  if (tip && q.length >= 3 && tip.includes(q)) score += 28
+
+  const firstWord = queryWords[0] || ''
+  if (firstWord.length >= 2 && nameNorm.startsWith(firstWord)) score += 24
+  for (const w of queryWords) {
+    if (w.length && nameNorm.includes(w)) score += 7
+  }
+  if (queryWords.length > 1 && queryWords.every((w) => nameNorm.includes(w))) score += 12
+  return score
+}
 
 function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t)
@@ -137,6 +220,146 @@ type MigrationReviewSummarySectionProps = {
   fileLegendId: string
   attentionLegendId: string
   description: React.ReactNode
+}
+
+/** Step 6 complete dropdown: same stat layout as review, plus coordinate matches and correction count. */
+function MigrationCompleteSummaryBody({
+  stats,
+  correctionsCount
+}: {
+  stats: MigrationReviewSummaryStats
+  correctionsCount: number
+}) {
+  const overviewId = 'migration-complete-stats-overview'
+  const matchId = 'migration-complete-stats-match'
+  const fileId = 'migration-complete-stats-file'
+  const attentionId = 'migration-complete-stats-attention'
+  const correctionsId = 'migration-complete-stats-corrections'
+  const showAttention = stats.rejected > 0 || stats.duplicateIds > 0
+  return (
+    <section
+      className="review-summary-card migration-complete-summary-card"
+      aria-label="Statistics for this migration run"
+    >
+      <div className="migration-stats review-stats-grid">
+        <div className="review-stats-rows">
+          <div className="review-stats-band review-stats-band--overview">
+            <p className="review-stats-row-label" id={overviewId}>
+              Overview
+            </p>
+            <div
+              className="review-stats-row review-stats-row--primary"
+              role="group"
+              aria-labelledby={overviewId}
+            >
+              <div className="stat-card stat-card--overview">
+                <h3>Total stations</h3>
+                <span className="stat-number">{stats.total}</span>
+              </div>
+              <div className="stat-card stat-card--overview">
+                <h3>Matched</h3>
+                <span className="stat-number">{stats.matched}</span>
+              </div>
+              <div className="stat-card stat-card--overview">
+                <h3>Unmatched</h3>
+                <span className="stat-number">{stats.unmatched}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="review-stats-detail-layout">
+            <div className="review-stats-pill-group">
+              <p className="review-stats-pill-group-legend" id={matchId}>
+                How they matched
+              </p>
+              <div
+                className="review-stats-pill-group-grid review-stats-pill-group-grid--match"
+                role="group"
+                aria-labelledby={matchId}
+              >
+                <div className="stat-card stat-card--exact">
+                  <h3>Exact match</h3>
+                  <span className="stat-number">{stats.exactMatches}</span>
+                </div>
+                <div className="stat-card stat-card--fuzzy">
+                  <h3>Fuzzy match</h3>
+                  <span className="stat-number">{stats.fuzzyMatches}</span>
+                </div>
+                {stats.coordinateMatches > 0 ? (
+                  <div className="stat-card stat-card--coordinates">
+                    <h3>Coordinate match</h3>
+                    <span className="stat-number">{stats.coordinateMatches}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="review-stats-pill-group">
+              <p className="review-stats-pill-group-legend" id={fileId}>
+                From your file
+              </p>
+              <div
+                className="review-stats-pill-group-grid review-stats-pill-group-grid--file"
+                role="group"
+                aria-labelledby={fileId}
+              >
+                <div className="stat-card visited">
+                  <h3>Visited</h3>
+                  <span className="stat-number">{stats.visited}</span>
+                </div>
+                <div className="stat-card favorites stat-card--favorites-file">
+                  <h3>Favorites</h3>
+                  <span className="stat-number">{stats.favorites}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="review-stats-pill-group">
+              <p className="review-stats-pill-group-legend" id={correctionsId}>
+                Manual review
+              </p>
+              <div
+                className="review-stats-pill-group-grid migration-complete-corrections-grid"
+                role="group"
+                aria-labelledby={correctionsId}
+              >
+                <div className="stat-card migration-complete-stat-card--corrections">
+                  <h3>Corrections made</h3>
+                  <span className="stat-number">{correctionsCount}</span>
+                </div>
+              </div>
+            </div>
+
+            {showAttention ? (
+              <div className="review-stats-pill-group review-stats-pill-group--attention">
+                <p className="review-stats-pill-group-legend" id={attentionId}>
+                  Needs attention
+                </p>
+                <div
+                  className="review-stats-pill-group-grid review-stats-pill-group-grid--attention"
+                  role="group"
+                  aria-labelledby={attentionId}
+                >
+                  {stats.rejected > 0 ? (
+                    <div className="stat-card rejected">
+                      <h3>Rejected</h3>
+                      <span className="stat-number">{stats.rejected}</span>
+                    </div>
+                  ) : null}
+                  {stats.duplicateIds > 0 ? (
+                    <div className="stat-card duplicates">
+                      <h3>Check duplicates</h3>
+                      <span className="stat-number">{stats.duplicateIds}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 /** Shared Summary panel for Step 3 (review) and Step 4 (duplicates). */
@@ -243,7 +466,7 @@ function MigrationReviewSummarySection({
                   ) : null}
                   {stats.duplicateIds > 0 ? (
                     <div className="stat-card duplicates">
-                      <h3>Same station twice</h3>
+                      <h3>Check duplicates</h3>
                       <span className="stat-number">{stats.duplicateIds}</span>
                     </div>
                   ) : null}
@@ -294,14 +517,6 @@ const MigrationPage: React.FC = () => {
 
   const selectedMatch = state.selectedMatchIndex !== null ? state.matches[state.selectedMatchIndex] : null
 
-  // Table search and display state
-  const [tableState, setTableState] = useState({
-    finalDataSearch: '',
-    allDataSearch: '',
-    showAllFinalData: false,
-    showAllAllData: false
-  })
-
   const [uploadDragActive, setUploadDragActive] = useState(false)
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -318,6 +533,16 @@ const MigrationPage: React.FC = () => {
   const matchingProgressDisplayRef = useRef(0)
   const matchingProgressSmoothingStopRef = useRef(false)
   const matchingProgressRafRef = useRef<number | null>(null)
+  const migrationSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelMigrationSearchDebounce = useCallback(() => {
+    if (migrationSearchDebounceRef.current !== null) {
+      clearTimeout(migrationSearchDebounceRef.current)
+      migrationSearchDebounceRef.current = null
+    }
+  }, [])
+
+  useEffect(() => () => cancelMigrationSearchDebounce(), [cancelMigrationSearchDebounce])
 
   // Smooth progress bar: chase matchingProgressTargetRef without big jumps
   useEffect(() => {
@@ -609,7 +834,7 @@ const MigrationPage: React.FC = () => {
 
   const handleDownload = useCallback(() => {
     if (!state.result) return
-    downloadCSV(state.result.converted, 'migrated-stations.csv')
+    downloadCSV(state.result.converted, getGbStationsDownloadFilename())
     setState(prev => ({ ...prev, step: 'complete' }))
   }, [state.result])
 
@@ -631,7 +856,7 @@ const MigrationPage: React.FC = () => {
     if (
       duplicateIds > 0 &&
       !window.confirm(
-        `You still have ${duplicateIds} group${duplicateIds === 1 ? '' : 's'} where the same station may show twice on the right. Continue to summary anyway?`
+        `You still have ${duplicateIds} duplicate group${duplicateIds === 1 ? '' : 's'} to check. Continue to summary anyway?`
       )
     ) {
       return
@@ -695,85 +920,176 @@ const MigrationPage: React.FC = () => {
     }))
   }, [])
 
-  // Normalize text for search: lowercase, strip apostrophes so "st john's" and "st johns" match the same, collapse spaces/parens
+  // Normalize text for search: lowercase, strip apostrophes, drop `(qualifiers)` like (Leeds), collapse spaces
   const normalizeSearchText = useCallback((s: string) => {
     if (!s || typeof s !== 'string') return ''
-    return s
-      .toLowerCase()
-      .replace(/[\u2018\u2019\u201A\u201B\u2032']/g, '')
-      .replace(/[()]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    let t = s.toLowerCase().replace(/[\u2018\u2019\u201A\u201B\u2032']/g, '')
+    t = stripParentheticalSegments(t)
+    t = t.replace(/[()]/g, ' ')
+    t = t.replace(/\s+/g, ' ').trim()
+    return t
   }, [])
 
-  // Search by name, tiploc, CRS, county, country, borough. Uses word-based matching so "Queen Park London" finds "Queen's Park (London)".
-  const handleSearchStations = useCallback((query: string) => {
-    if (!query.trim()) {
-      setState(prev => ({ ...prev, searchQuery: query, searchResults: [] }))
-      return
-    }
+  // Free-text search across name, codes, county, country, borough — word-based + relevance ranking.
+  const filterAndRankStationsFreeText = useCallback(
+    (query: string): FirebaseStationLike[] => {
+      if (!query.trim()) return []
+      const normalizedQuery = normalizeSearchText(query)
+      const queryWords = normalizedQuery.split(/\s+/).filter(Boolean)
+      const stations = firebaseStations as FirebaseStationLike[]
+      const candidates = stations.filter((station) => {
+        const name = station.stationName || station.stationname || ''
+        const crs = station.crsCode || station.CrsCode || ''
+        const tiploc = station.tiploc || ''
+        const country = station.country || ''
+        const county = station.county || ''
+        const borough = station.londonBorough || ''
+        const searchable = normalizeSearchText([name, crs, tiploc, country, county, borough].join(' '))
 
-    const normalizedQuery = normalizeSearchText(query)
-    const queryWords = normalizedQuery.split(/\s+/).filter(Boolean)
+        if (!searchable) return false
+        if (normalizedQuery.length <= 1) {
+          return searchable.includes(normalizedQuery)
+        }
+        return queryWords.every((word) => searchable.includes(word))
+      })
 
-    const results = firebaseStations.filter(station => {
-      const name = station.stationName || ''
-      const crs = station.crsCode || ''
-      const tiploc = station.tiploc || ''
-      const country = station.country || ''
-      const county = station.county || ''
-      const borough = station.londonBorough || ''
-      const searchable = normalizeSearchText([name, crs, tiploc, country, county, borough].join(' '))
+      const scored = candidates.map((s) => ({
+        station: s,
+        score: scoreStationForMigrationSearch(s, queryWords, normalizedQuery, normalizeSearchText)
+      }))
+      scored.sort(
+        (a, b) =>
+          b.score - a.score ||
+          (a.station.stationName || a.station.stationname || '').localeCompare(
+            b.station.stationName || b.station.stationname || '',
+            undefined,
+            { sensitivity: 'base' }
+          )
+      )
+      return scored.map((x) => x.station).slice(0, MIGRATION_SEARCH_MAX_RESULTS)
+    },
+    [firebaseStations, normalizeSearchText]
+  )
 
-      if (!searchable) return false
-      if (normalizedQuery.length <= 1) {
-        return searchable.includes(normalizedQuery)
+  const handleSearchStations = useCallback(
+    (query: string) => {
+      cancelMigrationSearchDebounce()
+      if (!query.trim()) {
+        setState((prev) => ({ ...prev, searchQuery: query, searchResults: [], searchByField: null }))
+        return
       }
-      return queryWords.every(word => searchable.includes(word))
-    })
+      const results = filterAndRankStationsFreeText(query)
+      setState((prev) => ({
+        ...prev,
+        searchQuery: query,
+        searchResults: results,
+        searchByField: null
+      }))
+    },
+    [cancelMigrationSearchDebounce, filterAndRankStationsFreeText]
+  )
 
-    setState(prev => ({
-      ...prev,
-      searchQuery: query,
-      searchResults: results.slice(0, 15),
-      searchByField: null
-    }))
-  }, [firebaseStations, normalizeSearchText])
-
-  // Search by a single field only (does not fill the search box). Used by "Search by" buttons.
-  type SearchByField = 'name' | 'crs' | 'tiploc' | 'county' | 'country'
-  const handleSearchByField = useCallback((field: SearchByField, value: string) => {
-    if (!value?.trim()) {
-      setState(prev => ({ ...prev, searchByField: null, searchResults: [] }))
-      return
-    }
-    const term = value.trim().toLowerCase()
-
-    const results = firebaseStations.filter(station => {
-      switch (field) {
-        case 'name':
-          return normalizeSearchText(station.stationName || '').includes(normalizeSearchText(value))
-        case 'crs':
-          return (station.crsCode || '').toLowerCase().includes(term)
-        case 'tiploc':
-          return (station.tiploc || '').toLowerCase().includes(term)
-        case 'county':
-          return normalizeSearchText(station.county || '').includes(normalizeSearchText(value))
-        case 'country':
-          return normalizeSearchText(station.country || '').includes(normalizeSearchText(value))
-        default:
-          return false
+  /** Typing in the box: update text immediately; run search after a short debounce. */
+  const handleMigrationSearchInputChange = useCallback(
+    (value: string) => {
+      cancelMigrationSearchDebounce()
+      if (!value.trim()) {
+        setState((prev) => ({
+          ...prev,
+          searchQuery: value,
+          searchResults: [],
+          searchByField: null
+        }))
+        return
       }
-    })
+      setState((prev) => ({ ...prev, searchQuery: value, searchByField: null }))
+      migrationSearchDebounceRef.current = setTimeout(() => {
+        migrationSearchDebounceRef.current = null
+        const results = filterAndRankStationsFreeText(value)
+        setState((prev) => ({ ...prev, searchResults: results }))
+      }, MIGRATION_SEARCH_DEBOUNCE_MS)
+    },
+    [cancelMigrationSearchDebounce, filterAndRankStationsFreeText]
+  )
 
-    setState(prev => ({
-      ...prev,
-      searchByField: field,
-      searchResults: results.slice(0, 15)
-    }))
-  }, [firebaseStations, normalizeSearchText])
+  // Search by a single field only (does not fill the search box). Used by "Narrow to one field" chips.
+  type SearchByField = 'identifiers' | 'county' | 'country'
+  const handleSearchByField = useCallback(
+    (field: SearchByField, value: string) => {
+      cancelMigrationSearchDebounce()
+      const stations = firebaseStations as FirebaseStationLike[]
+
+      if (field === 'identifiers') {
+        setState((prev) => {
+          const idx = prev.selectedMatchIndex
+          const csvName = idx != null ? (prev.matches[idx]?.oldStation.stationName || '').trim() : ''
+          const q = prev.searchQuery.trim()
+          const qLower = q.toLowerCase()
+          const crsToken = q.slice(0, 3).toLowerCase()
+
+          if (!csvName && !q) {
+            return { ...prev, searchByField: null, searchResults: [] }
+          }
+
+          const results = stations.filter((station) => {
+            const nameNorm = normalizeSearchText(station.stationName || station.stationname || '')
+            const nameOk =
+              csvName.length > 0 && nameNorm.includes(normalizeSearchText(csvName))
+            const crsVal = (station.crsCode || station.CrsCode || '').toLowerCase()
+            const crsOk = crsToken.length > 0 && crsVal.includes(crsToken)
+            const tipVal = (station.tiploc || '').toLowerCase()
+            const tipOk = q.length >= 2 && tipVal.includes(qLower)
+            return nameOk || crsOk || tipOk
+          })
+
+          results.sort((a, b) =>
+            (a.stationName || a.stationname || '').localeCompare(b.stationName || b.stationname || '', undefined, {
+              sensitivity: 'base'
+            })
+          )
+
+          return {
+            ...prev,
+            searchByField: 'identifiers',
+            searchResults: results.slice(0, MIGRATION_SEARCH_MAX_RESULTS)
+          }
+        })
+        return
+      }
+
+      if (!value?.trim()) {
+        setState((prev) => ({ ...prev, searchByField: null, searchResults: [] }))
+        return
+      }
+
+      const results = stations.filter((station) => {
+        switch (field) {
+          case 'county':
+            return normalizeSearchText(station.county || '').includes(normalizeSearchText(value))
+          case 'country':
+            return normalizeSearchText(station.country || '').includes(normalizeSearchText(value))
+          default:
+            return false
+        }
+      })
+
+      results.sort((a, b) =>
+        (a.stationName || a.stationname || '').localeCompare(b.stationName || b.stationname || '', undefined, {
+          sensitivity: 'base'
+        })
+      )
+
+      setState((prev) => ({
+        ...prev,
+        searchByField: field,
+        searchResults: results.slice(0, MIGRATION_SEARCH_MAX_RESULTS)
+      }))
+    },
+    [firebaseStations, normalizeSearchText, cancelMigrationSearchDebounce]
+  )
 
   const handleSelectStation = useCallback((matchIndex: number, selectedStation: FirebaseStationLike) => {
+    cancelMigrationSearchDebounce()
     setState(prev => {
       const prior = prev.matches[matchIndex]
       const newMatches = [...prev.matches]
@@ -823,9 +1139,10 @@ const MigrationPage: React.FC = () => {
         correctionLog: [...prev.correctionLog, logEntry]
       }
     })
-  }, [firebaseStations])
+  }, [firebaseStations, cancelMigrationSearchDebounce])
 
   const handleOpenSearchModal = useCallback((matchIndex: number) => {
+    cancelMigrationSearchDebounce()
     savedScrollPositionRef.current = window.scrollY
     setSearchParams({ search: '1', matchIndex: String(matchIndex) })
     setState(prev => ({
@@ -836,9 +1153,10 @@ const MigrationPage: React.FC = () => {
       searchResults: [],
       searchByField: null
     }))
-  }, [setSearchParams])
+  }, [setSearchParams, cancelMigrationSearchDebounce])
 
   const handleCloseSearchModal = useCallback(() => {
+    cancelMigrationSearchDebounce()
     if (isSearchPageMode) {
       setSearchParams({}, { replace: true })
     }
@@ -850,49 +1168,20 @@ const MigrationPage: React.FC = () => {
       searchResults: [],
       searchByField: null
     }))
-  }, [isSearchPageMode, setSearchParams])
+  }, [isSearchPageMode, setSearchParams, cancelMigrationSearchDebounce])
 
   const handleClearSearchByField = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      searchByField: null,
-      searchResults: []
-    }))
-  }, [])
-
-  // Table search and display functions
-  const filterTableData = useCallback((data: NewFormatStation[], searchQuery: string) => {
-    if (!searchQuery.trim()) return data
-    
-    const query = searchQuery.toLowerCase()
-    return data.filter(station => 
-      station.stationname?.toLowerCase().includes(query) ||
-      station.CrsCode?.toLowerCase().includes(query) ||
-      station.country?.toLowerCase().includes(query) ||
-      station.county?.toLowerCase().includes(query) ||
-      station.TOC?.toLowerCase().includes(query) ||
-      station.id?.toLowerCase().includes(query)
-    )
-  }, [])
-
-  const getDisplayData = useCallback((data: NewFormatStation[], searchQuery: string, showAll: boolean) => {
-    const filtered = filterTableData(data, searchQuery)
-    return showAll ? filtered : filtered.slice(0, 10)
-  }, [filterTableData])
-
-  const handleTableSearch = useCallback((tableType: 'finalData' | 'allData', query: string) => {
-    setTableState(prev => ({
-      ...prev,
-      [`${tableType}Search`]: query
-    }))
-  }, [])
-
-  const handleShowAllData = useCallback((tableType: 'finalData' | 'allData') => {
-    setTableState(prev => ({
-      ...prev,
-      [`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}`]: !prev[`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}` as keyof typeof prev]
-    }))
-  }, [])
+    cancelMigrationSearchDebounce()
+    setState((prev) => {
+      const q = prev.searchQuery.trim()
+      const searchResults = q ? filterAndRankStationsFreeText(prev.searchQuery) : []
+      return {
+        ...prev,
+        searchByField: null,
+        searchResults
+      }
+    })
+  }, [cancelMigrationSearchDebounce, filterAndRankStationsFreeText])
 
   /** Step 3: medium/low fuzzy buckets + whether the fuzzy confidence block should render (avoids empty gap + duplicate legend). */
   const reviewFuzzyConfidence = useMemo(() => {
@@ -911,11 +1200,7 @@ const MigrationPage: React.FC = () => {
     return { amberMatches, redMatches, showFuzzyConfidenceSection }
   }, [state.step, state.result])
 
-  // Debug logging
-  console.log('Migration component render - firebaseLoading:', firebaseLoading)
-
   if (firebaseLoading) {
-    console.log('Showing loading screen')
     return (
       <div className="migration-container">
         <div className="loading-state">
@@ -926,123 +1211,307 @@ const MigrationPage: React.FC = () => {
     )
   }
 
-  // Full-page station search (URL has ?search=1&matchIndex=N) – used on all screen sizes
+  // Full-page station search (URL has ?search=1&matchIndex=N) — layout aligned with station details pages
   if (isSearchPageMode && state.selectedMatchIndex !== null) {
+    const fileLocation = formatStationLocationDisplay({
+      county: selectedMatch?.oldStation.county,
+      country: selectedMatch?.oldStation.country
+    })
+    const fileOperator = (selectedMatch?.oldStation.operator || '').trim()
     return (
-      <div className="search-page-container">
-        <header className="search-page-header">
-          <Button
-            type="button"
-            variant="wide"
-            width="hug"
-            className="search-page-back"
-            ariaLabel="Back to migration"
-            onClick={() => handleCloseSearchModal()}
-          >
-            ← Back to migration
-          </Button>
-          <h1 className="search-page-title">Search for Station</h1>
-          <p className="search-page-subtitle">Match this row from your file to a station in the database</p>
-        </header>
-        <main className="search-page-content">
-          <div className="search-modal-controls">
-            <div className="current-station">
-              <h4>From your file</h4>
-              <p className="current-station-name">{selectedMatch?.oldStation.stationName}</p>
-              <p className="current-station-location">
-                {formatStationLocationDisplay({
-                  county: selectedMatch?.oldStation.county,
-                  country: selectedMatch?.oldStation.country
-                })}
-              </p>
+      <div className="container container--station-details migration-station-search">
+        <div className="station-details-page">
+          <header className="station-details-header">
+            <div>
+              <h1 className="station-details-title">Match row to a station</h1>
+              <div className="station-details-subtitle">
+                <span>{selectedMatch?.oldStation.stationName || 'CSV row'}</span>
+                {fileLocation ? (
+                  <>
+                    <span className="station-details-dot" aria-hidden>
+                      ·
+                    </span>
+                    <span>{fileLocation}</span>
+                  </>
+                ) : null}
+                <span className="station-details-dot" aria-hidden>
+                  ·
+                </span>
+                <span>Choose the correct database station below</span>
+              </div>
             </div>
-            <section className="quick-fill-section" aria-labelledby="quick-fill-heading">
-              <h3 id="quick-fill-heading" className="quick-fill-heading">Quick fill</h3>
-              <p className="quick-fill-description">
-                Fill the search box with data from your file, then search the database.
-              </p>
-              <div className="quick-search-buttons" aria-label="Quick fill options">
-                <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch?.oldStation.stationName || '')}>+ Station name</Button>
-                {selectedMatch?.oldStation.county && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.county}`)}>+ County</Button>}
-                {selectedMatch?.oldStation.country && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(`${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.country}`)}>+ Country</Button>}
-                {selectedMatch?.suggestedCrsCode && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedCrsCode)}>CRS</Button>}
-                {selectedMatch?.suggestedTiploc && <Button type="button" variant="chip" width="hug" className="quick-search-btn" onClick={() => handleSearchStations(selectedMatch.suggestedTiploc)}>TIPLOC</Button>}
+            <div className="station-details-header-right" aria-hidden />
+          </header>
+
+          <div className="station-details-layout">
+            <aside className="station-details-sidebar">
+              <div className="station-details-sidebar-actions">
+                <Button type="button" variant="wide" width="hug" onClick={() => handleCloseSearchModal()}>
+                  Back to migration
+                </Button>
+                <div className="station-details-sidebar-actions-spacer" aria-hidden />
               </div>
-            </section>
-            <div className="search-input">
-              <label htmlFor="migration-search-field-page" className="search-field-label">Search</label>
-              <div className="search-input-row">
-                <input
-                  id="migration-search-field-page"
-                  type="text"
-                  placeholder="Name, CRS, TIPLOC, county, country or borough..."
-                  value={state.searchQuery}
-                  onChange={(e) => handleSearchStations(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchStations(state.searchQuery) } }}
-                  className="search-field"
-                  autoFocus
-                />
-                <Button type="button" variant="wide" width="hug" className="search-run-button" onClick={() => handleSearchStations(state.searchQuery)}>Search</Button>
-              </div>
-              <p className="search-by-label">Search by field only</p>
-              <div className="search-by-row">
-                <div className="search-by-buttons" aria-label="Search by field only">
-                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'name' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('name', selectedMatch?.oldStation.stationName || '')}>Name</Button>
-                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'crs' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('crs', state.searchQuery.trim().slice(0, 3))} title="Search by CRS code (3 characters)">CRS</Button>
-                  <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'tiploc' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('tiploc', state.searchQuery.trim())} title="Search by TIPLOC">TIPLOC</Button>
-                  {selectedMatch?.oldStation.county && <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'county' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('county', selectedMatch.oldStation.county)}>County</Button>}
-                  {selectedMatch?.oldStation.country && <Button type="button" variant="chip" width="hug" className={`search-by-btn ${state.searchByField === 'country' ? 'search-by-btn-active' : ''}`} onClick={() => handleSearchByField('country', selectedMatch.oldStation.country)}>Country</Button>}
+
+              <section className="station-details-card modal-content migration-station-search-sidebar-card">
+                <div className="modal-body">
+                  <section className="modal-section">
+                    <h3 className="modal-section-title">From your file</h3>
+                    <div className="modal-details-grid">
+                      <div className="modal-detail-item">
+                        <span className="modal-detail-label">Station name</span>
+                        <span className="modal-detail-value">{selectedMatch?.oldStation.stationName || '—'}</span>
+                      </div>
+                      <div className="modal-detail-item">
+                        <span className="modal-detail-label">Location</span>
+                        <span className="modal-detail-value">{fileLocation || '—'}</span>
+                      </div>
+                      {fileOperator ? (
+                        <div className="modal-detail-item">
+                          <span className="modal-detail-label">Operator (TOC)</span>
+                          <span className="modal-detail-value">{fileOperator}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
                 </div>
-                {state.searchByField !== null && (
-                  <Button
-                    type="button"
-                    variant="circle"
-                    className="search-by-clear"
-                    ariaLabel="Remove search-by filter"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleClearSearchByField()
-                    }}
-                  >
-                    ×
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="search-modal-results">
-            <h4 className="search-results-heading">Results</h4>
-            <div className="search-results">
-              {state.searchResults.length > 0 ? (
-                <div className="results-list">
-                  {state.searchResults.map((station, index) => (
+              </section>
+            </aside>
+
+            <main className="station-details-main">
+              <section className="station-details-card modal-content migration-station-search-main-card">
+                <div className="modal-body">
+                  <section className="modal-section migration-station-search-combined-section">
+                    <h3 className="modal-section-title">Find a station</h3>
+                    <p className="migration-station-search-hint migration-station-search-hint--toolbar">
+                      Matches <strong>name</strong>, <strong>CRS</strong>, <strong>TIPLOC</strong>, and location; every word must
+                      appear somewhere on the station. Text in parentheses like <strong>(Leeds)</strong> is ignored for matching.
+                      Results update as you type — <kbd className="migration-station-search-kbd">Enter</kbd> runs search
+                      immediately.
+                    </p>
                     <div
-                      key={index}
-                      className="search-result-item"
-                      onClick={() => {
-                        handleSelectStation(state.selectedMatchIndex!, station)
-                        if (isSearchPageMode) setSearchParams({}, { replace: true })
-                      }}
+                      className="migration-station-search-hstack"
+                      role="group"
+                      aria-label="Quick fill and field filters"
                     >
-                      <div className="result-station-name">{station.stationName}</div>
-                      <div className="result-details">
-                        <span className="station-chip station-chip-primary">{station.crsCode}</span>
-                        <span className="result-tiploc">{station.tiploc}</span>
-                        <span className="result-location">
-                          {formatStationLocationDisplay({ county: station.county, country: station.country, londonBorough: station.londonBorough })}
+                      <div className="migration-station-search-hstack-col migration-station-search-hstack-col--quick">
+                        <span className="migration-station-search-toolbar-label" id="migration-quick-fill-label">
+                          Quick fill
                         </span>
+                        <div
+                          className="migration-station-search-chip-row migration-station-search-chip-row--toolbar"
+                          aria-labelledby="migration-quick-fill-label"
+                        >
+                          <Button
+                            type="button"
+                            variant="chip"
+                            width="hug"
+                            onClick={() => handleSearchStations(selectedMatch?.oldStation.stationName || '')}
+                          >
+                            Station name
+                          </Button>
+                          {selectedMatch?.oldStation.county ? (
+                            <Button
+                              type="button"
+                              variant="chip"
+                              width="hug"
+                              onClick={() =>
+                                handleSearchStations(
+                                  `${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.county}`
+                                )
+                              }
+                            >
+                              Name + county
+                            </Button>
+                          ) : null}
+                          {selectedMatch?.oldStation.country ? (
+                            <Button
+                              type="button"
+                              variant="chip"
+                              width="hug"
+                              onClick={() =>
+                                handleSearchStations(
+                                  `${selectedMatch.oldStation.stationName} ${selectedMatch.oldStation.country}`
+                                )
+                              }
+                            >
+                              Name + country
+                            </Button>
+                          ) : null}
+                          {selectedMatch?.suggestedCrsCode ? (
+                            <Button
+                              type="button"
+                              variant="chip"
+                              width="hug"
+                              onClick={() => handleSearchStations(selectedMatch.suggestedCrsCode)}
+                            >
+                              Suggested CRS
+                            </Button>
+                          ) : null}
+                          {selectedMatch?.suggestedTiploc ? (
+                            <Button
+                              type="button"
+                              variant="chip"
+                              width="hug"
+                              onClick={() => handleSearchStations(selectedMatch.suggestedTiploc)}
+                            >
+                              Suggested TIPLOC
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="migration-station-search-hstack-col migration-station-search-hstack-col--filters">
+                        <span className="migration-station-search-toolbar-label" id="migration-field-filters-label">
+                          Narrow to one field
+                        </span>
+                        <div
+                          className="migration-station-search-by-wrap migration-station-search-by-wrap--toolbar"
+                          aria-labelledby="migration-field-filters-label"
+                        >
+                          <div className="migration-station-search-by-buttons" aria-label="Search by field only">
+                            <Button
+                              type="button"
+                              variant="chip"
+                              width="hug"
+                              disabled={state.searchByField === 'identifiers'}
+                              onClick={() => handleSearchByField('identifiers', '')}
+                              title="Match the CSV station name, or use the search box for CRS (first 3 characters) or TIPLOC (2+ characters)"
+                            >
+                              Name, CRS &amp; TIPLOC
+                            </Button>
+                            {selectedMatch?.oldStation.county ? (
+                              <Button
+                                type="button"
+                                variant="chip"
+                                width="hug"
+                                disabled={state.searchByField === 'county'}
+                                onClick={() => handleSearchByField('county', selectedMatch.oldStation.county)}
+                              >
+                                County
+                              </Button>
+                            ) : null}
+                            {selectedMatch?.oldStation.country ? (
+                              <Button
+                                type="button"
+                                variant="chip"
+                                width="hug"
+                                disabled={state.searchByField === 'country'}
+                                onClick={() => handleSearchByField('country', selectedMatch.oldStation.country)}
+                              >
+                                Country
+                              </Button>
+                            ) : null}
+                          </div>
+                          {state.searchByField !== null ? (
+                            <Button
+                              type="button"
+                              variant="circle"
+                              ariaLabel="Remove search-by filter"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleClearSearchByField()
+                              }}
+                            >
+                              ×
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                  ))}
+
+                    <div className="migration-station-search-bar-block">
+                      <label htmlFor="migration-search-field-page" className="migration-station-search-label">
+                        Search
+                      </label>
+                      <div className="migration-station-search-input-row">
+                        <input
+                          id="migration-search-field-page"
+                          type="text"
+                          placeholder="Try a name, code, or place…"
+                          value={state.searchQuery}
+                          onChange={(e) => handleMigrationSearchInputChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleSearchStations(state.searchQuery)
+                            }
+                          }}
+                          className="migration-station-search-field"
+                          autoFocus
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="modal-section">
+                    <h3 className="modal-section-title">Results</h3>
+                    {state.searchResults.length > 0 ? (
+                      <p className="migration-station-search-results-count" aria-live="polite">
+                        {state.searchResults.length === MIGRATION_SEARCH_MAX_RESULTS
+                          ? `${MIGRATION_SEARCH_MAX_RESULTS} matches (max shown — refine your search if needed)`
+                          : `${state.searchResults.length} match${state.searchResults.length === 1 ? '' : 'es'}`}
+                      </p>
+                    ) : null}
+                    <div className="migration-station-search-results">
+                      {state.searchResults.length > 0 ? (
+                        <ul className="migration-station-search-results-list" role="list">
+                          {state.searchResults.map((station, index) => (
+                            <li key={`${station.id ?? station.crsCode ?? index}-${index}`}>
+                              <button
+                                type="button"
+                                className="migration-station-search-result-button"
+                                onClick={() => {
+                                  handleSelectStation(state.selectedMatchIndex!, station)
+                                  if (isSearchPageMode) setSearchParams({}, { replace: true })
+                                }}
+                              >
+                                <span className="migration-station-search-result-name">
+                                  {station.stationName || station.stationname || 'Station'}
+                                </span>
+                                <div className="modal-details-grid migration-station-search-result-meta">
+                                  <div className="modal-detail-item">
+                                    <span className="modal-detail-label">CRS</span>
+                                    <span className="modal-detail-value">
+                                      {station.crsCode || station.CrsCode || '—'}
+                                    </span>
+                                  </div>
+                                  <div className="modal-detail-item">
+                                    <span className="modal-detail-label">TIPLOC</span>
+                                    <span className="modal-detail-value">{station.tiploc || '—'}</span>
+                                  </div>
+                                  <div className="modal-detail-item migration-station-search-result-location">
+                                    <span className="modal-detail-label">Location</span>
+                                    <span className="modal-detail-value">
+                                      {formatStationLocationDisplay({
+                                        county: station.county,
+                                        country: station.country,
+                                        londonBorough: station.londonBorough
+                                      }) || '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : state.searchQuery || state.searchByField !== null ? (
+                        <p className="migration-station-search-empty" role="status">
+                          No stations found. Try another search or filter.
+                        </p>
+                      ) : (
+                        <p className="migration-station-search-empty migration-station-search-empty--hint" role="status">
+                          Use <strong>Quick fill</strong> or type in the search box, or narrow with a field filter below.
+                        </p>
+                      )}
+                    </div>
+                  </section>
                 </div>
-              ) : state.searchQuery || state.searchByField !== null ? (
-                <div className="no-results">No stations found. Try another search or filter.</div>
-              ) : (
-                <div className="search-hint">Use quick fill, type in the search box, or choose a search-by field to see results.</div>
-              )}
-            </div>
+              </section>
+            </main>
           </div>
-        </main>
+        </div>
       </div>
     )
   }
@@ -1260,7 +1729,7 @@ const MigrationPage: React.FC = () => {
             <h2 className="mapping-step-title">Review your matches</h2>
             <p className="mapping-step-lead">
               Scan <strong>fuzzy</strong> and <strong>unmatched</strong> rows below. Use <strong>Correct</strong> to pick the right
-              database station, then continue to check rows where the same station might appear twice on the right when you’re ready.
+              database station, then continue to <strong>check duplicates</strong> when you’re ready.
             </p>
           </header>
 
@@ -1304,7 +1773,7 @@ const MigrationPage: React.FC = () => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
                           const fb = match.firebaseStation
                           return (
-                            <div key={index} className="rank-match">
+                            <div key={index} className={rankMatchCardClassName(match)}>
                               <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
                               <div className="station-details rank-from">
                                 <span className="rank-label">From your file</span>
@@ -1385,7 +1854,7 @@ const MigrationPage: React.FC = () => {
                           const originalIndex = state.result?.matches.findIndex(m => m === match) ?? -1
                           const fb = match.firebaseStation
                           return (
-                            <div key={index} className="rank-match">
+                            <div key={index} className={rankMatchCardClassName(match)}>
                               <span className="match-confidence">{(match.confidence * 100).toFixed(1)}%</span>
                               <div className="station-details rank-from">
                                 <span className="rank-label">From your file</span>
@@ -1484,7 +1953,10 @@ const MigrationPage: React.FC = () => {
                     const fb = match.firebaseStation
                     const isCorrected = match.matchType === 'manual'
                     return (
-                      <div key={index} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
+                      <div
+                        key={index}
+                        className={rankMatchCardClassName(match, isCorrected ? 'rank-match-corrected' : undefined)}
+                      >
                         <div className="station-details rank-from">
                           <span className="rank-label">From your file</span>
                           <div className="match-name-row">
@@ -1605,7 +2077,7 @@ const MigrationPage: React.FC = () => {
               Restart
             </Button>
             <Button type="button" onClick={handleContinueToDuplicates} variant="wide" width="hug">
-              Next: Same station twice?
+              Check duplicates
             </Button>
           </div>
         </div>
@@ -1616,11 +2088,11 @@ const MigrationPage: React.FC = () => {
         <div className="migration-step review-step duplicates-step">
           <header className="mapping-step-header review-step-header">
             <span className="mapping-step-eyebrow">Step 4 of 6</span>
-            <h2 className="mapping-step-title">When the same station shows twice</h2>
+            <h2 className="mapping-step-title">Check duplicates</h2>
             <p className="mapping-step-lead">
-              Compare the <strong>Matched in database</strong> column on the right — if the same station appears for more than one row,
-              one of them is probably wrong. Use <strong>Correct</strong> to pick the right station for each line, then continue to the
-              summary when you’re ready.
+              <strong>Check duplicates</strong> in the <strong>Matched in database</strong> column: if the same station appears on more
+              than one row, one of them is probably wrong. Use <strong>Correct</strong> on each line that needs fixing, then continue to
+              the summary when you’re ready.
             </p>
           </header>
 
@@ -1633,8 +2105,8 @@ const MigrationPage: React.FC = () => {
             attentionLegendId="duplicates-stats-attention-label"
             description={
               <>
-                Same overview as review — counts stay in sync after corrections. Groups where the same matched station appears more
-                than once are listed below when present.
+                Same overview as review — counts stay in sync after corrections. Open each group below to finish your duplicate check
+                when the same matched station still appears on more than one row.
               </>
             }
           />
@@ -1647,10 +2119,10 @@ const MigrationPage: React.FC = () => {
             return hasDuplicateSections ? (
             <section className="review-subsection duplicates-step-section" aria-labelledby="duplicate-ids-heading">
               <div className="review-subsection-head">
-                <h3 id="duplicate-ids-heading" className="review-subsection-title">Same station on the right</h3>
+                <h3 id="duplicate-ids-heading" className="review-subsection-title">Check duplicates</h3>
                 <p className="review-subsection-desc">
-                  These rows share the same matched station on the right. Use <strong>Correct</strong> so each line points at the right
-                  place.
+                  Each group is a duplicate check: the same station shows in <strong>Matched in database</strong> on more than one row.
+                  Use <strong>Correct</strong> so each line points at the right place.
                 </p>
               </div>
               <p className="rank-legend">
@@ -1679,6 +2151,7 @@ const MigrationPage: React.FC = () => {
                 return groupsWithRanges.map(({ indicesInRange }, gIdx) => {
                   const isResolved = indicesInRange.length === 0
                   const isOpen = !isResolved && gIdx === firstOpenIndex
+                  const duplicateSummaryText = `Duplicate ${gIdx + 1}`
                   return (
                   <details
                     key={gIdx}
@@ -1690,9 +2163,7 @@ const MigrationPage: React.FC = () => {
                         {isResolved && (
                           <span className="duplicate-group-resolved-check" aria-hidden="true">✓</span>
                         )}
-                        <span className="duplicate-group-title">
-                          {indicesInRange.length} row{indicesInRange.length === 1 ? '' : 's'} · same station on the right
-                        </span>
+                        <span className="duplicate-group-title">{duplicateSummaryText}</span>
                       </div>
                       <span className="duplicate-group-chevron" aria-hidden="true">
                         <svg
@@ -1714,24 +2185,30 @@ const MigrationPage: React.FC = () => {
                         </svg>
                       </span>
                     </summary>
-                    {indicesInRange.length > 0 && (
-                      <div className="duplicate-expected" role="note">
-                        <p className="duplicate-expected-note">
-                          Look at <strong>Matched in database</strong> on the right: the same station is listed more than once, so one
-                          row is likely wrong. Use <strong>Correct</strong> on the lines that don’t belong until each row shows the
-                          right station.
-                        </p>
-                      </div>
-                    )}
-                    <div className="rank-matches no-match-cards">
-                      {indicesInRange.length === 0 ? (
+                    {indicesInRange.length === 0 ? (
+                      <div className="rank-matches duplicate-group-rank-matches duplicate-group-rank-matches--resolved">
                         <p className="duplicate-group-all-resolved">All set — each row now has its own matched station on the right.</p>
-                      ) : indicesInRange.map((matchIndex) => {
+                      </div>
+                    ) : (
+                      <div className="confidence-rank amber duplicate-group-confidence">
+                        <div className="rank-matches">
+                      {indicesInRange.map((matchIndex) => {
                         const match = state.result!.matches[matchIndex]
                         const fb = match.firebaseStation
                         const isCorrected = match.matchType === 'manual'
+                        const showConfidence = match.matchType === 'fuzzy' && match.confidence != null
                         return (
-                          <div key={matchIndex} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
+                          <div
+                            key={matchIndex}
+                            className={rankMatchCardClassName(match, isCorrected ? 'rank-match-corrected' : undefined)}
+                          >
+                            {showConfidence ? (
+                              <span className="match-confidence">{(match.confidence! * 100).toFixed(1)}%</span>
+                            ) : (
+                              <span className="match-confidence match-confidence--placeholder" aria-hidden="true">
+                                —
+                              </span>
+                            )}
                             <div className="station-details rank-from">
                               <span className="rank-label">From your file</span>
                               <div className="match-name-row">
@@ -1788,7 +2265,9 @@ const MigrationPage: React.FC = () => {
                           </div>
                         )
                       })}
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </details>
                   )
                 })
@@ -1797,7 +2276,7 @@ const MigrationPage: React.FC = () => {
           ) : (
             <div className="review-subsection duplicates-step-empty" role="status">
               <p className="duplicates-step-empty-message">
-                Nothing to fix here — each row has a different matched station on the right.
+                Duplicate check: nothing to fix — each row has a different matched station on the right.
               </p>
             </div>
           )
@@ -1818,16 +2297,24 @@ const MigrationPage: React.FC = () => {
                 <span className="rank-legend-arrow">→</span>
                 <span className="rank-legend-to">Matched in database</span>
               </p>
-              <div className="rank-matches no-match-cards">
+              <div className="confidence-rank red mismatched-step-confidence">
+                <div className="rank-matches">
                 {state.result.mismatchedMatchIndices.map((matchIndex) => {
                   const match = state.result!.matches[matchIndex]
                   const fb = match.firebaseStation
                   const showConfidence = match.matchType === 'fuzzy' && match.confidence != null
                   const isCorrected = match.matchType === 'manual'
                   return (
-                    <div key={matchIndex} className={`rank-match ${isCorrected ? 'rank-match-corrected' : ''}`}>
-                      {showConfidence && (
+                    <div
+                      key={matchIndex}
+                      className={rankMatchCardClassName(match, isCorrected ? 'rank-match-corrected' : undefined)}
+                    >
+                      {showConfidence ? (
                         <span className="match-confidence">{(match.confidence! * 100).toFixed(1)}%</span>
+                      ) : (
+                        <span className="match-confidence match-confidence--placeholder" aria-hidden="true">
+                          —
+                        </span>
                       )}
                       <div className="station-details rank-from">
                         <span className="rank-label">From your file</span>
@@ -1885,6 +2372,7 @@ const MigrationPage: React.FC = () => {
                     </div>
                   )
                 })}
+                </div>
               </div>
             </section>
           )}
@@ -1893,7 +2381,7 @@ const MigrationPage: React.FC = () => {
               Back to review
             </Button>
             <Button type="button" onClick={handleContinueToSummary} variant="wide" width="hug">
-              Next: Review changes
+              Review changes
             </Button>
           </div>
         </div>
@@ -1962,7 +2450,7 @@ const MigrationPage: React.FC = () => {
                   <section className="review-subsection correction-log-section" aria-labelledby="correction-log-dup-heading">
                     <div className="review-subsection-head">
                       <h3 id="correction-log-dup-heading" className="review-subsection-title">
-                        Same station twice <span className="correction-log-count">({duplicateCorrections.length})</span>
+                        Check duplicates <span className="correction-log-count">({duplicateCorrections.length})</span>
                       </h3>
                       <p className="review-subsection-desc">
                         Corrections made while fixing rows that showed the same matched station on the right more than once.
@@ -1980,7 +2468,7 @@ const MigrationPage: React.FC = () => {
 
             <div className="mapping-actions mapping-actions--bottom review-step-footer-actions">
               <Button type="button" onClick={handleBackFromReviewChanges} variant="wide" width="hug">
-                Back to same-station check
+                Back to check duplicates
               </Button>
               <Button type="button" onClick={handleContinueToComplete} variant="wide" width="hug">
                 Continue to summary
@@ -1990,297 +2478,126 @@ const MigrationPage: React.FC = () => {
         )
       })()}
 
-      {/* Step 6: Complete / summary */}
+      {/* Step 6: Migration complete (same shell as other steps) */}
       {state.step === 'complete' && state.result && (
-        <div className="migration-complete-container">
-          {/* Success Header */}
-          <div className="success-header">
-            <span className="mapping-step-eyebrow migration-complete-eyebrow">Step 6 of 6</span>
-            <div className="success-icon">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22,4 12,14.01 9,11.01"/>
-              </svg>
-            </div>
-            <h1>Summary</h1>
-            <p className="success-subtitle">
-              Matches made, any same-station fixes, and output preview. Download your converted CSV below.
+        <div className="migration-step review-step migration-complete-step">
+          <header className="mapping-step-header review-step-header">
+            <span className="mapping-step-eyebrow">Step 6 of 6</span>
+            <h2 className="mapping-step-title">Migration complete</h2>
+            <p className="mapping-step-lead">
+              Your file is ready. Review how to import below, then download the CSV and add it in the Rail Statistics app.
             </p>
-          </div>
+          </header>
 
-          {/* Migration Summary Cards */}
-          <div className="migration-summary summary-grid">
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Total</h3>
-                <div className="card-number">{state.result.stats.total}</div>
-                <p>Stations in output</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Matched</h3>
-                <div className="card-number">{state.result.stats.matched}</div>
-                <p>Stations matched to database</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Unmatched</h3>
-                <div className="card-number">{state.result.stats.unmatched}</div>
-                <p>No automatic match</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Same station twice</h3>
-                <div className="card-number">{state.result.stats.duplicateIds}</div>
-                <p>Groups to check on the matched column</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Rejected</h3>
-                <div className="card-number">{state.result.stats.rejected}</div>
-                <p>Not in England/Scotland/Wales</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Data corrected</h3>
-                <div className="card-number">{state.correctionsCount ?? 0}</div>
-                <p>Manual corrections made</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Stations visited</h3>
-                <div className="card-number">{state.result.stats.visited ?? 0}</div>
-                <p>Marked as visited in output</p>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="card-content">
-                <h3>Favorites</h3>
-                <div className="card-number">{state.result.stats.favorites ?? 0}</div>
-                <p>Marked as favorite in output</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Output Preview */}
-          <div className="output-preview complete-output-preview">
-            <h3>Output preview</h3>
-            <div className="preview-section">
-              <div className="preview-header">
-                <div className="preview-header-text">
-                  <h4>Converted data</h4>
-                  <p className="preview-description">
-                    Full converted data. Download the CSV below.
-                  </p>
-                </div>
-                <Button
-                  onClick={() => handleShowAllData('allData')}
-                  variant="wide"
-                  width="hug"
-                  className="show-all-btn-desktop"
-                >
-                  {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
-                </Button>
-              </div>
-              <div className="table-controls">
-                <div className="search-container">
-                  <input
-                    type="text"
-                    placeholder="Search stations..."
-                    value={tableState.allDataSearch}
-                    onChange={(e) => handleTableSearch('allData', e.target.value)}
-                    className="table-search-input"
-                  />
-                  <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                  </svg>
-                </div>
-                <Button
-                  onClick={() => handleShowAllData('allData')}
-                  variant="wide"
-                  width="hug"
-                  className="show-all-btn-mobile"
-                >
-                  {tableState.showAllAllData ? 'Show Less' : 'Show All Data'}
-                </Button>
-              </div>
-              <div className="preview-table-container">
-                <table className="preview-table full-data">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Station Name</th>
-                      <th>CRS Code</th>
-                      <th>Country</th>
-                      <th>County</th>
-                      <th>TOC</th>
-                      <th>Visited</th>
-                      <th>Favorite</th>
-                      <th>Years</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getDisplayData(state.result.converted, tableState.allDataSearch, tableState.showAllAllData).map((station, index) => {
-                      const yearColumns = Object.keys(station).filter(key => /^\d{4}$/.test(key))
-                      const yearData = yearColumns.map(year => `${year}: ${station[year] || '0'}`).join(', ')
-                      return (
-                        <tr key={index}>
-                          <td className="id-cell">{station.id}</td>
-                          <td className="name-cell">{station.stationname}</td>
-                          <td className="crs-cell">{station.CrsCode || '-'}</td>
-                          <td className="country-cell">{station.country}</td>
-                          <td className="county-cell">{station.county}</td>
-                          <td className="toc-cell">{station.TOC}</td>
-                          <td className="visited-cell">{station['Is Visited']}</td>
-                          <td className="favorite-cell">{station['Is Favorite']}</td>
-                          <td className="years-cell" title={yearData}>
-                            {yearColumns.length} years
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {getDisplayData(state.result.converted, tableState.allDataSearch, tableState.showAllAllData).length === 0 && (
-                  <div className="no-results">
-                    No stations found matching your search.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Features Added */}
-          <div className="features-added">
-            <h3>✨ What's New in Your Data</h3>
-            <div className="features-grid">
-              <div className="feature-item">
-                <div className="feature-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                </div>
-                <div className="feature-content">
-                  <h4>Unique Station IDs</h4>
-                  <p>Each station now has a unique identifier for database integration</p>
-                </div>
-              </div>
-              <div className="feature-item">
-                <div className="feature-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                </div>
-                <div className="feature-content">
-                  <h4>CRS & TIPLOC Codes</h4>
-                  <p>Standard railway codes for accurate station identification</p>
-                </div>
-              </div>
-              <div className="feature-item">
-                <div className="feature-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                  </svg>
-                </div>
-                <div className="feature-content">
-                  <h4>Structured Location Data</h4>
-                  <p>Coordinates and location info in standardized JSON format</p>
-                </div>
-              </div>
-              <div className="feature-item">
-                <div className="feature-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 12l2 2 4-4"/>
-                    <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"/>
-                    <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"/>
-                    <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3"/>
-                    <path d="M12 21c0-1 1-3 3-3s3 2 3 3-1 3-3 3-3-2-3-3"/>
-                  </svg>
-                </div>
-                <div className="feature-content">
-                  <h4>Database Integration</h4>
-                  <p>Linked to comprehensive railway station database</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Download Section */}
-          <div className="manual-download-section">
-            <h3>Download your converted CSV</h3>
-            <p className="manual-download-description">
-              Click below to download the migrated stations file.
-            </p>
-            <div className="manual-download-button-container">
-              <Button 
-                onClick={handleDownload}
-                variant="wide"
-                width="hug"
-                icon={
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                }
-              >
-                Download converted CSV
-              </Button>
-            </div>
-          </div>
-
-          {/* New Stations Section */}
-          {state.result.newStations && state.result.newStations.length > 0 && (
-            <div className="new-stations-section">
-              <div>
-                <h3>🆕 New Stations Automatically Added ({state.result.newStations.length})</h3>
-                <p className="section-description">
-                  These stations (ID 2588+) were automatically added to your converted CSV from the cloud database.
+          <div className="migration-complete-body">
+            <section className="review-subsection migration-complete-panel" aria-labelledby="migration-app-heading">
+              <div className="review-subsection-head">
+                <h3 id="migration-app-heading" className="review-subsection-title">
+                  Import in the Rail Statistics app
+                </h3>
+                <p className="review-subsection-desc">
+                  You have <strong>successfully migrated</strong> your stations. Re-open the <strong>Rail Statistics</strong> app and
+                  import your stations using the CSV you download in the next section.
                 </p>
               </div>
-              
-              <div className="new-stations-list">
-                <table className="new-stations-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Station Name</th>
-                      <th>CRS Code</th>
-                      <th>Country</th>
-                      <th>County</th>
-                      <th>TOC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.result.newStations.map((station, index) => (
-                      <tr key={index}>
-                        <td className="id-cell">{station.id}</td>
-                        <td className="station-name-cell">{station.stationName || station.stationname}</td>
-                        <td className="crs-cell">{station.crsCode || station.CrsCode || '-'}</td>
-                        <td className="country-cell">{station.country || '-'}</td>
-                        <td className="county-cell">{station.county || '-'}</td>
-                        <td className="toc-cell">{station.toc || station.TOC || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            </section>
+
+            <section className="review-subsection migration-complete-panel" aria-labelledby="migration-download-heading">
+              <div className="review-subsection-head">
+                <h3 id="migration-download-heading" className="review-subsection-title">
+                  Download your migrated file
+                </h3>
+                <p className="review-subsection-desc">
+                  Save this CSV to your device. You&apos;ll use it in the app as described above.
+                </p>
               </div>
-            </div>
+              <div className="migration-complete-download-actions">
+                <Button
+                  onClick={handleDownload}
+                  variant="wide"
+                  width="hug"
+                  icon={
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  }
+                ariaLabel={`Download converted stations CSV (${getGbStationsDownloadFilename()})`}
+              >
+                Download
+              </Button>
+              </div>
+            </section>
+
+            {state.result.newStations && state.result.newStations.length > 0 && (
+            <details className="migration-complete-details migration-complete-new-stations-details">
+              <summary className="migration-complete-details-summary">
+                <span className="migration-complete-details-summary-main">
+                  <span className="migration-complete-details-summary-title">
+                    New stations in your file ({state.result.newStations.length})
+                  </span>
+                  <span className="migration-complete-details-summary-hint">
+                    Rows added from the cloud database (ID 2588+)
+                  </span>
+                </span>
+                <MigrationCompleteDetailsChevron />
+              </summary>
+              <div className="migration-complete-details-inner">
+                <p className="migration-complete-new-stations-desc">
+                  These stations (ID 2588+) were added to your CSV from the cloud database.
+                </p>
+                <div className="migration-complete-table-shell migration-complete-new-stations-shell">
+                  <table className="migration-complete-data-table migration-complete-new-stations-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Station Name</th>
+                        <th>CRS Code</th>
+                        <th>Country</th>
+                        <th>County</th>
+                        <th>TOC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {state.result.newStations.map((station, index) => (
+                        <tr key={index}>
+                          <td className="id-cell">{station.id}</td>
+                          <td className="station-name-cell">{station.stationName || station.stationname}</td>
+                          <td className="crs-cell">{station.crsCode || station.CrsCode || '-'}</td>
+                          <td className="country-cell">{station.country || '-'}</td>
+                          <td className="county-cell">{station.county || '-'}</td>
+                          <td className="toc-cell">{station.toc || station.TOC || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
           )}
 
+          <details className="migration-complete-details migration-complete-stats-details">
+            <summary className="migration-complete-details-summary">
+              <span className="migration-complete-details-summary-main">
+                <span className="migration-complete-details-summary-title">Migration summary</span>
+                <span className="migration-complete-details-summary-hint">
+                  Totals, match counts, duplicates, and corrections from this run
+                </span>
+              </span>
+              <MigrationCompleteDetailsChevron />
+            </summary>
+            <div className="migration-complete-details-inner">
+              <MigrationCompleteSummaryBody
+                stats={state.result.stats}
+                correctionsCount={state.correctionsCount ?? 0}
+              />
+            </div>
+          </details>
+          </div>
+
           {/* Action Buttons */}
-          <div className="complete-actions">
+          <div className="mapping-actions mapping-actions--bottom review-step-footer-actions">
             <Button 
               onClick={handleReset} 
               variant="wide"
@@ -2298,22 +2615,6 @@ const MigrationPage: React.FC = () => {
               }
             >
               Convert Another File
-            </Button>
-            <Button 
-              onClick={() => window.location.href = '/stations'} 
-              variant="wide"
-              width="hug"
-              icon={
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10,9 9,9 8,9"/>
-              </svg>
-              }
-            >
-              View Stations
             </Button>
           </div>
         </div>
