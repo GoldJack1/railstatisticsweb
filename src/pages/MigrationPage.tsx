@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useStationCollection } from '../contexts/StationCollectionContext'
@@ -12,10 +12,250 @@ import {
   suggestColumnMapping,
   parseCSVWithColumnMapping
 } from '../services/migration'
-import type { MigrationState, ColumnMapping, FirebaseStationLike, NewFormatStation } from '../types/migration'
+import type {
+  MigrationState,
+  ColumnMapping,
+  FirebaseStationLike,
+  NewFormatStation,
+  StationMatch,
+  MigrationCorrectionLogEntry
+} from '../types/migration'
 import Button from '../components/Button'
 import '../components/Migration.css'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
+
+/** Step 2 — grouped column mapping (order + labels shown in UI) */
+const COLUMN_MAPPING_SECTIONS: {
+  title: string
+  description: string
+  fields: { key: keyof ColumnMapping; label: string; hint?: string; required?: boolean }[]
+}[] = [
+  {
+    title: 'Station & operator',
+    description: 'Columns that identify the station and train operator.',
+    fields: [
+      { key: 'stationName', label: 'Station name', required: true },
+      { key: 'country', label: 'Country' },
+      { key: 'county', label: 'County / region' },
+      { key: 'operator', label: 'Operator (TOC)' }
+    ]
+  },
+  {
+    title: 'Visits & preferences',
+    description: 'Optional columns for visit history and favourites.',
+    fields: [
+      { key: 'visited', label: 'Visited (yes/no)' },
+      { key: 'visitDate', label: 'Visit date' },
+      { key: 'favorite', label: 'Favourite' }
+    ]
+  },
+  {
+    title: 'Location',
+    description: 'Coordinates or a single JSON location column.',
+    fields: [
+      { key: 'latitude', label: 'Latitude' },
+      { key: 'longitude', label: 'Longitude' },
+      {
+        key: 'location',
+        label: 'Location (JSON)',
+        hint: 'If mapped, this overrides separate lat/long for that row.'
+      }
+    ]
+  }
+]
+
+/** Minimum time the matching modal stays visible (avoids a flash when work finishes quickly). */
+const MATCHING_MODAL_MIN_MS = 12_000
+
+/** Displayed bar creeps toward the real target at most this many % per second (avoids jumping to ~98%). */
+const MATCHING_PROGRESS_MAX_PCT_PER_SEC = 4
+/** Slightly quicker crawl only in the first segment so the bar starts moving nicely */
+const MATCHING_PROGRESS_FAST_UNTIL_PCT = 20
+const MATCHING_PROGRESS_FAST_MAX_PCT_PER_SEC = 6.5
+
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t)
+}
+
+function newCorrectionLogId(matchIndex: number): string {
+  try {
+    return typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${matchIndex}-${Math.random().toString(36).slice(2, 9)}`
+  } catch {
+    return `${Date.now()}-${matchIndex}-${Math.random().toString(36).slice(2, 9)}`
+  }
+}
+
+/** One-line label for a database station in migration UI */
+function formatMigrationStationLabel(station: FirebaseStationLike | null | undefined): string {
+  if (!station) return '—'
+  const name = (station.stationName || station.stationname || '').trim() || 'Unknown station'
+  const crs = (station.crsCode || station.CrsCode || '').trim()
+  const id = String(station.id ?? '').trim()
+  const head = crs ? `${name} (${crs})` : name
+  return id ? `${head} · ID ${id}` : head
+}
+
+function animateProgressOverMs(
+  fromPercent: number,
+  toPercent: number,
+  durationMs: number,
+  onTick: (pct: number) => void
+): Promise<void> {
+  if (durationMs <= 0) {
+    onTick(Math.round(toPercent))
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    const start = performance.now()
+    const from = Math.max(0, Math.min(100, fromPercent))
+    const to = Math.max(0, Math.min(100, toPercent))
+    const tick = () => {
+      const elapsed = performance.now() - start
+      const t = Math.min(1, elapsed / durationMs)
+      const p = from + (to - from) * easeOutQuad(t)
+      onTick(Math.round(p))
+      if (t < 1) {
+        requestAnimationFrame(tick)
+      } else {
+        onTick(Math.round(to))
+        resolve()
+      }
+    }
+    requestAnimationFrame(tick)
+  })
+}
+
+type MigrationReviewSummaryStats = NonNullable<MigrationState['result']>['stats']
+
+type MigrationReviewSummarySectionProps = {
+  stats: MigrationReviewSummaryStats
+  headingId: string
+  overviewLegendId: string
+  matchLegendId: string
+  fileLegendId: string
+  attentionLegendId: string
+  description: React.ReactNode
+}
+
+/** Shared Summary panel for Step 3 (review) and Step 4 (duplicates). */
+function MigrationReviewSummarySection({
+  stats,
+  headingId,
+  overviewLegendId,
+  matchLegendId,
+  fileLegendId,
+  attentionLegendId,
+  description
+}: MigrationReviewSummarySectionProps) {
+  const showAttention = stats.rejected > 0 || stats.duplicateIds > 0
+  return (
+    <section className="review-summary-card" aria-labelledby={headingId}>
+      <div className="review-summary-card-head">
+        <h3 id={headingId} className="review-summary-card-title">
+          Summary
+        </h3>
+        <p className="review-summary-card-desc">{description}</p>
+      </div>
+      <div className="migration-stats review-stats-grid">
+        <div className="review-stats-rows">
+          <div className="review-stats-band review-stats-band--overview">
+            <p className="review-stats-row-label" id={overviewLegendId}>
+              Overview
+            </p>
+            <div
+              className="review-stats-row review-stats-row--primary"
+              role="group"
+              aria-labelledby={overviewLegendId}
+            >
+              <div className="stat-card stat-card--overview">
+                <h3>Total stations</h3>
+                <span className="stat-number">{stats.total}</span>
+              </div>
+              <div className="stat-card stat-card--overview">
+                <h3>Matched</h3>
+                <span className="stat-number">{stats.matched}</span>
+              </div>
+              <div className="stat-card stat-card--overview">
+                <h3>Unmatched</h3>
+                <span className="stat-number">{stats.unmatched}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="review-stats-detail-layout">
+            <div className="review-stats-pill-group">
+              <p className="review-stats-pill-group-legend" id={matchLegendId}>
+                How they matched
+              </p>
+              <div
+                className="review-stats-pill-group-grid review-stats-pill-group-grid--match"
+                role="group"
+                aria-labelledby={matchLegendId}
+              >
+                <div className="stat-card stat-card--exact">
+                  <h3>Exact match</h3>
+                  <span className="stat-number">{stats.exactMatches}</span>
+                </div>
+                <div className="stat-card stat-card--fuzzy">
+                  <h3>Fuzzy match</h3>
+                  <span className="stat-number">{stats.fuzzyMatches}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="review-stats-pill-group">
+              <p className="review-stats-pill-group-legend" id={fileLegendId}>
+                From your file
+              </p>
+              <div
+                className="review-stats-pill-group-grid review-stats-pill-group-grid--file"
+                role="group"
+                aria-labelledby={fileLegendId}
+              >
+                <div className="stat-card visited">
+                  <h3>Visited</h3>
+                  <span className="stat-number">{stats.visited}</span>
+                </div>
+                <div className="stat-card favorites stat-card--favorites-file">
+                  <h3>Favorites</h3>
+                  <span className="stat-number">{stats.favorites}</span>
+                </div>
+              </div>
+            </div>
+
+            {showAttention ? (
+              <div className="review-stats-pill-group review-stats-pill-group--attention">
+                <p className="review-stats-pill-group-legend" id={attentionLegendId}>
+                  Needs attention
+                </p>
+                <div
+                  className="review-stats-pill-group-grid review-stats-pill-group-grid--attention"
+                  role="group"
+                  aria-labelledby={attentionLegendId}
+                >
+                  {stats.rejected > 0 ? (
+                    <div className="stat-card rejected">
+                      <h3>Rejected</h3>
+                      <span className="stat-number">{stats.rejected}</span>
+                    </div>
+                  ) : null}
+                  {stats.duplicateIds > 0 ? (
+                    <div className="stat-card duplicates">
+                      <h3>Same station twice</h3>
+                      <span className="stat-number">{stats.duplicateIds}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 const MigrationPage: React.FC = () => {
   const { stations: firebaseStations, loading: firebaseLoading } = useStations()
@@ -42,9 +282,14 @@ const MigrationPage: React.FC = () => {
     showProgressModal: false,
     matchingProgress: 0,
     currentStationName: '',
+    matchingPhase: 'idle',
+    matchingIndex: 0,
+    matchingTotal: 0,
+    matchingStatusLine: '',
     detectedFormat: null,
     correctionsCount: 0,
-    duplicateGroupsSnapshot: null
+    duplicateGroupsSnapshot: null,
+    correctionLog: []
   })
 
   const selectedMatch = state.selectedMatchIndex !== null ? state.matches[state.selectedMatchIndex] : null
@@ -57,13 +302,86 @@ const MigrationPage: React.FC = () => {
     showAllAllData: false
   })
 
+  const [uploadDragActive, setUploadDragActive] = useState(false)
+
   const [searchParams, setSearchParams] = useSearchParams()
   const searchMatchIndexParam = searchParams.get('matchIndex')
   const isSearchPageMode = searchParams.get('search') === '1' && searchMatchIndexParam !== null && searchMatchIndexParam !== ''
 
   const savedScrollPositionRef = useRef(0)
   const prevSearchPageModeRef = useRef(false)
+  const showProgressModalRef = useRef(false)
+  showProgressModalRef.current = state.showProgressModal
+  /** Real % from matchStations; the UI bar chases this with a speed cap */
+  const matchingProgressTargetRef = useRef(0)
+  /** Last rendered bar % (read when stopping the smoother for finalize animation) */
+  const matchingProgressDisplayRef = useRef(0)
+  const matchingProgressSmoothingStopRef = useRef(false)
+  const matchingProgressRafRef = useRef<number | null>(null)
 
+  // Smooth progress bar: chase matchingProgressTargetRef without big jumps
+  useEffect(() => {
+    if (!state.showProgressModal) {
+      matchingProgressSmoothingStopRef.current = false
+      matchingProgressTargetRef.current = 0
+      matchingProgressDisplayRef.current = 0
+      if (matchingProgressRafRef.current !== null) {
+        cancelAnimationFrame(matchingProgressRafRef.current)
+        matchingProgressRafRef.current = null
+      }
+      return
+    }
+
+    matchingProgressSmoothingStopRef.current = false
+    matchingProgressDisplayRef.current = state.matchingProgress
+    matchingProgressTargetRef.current = Math.max(
+      matchingProgressTargetRef.current,
+      state.matchingProgress
+    )
+
+    let lastTs = performance.now()
+    const tick = (now: number) => {
+      if (!showProgressModalRef.current || matchingProgressSmoothingStopRef.current) {
+        matchingProgressRafRef.current = null
+        return
+      }
+      const dt = Math.min(0.12, (now - lastTs) / 1000)
+      lastTs = now
+      const target = matchingProgressTargetRef.current
+      const d = matchingProgressDisplayRef.current
+      const maxPerSec =
+        d < MATCHING_PROGRESS_FAST_UNTIL_PCT
+          ? MATCHING_PROGRESS_FAST_MAX_PCT_PER_SEC
+          : MATCHING_PROGRESS_MAX_PCT_PER_SEC
+      const maxStep = maxPerSec * dt
+      const diff = target - d
+
+      let rounded: number
+      if (Math.abs(diff) < 0.08) {
+        rounded = Math.min(100, Math.round(target))
+      } else {
+        const step = Math.sign(diff) * Math.min(Math.abs(diff), maxStep)
+        const next = Math.min(100, Math.max(0, d + step))
+        rounded = Math.round(next)
+      }
+      matchingProgressDisplayRef.current = rounded
+
+      setState((prev) => {
+        if (!prev.showProgressModal) return prev
+        return prev.matchingProgress === rounded ? prev : { ...prev, matchingProgress: rounded }
+      })
+
+      matchingProgressRafRef.current = requestAnimationFrame(tick)
+    }
+
+    matchingProgressRafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (matchingProgressRafRef.current !== null) {
+        cancelAnimationFrame(matchingProgressRafRef.current)
+        matchingProgressRafRef.current = null
+      }
+    }
+  }, [state.showProgressModal])
   // Sync selectedMatchIndex from URL when on search page
   useEffect(() => {
     if (isSearchPageMode && searchMatchIndexParam !== null) {
@@ -92,10 +410,11 @@ const MigrationPage: React.FC = () => {
     window.scrollTo(0, 0)
   }, [state.step])
 
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  useEffect(() => {
+    if (state.step !== 'upload') setUploadDragActive(false)
+  }, [state.step])
 
+  const processCsvFile = useCallback((file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setState(prev => ({ ...prev, error: 'Please select a CSV file' }))
       return
@@ -129,6 +448,50 @@ const MigrationPage: React.FC = () => {
     reader.readAsText(file)
   }, [])
 
+  const handleFileUpload = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      processCsvFile(file)
+      event.target.value = ''
+    },
+    [processCsvFile]
+  )
+
+  const handleUploadDragEnterCapture = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    if (!e.dataTransfer.types.includes('Files')) return
+    setUploadDragActive(true)
+  }, [])
+
+  const handleUploadDragLeaveCapture = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const next = e.relatedTarget as Node | null
+    if (next && e.currentTarget.contains(next)) return
+    setUploadDragActive(false)
+  }, [])
+
+  const handleUploadDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const handleUploadDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      setUploadDragActive(false)
+      const files = e.dataTransfer.files
+      if (!files?.length) return
+      const csvFile = Array.from(files).find((f) => f.name.toLowerCase().endsWith('.csv'))
+      if (!csvFile) {
+        setState((prev) => ({ ...prev, error: 'Please drop a CSV file' }))
+        return
+      }
+      processCsvFile(csvFile)
+    },
+    [processCsvFile]
+  )
+
   const handleConfirmMapping = useCallback(() => {
     if (!state.rawCsvContent || !state.columnMapping) return
     try {
@@ -145,44 +508,94 @@ const MigrationPage: React.FC = () => {
       void (async () => {
         if (allowed.length === 0) return
 
+        const startedAt = performance.now()
+
         setState(prev => ({
           ...prev,
           step: 'mapping',
           loading: true,
           error: null,
           showProgressModal: true,
-          matchingProgress: 0,
-          currentStationName: ''
+          matchingProgress: 2,
+          currentStationName: '',
+          matchingPhase: 'loading-db',
+          matchingStatusLine: 'Connecting to the live station database…',
+          matchingIndex: 0,
+          matchingTotal: allowed.length
         }))
 
         try {
           const { matches, availableStations } = await matchStations(
             allowed,
-            (progress, currentStation) => {
-              setState(prev => ({
+            (info) => {
+              matchingProgressTargetRef.current = info.percent
+              setState((prev) => ({
                 ...prev,
-                matchingProgress: progress,
-                currentStationName: currentStation
+                matchingPhase: info.phase,
+                matchingStatusLine: info.statusLine,
+                currentStationName: info.currentStationName ?? '',
+                matchingIndex: info.index ?? prev.matchingIndex,
+                matchingTotal: info.total ?? prev.matchingTotal
               }))
             },
             collectionId
           )
+
+          matchingProgressSmoothingStopRef.current = true
+          if (matchingProgressRafRef.current !== null) {
+            cancelAnimationFrame(matchingProgressRafRef.current)
+            matchingProgressRafRef.current = null
+          }
+          matchingProgressTargetRef.current = 100
+
+          const elapsed = performance.now() - startedAt
+          const remaining = MATCHING_MODAL_MIN_MS - elapsed
+          const fromPct = Math.min(100, matchingProgressDisplayRef.current)
+
+          if (remaining > 0) {
+            setState((prev) => ({
+              ...prev,
+              matchingPhase: 'finalizing',
+              matchingStatusLine: 'Preparing your review — almost done…',
+              currentStationName: ''
+            }))
+            await animateProgressOverMs(fromPct, 100, remaining, (pct) => {
+              matchingProgressDisplayRef.current = pct
+              setState((prev) => ({ ...prev, matchingProgress: pct }))
+            })
+          } else {
+            matchingProgressDisplayRef.current = 100
+            setState((prev) => ({ ...prev, matchingProgress: 100, matchingPhase: 'finalizing' }))
+          }
+
           const result = generateMigrationResult(matches, rejected, availableStations)
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             matches,
             result,
             step: 'review',
             loading: false,
             showProgressModal: false,
-            correctionsCount: 0
+            correctionsCount: 0,
+            matchingPhase: 'idle',
+            matchingProgress: 0,
+            matchingIndex: 0,
+            matchingTotal: 0,
+            matchingStatusLine: '',
+            currentStationName: ''
           }))
         } catch (error) {
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             error: `Error matching stations: ${error instanceof Error ? error.message : 'Unknown error'}`,
             loading: false,
-            showProgressModal: false
+            showProgressModal: false,
+            matchingPhase: 'idle',
+            matchingProgress: 0,
+            matchingIndex: 0,
+            matchingTotal: 0,
+            matchingStatusLine: '',
+            currentStationName: ''
           }))
         }
       })()
@@ -215,11 +628,24 @@ const MigrationPage: React.FC = () => {
 
   const handleContinueToSummary = useCallback(() => {
     const duplicateIds = state.result?.stats?.duplicateIds ?? 0
-    if (duplicateIds > 0 && !window.confirm(`You still have ${duplicateIds} duplicate ID(s). Continue to summary anyway?`)) {
+    if (
+      duplicateIds > 0 &&
+      !window.confirm(
+        `You still have ${duplicateIds} group${duplicateIds === 1 ? '' : 's'} where the same station may show twice on the right. Continue to summary anyway?`
+      )
+    ) {
       return
     }
-    setState(prev => ({ ...prev, step: 'complete', duplicateGroupsSnapshot: null }))
+    setState(prev => ({ ...prev, step: 'reviewChanges', duplicateGroupsSnapshot: null }))
   }, [state.result?.stats?.duplicateIds])
+
+  const handleBackFromReviewChanges = useCallback(() => {
+    setState(prev => ({ ...prev, step: 'duplicates' }))
+  }, [])
+
+  const handleContinueToComplete = useCallback(() => {
+    setState(prev => ({ ...prev, step: 'complete', duplicateGroupsSnapshot: null }))
+  }, [])
 
   const handleDownloadRejected = useCallback(() => {
     if (!state.result || !state.result.rejected || state.result.rejected.length === 0) return
@@ -249,9 +675,14 @@ const MigrationPage: React.FC = () => {
       showProgressModal: false,
       matchingProgress: 0,
       currentStationName: '',
+      matchingPhase: 'idle',
+      matchingIndex: 0,
+      matchingTotal: 0,
+      matchingStatusLine: '',
       detectedFormat: null,
       correctionsCount: 0,
-      duplicateGroupsSnapshot: null
+      duplicateGroupsSnapshot: null,
+      correctionLog: []
     })
   }, [])
 
@@ -344,6 +775,7 @@ const MigrationPage: React.FC = () => {
 
   const handleSelectStation = useCallback((matchIndex: number, selectedStation: FirebaseStationLike) => {
     setState(prev => {
+      const prior = prev.matches[matchIndex]
       const newMatches = [...prev.matches]
       const wasNoMatch = newMatches[matchIndex].matchType === 'none'
       newMatches[matchIndex] = {
@@ -359,7 +791,26 @@ const MigrationPage: React.FC = () => {
       // Use the same availableStations as the current result (same collection), not current hook list
       const availableStations = prev.result?.availableStations ?? firebaseStations
       const newResult = generateMigrationResult(newMatches, prev.rejectedStations, availableStations)
-      
+
+      const previousStationLabel = prior.firebaseStation
+        ? formatMigrationStationLabel(prior.firebaseStation)
+        : prior.matchType === 'none'
+          ? 'No automatic match'
+          : '—'
+
+      const phase: MigrationCorrectionLogEntry['phase'] = prev.step === 'duplicates' ? 'duplicates' : 'review'
+      const logEntry: MigrationCorrectionLogEntry = {
+        id: newCorrectionLogId(matchIndex),
+        matchIndex,
+        csvStationName: prior.oldStation.stationName || `Row ${matchIndex + 1}`,
+        previousMatchType: prior.matchType,
+        previousStationId: String(prior.firebaseStation?.id ?? prior.suggestedId ?? ''),
+        previousStationLabel,
+        newStationId: String(selectedStation.id ?? ''),
+        newStationLabel: formatMigrationStationLabel(selectedStation),
+        phase
+      }
+
       return {
         ...prev,
         matches: newMatches,
@@ -368,7 +819,8 @@ const MigrationPage: React.FC = () => {
         selectedMatchIndex: null,
         searchQuery: '',
         searchResults: [],
-        correctionsCount: (prev.correctionsCount ?? 0) + 1
+        correctionsCount: (prev.correctionsCount ?? 0) + 1,
+        correctionLog: [...prev.correctionLog, logEntry]
       }
     })
   }, [firebaseStations])
@@ -388,7 +840,7 @@ const MigrationPage: React.FC = () => {
 
   const handleCloseSearchModal = useCallback(() => {
     if (isSearchPageMode) {
-      setSearchParams({})
+      setSearchParams({}, { replace: true })
     }
     setState(prev => ({
       ...prev,
@@ -441,6 +893,23 @@ const MigrationPage: React.FC = () => {
       [`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}`]: !prev[`showAll${tableType.charAt(0).toUpperCase() + tableType.slice(1)}` as keyof typeof prev]
     }))
   }, [])
+
+  /** Step 3: medium/low fuzzy buckets + whether the fuzzy confidence block should render (avoids empty gap + duplicate legend). */
+  const reviewFuzzyConfidence = useMemo(() => {
+    if (state.step !== 'review' || !state.result) {
+      return { amberMatches: [] as StationMatch[], redMatches: [] as StationMatch[], showFuzzyConfidenceSection: false }
+    }
+    const matches = state.result.matches
+    const amberMatches = matches.filter(
+      (m) => m.matchType === 'fuzzy' && m.confidence >= 0.6 && m.confidence < 0.8
+    )
+    const redMatches = matches.filter(
+      (m) => m.matchType === 'fuzzy' && m.confidence >= 0.3 && m.confidence < 0.6
+    )
+    const showFuzzyConfidenceSection =
+      state.result.stats.fuzzyMatches > 0 && (amberMatches.length > 0 || redMatches.length > 0)
+    return { amberMatches, redMatches, showFuzzyConfidenceSection }
+  }, [state.step, state.result])
 
   // Debug logging
   console.log('Migration component render - firebaseLoading:', firebaseLoading)
@@ -552,12 +1021,12 @@ const MigrationPage: React.FC = () => {
                       className="search-result-item"
                       onClick={() => {
                         handleSelectStation(state.selectedMatchIndex!, station)
-                        if (isSearchPageMode) setSearchParams({})
+                        if (isSearchPageMode) setSearchParams({}, { replace: true })
                       }}
                     >
                       <div className="result-station-name">{station.stationName}</div>
                       <div className="result-details">
-                        <span className="result-crs">{station.crsCode}</span>
+                        <span className="station-chip station-chip-primary">{station.crsCode}</span>
                         <span className="result-tiploc">{station.tiploc}</span>
                         <span className="result-location">
                           {formatStationLocationDisplay({ county: station.county, country: station.country, londonBorough: station.londonBorough })}
@@ -580,13 +1049,6 @@ const MigrationPage: React.FC = () => {
 
   return (
     <div className="migration-container">
-      <div className="migration-header">
-        <div className="header-top">
-          <h1>CSV Migration Tool</h1>
-        </div>
-        <p>Convert old format CSV files to the new format with Firebase station matching</p>
-      </div>
-
       {state.error && (
         <div className="error-message">
           {state.error}
@@ -595,31 +1057,62 @@ const MigrationPage: React.FC = () => {
 
       {/* Step 1: File Upload */}
       {state.step === 'upload' && (
-        <div className="migration-step">
-          <h2>Step 1: Upload Old Format CSV</h2>
-          <p className="step-description">Choose a CSV file from your device to convert to the new format.</p>
-          <div className="upload-area">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileUpload}
-              className="file-input"
-              id="csv-upload"
-              style={{ display: 'none' }}
-            />
-            <Button 
-              variant="wide" 
-              width="hug"
-              onClick={() => document.getElementById('csv-upload')?.click()}
-            >
-              {state.file ? state.file.name : 'Choose CSV file'}
-            </Button>
-            {state.file && (
-              <div className="file-info">
-                <p>File selected: {state.file.name}</p>
-                <p>Size: {(state.file.size / 1024).toFixed(1)} KB</p>
+        <div className="migration-step upload-step">
+          <header className="mapping-step-header">
+            <span className="mapping-step-eyebrow">Step 1 of 6</span>
+            <h2 className="mapping-step-title">Upload your CSV</h2>
+            <p className="mapping-step-lead">
+              Choose an <strong>old-format</strong> station list as a <strong>.csv</strong> file. You’ll map columns next,
+              then we’ll match rows against the live station database.
+            </p>
+            <div className="mapping-step-meta-row upload-step-meta-row">
+              <div className="mapping-step-meta">
+                <span className="mapping-step-meta-item">.csv only</span>
+                <span className="mapping-step-meta-dot" aria-hidden />
+                <span className="mapping-step-meta-item">UTF-8 text</span>
+                {state.file ? (
+                  <>
+                    <span className="mapping-step-meta-dot" aria-hidden />
+                    <span className="mapping-step-meta-item">File ready</span>
+                  </>
+                ) : null}
               </div>
-            )}
+            </div>
+          </header>
+
+          <div className="upload-panel">
+            <div
+              className={`upload-area${uploadDragActive ? ' upload-area--drag-active' : ''}`}
+              onDragEnterCapture={handleUploadDragEnterCapture}
+              onDragLeaveCapture={handleUploadDragLeaveCapture}
+              onDragOver={handleUploadDragOver}
+              onDrop={handleUploadDrop}
+            >
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="file-input"
+                id="csv-upload"
+              />
+              <p className="upload-area-hint">
+                Drag a <strong>.csv</strong> here, or use the button to choose a file.
+              </p>
+              <Button
+                type="button"
+                variant="wide"
+                width="hug"
+                onClick={() => document.getElementById('csv-upload')?.click()}
+              >
+                {state.file ? 'Change file' : 'Choose CSV file'}
+              </Button>
+              {state.file ? (
+                <div className="upload-file-summary">
+                  <span className="upload-file-name">{state.file.name}</span>
+                  <span className="upload-file-size">{(state.file.size / 1024).toFixed(1)} KB</span>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
@@ -627,160 +1120,133 @@ const MigrationPage: React.FC = () => {
       {/* Step 2: Column mapping */}
       {state.step === 'mapping' && state.columnMapping && (
         <div className="migration-step mapping-step">
-          <h2>Step 2: Map your columns</h2>
-          <p className="mapping-intro">
-            Match each required field to a column from your CSV. First 5 rows are shown below.
-          </p>
-          <div className="mapping-grid">
-            <div className="mapping-fields">
-              <label className="mapping-field">
-                <span className="mapping-label">Station Name</span>
-                <select
-                  value={state.columnMapping.stationName}
-                  onChange={(e) => setColumnMappingField('stationName', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Country</span>
-                <select
-                  value={state.columnMapping.country}
-                  onChange={(e) => setColumnMappingField('country', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">County</span>
-                <select
-                  value={state.columnMapping.county}
-                  onChange={(e) => setColumnMappingField('county', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Operator / TOC</span>
-                <select
-                  value={state.columnMapping.operator}
-                  onChange={(e) => setColumnMappingField('operator', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Visited</span>
-                <select
-                  value={state.columnMapping.visited}
-                  onChange={(e) => setColumnMappingField('visited', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Visit Date</span>
-                <select
-                  value={state.columnMapping.visitDate}
-                  onChange={(e) => setColumnMappingField('visitDate', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Favorite</span>
-                <select
-                  value={state.columnMapping.favorite}
-                  onChange={(e) => setColumnMappingField('favorite', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Latitude</span>
-                <select
-                  value={state.columnMapping.latitude}
-                  onChange={(e) => setColumnMappingField('latitude', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Longitude</span>
-                <select
-                  value={state.columnMapping.longitude}
-                  onChange={(e) => setColumnMappingField('longitude', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mapping-field">
-                <span className="mapping-label">Location (JSON, optional)</span>
-                <select
-                  value={state.columnMapping.location ?? ''}
-                  onChange={(e) => setColumnMappingField('location', e.target.value)}
-                >
-                  <option value="">(Don't map)</option>
-                  {state.rawHeaders.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="mapping-preview">
-              <p className="preview-title">Preview (first 5 rows)</p>
-              <div className="preview-table-wrap">
-                <table className="preview-table">
-                  <thead>
-                    <tr>
-                      {state.rawHeaders.map((h) => (
-                        <th key={h} title={h}>{h.length > 12 ? h.slice(0, 11) + '…' : h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.rawPreviewRows.map((row, ri) => (
-                      <tr key={ri}>
-                        {row.map((cell, ci) => (
-                          <td key={ci} title={cell}>{String(cell).length > 15 ? String(cell).slice(0, 14) + '…' : cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <header className="mapping-step-header">
+            <span className="mapping-step-eyebrow">Step 2 of 6</span>
+            <h2 className="mapping-step-title">Map your CSV columns</h2>
+            <p className="mapping-step-lead">
+              Link each output field to a column from your file. <strong>Station name</strong> is required; everything
+              else is optional. Use the preview to confirm headers and sample values.
+            </p>
+            <div className="mapping-step-meta-row">
+              <div className="mapping-step-meta" aria-live="polite">
+                <span className="mapping-step-meta-item">
+                  {state.rawHeaders.length} column{state.rawHeaders.length === 1 ? '' : 's'} in file
+                </span>
+                <span className="mapping-step-meta-dot" aria-hidden />
+                <span className="mapping-step-meta-item">
+                  {(() => {
+                    const mapped = Object.values(state.columnMapping).filter((v) => (v ?? '').trim() !== '').length
+                    const total = Object.keys(state.columnMapping).length
+                    return `${mapped} of ${total} fields mapped`
+                  })()}
+                </span>
+              </div>
+              <div className="mapping-step-header-actions">
+                <Button type="button" variant="wide" width="hug" onClick={handleReset}>
+                  Restart
+                </Button>
+                <Button type="button" onClick={handleConfirmMapping} variant="wide" width="hug">
+                  Continue to matching
+                </Button>
               </div>
             </div>
+          </header>
+
+          <div className="mapping-layout">
+            <div className="mapping-panel" aria-label="Column mapping">
+              {COLUMN_MAPPING_SECTIONS.map((section) => (
+                <section key={section.title} className="mapping-section">
+                  <div className="mapping-section-head">
+                    <h3 className="mapping-section-title">{section.title}</h3>
+                    <p className="mapping-section-desc">{section.description}</p>
+                  </div>
+                  <ul className="mapping-field-list">
+                    {section.fields.map(({ key, label, hint, required }) => {
+                      const selectId = `mapping-select-${key}`
+                      const value =
+                        key === 'location' ? (state.columnMapping!.location ?? '') : state.columnMapping![key]
+                      return (
+                        <li key={key} className="mapping-field-item">
+                          <div className="mapping-field-label-block">
+                            <label className="mapping-field-label" htmlFor={selectId}>
+                              {label}
+                            </label>
+                            <div className="mapping-field-tags">
+                              {required ? (
+                                <span className="mapping-tag mapping-tag--required">Required</span>
+                              ) : (
+                                <span className="mapping-tag mapping-tag--optional">Optional</span>
+                              )}
+                            </div>
+                            {hint ? <p className="mapping-field-hint">{hint}</p> : null}
+                          </div>
+                          <select
+                            id={selectId}
+                            className="mapping-select"
+                            value={value}
+                            onChange={(e) => setColumnMappingField(key, e.target.value)}
+                          >
+                            <option value="">— Skip this field —</option>
+                            {state.rawHeaders.map((h) => (
+                              <option key={h} value={h}>
+                                {h}
+                              </option>
+                            ))}
+                          </select>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <aside className="mapping-preview-panel" aria-label="CSV preview">
+              <div className="mapping-preview-card">
+                <div className="mapping-preview-header">
+                  <div>
+                    <h3 className="mapping-preview-heading">Raw data preview</h3>
+                    <p className="mapping-preview-sub">First 5 rows from your upload — scroll horizontally if needed.</p>
+                  </div>
+                  <div className="mapping-preview-badges">
+                    <span className="mapping-preview-badge">{state.rawPreviewRows.length} rows</span>
+                    <span className="mapping-preview-badge">{state.rawHeaders.length} cols</span>
+                  </div>
+                </div>
+                <div className="mapping-preview-table-wrap">
+                  <table className="mapping-preview-table">
+                    <thead>
+                      <tr>
+                        {state.rawHeaders.map((h) => (
+                          <th key={h} title={h}>
+                            {h.length > 14 ? `${h.slice(0, 13)}…` : h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {state.rawPreviewRows.map((row, ri) => (
+                        <tr key={ri}>
+                          {row.map((cell, ci) => (
+                            <td key={ci} title={String(cell)}>
+                              {String(cell).length > 18 ? `${String(cell).slice(0, 17)}…` : cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </aside>
           </div>
-          <div className="mapping-actions">
-            <Button onClick={handleConfirmMapping} variant="wide" width="hug">
-              Continue
+
+          <div className="mapping-actions mapping-actions--bottom">
+            <Button type="button" variant="wide" width="hug" onClick={handleReset}>
+              Restart
+            </Button>
+            <Button type="button" onClick={handleConfirmMapping} variant="wide" width="hug">
+              Continue to matching
             </Button>
           </div>
         </div>
@@ -788,60 +1254,35 @@ const MigrationPage: React.FC = () => {
 
       {/* Step 3: Review Results */}
       {state.step === 'review' && state.result && (
-        <div className="migration-step">
-          <h2>Step 3: Review Results</h2>
-          <p className="step-description">Check unmatched and fuzzy matches, then fix any issues with Correct before continuing.</p>
-          <div className="migration-stats">
-            <div className="stat-card">
-              <h3>Total Stations</h3>
-              <span className="stat-number">{state.result.stats.total}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Matched</h3>
-              <span className="stat-number">{state.result.stats.matched}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Unmatched</h3>
-              <span className="stat-number">{state.result.stats.unmatched}</span>
-            </div>
-            <div className="stat-card visited">
-              <h3>Visited</h3>
-              <span className="stat-number">{state.result.stats.visited}</span>
-            </div>
-            <div className="stat-card favorites">
-              <h3>Favorites</h3>
-              <span className="stat-number">{state.result.stats.favorites}</span>
-            </div>
-            {state.result.stats.rejected > 0 && (
-              <div className="stat-card rejected">
-                <h3>Rejected</h3>
-                <span className="stat-number">{state.result.stats.rejected}</span>
-              </div>
-            )}
-            {state.result.stats.duplicateIds > 0 && (
-              <div className="stat-card duplicates">
-                <h3>Duplicate IDs</h3>
-                <span className="stat-number">{state.result.stats.duplicateIds}</span>
-              </div>
-            )}
-          </div>
+        <div className="migration-step review-step">
+          <header className="mapping-step-header review-step-header">
+            <span className="mapping-step-eyebrow">Step 3 of 6</span>
+            <h2 className="mapping-step-title">Review your matches</h2>
+            <p className="mapping-step-lead">
+              Scan <strong>fuzzy</strong> and <strong>unmatched</strong> rows below. Use <strong>Correct</strong> to pick the right
+              database station, then continue to check rows where the same station might appear twice on the right when you’re ready.
+            </p>
+          </header>
 
-          <div className="match-breakdown">
-            <h3>Match Types</h3>
-            <ul>
-              <li>Exact matches: {state.result.stats.exactMatches}</li>
-              <li>Fuzzy matches: {state.result.stats.fuzzyMatches}</li>
-              <li>No matches: {state.result.stats.unmatched}</li>
-              {state.result.stats.duplicateIds > 0 && (
-                <li>Duplicate IDs: {state.result.stats.duplicateIds}</li>
-              )}
-            </ul>
-          </div>
+          <MigrationReviewSummarySection
+            stats={state.result.stats}
+            headingId="review-summary-heading"
+            overviewLegendId="review-stats-overview-label"
+            matchLegendId="review-stats-match-label"
+            fileLegendId="review-stats-file-label"
+            attentionLegendId="review-stats-attention-label"
+            description="All counts in one place — including how rows matched (exact vs fuzzy) and what still needs attention."
+          />
 
-          {/* Fuzzy Match Confidence Rankings */}
-          {state.result.stats.fuzzyMatches > 0 && (
-            <div className="fuzzy-match-ranks">
-              <h3>Fuzzy Match Confidence Rankings</h3>
+          {/* Fuzzy Match Confidence Rankings (only when there are medium/low buckets to show) */}
+          {reviewFuzzyConfidence.showFuzzyConfidenceSection && (
+            <div className="review-subsection fuzzy-match-ranks">
+              <div className="review-subsection-head">
+                <h3 className="review-subsection-title">Fuzzy match confidence</h3>
+                <p className="review-subsection-desc">
+                  Medium and low-confidence matches are listed so you can confirm or re-assign them.
+                </p>
+              </div>
               <p className="rank-legend">
                 <span className="rank-legend-from">From your file</span>
                 <span className="rank-legend-arrow">→</span>
@@ -850,9 +1291,7 @@ const MigrationPage: React.FC = () => {
               <div className="confidence-ranks">
                 {/* Amber - Medium Confidence (60-79%) */}
                 {(() => {
-                  const amberMatches = state.result.matches.filter(m => 
-                    m.matchType === 'fuzzy' && m.confidence >= 0.6 && m.confidence < 0.8
-                  )
+                  const amberMatches = reviewFuzzyConfidence.amberMatches
                   return amberMatches.length > 0 && (
                     <div className="confidence-rank amber">
                       <div className="rank-header">
@@ -887,7 +1326,9 @@ const MigrationPage: React.FC = () => {
                                 {fb ? (
                                   <>
                                     <div className="match-name-row">
-                                      {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                      {(fb.crsCode || fb.CrsCode) && (
+                                        <span className="station-chip station-chip-primary">{fb.crsCode || fb.CrsCode}</span>
+                                      )}
                                       <span className="match-name">{fb.stationName || fb.stationname}</span>
                                     </div>
                                     <div className="match-location">
@@ -931,9 +1372,7 @@ const MigrationPage: React.FC = () => {
 
                 {/* Red - Low Confidence (30-59%) */}
                 {(() => {
-                  const redMatches = state.result.matches.filter(m => 
-                    m.matchType === 'fuzzy' && m.confidence >= 0.3 && m.confidence < 0.6
-                  )
+                  const redMatches = reviewFuzzyConfidence.redMatches
                   return redMatches.length > 0 && (
                     <div className="confidence-rank red">
                       <div className="rank-header">
@@ -968,7 +1407,9 @@ const MigrationPage: React.FC = () => {
                                 {fb ? (
                                   <>
                                     <div className="match-name-row">
-                                      {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                      {(fb.crsCode || fb.CrsCode) && (
+                                        <span className="station-chip station-chip-primary">{fb.crsCode || fb.CrsCode}</span>
+                                      )}
                                       <span className="match-name">{fb.stationName || fb.stationname}</span>
                                     </div>
                                     <div className="match-location">
@@ -1020,17 +1461,23 @@ const MigrationPage: React.FC = () => {
               .filter(({ match }) => match.matchType === 'none' || match.correctedFromNoMatch === true)
             if (noMatchEntries.length === 0) return null
             return (
-              <div className="no-matches-section rejected-stations-section">
-                <div>
-                  <h3>⚠️ No automatic match ({noMatchEntries.length})</h3>
-                  <p className="section-description">
-                    These stations had no automatic match. Use <strong>Correct</strong> to search and pick a station (or change your choice). Matched rows stay here so you can fix any errors.
+              <div className="review-subsection no-matches-section rejected-stations-section">
+                <div className="review-subsection-head">
+                  <h3 className="review-subsection-title review-subsection-title--warn">
+                    No automatic match{' '}
+                    <span className="review-count-badge">{noMatchEntries.length}</span>
+                  </h3>
+                  <p className="review-subsection-desc">
+                    These stations had no automatic match. Use <strong>Correct</strong> to search and pick a station (or change
+                    your choice). Rows you already fixed stay here so you can change them again if needed.
                   </p>
-                  <p className="rank-legend">
-                    <span className="rank-legend-from">From your file</span>
-                    <span className="rank-legend-arrow">→</span>
-                    <span className="rank-legend-to">Matched in database</span>
-                  </p>
+                  {!reviewFuzzyConfidence.showFuzzyConfidenceSection ? (
+                    <p className="rank-legend">
+                      <span className="rank-legend-from">From your file</span>
+                      <span className="rank-legend-arrow">→</span>
+                      <span className="rank-legend-to">Matched in database</span>
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rank-matches no-match-cards">
                   {noMatchEntries.map(({ match, index }) => {
@@ -1058,7 +1505,9 @@ const MigrationPage: React.FC = () => {
                           {fb ? (
                             <>
                               <div className="match-name-row">
-                                {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                {(fb.crsCode || fb.CrsCode) && (
+                                  <span className="station-chip station-chip-primary">{fb.crsCode || fb.CrsCode}</span>
+                                )}
                                 <span className="match-name">{fb.stationName || fb.stationname}</span>
                               </div>
                               <div className="match-location">
@@ -1099,11 +1548,14 @@ const MigrationPage: React.FC = () => {
 
           {/* Rejected Stations Section */}
           {state.result.rejected && state.result.rejected.length > 0 && (
-            <div className="rejected-stations-section">
-              <div>
-                <h3>❌ Rejected Stations ({state.result.rejected.length})</h3>
-                <p className="section-description">
-                  These stations were rejected because they are not located in England, Scotland, or Wales.
+            <div className="review-subsection rejected-stations-section">
+              <div className="review-subsection-head">
+                <h3 className="review-subsection-title review-subsection-title--danger">
+                  Rejected stations{' '}
+                  <span className="review-count-badge">{state.result.rejected.length}</span>
+                </h3>
+                <p className="review-subsection-desc">
+                  These rows are outside England, Scotland, or Wales and are not included in the migration output.
                 </p>
               </div>
               
@@ -1148,78 +1600,59 @@ const MigrationPage: React.FC = () => {
             </div>
           )}
 
-          <div className="action-buttons">
-            <Button onClick={handleContinueToDuplicates} variant="wide" width="hug" className="action-button">
-              Next: Check duplicates
+          <div className="mapping-actions mapping-actions--bottom review-step-footer-actions">
+            <Button type="button" onClick={handleReset} variant="wide" width="hug">
+              Restart
             </Button>
-            <Button onClick={handleReset} variant="wide" width="hug" className="action-button">
-              Start Over
+            <Button type="button" onClick={handleContinueToDuplicates} variant="wide" width="hug">
+              Next: Same station twice?
             </Button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Duplicates */}
+      {/* Step 4: Duplicates — layout aligned with Step 3 (review) */}
       {state.step === 'duplicates' && state.result && (
-        <div className="migration-step">
-          <h2>Step 4: Check duplicate IDs</h2>
-          <p className="step-description">
-            Fix any rows that share the same output ID (e.g. same station name in different places). Use <strong>Correct</strong> to assign the right station, then continue to summary.
-          </p>
-          <div className="migration-stats">
-            <div className="stat-card">
-              <h3>Total Stations</h3>
-              <span className="stat-number">{state.result.stats.total}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Matched</h3>
-              <span className="stat-number">{state.result.stats.matched}</span>
-            </div>
-            <div className="stat-card">
-              <h3>Unmatched</h3>
-              <span className="stat-number">{state.result.stats.unmatched}</span>
-            </div>
-            <div className="stat-card visited">
-              <h3>Visited</h3>
-              <span className="stat-number">{state.result.stats.visited}</span>
-            </div>
-            <div className="stat-card favorites">
-              <h3>Favorites</h3>
-              <span className="stat-number">{state.result.stats.favorites}</span>
-            </div>
-            {state.result.stats.rejected > 0 && (
-              <div className="stat-card rejected">
-                <h3>Rejected</h3>
-                <span className="stat-number">{state.result.stats.rejected}</span>
-              </div>
-            )}
-            {state.result.stats.duplicateIds > 0 && (
-              <div className="stat-card duplicates">
-                <h3>Duplicate IDs</h3>
-                <span className="stat-number">{state.result.stats.duplicateIds}</span>
-              </div>
-            )}
-          </div>
-          <div className="match-breakdown">
-            <h3>Match Types</h3>
-            <ul>
-              <li>Exact matches: {state.result.stats.exactMatches}</li>
-              <li>Fuzzy matches: {state.result.stats.fuzzyMatches}</li>
-              <li>No matches: {state.result.stats.unmatched}</li>
-              {state.result.stats.duplicateIds > 0 && (
-                <li>Duplicate IDs: {state.result.stats.duplicateIds}</li>
-              )}
-            </ul>
-          </div>
+        <div className="migration-step review-step duplicates-step">
+          <header className="mapping-step-header review-step-header">
+            <span className="mapping-step-eyebrow">Step 4 of 6</span>
+            <h2 className="mapping-step-title">When the same station shows twice</h2>
+            <p className="mapping-step-lead">
+              Compare the <strong>Matched in database</strong> column on the right — if the same station appears for more than one row,
+              one of them is probably wrong. Use <strong>Correct</strong> to pick the right station for each line, then continue to the
+              summary when you’re ready.
+            </p>
+          </header>
+
+          <MigrationReviewSummarySection
+            stats={state.result.stats}
+            headingId="duplicates-summary-heading"
+            overviewLegendId="duplicates-stats-overview-label"
+            matchLegendId="duplicates-stats-match-label"
+            fileLegendId="duplicates-stats-file-label"
+            attentionLegendId="duplicates-stats-attention-label"
+            description={
+              <>
+                Same overview as review — counts stay in sync after corrections. Groups where the same matched station appears more
+                than once are listed below when present.
+              </>
+            }
+          />
+
           {(() => {
             const duplicateGroupsToShow = (state.step === 'duplicates' && state.duplicateGroupsSnapshot && state.duplicateGroupsSnapshot.length > 0)
               ? state.duplicateGroupsSnapshot
               : (state.result?.duplicateGroups ?? [])
             const hasDuplicateSections = duplicateGroupsToShow.length > 0 && state.result?.outputIds
             return hasDuplicateSections ? (
-            <section className="duplicates-step-section" aria-labelledby="duplicate-ids-heading">
-              <h3 id="duplicate-ids-heading" className="duplicates-step-section-title">Duplicate IDs</h3>
-              <p className="duplicates-step-section-desc">Rows that share the same output ID. Use <strong>Correct</strong> to assign the right station for each row.</p>
+            <section className="review-subsection duplicates-step-section" aria-labelledby="duplicate-ids-heading">
+              <div className="review-subsection-head">
+                <h3 id="duplicate-ids-heading" className="review-subsection-title">Same station on the right</h3>
+                <p className="review-subsection-desc">
+                  These rows share the same matched station on the right. Use <strong>Correct</strong> so each line points at the right
+                  place.
+                </p>
+              </div>
               <p className="rank-legend">
                 <span className="rank-legend-from">From your file</span>
                 <span className="rank-legend-arrow">→</span>
@@ -1240,11 +1673,10 @@ const MigrationPage: React.FC = () => {
                   const indicesInRange = outputIds
                     .map((id, k) => (idRangeSet.has(id) ? k : -1))
                     .filter((k) => k >= 0)
-                  const rangeLabel = expectedIds.length ? `${expectedIds[0]}–${expectedIds[expectedIds.length - 1]}` : group.id
-                  return { group, indicesInRange, rangeLabel, expectedIds, idRangeSet }
+                  return { indicesInRange }
                 })
                 const firstOpenIndex = groupsWithRanges.findIndex((g) => g.indicesInRange.length > 0)
-                return groupsWithRanges.map(({ group, indicesInRange, rangeLabel, expectedIds }, gIdx) => {
+                return groupsWithRanges.map(({ indicesInRange }, gIdx) => {
                   const isResolved = indicesInRange.length === 0
                   const isOpen = !isResolved && gIdx === firstOpenIndex
                   return (
@@ -1254,15 +1686,46 @@ const MigrationPage: React.FC = () => {
                     open={isOpen}
                   >
                     <summary className="duplicate-group-summary">
-                      {isResolved && (
-                        <span className="duplicate-group-resolved-check" aria-hidden="true">✓</span>
-                      )}
-                      <span className="duplicate-group-title">Duplicate ID: {group.id} ({indicesInRange.length} rows)</span>
-                      <span className="duplicate-range-label"> — IDs {rangeLabel}</span>
+                      <div className="duplicate-group-summary-main">
+                        {isResolved && (
+                          <span className="duplicate-group-resolved-check" aria-hidden="true">✓</span>
+                        )}
+                        <span className="duplicate-group-title">
+                          {indicesInRange.length} row{indicesInRange.length === 1 ? '' : 's'} · same station on the right
+                        </span>
+                      </div>
+                      <span className="duplicate-group-chevron" aria-hidden="true">
+                        <svg
+                          className="duplicate-group-chevron-icon"
+                          viewBox="0 0 24 24"
+                          width="20"
+                          height="20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M6 9l6 6 6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
                     </summary>
+                    {indicesInRange.length > 0 && (
+                      <div className="duplicate-expected" role="note">
+                        <p className="duplicate-expected-note">
+                          Look at <strong>Matched in database</strong> on the right: the same station is listed more than once, so one
+                          row is likely wrong. Use <strong>Correct</strong> on the lines that don’t belong until each row shows the
+                          right station.
+                        </p>
+                      </div>
+                    )}
                     <div className="rank-matches no-match-cards">
                       {indicesInRange.length === 0 ? (
-                        <p className="duplicate-group-all-resolved">All rows in this group have been assigned new IDs.</p>
+                        <p className="duplicate-group-all-resolved">All set — each row now has its own matched station on the right.</p>
                       ) : indicesInRange.map((matchIndex) => {
                         const match = state.result!.matches[matchIndex]
                         const fb = match.firebaseStation
@@ -1289,7 +1752,9 @@ const MigrationPage: React.FC = () => {
                               {fb ? (
                                 <>
                                   <div className="match-name-row">
-                                    {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                                    {(fb.crsCode || fb.CrsCode) && (
+                                      <span className="station-chip station-chip-primary">{fb.crsCode || fb.CrsCode}</span>
+                                    )}
                                     <span className="match-name">{fb.stationName || fb.stationname}</span>
                                   </div>
                                   <div className="match-location">
@@ -1324,28 +1789,30 @@ const MigrationPage: React.FC = () => {
                         )
                       })}
                     </div>
-                    {indicesInRange.length > 0 && (
-                    <div className="duplicate-expected">
-                      <p className="duplicate-expected-label">Expected IDs in this range:</p>
-                      <p className="duplicate-expected-ids">{expectedIds.join(', ')}</p>
-                      <p className="duplicate-expected-note">
-                        {group.matchIndices.length} rows currently have {group.id}; all but one should have different IDs. Use <strong>Correct</strong> on the wrong rows above to assign the right station.
-                      </p>
-                    </div>
-                    )}
                   </details>
                   )
                 })
               })()}
             </section>
           ) : (
-            <p className="no-duplicates-message">No duplicate IDs. All output IDs are unique.</p>
+            <div className="review-subsection duplicates-step-empty" role="status">
+              <p className="duplicates-step-empty-message">
+                Nothing to fix here — each row has a different matched station on the right.
+              </p>
+            </div>
           )
           })()}
           {state.result.mismatchedMatchIndices && state.result.mismatchedMatchIndices.length > 0 && (
-            <section className="mismatched-step-section" aria-labelledby="mismatched-heading">
-              <h3 id="mismatched-heading" className="mismatched-step-section-title">Possible mis-matches</h3>
-              <p className="mismatched-step-section-desc">These rows may be matched to the wrong station (e.g. low-confidence fuzzy or qualifier mismatch). Use <strong>Correct</strong> to fix.</p>
+            <section className="review-subsection mismatched-step-section" aria-labelledby="mismatched-heading">
+              <div className="review-subsection-head">
+                <h3 id="mismatched-heading" className="review-subsection-title review-subsection-title--warn">
+                  Possible mis-matches
+                </h3>
+                <p className="review-subsection-desc">
+                  These rows may be matched to the wrong station (e.g. low-confidence fuzzy or qualifier mismatch). Use{' '}
+                  <strong>Correct</strong> to fix.
+                </p>
+              </div>
               <p className="rank-legend">
                 <span className="rank-legend-from">From your file</span>
                 <span className="rank-legend-arrow">→</span>
@@ -1382,7 +1849,9 @@ const MigrationPage: React.FC = () => {
                         {fb ? (
                           <>
                             <div className="match-name-row">
-                              {(fb.crsCode || fb.CrsCode) && <span className="match-crs">{fb.crsCode || fb.CrsCode}</span>}
+                              {(fb.crsCode || fb.CrsCode) && (
+                                <span className="station-chip station-chip-primary">{fb.crsCode || fb.CrsCode}</span>
+                              )}
                               <span className="match-name">{fb.stationName || fb.stationname}</span>
                             </div>
                             <div className="match-location">
@@ -1419,22 +1888,114 @@ const MigrationPage: React.FC = () => {
               </div>
             </section>
           )}
-          <div className="action-buttons">
-            <Button onClick={handleBackToReview} variant="wide" width="hug" className="action-button">
+          <div className="mapping-actions mapping-actions--bottom review-step-footer-actions">
+            <Button type="button" onClick={handleBackToReview} variant="wide" width="hug">
               Back to review
             </Button>
-            <Button onClick={handleContinueToSummary} variant="wide" width="hug" className="action-button">
-              Continue to summary
+            <Button type="button" onClick={handleContinueToSummary} variant="wide" width="hug">
+              Next: Review changes
             </Button>
           </div>
         </div>
       )}
 
-      {/* Step 5: Complete */}
+      {/* Step 5: Review changes (all Correct actions from review + duplicates) */}
+      {state.step === 'reviewChanges' && state.result && (() => {
+        const reviewCorrections = state.correctionLog.filter((c) => c.phase === 'review')
+        const duplicateCorrections = state.correctionLog.filter((c) => c.phase === 'duplicates')
+        const renderCorrectionRow = (entry: MigrationCorrectionLogEntry, sequence: number) => (
+          <li key={entry.id} className="correction-log-item">
+            <div className="correction-log-item-meta">
+              <span className="correction-log-order">{sequence}</span>
+              <span className="correction-log-row-label">
+                Row {entry.matchIndex + 1}
+                <span className="correction-log-csv-name">{entry.csvStationName}</span>
+              </span>
+            </div>
+            <div className="correction-log-change">
+              <div className="correction-log-line correction-log-line--from">
+                <span className="correction-log-line-label">Was</span>
+                <span className="correction-log-line-value">{entry.previousStationLabel}</span>
+                <span className="correction-log-match-type">({entry.previousMatchType})</span>
+              </div>
+              <div className="correction-log-line correction-log-line--to">
+                <span className="correction-log-line-label">Now</span>
+                <span className="correction-log-line-value">{entry.newStationLabel}</span>
+              </div>
+            </div>
+          </li>
+        )
+        return (
+          <div className="migration-step review-step review-changes-step">
+            <header className="mapping-step-header review-step-header">
+              <span className="mapping-step-eyebrow">Step 5 of 6</span>
+              <h2 className="mapping-step-title">Review your changes</h2>
+              <p className="mapping-step-lead">
+                Every time you used <strong>Correct</strong> during <strong>review</strong> or while fixing rows where the same
+                station appeared twice on the right is listed below. When you’re happy, continue to the summary and download.
+              </p>
+            </header>
+
+            {state.correctionLog.length === 0 ? (
+              <section className="review-subsection correction-log-empty" aria-live="polite">
+                <p className="review-subsection-desc correction-log-empty-text">
+                  No manual corrections were recorded — you didn’t use <strong>Correct</strong> to change a matched station after
+                  automatic matching. You can still continue to the summary and download your CSV.
+                </p>
+              </section>
+            ) : (
+              <>
+                {reviewCorrections.length > 0 && (
+                  <section className="review-subsection correction-log-section" aria-labelledby="correction-log-review-heading">
+                    <div className="review-subsection-head">
+                      <h3 id="correction-log-review-heading" className="review-subsection-title">
+                        Review matches <span className="correction-log-count">({reviewCorrections.length})</span>
+                      </h3>
+                      <p className="review-subsection-desc">Corrections made while reviewing fuzzy, unmatched, or similar rows.</p>
+                    </div>
+                    <ol className="correction-log-list">
+                      {reviewCorrections.map((e, i) => renderCorrectionRow(e, i + 1))}
+                    </ol>
+                  </section>
+                )}
+                {duplicateCorrections.length > 0 && (
+                  <section className="review-subsection correction-log-section" aria-labelledby="correction-log-dup-heading">
+                    <div className="review-subsection-head">
+                      <h3 id="correction-log-dup-heading" className="review-subsection-title">
+                        Same station twice <span className="correction-log-count">({duplicateCorrections.length})</span>
+                      </h3>
+                      <p className="review-subsection-desc">
+                        Corrections made while fixing rows that showed the same matched station on the right more than once.
+                      </p>
+                    </div>
+                    <ol className="correction-log-list">
+                      {duplicateCorrections.map((e, i) =>
+                        renderCorrectionRow(e, reviewCorrections.length + i + 1)
+                      )}
+                    </ol>
+                  </section>
+                )}
+              </>
+            )}
+
+            <div className="mapping-actions mapping-actions--bottom review-step-footer-actions">
+              <Button type="button" onClick={handleBackFromReviewChanges} variant="wide" width="hug">
+                Back to same-station check
+              </Button>
+              <Button type="button" onClick={handleContinueToComplete} variant="wide" width="hug">
+                Continue to summary
+              </Button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Step 6: Complete / summary */}
       {state.step === 'complete' && state.result && (
         <div className="migration-complete-container">
           {/* Success Header */}
           <div className="success-header">
+            <span className="mapping-step-eyebrow migration-complete-eyebrow">Step 6 of 6</span>
             <div className="success-icon">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -1442,7 +2003,9 @@ const MigrationPage: React.FC = () => {
               </svg>
             </div>
             <h1>Summary</h1>
-            <p className="success-subtitle">Matches made, duplicates, and output preview. Download your converted CSV below.</p>
+            <p className="success-subtitle">
+              Matches made, any same-station fixes, and output preview. Download your converted CSV below.
+            </p>
           </div>
 
           {/* Migration Summary Cards */}
@@ -1470,9 +2033,9 @@ const MigrationPage: React.FC = () => {
             </div>
             <div className="summary-card">
               <div className="card-content">
-                <h3>Duplicate IDs</h3>
+                <h3>Same station twice</h3>
                 <div className="card-number">{state.result.stats.duplicateIds}</div>
-                <p>IDs on multiple rows</p>
+                <p>Groups to check on the matched column</p>
               </div>
             </div>
             <div className="summary-card">
@@ -1756,48 +2319,87 @@ const MigrationPage: React.FC = () => {
         </div>
       )}
 
-      {/* Progress Modal */}
+      {/* Progress Modal — matching CSV rows to the live database */}
       {state.showProgressModal && (
-        <div className="progress-modal-overlay">
+        <div className="progress-modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="matching-modal-title" aria-busy="true">
           <div className="progress-modal">
             <div className="progress-modal-content">
-              <div className="progress-header">
-                <h3>Matching Stations</h3>
-                <p>Please wait while we match your stations with the database...</p>
+              <div className="progress-modal-top">
+                <span className="progress-modal-eyebrow">Step 2 → 3</span>
+                <h3 id="matching-modal-title" className="progress-modal-title">
+                  Matching your stations
+                </h3>
+                <p className="progress-modal-lead">{state.matchingStatusLine || 'Working…'}</p>
               </div>
-              
-              <div className="progress-circle-container">
-                <div className="progress-circle">
-                  <svg className="progress-ring" width="120" height="120">
-                    <circle
-                      className="progress-ring-circle"
-                      stroke="var(--accent-color)"
-                      strokeWidth="8"
-                      fill="transparent"
-                      r="52"
-                      cx="60"
-                      cy="60"
-                      style={{
-                        strokeDasharray: `${2 * Math.PI * 52}`,
-                        strokeDashoffset: `${2 * Math.PI * 52 * (1 - state.matchingProgress / 100)}`
-                      }}
-                    />
-                  </svg>
-                  <div className="progress-percentage">
-                    {state.matchingProgress}%
-                  </div>
+
+              <div className="progress-modal-steps" aria-hidden="true">
+                <div
+                  className={`progress-modal-step ${state.matchingPhase === 'loading-db' ? 'progress-modal-step--active' : ''} ${state.matchingPhase === 'matching' || state.matchingPhase === 'finalizing' ? 'progress-modal-step--done' : ''}`}
+                >
+                  <span className="progress-modal-step-dot" />
+                  <span>Load database</span>
+                </div>
+                <div className="progress-modal-step-line" />
+                <div className={`progress-modal-step ${state.matchingPhase === 'matching' ? 'progress-modal-step--active' : ''} ${state.matchingPhase === 'finalizing' ? 'progress-modal-step--done' : ''}`}>
+                  <span className="progress-modal-step-dot" />
+                  <span>Match rows</span>
+                </div>
+                <div className="progress-modal-step-line" />
+                <div className={`progress-modal-step ${state.matchingPhase === 'finalizing' ? 'progress-modal-step--active' : ''}`}>
+                  <span className="progress-modal-step-dot" />
+                  <span>Finalize</span>
                 </div>
               </div>
-              
-              <div className="progress-details">
-                <div className="current-station-info">
-                  <strong>Current Station:</strong>
-                  <span className="station-name">{state.currentStationName || 'Starting...'}</span>
+
+              <div className="progress-bar-block">
+                <div className="progress-bar-labels">
+                  <span className="progress-bar-pct">{Math.min(100, Math.max(0, state.matchingProgress))}%</span>
+                  {state.matchingTotal > 0 && state.matchingPhase === 'matching' ? (
+                    <span className="progress-bar-count">
+                      Row {state.matchingIndex} / {state.matchingTotal}
+                    </span>
+                  ) : (
+                    <span className="progress-bar-count progress-bar-count--muted">
+                      {state.matchingPhase === 'loading-db' ? 'Fetching data' : ''}
+                      {state.matchingPhase === 'finalizing' ? 'Finishing' : ''}
+                      {state.matchingPhase === 'matching' && state.matchingTotal === 0 ? 'Matching' : ''}
+                    </span>
+                  )}
                 </div>
-                <div className="progress-stats">
-                  <span>Processing station data and finding matches</span>
+                <div className="progress-bar-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.matchingProgress}>
+                  <div
+                    className="progress-bar-fill"
+                    style={{ width: `${Math.min(100, Math.max(0, state.matchingProgress))}%` }}
+                  />
                 </div>
               </div>
+
+              {state.matchingPhase === 'matching' ? (
+                <div className="progress-current-row">
+                  <span className="progress-current-label">Current row</span>
+                  <p
+                    className="progress-current-name"
+                    title={state.currentStationName || undefined}
+                  >
+                    {state.currentStationName || 'Processing…'}
+                  </p>
+                </div>
+              ) : (
+                <div className="progress-current-row progress-current-row--placeholder">
+                  <span className="progress-current-label">
+                    {state.matchingPhase === 'loading-db' ? 'Hang tight' : state.matchingPhase === 'finalizing' ? 'Almost there' : '\u00a0'}
+                  </span>
+                  <p className="progress-current-name progress-current-name--muted">
+                    {state.matchingPhase === 'loading-db'
+                      ? 'Loading the full station list from the cloud…'
+                      : state.matchingPhase === 'finalizing'
+                        ? 'Building your review screen…'
+                        : '\u00a0'}
+                  </p>
+                </div>
+              )}
+
+              <p className="progress-modal-footnote">You can leave this tab open — matching runs in your browser.</p>
             </div>
           </div>
         </div>

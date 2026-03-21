@@ -1,13 +1,75 @@
 rules_version = '2';
 
+/**
+ * Firestore security
+ * ------------------
+ * - All documents: **public read** (no sign-in required), including station collections and scheduled jobs.
+ * - Writes: station editors only for stations and job create/delete; no client updates on jobs; other paths no client writes.
+ *
+ * Who is a "station editor"?
+ * - Custom claim `rs_station_editor == true` (set via scripts/set-rs-station-editor-claim.mjs), OR
+ * - Sign-in email matches DEFAULT_OWNER_EMAIL below (keep in sync with
+ *   src/utils/masterPublishPolicy.ts DEFAULT_MASTER_PUBLISH_EMAIL when you change the default owner).
+ *
+ * VITE_MASTER_PUBLISH_EMAIL in the web app does NOT change these rules — deploy updated rules or use the claim.
+ *
+ * Writes to paths without an explicit allow are denied (see catch-all at end).
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // ✅ FIX: Extend the expiration date to a future time (e.g., Dec 31, 2026)
-      allow read: if request.time < timestamp.date(2026, 12, 31);
 
-      // Only signed-in users can write (site can push when users are logged in)
-      allow write: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Must match masterPublishPolicy DEFAULT_MASTER_PUBLISH_EMAIL unless you rely on custom claims only. */
+    function defaultOwnerEmail() {
+      return 'wingatejack2021@gmail.com';
+    }
+
+    function isStationEditor() {
+      return isSignedIn() && (
+        request.auth.token.rs_station_editor == true ||
+        request.auth.token.email == defaultOwnerEmail()
+      );
+    }
+
+    match /stations2603/{stationId} {
+      allow read: if true;
+      allow create, update, delete: if isStationEditor();
+    }
+
+    match /newsandboxstations1/{stationId} {
+      allow read: if true;
+      allow create, update, delete: if isStationEditor();
+    }
+
+    match /scheduledStationPublishJobs/{jobId} {
+      // Public read: anyone with a document ID can read job payload (pending changes). Restrict here if needed.
+      allow read: if true;
+
+      allow create: if isStationEditor()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.collectionId in ['stations2603', 'newsandboxstations1']
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.stationIds is list
+        && request.resource.data.stationIds.size() > 0
+        && request.resource.data.stationIds.size() <= 500
+        && request.resource.data.changes is map
+        && request.resource.data.changes.size() > 0
+        && request.resource.data.changes.size() <= 500;
+
+      // Cloud Function updates use Admin SDK (bypasses rules). Block direct client updates.
+      allow update: if false;
+
+      allow delete: if isStationEditor()
+        && resource.data.createdByUid == request.auth.uid;
+    }
+
+    // Every other collection/subcollection: public read; no client writes unless you add a match above.
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }

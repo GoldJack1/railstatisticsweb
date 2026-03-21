@@ -1,241 +1,80 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
-import { useAuth } from '../contexts/AuthContext'
-import NavigationButton from './NavigationButton'
 import Button from './Button'
 import './Header.css'
 
 const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme()
-  const { user, logout } = useAuth()
-  const location = useLocation()
-  const isDesignSystemRoute = location.pathname === '/design-system' || location.pathname.startsWith('/design-system/')
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobileDevice = window.innerWidth <= 768
-      setIsMobile(isMobileDevice)
-    }
-    
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false)
-  }
-
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen)
-  }
+  const { pathname } = useLocation()
+  /** Don’t stack “log-in → migration” in history, or browser Back from migration returns to login. */
+  const logoNavReplace = pathname === '/log-in'
 
   return (
     <header className="universal-header">
       <div className="header-container">
         <div className="header-left">
-          <Link to="/" className="logo-link" onClick={closeMobileMenu}>
+          <Link to="/" replace={logoNavReplace} className="logo-link">
             <div className="logo">
-              Rail Statistics
+              <img
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                alt=""
+                className="logo-mark"
+                width={24}
+                height={24}
+                decoding="async"
+                aria-hidden
+              />
+              <span className="logo-text">Rail Statistics</span>
             </div>
           </Link>
         </div>
-        
-        <div className="header-right">
-          <nav className="header-nav desktop-nav">
-            <NavigationButton 
-              to="/migration" 
-              variant="wide" 
-              width="hug"
-              isActive={location.pathname === '/' || location.pathname === '/migration'}
-            >
-              Migration
-            </NavigationButton>
-            <NavigationButton 
-              to="/stations" 
-              variant="wide" 
-              width="hug"
-              isActive={location.pathname === '/stations'}
-            >
-              Stations
-            </NavigationButton>
-            <NavigationButton 
-              to="/station-database-edit" 
-              variant="wide" 
-              width="hug"
-              isActive={location.pathname === '/station-database-edit'}
-            >
-              Edit DB
-            </NavigationButton>
-            {user && (
-              <NavigationButton
-                to="/design-system"
-                variant="wide"
-                width="hug"
-                isActive={isDesignSystemRoute}
-              >
-                Design System
-              </NavigationButton>
-            )}
-            {user ? (
-              <Button
-                type="button"
-                variant="wide"
-                width="hug"
-                className="header-auth-btn"
-                onClick={() => { closeMobileMenu(); logout() }}
-              >
-                Log out
-              </Button>
-            ) : (
-              <NavigationButton 
-                to="/log-in" 
-                variant="wide" 
-                width="hug"
-                isActive={location.pathname === '/log-in'}
-              >
-                Log in
-              </NavigationButton>
-            )}
-          </nav>
 
+        <div className="header-right">
           <Button
             variant="circle"
             onClick={toggleTheme}
             ariaLabel="Toggle theme"
             icon={
               theme === 'light' ? (
-                <svg 
-                  width="16" 
-                  height="16" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <circle cx="12" cy="12" r="5"/>
-                  <line x1="12" y1="1" x2="12" y2="3"/>
-                  <line x1="12" y1="21" x2="12" y2="23"/>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                  <line x1="1" y1="12" x2="3" y2="12"/>
-                  <line x1="21" y1="12" x2="23" y2="12"/>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg 
-                  width="16" 
-                  height="16" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )
             }
           />
-          
-          <Button
-            variant="circle"
-            onClick={toggleMobileMenu}
-            ariaLabel="Toggle navigation menu"
-            className="mobile-menu-button"
-            icon={
-              <svg 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                className={`hamburger-icon ${mobileMenuOpen ? 'active' : ''}`}
-              >
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            }
-          />
         </div>
       </div>
-      
-      {/* Mobile Navigation */}
-      {isMobile && (
-        <nav className={`mobile-nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-          <NavigationButton 
-            to="/" 
-            variant="wide" 
-            width="fill" 
-            onClick={closeMobileMenu}
-            isActive={location.pathname === '/' || location.pathname === '/migration'}
-          >
-            Migration
-          </NavigationButton>
-          <NavigationButton 
-            to="/stations" 
-            variant="wide" 
-            width="fill" 
-            onClick={closeMobileMenu}
-            isActive={location.pathname === '/stations'}
-          >
-            Stations
-          </NavigationButton>
-          <NavigationButton 
-            to="/station-database-edit" 
-            variant="wide" 
-            width="fill" 
-            onClick={closeMobileMenu}
-            isActive={location.pathname === '/station-database-edit'}
-          >
-            Edit DB
-          </NavigationButton>
-          {user && (
-            <NavigationButton
-              to="/design-system"
-              variant="wide"
-              width="fill"
-              onClick={closeMobileMenu}
-              isActive={isDesignSystemRoute}
-            >
-              Design System
-            </NavigationButton>
-          )}
-          {user ? (
-            <Button
-              type="button"
-              variant="wide"
-              width="fill"
-              className="header-auth-btn mobile-auth-btn"
-              onClick={() => { closeMobileMenu(); logout() }}
-            >
-              Log out
-            </Button>
-          ) : (
-            <NavigationButton 
-              to="/log-in" 
-              variant="wide" 
-              width="fill" 
-              onClick={closeMobileMenu}
-              isActive={location.pathname === '/log-in'}
-            >
-              Log in
-            </NavigationButton>
-          )}
-        </nav>
-      )}
     </header>
   )
 }

@@ -10,6 +10,7 @@
     display: flex;
     flex-direction: column;
     padding-top: 4rem; /* Account for fixed header height */
+    min-height: 0;
 }
 
 /* Responsive padding for mobile */

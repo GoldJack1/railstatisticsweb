@@ -388,15 +388,45 @@ const loadStationsForMatching = async (collectionName: StationCollectionId): Pro
   }
 }
 
+/** Progress updates while matching (yields to the UI between batches so % is visible). */
+export type MatchStationsProgressInfo = {
+  phase: 'loading-db' | 'matching'
+  /** Overall 0–100 for the modal */
+  percent: number
+  statusLine: string
+  currentStationName?: string
+  index?: number
+  total?: number
+}
+
+const yieldToUi = (): Promise<void> =>
+  new Promise((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+
 // Match old format stations with available stations from Firebase (pass collectionId so dropdown value is used)
 export const matchStations = async (
   oldStations: OldFormatStation[],
-  onProgress?: (progress: number, currentStation: string) => void,
+  onProgress?: (info: MatchStationsProgressInfo) => void,
   collectionId?: StationCollectionId
 ): Promise<{ matches: StationMatch[], availableStations: FirebaseStationLike[] }> => {
   try {
+    onProgress?.({
+      phase: 'loading-db',
+      percent: 4,
+      statusLine: 'Connecting to the live station database…'
+    })
+    await yieldToUi()
+
     const collection = collectionId ?? getStationCollectionName()
     const availableStations = await loadStationsForMatching(collection)
+    onProgress?.({
+      phase: 'loading-db',
+      percent: 14,
+      statusLine: `Loaded ${availableStations.length.toLocaleString()} stations — starting row matching…`
+    })
+    await yieldToUi()
+
     console.log(`Loaded ${availableStations.length} stations for matching`)
     
     // Log sample of available stations for debugging
@@ -412,6 +442,9 @@ export const matchStations = async (
     }
     
     const matches: StationMatch[] = []
+    const total = oldStations.length
+    /** ~1 rAF yield per ~1.5% of rows so React can paint (caps work on huge CSVs). */
+    const yieldEvery = Math.max(1, Math.ceil(total / 70))
 
     // Log sample of old stations for debugging
     console.log('Sample old format stations:')
@@ -420,15 +453,27 @@ export const matchStations = async (
       console.log(`  ${i + 1}. "${station.stationName}" (${station.country}, ${station.county}, ${station.operator})`)
     }
 
-    for (let i = 0; i < oldStations.length; i++) {
+    for (let i = 0; i < total; i++) {
       const oldStation = oldStations[i]
       try {
         const match = findBestMatch(oldStation, availableStations)
         matches.push(match)
-        
-        // Update progress
-        const progress = Math.round(((i + 1) / oldStations.length) * 100)
-        onProgress?.(progress, oldStation.stationName)
+
+        // 15%–92% while matching rows (load phase used 4–14%)
+        const rowFraction = total === 0 ? 1 : (i + 1) / total
+        const percent = 15 + Math.round(rowFraction * 77)
+        onProgress?.({
+          phase: 'matching',
+          percent,
+          statusLine: `Matching row ${i + 1} of ${total}`,
+          currentStationName: oldStation.stationName,
+          index: i + 1,
+          total
+        })
+
+        if (i % yieldEvery === 0 || i === total - 1) {
+          await yieldToUi()
+        }
         
         // Log first few matches for debugging
         if (i < 5) {
@@ -443,7 +488,7 @@ export const matchStations = async (
         
         // Log progress every 100 stations
         if ((i + 1) % 100 === 0) {
-          console.log(`Processed ${i + 1}/${oldStations.length} stations`)
+          console.log(`Processed ${i + 1}/${total} stations`)
         }
       } catch (error) {
         console.error(`Error matching station ${i + 1} (${oldStation.stationName}):`, error)
@@ -457,12 +502,33 @@ export const matchStations = async (
           suggestedCrsCode: '',
           suggestedTiploc: ''
         })
-        
-        // Update progress even for errors
-        const progress = Math.round(((i + 1) / oldStations.length) * 100)
-        onProgress?.(progress, oldStation.stationName)
+
+        const rowFraction = total === 0 ? 1 : (i + 1) / total
+        const percent = 15 + Math.round(rowFraction * 77)
+        onProgress?.({
+          phase: 'matching',
+          percent,
+          statusLine: `Matching row ${i + 1} of ${total}`,
+          currentStationName: oldStation.stationName,
+          index: i + 1,
+          total
+        })
+
+        if (i % yieldEvery === 0 || i === total - 1) {
+          await yieldToUi()
+        }
       }
     }
+
+    onProgress?.({
+      phase: 'matching',
+      percent: 98,
+      statusLine: 'Building results…',
+      currentStationName: undefined,
+      index: total,
+      total
+    })
+    await yieldToUi()
 
     console.log(`Completed matching ${matches.length} stations`)
     return { matches, availableStations }
@@ -1005,11 +1071,13 @@ export const generateMigrationResult = (
       stationNames: matchIndices.map((idx) => matches[idx].oldStation.stationName || '')
     }))
 
-  // Mis-matched detection: fuzzy with low confidence, or CSV had (placename) but matched station doesn't contain it
+  // Mis-matched detection: fuzzy with low confidence, or CSV had (placename) but matched station doesn't contain it.
+  // Skip manual/corrected rows — the user explicitly chose that station, so it is not a "possible mis-match".
   const mismatchedMatchIndices: number[] = []
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i]
     if (!m.firebaseStation) continue
+    if (m.matchType === 'manual') continue
     const qualifier = getTrailingParentheticalQualifier(m.oldStation.stationName)
     if (qualifier) {
       const fbName = (m.firebaseStation.stationName || m.firebaseStation.stationname || '').toLowerCase()

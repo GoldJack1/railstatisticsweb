@@ -1,24 +1,36 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react'
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
 import ButtonBar from '../components/ButtonBar'
 import Button from '../components/Button'
-import type { Station } from '../types'
+import type { Station, SandboxStationDoc } from '../types'
 import { formatFareZoneDisplay } from '../utils/formatFareZone'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
 import { buildStationPath } from '../utils/stationAreaSlug'
+import { formatYearlyPassengersForReview } from '../utils/formatYearlyPassengersReview'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import {
   updateStationInFirebase,
   createStationInFirebase,
-  mergeStationAdditionalDetailsInFirebase
+  mergeStationAdditionalDetailsInFirebase,
+  createScheduledStationPublishJob,
+  deleteScheduledStationPublishJobDocument
 } from '../services/firebase'
+import { writeScheduledPublishAtMs, writeScheduleSavedFingerprint } from '../utils/scheduledPublishStorage'
+import { computePendingChangesFingerprint } from '../utils/pendingChangesFingerprint'
+import { toDatetimeLocalValue } from '../utils/datetimeLocal'
+import { useAuth } from '../contexts/AuthContext'
+import { isMasterPublishUser, MASTER_PUBLISH_DENIED_MESSAGE } from '../utils/masterPublishPolicy'
+import PasswordReauthModal from '../components/PasswordReauthModal'
 import '../components/Stations.css'
 
 type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
+
+/** When the schedule picker is empty, save uses now + this offset (1 hour). */
+const SCHEDULE_DEFAULT_OFFSET_MS = 60 * 60 * 1000
 
 interface StationsProps {
   initialMode?: 'view' | 'edit'
@@ -26,6 +38,7 @@ interface StationsProps {
 
 const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const { stations, loading, error, refetch } = useStations()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTOC, setSelectedTOC] = useState<string>('')
@@ -37,10 +50,55 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
   const resultsSectionRef = useRef<HTMLDivElement>(null)
+  const passwordReauthActionRef = useRef<'publish' | 'schedule' | 'cancelSchedule' | null>(null)
+  const pendingScheduleMsRef = useRef<number | null>(null)
+  const [passwordReauthOpen, setPasswordReauthOpen] = useState(false)
   const { collectionId, setCollectionId } = useStationCollection()
-  const { pendingChanges, clearAllPendingChanges } = usePendingStationChanges()
+  const {
+    pendingChanges,
+    clearAllPendingChanges,
+    trackedScheduledJobId,
+    registerScheduledServerJob,
+    clearTrackedScheduledServerJob,
+    serverScheduledJobDetail
+  } = usePendingStationChanges()
   const [isPublishingAll, setIsPublishingAll] = useState(false)
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
   const [showPendingReview, setShowPendingReview] = useState(false)
+  /** Publish review panel: immediate vs server schedule (like View / Edit). */
+  const [pendingPublishMode, setPendingPublishMode] = useState<'now' | 'schedule'>('now')
+  const [scheduleDatetimeLocal, setScheduleDatetimeLocal] = useState('')
+  /** True after the user changes the datetime-local control (required before Save changes). */
+  const [scheduleDatetimeUserEdited, setScheduleDatetimeUserEdited] = useState(false)
+
+  useEffect(() => {
+    if (showPendingReview && trackedScheduledJobId) {
+      setPendingPublishMode('schedule')
+    }
+  }, [showPendingReview, trackedScheduledJobId])
+
+  useEffect(() => {
+    if (!showPendingReview) setScheduleDatetimeUserEdited(false)
+  }, [showPendingReview])
+
+  useEffect(() => {
+    if (pendingPublishMode === 'now') setScheduleDatetimeUserEdited(false)
+  }, [pendingPublishMode])
+
+  /** Live clock while schedule options are visible (local time reference). */
+  const [scheduleLocalNowMs, setScheduleLocalNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (!showPendingReview || pendingPublishMode !== 'schedule') return
+    const id = window.setInterval(() => setScheduleLocalNowMs(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [showPendingReview, pendingPublishMode])
+
+  const scheduleRunAtPreviewMs = useMemo(() => {
+    const raw = scheduleDatetimeLocal.trim()
+    if (!raw) return scheduleLocalNowMs + SCHEDULE_DEFAULT_OFFSET_MS
+    const t = new Date(raw).getTime()
+    return Number.isFinite(t) ? t : NaN
+  }, [scheduleDatetimeLocal, scheduleLocalNowMs])
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -209,13 +267,33 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
   const hasActiveFilters = activeFilterCount > 0
 
   const pendingCount = Object.keys(pendingChanges).length
+  const canMasterPublish = isMasterPublishUser(user)
 
-  const handlePublishAll = async () => {
-    if (pendingCount === 0) return
-    if (!window.confirm(`Are you sure you want to publish ${pendingCount} pending change${pendingCount > 1 ? 's' : ''} to the database?`)) {
+  const clearScheduledPublish = useCallback(async () => {
+    if (!isMasterPublishUser(user)) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
       return
     }
+    const id = trackedScheduledJobId
+    if (id) {
+      try {
+        await deleteScheduledStationPublishJobDocument(id)
+      } catch (e) {
+        console.warn('Could not delete scheduled job document:', e)
+      }
+    }
+    clearTrackedScheduledServerJob()
+    writeScheduledPublishAtMs(null)
+    setScheduleDatetimeLocal('')
+    setScheduleDatetimeUserEdited(false)
+  }, [trackedScheduledJobId, clearTrackedScheduledServerJob, user])
 
+  const runPublishAllImmediate = useCallback(async () => {
+    if (!isMasterPublishUser(user)) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+      return
+    }
+    if (pendingCount === 0) return
     setIsPublishingAll(true)
     try {
       for (const [stationId, entry] of Object.entries(pendingChanges)) {
@@ -231,12 +309,174 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
           }
         }
       }
+      const serverJobId = trackedScheduledJobId
       clearAllPendingChanges()
+      if (serverJobId) {
+        try {
+          await deleteScheduledStationPublishJobDocument(serverJobId)
+        } catch (e) {
+          console.warn('Could not delete scheduled job after manual publish:', e)
+        }
+      }
+      clearTrackedScheduledServerJob()
+      writeScheduledPublishAtMs(null)
+      setScheduleDatetimeLocal('')
+      setScheduleDatetimeUserEdited(false)
       await refetch()
       setShowPendingReview(false)
     } finally {
       setIsPublishingAll(false)
     }
+  }, [
+    pendingCount,
+    pendingChanges,
+    clearAllPendingChanges,
+    trackedScheduledJobId,
+    clearTrackedScheduledServerJob,
+    refetch,
+    user
+  ])
+
+  const handlePublishAllClick = useCallback(() => {
+    if (pendingCount === 0) return
+    if (!isMasterPublishUser(user)) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+      return
+    }
+    if (
+      !window.confirm(
+        `Are you sure you want to publish ${pendingCount} pending change${pendingCount > 1 ? 's' : ''} to the database?`
+      )
+    ) {
+      return
+    }
+    passwordReauthActionRef.current = 'publish'
+    setPasswordReauthOpen(true)
+  }, [pendingCount, user])
+
+  useEffect(() => {
+    if (!trackedScheduledJobId || !serverScheduledJobDetail?.runAtMs) return
+    setScheduleDatetimeLocal(toDatetimeLocalValue(new Date(serverScheduledJobDetail.runAtMs)))
+    setScheduleDatetimeUserEdited(false)
+  }, [trackedScheduledJobId, serverScheduledJobDetail?.runAtMs])
+
+  const executeSaveSchedule = useCallback(
+    async (ms: number) => {
+      if (!isMasterPublishUser(user)) {
+        window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+        return
+      }
+      setIsSavingSchedule(true)
+      try {
+        const previousId = trackedScheduledJobId
+        if (previousId) {
+          try {
+            await deleteScheduledStationPublishJobDocument(previousId)
+          } catch {
+            /* previous job may already be processed or missing */
+          }
+          clearTrackedScheduledServerJob()
+        }
+
+        const changesPayload: Record<
+          string,
+          { isNew?: boolean; updated: Partial<Station>; sandboxUpdated?: Partial<SandboxStationDoc> | null }
+        > = {}
+        for (const [stationId, entry] of Object.entries(pendingChanges)) {
+          changesPayload[stationId] = {
+            isNew: entry.isNew,
+            updated: entry.updated,
+            sandboxUpdated: entry.sandboxUpdated ?? null
+          }
+        }
+
+        const jobId = await createScheduledStationPublishJob({
+          runAtMs: ms,
+          collectionId,
+          changes: changesPayload
+        })
+        registerScheduledServerJob(jobId)
+        writeScheduleSavedFingerprint(computePendingChangesFingerprint(pendingChanges))
+        writeScheduledPublishAtMs(null)
+        setScheduleDatetimeUserEdited(false)
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : 'Failed to save schedule to the server.')
+      } finally {
+        setIsSavingSchedule(false)
+      }
+    },
+    [
+      trackedScheduledJobId,
+      clearTrackedScheduledServerJob,
+      pendingChanges,
+      collectionId,
+      registerScheduledServerJob,
+      user
+    ]
+  )
+
+  const handlePasswordReauthVerified = useCallback(() => {
+    setPasswordReauthOpen(false)
+    if (!isMasterPublishUser(user)) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+      passwordReauthActionRef.current = null
+      pendingScheduleMsRef.current = null
+      return
+    }
+    const action = passwordReauthActionRef.current
+    passwordReauthActionRef.current = null
+    if (action === 'publish') {
+      void runPublishAllImmediate()
+      return
+    }
+    if (action === 'schedule') {
+      const ms = pendingScheduleMsRef.current
+      pendingScheduleMsRef.current = null
+      if (ms != null) void executeSaveSchedule(ms)
+      return
+    }
+    if (action === 'cancelSchedule') {
+      void clearScheduledPublish()
+    }
+  }, [runPublishAllImmediate, executeSaveSchedule, clearScheduledPublish, user])
+
+  const handleCancelScheduleClick = useCallback(() => {
+    if (!trackedScheduledJobId) return
+    if (!isMasterPublishUser(user)) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+      return
+    }
+    if (!window.confirm('Cancel the server-side scheduled publish? Pending edits stay local until you publish or schedule again.')) {
+      return
+    }
+    passwordReauthActionRef.current = 'cancelSchedule'
+    setPasswordReauthOpen(true)
+  }, [trackedScheduledJobId, user])
+
+  const handleSaveSchedule = async () => {
+    if (!scheduleDatetimeUserEdited) return
+
+    const raw = scheduleDatetimeLocal.trim()
+    const ms = raw
+      ? new Date(raw).getTime()
+      : Date.now() + SCHEDULE_DEFAULT_OFFSET_MS
+    if (raw && !Number.isFinite(ms)) {
+      window.alert('That date and time is not valid.')
+      return
+    }
+    if (ms <= Date.now()) {
+      window.alert('Pick a time in the future.')
+      return
+    }
+
+    if (!canMasterPublish) {
+      window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+      return
+    }
+
+    pendingScheduleMsRef.current = ms
+    passwordReauthActionRef.current = 'schedule'
+    setPasswordReauthOpen(true)
   }
 
   if (loading) {
@@ -384,20 +624,24 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                   addChange('Latitude', original.latitude ?? '', updated.latitude ?? original.latitude ?? '')
                   addChange('Longitude', original.longitude ?? '', updated.longitude ?? original.longitude ?? '')
 
-                  const originalPassengers =
+                  const origYearly =
                     !isNew && original.yearlyPassengers && typeof original.yearlyPassengers === 'object' && !Array.isArray(original.yearlyPassengers)
-                      ? JSON.stringify(original.yearlyPassengers)
-                      : ''
-                  const updatedPassengers =
-                    updated.yearlyPassengers && typeof updated.yearlyPassengers === 'object'
-                      ? JSON.stringify(updated.yearlyPassengers)
-                      : originalPassengers
+                      ? original.yearlyPassengers
+                      : null
+                  const updYearly =
+                    updated.yearlyPassengers !== undefined && updated.yearlyPassengers !== null && typeof updated.yearlyPassengers === 'object' && !Array.isArray(updated.yearlyPassengers)
+                      ? updated.yearlyPassengers
+                      : origYearly
 
-                  if (originalPassengers !== updatedPassengers) {
+                  const originalPassengersJson =
+                    origYearly !== null ? JSON.stringify(origYearly) : ''
+                  const updatedPassengersJson = updYearly !== null ? JSON.stringify(updYearly) : originalPassengersJson
+
+                  if (originalPassengersJson !== updatedPassengersJson) {
                     changes.push({
                       label: 'Yearly passengers',
-                      from: originalPassengers || '—',
-                      to: updatedPassengers || '—'
+                      from: formatYearlyPassengersForReview(origYearly),
+                      to: formatYearlyPassengersForReview(updYearly)
                     })
                   }
 
@@ -439,27 +683,170 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                 })}
               </div>
 
-              <div className="pending-review-actions">
-                <Button
-                  type="button"
-                  variant="wide"
-                  width="hug"
-                  className="pending-review-cancel"
-                  onClick={() => setShowPendingReview(false)}
-                  disabled={isPublishingAll}
-                >
-                  Back
-                </Button>
-                <Button
-                  type="button"
-                  variant="wide"
-                  width="hug"
-                  className="pending-review-publish"
-                  onClick={handlePublishAll}
-                  disabled={isPublishingAll}
-                >
-                  {isPublishingAll ? 'Publishing…' : 'Publish all changes'}
-                </Button>
+              <div className="pending-review-publish-panel" aria-label="Publish pending changes">
+                <h3 className="pending-review-schedule-title">Publish pending changes</h3>
+                {!canMasterPublish && (
+                  <p className="pending-review-master-notice" role="status">
+                    Only the site owner can publish or schedule live database changes. You can still edit pending
+                    changes locally.
+                  </p>
+                )}
+                <div className="mode-toggle pending-review-mode-toggle" role="group" aria-label="Publish timing">
+                  <ButtonBar
+                    buttons={[
+                      { label: 'Publish now', value: 'now' },
+                      { label: 'Schedule', value: 'schedule' }
+                    ]}
+                    selectedIndex={pendingPublishMode === 'schedule' ? 1 : 0}
+                    onChange={(_, value) => {
+                      if (value === 'schedule') {
+                        setPendingPublishMode('schedule')
+                        setScheduleDatetimeUserEdited(false)
+                        setScheduleDatetimeLocal((prev) => {
+                          if (trackedScheduledJobId) return prev
+                          if (prev.trim() !== '') return prev
+                          return toDatetimeLocalValue(new Date(Date.now() + SCHEDULE_DEFAULT_OFFSET_MS))
+                        })
+                      }
+                      if (value === 'now') setPendingPublishMode('now')
+                    }}
+                  />
+                </div>
+                {pendingPublishMode === 'now' ? (
+                  <p className="pending-review-schedule-intro">
+                    Write all pending edits to the selected data source <strong>immediately</strong> from this browser.
+                  </p>
+                ) : (
+                  <>
+                    <p className="pending-review-schedule-policy">
+                      Nothing is scheduled on the server until you click <strong>Save changes</strong> below. If you edit
+                      pending stations after saving, that schedule is cancelled until you save again.
+                    </p>
+                    <p className="pending-review-schedule-now">
+                      Your time now:{' '}
+                      <strong>{new Date(scheduleLocalNowMs).toLocaleString()}</strong>
+                    </p>
+                    <p className="pending-review-schedule-preview">
+                      {Number.isFinite(scheduleRunAtPreviewMs) ? (
+                        <>
+                          Will publish at:{' '}
+                          <strong>{new Date(scheduleRunAtPreviewMs).toLocaleString()}</strong>
+                          {!scheduleDatetimeLocal.trim() ? (
+                            <span className="pending-review-schedule-preview-note">
+                              {' '}
+                              (default — adjust in the picker to enable Save changes)
+                            </span>
+                          ) : !scheduleDatetimeUserEdited ? (
+                            <span className="pending-review-schedule-preview-note">
+                              {' '}
+                              (change the date or time to enable Save changes)
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="pending-review-schedule-error">
+                          Enter a valid date and time in the picker below.
+                        </span>
+                      )}
+                    </p>
+                    <details className="pending-review-schedule-picker-details">
+                      <summary className="pending-review-schedule-picker-summary">
+                        Change date &amp; time…
+                      </summary>
+                      <div className="pending-review-schedule-row">
+                        <label htmlFor="pending-schedule-datetime" className="pending-review-schedule-label">
+                          Date &amp; time
+                        </label>
+                        <input
+                          id="pending-schedule-datetime"
+                          type="datetime-local"
+                          className="pending-review-datetime"
+                          min={toDatetimeLocalValue(new Date(scheduleLocalNowMs))}
+                          value={scheduleDatetimeLocal}
+                          onChange={(e) => {
+                            setScheduleDatetimeLocal(e.target.value)
+                            setScheduleDatetimeUserEdited(true)
+                          }}
+                          disabled={isPublishingAll || isSavingSchedule || !canMasterPublish}
+                        />
+                      </div>
+                    </details>
+                    <div className="pending-review-schedule-actions pending-review-schedule-actions--inline">
+                      <Button
+                        type="button"
+                        variant="wide"
+                        width="hug"
+                        className="pending-review-schedule-clear"
+                        onClick={() => void handleCancelScheduleClick()}
+                        disabled={
+                          isPublishingAll || isSavingSchedule || !trackedScheduledJobId || !canMasterPublish
+                        }
+                      >
+                        Cancel schedule
+                      </Button>
+                    </div>
+                    {serverScheduledJobDetail && (
+                      <p className="pending-review-schedule-status">
+                        Job <strong>{serverScheduledJobDetail.status}</strong>
+                        {' · '}
+                        run at <strong>{new Date(serverScheduledJobDetail.runAtMs).toLocaleString()}</strong>
+                        {serverScheduledJobDetail.errorMessage && (
+                          <>
+                            <br />
+                            <span className="pending-review-schedule-error">{serverScheduledJobDetail.errorMessage}</span>
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </>
+                )}
+
+                <div className="pending-review-actions">
+                  <Button
+                    type="button"
+                    variant="wide"
+                    width="hug"
+                    className="pending-review-cancel"
+                    onClick={() => setShowPendingReview(false)}
+                    disabled={isPublishingAll || isSavingSchedule}
+                  >
+                    Back
+                  </Button>
+                  {pendingPublishMode === 'now' ? (
+                    <Button
+                      type="button"
+                      variant="wide"
+                      width="hug"
+                      className="pending-review-publish"
+                      onClick={() => void handlePublishAllClick()}
+                      disabled={isPublishingAll || isSavingSchedule || !canMasterPublish}
+                    >
+                      {isPublishingAll ? 'Publishing…' : 'Publish now'}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="wide"
+                      width="hug"
+                      className="pending-review-publish"
+                      onClick={() => void handleSaveSchedule()}
+                      disabled={
+                        isPublishingAll ||
+                        isSavingSchedule ||
+                        !Number.isFinite(scheduleRunAtPreviewMs) ||
+                        !scheduleDatetimeUserEdited ||
+                        !canMasterPublish
+                      }
+                      title={
+                        !scheduleDatetimeUserEdited && Number.isFinite(scheduleRunAtPreviewMs)
+                          ? 'Change the date or time in the picker first'
+                          : undefined
+                      }
+                    >
+                      {isSavingSchedule ? 'Saving…' : 'Save changes'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </section>
             )}
@@ -804,6 +1191,17 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
       )}
         </main>
       </div>
+      <PasswordReauthModal
+        open={passwordReauthOpen}
+        user={user}
+        onClose={() => {
+          setPasswordReauthOpen(false)
+          passwordReauthActionRef.current = null
+          pendingScheduleMsRef.current = null
+        }}
+        onVerified={handlePasswordReauthVerified}
+        title="Confirm it’s you"
+      />
     </div>
   )
 }

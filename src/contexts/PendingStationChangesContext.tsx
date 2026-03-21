@@ -1,8 +1,32 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import type { SandboxStationDoc, Station } from '../types'
+import {
+  readServerScheduledJobId,
+  writeServerScheduledJobId,
+  readScheduleSavedFingerprint,
+  writeScheduleSavedFingerprint
+} from '../utils/scheduledPublishStorage'
+import { computePendingChangesFingerprint } from '../utils/pendingChangesFingerprint'
+import { deleteScheduledStationPublishJobDocument } from '../services/firebase'
+import ScheduledServerJobFirestoreSync, { type ServerScheduledJobDetail } from './ScheduledServerJobFirestoreSync'
 
-interface PendingChangeEntry {
+const PENDING_CHANGES_STORAGE_KEY = 'railstatistics-pending-station-changes-v1'
+
+function loadPendingChangesFromStorage(): Record<string, PendingChangeEntry> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(PENDING_CHANGES_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return parsed as Record<string, PendingChangeEntry>
+  } catch {
+    return {}
+  }
+}
+
+export interface PendingChangeEntry {
   original: Station
   updated: Partial<Station>
   /** Optional sandbox-only extra fields (for newsandboxstations1). */
@@ -16,12 +40,31 @@ interface PendingStationChangesContextValue {
   addNewPendingStation: (stationId: string, updated: Partial<Station>, sandboxUpdated?: Partial<SandboxStationDoc> | null) => void
   clearPendingChange: (stationId: string) => void
   clearAllPendingChanges: () => void
+  clearPendingChangesForIds: (stationIds: string[]) => void
+  /** Firestore scheduled publish job id (persisted in localStorage). */
+  trackedScheduledJobId: string | null
+  registerScheduledServerJob: (jobId: string) => void
+  clearTrackedScheduledServerJob: () => void
+  /** Latest snapshot summary for UI (pending / processing / failed). Cleared when job completes or is cancelled. */
+  serverScheduledJobDetail: ServerScheduledJobDetail | null
 }
 
 const PendingStationChangesContext = createContext<PendingStationChangesContextValue | null>(null)
 
 export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChangeEntry>>({})
+  const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChangeEntry>>(loadPendingChangesFromStorage)
+  const [trackedScheduledJobId, setTrackedScheduledJobId] = useState<string | null>(() => readServerScheduledJobId())
+  const [serverScheduledJobDetail, setServerScheduledJobDetail] = useState<ServerScheduledJobDetail | null>(null)
+  /** Avoid re-baselining the same job id when fingerprint was missing (legacy). */
+  const scheduleFingerprintBaselinedForJobRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PENDING_CHANGES_STORAGE_KEY, JSON.stringify(pendingChanges))
+    } catch {
+      /* quota / private mode */
+    }
+  }, [pendingChanges])
 
   const upsertPendingChange = useCallback((
     station: Station,
@@ -83,10 +126,108 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
     setPendingChanges({})
   }, [])
 
+  const clearPendingChangesForIds = useCallback((stationIds: string[]) => {
+    if (stationIds.length === 0) return
+    setPendingChanges(prev => {
+      const next = { ...prev }
+      for (const id of stationIds) {
+        delete next[id]
+      }
+      return next
+    })
+  }, [])
+
+  const clearTrackedScheduledServerJob = useCallback(() => {
+    writeServerScheduledJobId(null)
+    writeScheduleSavedFingerprint(null)
+    scheduleFingerprintBaselinedForJobRef.current = null
+    setTrackedScheduledJobId(null)
+    setServerScheduledJobDetail(null)
+  }, [])
+
+  const registerScheduledServerJob = useCallback((jobId: string) => {
+    writeServerScheduledJobId(jobId)
+    setTrackedScheduledJobId(jobId)
+  }, [])
+
+  /**
+   * Legacy: job id in storage but no fingerprint — assume current pending matches once, then edits invalidate.
+   * New: fingerprint is written when the user clicks Save changes on StationsPage.
+   */
+  useEffect(() => {
+    if (!trackedScheduledJobId) {
+      scheduleFingerprintBaselinedForJobRef.current = null
+      return
+    }
+    if (readScheduleSavedFingerprint() !== null) {
+      scheduleFingerprintBaselinedForJobRef.current = trackedScheduledJobId
+      return
+    }
+    if (scheduleFingerprintBaselinedForJobRef.current === trackedScheduledJobId) return
+    writeScheduleSavedFingerprint(computePendingChangesFingerprint(pendingChanges))
+    scheduleFingerprintBaselinedForJobRef.current = trackedScheduledJobId
+  }, [trackedScheduledJobId, pendingChanges])
+
+  /** Pending queue changed after schedule was saved — cancel server job until user saves schedule again. */
+  useEffect(() => {
+    const id = trackedScheduledJobId
+    if (!id) return
+    const saved = readScheduleSavedFingerprint()
+    if (saved === null) return
+    const current = computePendingChangesFingerprint(pendingChanges)
+    if (saved === current) return
+
+    let cancelled = false
+    void (async () => {
+      try {
+        await deleteScheduledStationPublishJobDocument(id)
+      } catch (e) {
+        console.warn('Removed outdated scheduled publish job (pending edits changed):', e)
+      }
+      if (cancelled) return
+      clearTrackedScheduledServerJob()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pendingChanges, trackedScheduledJobId, clearTrackedScheduledServerJob])
+
+  const handleServerJobDetail = useCallback((detail: ServerScheduledJobDetail | null) => {
+    setServerScheduledJobDetail(detail)
+  }, [])
+
+  const handleServerJobCompleted = useCallback(
+    (stationIds: string[]) => {
+      clearPendingChangesForIds(stationIds)
+      clearTrackedScheduledServerJob()
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('railstats-stations-refetch'))
+      }
+    },
+    [clearPendingChangesForIds, clearTrackedScheduledServerJob]
+  )
+
   return (
     <PendingStationChangesContext.Provider
-      value={{ pendingChanges, upsertPendingChange, addNewPendingStation, clearPendingChange, clearAllPendingChanges }}
+      value={{
+        pendingChanges,
+        upsertPendingChange,
+        addNewPendingStation,
+        clearPendingChange,
+        clearAllPendingChanges,
+        clearPendingChangesForIds,
+        trackedScheduledJobId,
+        registerScheduledServerJob,
+        clearTrackedScheduledServerJob,
+        serverScheduledJobDetail
+      }}
     >
+      <ScheduledServerJobFirestoreSync
+        jobId={trackedScheduledJobId}
+        onDetail={handleServerJobDetail}
+        onCompleted={handleServerJobCompleted}
+        onJobDocMissing={clearTrackedScheduledServerJob}
+      />
       {children}
     </PendingStationChangesContext.Provider>
   )
@@ -99,4 +240,3 @@ export const usePendingStationChanges = (): PendingStationChangesContextValue =>
   }
   return ctx
 }
-

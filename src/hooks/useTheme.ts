@@ -7,13 +7,18 @@ interface UseThemeReturn {
 
 export const useTheme = (): UseThemeReturn => {
   const [theme, setTheme] = useState(() => {
-    // Check for saved theme preference or default to light mode
-    return localStorage.getItem('theme') || 'light'
+    const t = localStorage.getItem('theme') || 'light'
+    // Apply before first paint so html gets correct --bg-primary (avoids flash / wrong gutter color)
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', t)
+    }
+    return t
   })
 
   useEffect(() => {
-    // Apply theme to document
-    document.body.setAttribute('data-theme', theme)
+    // Apply on <html> so :root CSS variables match the canvas behind the app
+    // (theme on body only left html using light --bg-primary → pale strip when zoomed / overflow)
+    document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
   const toggleTheme = () => {

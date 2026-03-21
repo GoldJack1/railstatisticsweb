@@ -108,6 +108,10 @@
     --text-4xl: 2.25rem;    /* 36px */
     --text-5xl: 3rem;       /* 48px */
     
+    /* Layout breakpoints (use in @media as max-width; lg − 1 = 1023, sm − 1 = 639) */
+    --breakpoint-sm: 640px;
+    --breakpoint-lg: 1024px;
+
     /* Container Max Widths */
     --container-sm: 640px;
     --container-md: 768px;
@@ -142,6 +146,8 @@ html {
     width: 100%;
     overflow-x: hidden;
     overflow-y: scroll; /* Prevent layout shift when scrollbar appears/disappears */
+    /* Same token as body — avoids light “gutter” when html shows through (zoom, subpixel, overflow) */
+    background-color: var(--bg-primary);
 }
 
 body {
@@ -195,17 +201,38 @@ button, a, input, select, textarea, [role="button"] {
     min-width: 44px;
 }
 
+/* Footer: text links + logout — keep inline row, not 44×44 boxes */
+.site-footer a.site-footer-link,
+.site-footer button.site-footer-logout {
+    min-height: unset;
+    min-width: unset;
+}
+
 /* App Layout */
-.app {
+#root {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
+}
+
+.app {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    background-color: var(--bg-primary);
 }
 
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    background-color: var(--bg-primary);
 }
 
 /* Container */
@@ -225,6 +252,19 @@ button, a, input, select, textarea, [role="button"] {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* Visually hidden; still exposed to password managers (Apple Passwords, etc.) for OTP + username linking */
+.autofill-bridge-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 /* Focus styles for accessibility */

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
+import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import NewStationForm from '../components/stationDetails/NewStationForm'
 import type { StationDetailsTab } from '../components/stationDetails/StationDetailsView'
 import Button from '../components/Button'
@@ -11,6 +12,7 @@ import './StationDetailsPage.css'
 const NewStationPage: React.FC = () => {
   const navigate = useNavigate()
   const { stations, loading, error } = useStations()
+  const { pendingChanges } = usePendingStationChanges()
   const [activeTab, setActiveTab] = useState<StationDetailsTab>('details')
   const [isMobile, setIsMobile] = useState(false)
   const [formIsDirty, setFormIsDirty] = useState(false)
@@ -24,16 +26,34 @@ const NewStationPage: React.FC = () => {
   }, [])
 
   const nextNumericStationId = useMemo(() => {
-    const numericStations = stations.filter((station) => /^\d+$/.test(station.id))
-    if (numericStations.length === 0) {
+    const numericIds: number[] = []
+    const idLengths: number[] = []
+
+    for (const station of stations) {
+      if (/^\d+$/.test(station.id)) {
+        numericIds.push(parseInt(station.id, 10))
+        idLengths.push(station.id.length)
+      }
+    }
+
+    // Staged new stations are not in `stations` until publish — include them so each
+    // "Add new station" flow gets the next free numeric ID.
+    for (const [id, entry] of Object.entries(pendingChanges)) {
+      if (entry.isNew && /^\d+$/.test(id)) {
+        numericIds.push(parseInt(id, 10))
+        idLengths.push(id.length)
+      }
+    }
+
+    if (numericIds.length === 0) {
       return '0001'
     }
 
-    const maxNumericId = Math.max(...numericStations.map((s) => parseInt(s.id, 10)))
+    const maxNumericId = Math.max(...numericIds)
     const next = maxNumericId + 1
-    const maxLength = Math.max(4, ...numericStations.map((s) => s.id.length))
+    const maxLength = Math.max(4, ...idLengths)
     return String(next).padStart(maxLength, '0')
-  }, [stations])
+  }, [stations, pendingChanges])
 
   useEffect(() => {
     document.title = 'New Station | Rail Statistics'
@@ -152,7 +172,7 @@ const NewStationPage: React.FC = () => {
               <NewStationForm
                 nextStationId={nextNumericStationId}
                 onCancel={() => navigate(-1)}
-                onCreated={(id) => navigate(`/stations/${id}/edit`)}
+                onCreated={() => navigate('/stations', { replace: true })}
                 activeTab={activeTab}
                 actionsPortalId={isMobile ? 'station-details-sidebar-actions' : 'station-details-header-actions'}
                 onDirtyChange={setFormIsDirty}

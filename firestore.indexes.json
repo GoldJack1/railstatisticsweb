@@ -1,6 +1,20 @@
 {
   "indexes": [
     {
+      "collectionGroup": "scheduledStationPublishJobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "runAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "stations",
       "queryScope": "COLLECTION",
       "fields": [
@@ -39,16 +53,6 @@
         {
           "fieldPath": "stationName",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "stations",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "yearlyPassengers",
-          "order": "DESCENDING"
         }
       ]
     }

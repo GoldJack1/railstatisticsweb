@@ -85,6 +85,13 @@ export const useStations = (): UseStationsReturn => {
     void loadStations()
   }, [loadStations]) // Refetch when user toggles station collection
 
+  useEffect(() => {
+    const onRefetch = () => {
+      void loadStations()
+    }
+    window.addEventListener('railstats-stations-refetch', onRefetch)
+    return () => window.removeEventListener('railstats-stations-refetch', onRefetch)
+  }, [loadStations])
 
   const refetch = (): void => {
     void loadStations()

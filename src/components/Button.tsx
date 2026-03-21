@@ -21,6 +21,8 @@ export interface ButtonProps {
   className?: string
   ariaLabel?: string
   title?: string
+  /** Associate submit/reset with a `<form id="...">` outside the form (native `form` attribute). */
+  form?: string
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -36,7 +38,8 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   className = '',
   ariaLabel,
-  title
+  title,
+  form
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   
@@ -44,13 +47,15 @@ const Button: React.FC<ButtonProps> = ({
   const actualState: ButtonState = state || (disabled ? 'disabled' : (pressed || isPressed) ? 'pressed' : 'active')
   
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || !onClick) return
+    if (disabled) return
 
     // Never delay form submission/reset actions.
     if (type !== 'button') {
-      onClick(event)
+      onClick?.(event)
       return
     }
+
+    if (!onClick) return
 
     // Show pressed state
     setIsPressed(true)
@@ -75,6 +80,7 @@ const Button: React.FC<ButtonProps> = ({
     <button
       className={buttonClasses}
       type={type}
+      form={form}
       onClick={handleClick}
       disabled={disabled}
       aria-label={ariaLabel}

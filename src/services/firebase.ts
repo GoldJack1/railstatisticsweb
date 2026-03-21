@@ -3,17 +3,32 @@ import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import {
   getAuth,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signInWithRedirect,
   getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  sendEmailVerification,
   GoogleAuthProvider,
   OAuthProvider,
   Auth,
   User
 } from 'firebase/auth'
-import { getFirestore, collection, doc, getDocs, getDoc, updateDoc, setDoc, GeoPoint, connectFirestoreEmulator, Firestore } from 'firebase/firestore'
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  updateDoc,
+  setDoc,
+  addDoc,
+  deleteDoc,
+  GeoPoint,
+  connectFirestoreEmulator,
+  Firestore,
+  Timestamp,
+  serverTimestamp
+} from 'firebase/firestore'
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 import type { SandboxStationDoc } from '../types'
@@ -55,13 +70,18 @@ const validateFirebaseConfigForDev = (): void => {
   }
 }
 
-// Debug logging to verify environment variables are loaded
-console.log('🔥 Firebase Config Check:')
-console.log('  - API Key:', firebaseConfig.apiKey === 'placeholder' ? '❌ NOT LOADED (using placeholder)' : `✅ Loaded (${firebaseConfig.apiKey.substring(0, 10)}...)`)
-console.log('  - Project ID:', firebaseConfig.projectId)
-console.log('  - Auth Domain:', firebaseConfig.authDomain)
-console.log('  - Environment:', import.meta.env.MODE)
-console.log('  - All env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')))
+// Avoid logging config in production (reduces noise and env surface in DevTools).
+if (import.meta.env.DEV) {
+  console.log('🔥 Firebase Config Check:')
+  console.log(
+    '  - API Key:',
+    firebaseConfig.apiKey === 'placeholder' ? '❌ NOT LOADED (using placeholder)' : '✅ Loaded (redacted)'
+  )
+  console.log('  - Project ID:', firebaseConfig.projectId)
+  console.log('  - Auth Domain:', firebaseConfig.authDomain)
+  console.log('  - Environment:', import.meta.env.MODE)
+  console.log('  - VITE_* keys:', Object.keys(import.meta.env).filter((k) => k.startsWith('VITE_')))
+}
 
 // Initialize Firebase
 let app: FirebaseApp | null = null
@@ -77,15 +97,30 @@ export const initializeFirebase = async () => {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
 
-    // App Check: protect Firestore in production only. Skipped in dev so localhost works without adding it to reCAPTCHA domains.
+    // App Check: optional in prod. If Firebase Console enforces App Check on *Authentication*, this build must
+    // initialize with the correct reCAPTCHA v3 site key or some Auth calls can fail.
     const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY
+    const appCheckExplicitlyDisabled = import.meta.env.VITE_FIREBASE_APP_CHECK_DISABLED === 'true'
     const isDev = import.meta.env.DEV
-    if (!isDev && appCheckSiteKey && appCheckSiteKey !== 'placeholder') {
+    const canEnableAppCheck =
+      !isDev && !appCheckExplicitlyDisabled && !!appCheckSiteKey && appCheckSiteKey !== 'placeholder'
+
+    if (canEnableAppCheck) {
       initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(appCheckSiteKey),
         isTokenAutoRefreshEnabled: true
       })
       console.log('🔥 Firebase App Check enabled (reCAPTCHA v3)')
+    } else if (!isDev && appCheckExplicitlyDisabled) {
+      console.warn(
+        '🔥 VITE_FIREBASE_APP_CHECK_DISABLED=true — App Check is off in this build. ' +
+          'If Firebase still enforces App Check on Authentication, sign-in may fail until you use Monitoring (not enforce) or remove this flag and set a valid VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY.'
+      )
+    } else if (!isDev && (!appCheckSiteKey || appCheckSiteKey === 'placeholder')) {
+      console.warn(
+        '🔥 No VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY in this production build. ' +
+          'If App Check enforcement is ON for Authentication in Firebase Console, add the reCAPTCHA v3 site key from App Check → your web app, or turn enforcement to Monitoring.'
+      )
     }
 
     db = getFirestore(app)
@@ -121,12 +156,36 @@ export const getFirebaseAuth = (): Auth | null => auth
 export const getFirebaseDB = (): Firestore | null => db
 export const getFirebaseAnalytics = (): Analytics | null => analytics
 
+/**
+ * Dev only: if `VITE_LOCAL_AUTH_EMAIL` and `VITE_LOCAL_AUTH_PASSWORD` are set in `.env.local`,
+ * sign in with Firebase Email/Password before the rest of auth init (so Firestore + scheduled publish work).
+ * Never commit real credentials; use only in local `.env.local`.
+ */
+export const tryDevAutoSignInFromEnv = async (): Promise<void> => {
+  if (import.meta.env.DEV !== true) return
+  const email = import.meta.env.VITE_LOCAL_AUTH_EMAIL?.trim()
+  const password = import.meta.env.VITE_LOCAL_AUTH_PASSWORD
+  if (!email || typeof password !== 'string' || password.length === 0) return
+  if (!auth) {
+    await initializeFirebase()
+  }
+  const a = getFirebaseAuth()
+  if (!a || a.currentUser) return
+  try {
+    await signInWithEmailAndPassword(a, email, password)
+    console.log('[Rail Statistics][dev] Signed in with Email/Password from VITE_LOCAL_AUTH_*')
+  } catch (e) {
+    console.warn('[Rail Statistics][dev] VITE_LOCAL_AUTH_* sign-in failed:', e)
+  }
+}
+
 // Auth helpers (call after initializeFirebase)
 export const loginWithEmail = (email: string, password: string) =>
   signInWithEmailAndPassword(auth!, email, password)
-export const signUpWithEmail = (email: string, password: string) =>
-  createUserWithEmailAndPassword(auth!, email, password)
 export const logout = () => firebaseSignOut(auth!)
+
+/** Send Firebase email verification (required for verified-email gates in this app). */
+export const sendUserEmailVerification = (user: User) => sendEmailVerification(user)
 
 /** Sign in with Google. Uses redirect (no popup) so it works when popups are blocked. */
 export const loginWithGoogle = async () => {
@@ -504,4 +563,75 @@ export const fetchStationDocumentById = async (stationId: string): Promise<Recor
     console.error('Firebase fetch station doc error:', error)
     return null
   }
+}
+
+/** Firestore collection processed by Cloud Function `processScheduledStationPublishJobs`. */
+export const SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION = 'scheduledStationPublishJobs'
+
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined) return value
+  if (value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item)) as unknown as T
+  }
+  const out = {} as Record<string, unknown>
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined) continue
+    out[k] = stripUndefinedDeep(v)
+  }
+  return out as T
+}
+
+/**
+ * Create a server-side scheduled publish job (Firestore + Cloud Scheduler function).
+ * Requires an authenticated user.
+ */
+export const createScheduledStationPublishJob = async (params: {
+  runAtMs: number
+  collectionId: StationCollectionId
+  changes: Record<
+    string,
+    {
+      isNew?: boolean
+      updated: Partial<Station>
+      sandboxUpdated?: Partial<SandboxStationDoc> | null
+    }
+  >
+}): Promise<string> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+
+  const authInstance = getFirebaseAuth()
+  if (!authInstance) throw new Error('Firebase Auth not initialized')
+  const user = authInstance.currentUser
+  if (!user) {
+    throw new Error('You must be signed in to schedule a publish.')
+  }
+
+  const keys = Object.keys(params.changes)
+  if (keys.length === 0) throw new Error('No pending changes to schedule')
+
+  const col = collection(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION)
+  const docRef = await addDoc(col, {
+    createdAt: serverTimestamp(),
+    runAt: Timestamp.fromMillis(params.runAtMs),
+    collectionId: params.collectionId,
+    createdByUid: user.uid,
+    status: 'pending',
+    changes: stripUndefinedDeep(params.changes),
+    stationIds: keys
+  })
+  return docRef.id
+}
+
+export const deleteScheduledStationPublishJobDocument = async (jobId: string): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  await deleteDoc(doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, jobId))
 }

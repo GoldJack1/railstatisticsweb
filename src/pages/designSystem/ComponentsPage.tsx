@@ -15,8 +15,8 @@ const COMPONENT_GROUPS = [
   {
     title: 'Application Shell',
     items: [
-      { name: 'Header', file: 'src/components/Header.tsx', usage: '/migration, /stations, all pages' },
-      { name: 'Footer', file: 'src/components/Footer.tsx', usage: 'Site-wide footer links and auth actions' },
+      { name: 'Header', file: 'src/components/Header.tsx', usage: 'Logo + theme toggle only; legal and auth are in the footer' },
+      { name: 'Footer', file: 'src/components/Footer.tsx', usage: 'Migration & Stations when signed in; legal links; Log in / Log out' },
     ],
   },
   {

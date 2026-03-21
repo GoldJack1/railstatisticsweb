@@ -64,6 +64,21 @@ export interface DuplicateGroup {
   stationNames: string[]
 }
 
+/** When the user used Correct — shown on Step 5 “Review changes” */
+export type MigrationCorrectionPhase = 'review' | 'duplicates'
+
+export interface MigrationCorrectionLogEntry {
+  id: string
+  matchIndex: number
+  csvStationName: string
+  previousMatchType: StationMatch['matchType']
+  previousStationId: string
+  previousStationLabel: string
+  newStationId: string
+  newStationLabel: string
+  phase: MigrationCorrectionPhase
+}
+
 export interface MigrationResult {
   matches: StationMatch[]
   unmatched: OldFormatStation[]
@@ -122,7 +137,7 @@ export interface MigrationState {
   result: MigrationResult | null
   loading: boolean
   error: string | null
-  step: 'upload' | 'mapping' | 'matching' | 'review' | 'duplicates' | 'complete'
+  step: 'upload' | 'mapping' | 'matching' | 'review' | 'duplicates' | 'reviewChanges' | 'complete'
   // Column mapping (after upload, before matching)
   rawCsvContent: string | null
   rawHeaders: string[]
@@ -139,10 +154,18 @@ export interface MigrationState {
   showProgressModal: boolean
   matchingProgress: number
   currentStationName: string
+  /** Step shown in the matching modal */
+  matchingPhase: 'idle' | 'loading-db' | 'matching' | 'finalizing'
+  matchingIndex: number
+  matchingTotal: number
+  /** Short line under the title (e.g. “Fetching live station data…”) */
+  matchingStatusLine: string
   // Format detection
   detectedFormat: string | null
   /** Number of manual corrections (Correct/search) made this session */
   correctionsCount: number
   /** Snapshot of duplicate groups when entering Step 4 so sections don't disappear after corrections */
   duplicateGroupsSnapshot: DuplicateGroup[] | null
+  /** Chronological log of every Correct action (review + duplicate steps) */
+  correctionLog: MigrationCorrectionLogEntry[]
 }

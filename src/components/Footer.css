@@ -2,25 +2,30 @@
   margin-top: auto;
   padding: var(--space-2xl) 0;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   color: var(--text-disabled);
   font-size: var(--text-sm);
   font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .site-footer-inner {
-  max-width: var(--container-2xl);
-  margin: 0 auto;
-  padding: 0 var(--space-xl);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 var(--space-2xl);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-md);
+  box-sizing: border-box;
 }
 
 .site-footer-links {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  flex-wrap: wrap;
   gap: var(--space-lg);
 }
 
@@ -34,10 +39,61 @@
   text-decoration: underline;
 }
 
+/* Match <a.site-footer-link> box model so Log out sits on the same line/baseline */
 .site-footer-logout {
-  background: none;
-  border: none;
+  margin: 0;
   padding: 0;
-  font: inherit;
+  border: none;
+  background: none;
   cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-decoration: none;
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline;
+  vertical-align: baseline;
+}
+
+.site-footer-logout:hover {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+/* Match header / page horizontal padding at design breakpoints */
+@media (max-width: 1023px) {
+  .site-footer {
+    padding: var(--space-xl) 0;
+  }
+
+  .site-footer-inner {
+    padding: 0 var(--space-xl);
+  }
+
+  .site-footer-links {
+    gap: var(--space-md);
+  }
+}
+
+@media (max-width: 639px) {
+  .site-footer {
+    padding: var(--space-lg) 0;
+    font-size: var(--text-xs);
+  }
+
+  .site-footer-inner {
+    padding: 0 var(--space-lg);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  .site-footer-links {
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-md);
+  }
 }
