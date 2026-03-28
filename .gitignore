@@ -22,6 +22,9 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+
+# Local Cursor scratch (not deployed)
+.cursor/newindex.js
 *.swp
 *.swo
 *~

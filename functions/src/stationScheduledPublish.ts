@@ -1,6 +1,7 @@
 /**
  * Apply pending station changes to Firestore (Admin SDK).
  * Mirrors client src/services/firebase.ts stationToFirestoreUpdate + create/update/merge.
+ * Imported only by `processScheduledStationPublishJobs` — not a separate Cloud Function export.
  */
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -60,14 +61,15 @@ export async function applyScheduledStationJobPayload(payload: {
     const isNew = entry.isNew === true;
 
     const corePayload = stationToFirestoreUpdate(updated);
+    const coreWithId = {...corePayload, id: stationId};
 
     if (isNew) {
       if (Object.keys(corePayload).length === 0) {
         throw new Error(`No core fields for new station ${stationId}`);
       }
-      await ref.set(corePayload);
+      await ref.set(coreWithId);
     } else if (Object.keys(corePayload).length > 0) {
-      await ref.update(corePayload);
+      await ref.update(coreWithId);
     }
 
     if (sandboxUpdated && typeof sandboxUpdated === "object" && Object.keys(sandboxUpdated).length > 0) {

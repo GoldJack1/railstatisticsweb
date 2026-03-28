@@ -13,6 +13,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "deploy": "echo 'Deploy to Netlify via git push'",
     "firebase:deploy": "firebase deploy --only firestore:rules",
+    "firebase:delete-onSandboxStationAdded": "firebase functions:delete onSandboxStationAdded --region us-central1 --force",
     "firebase:enable-totp": "node scripts/enable-firebase-totp-mfa.mjs",
     "firebase:set-station-editor-claim": "node scripts/set-rs-station-editor-claim.mjs"
   },

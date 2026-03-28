@@ -29,5 +29,18 @@ module.exports = {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
+    "max-len": ["error", {code: 100, ignoreUrls: true, ignoreStrings: true}],
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
   },
+  overrides: [
+    {
+      files: ["**/onNewStationAdded.ts"],
+      rules: {
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "max-len": "off",
+        "operator-linebreak": "off",
+      },
+    },
+  ],
 };

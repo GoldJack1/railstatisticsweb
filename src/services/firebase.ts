@@ -486,7 +486,7 @@ export const updateStationInFirebase = async (
   const docRef = doc(db, collectionName, stationId)
   const update = stationToFirestoreUpdate(data)
   if (Object.keys(update).length === 0) return
-  await updateDoc(docRef, update)
+  await updateDoc(docRef, { ...update, id: stationId })
 }
 
 /** Create a new station document in Firestore with a specific ID. Uses current collection selection. */
@@ -505,7 +505,7 @@ export const createStationInFirebase = async (
   if (Object.keys(payload).length === 0) {
     throw new Error('No data provided to create station')
   }
-  await setDoc(docRef, payload)
+  await setDoc(docRef, { ...payload, id: stationId })
 }
 
 /**

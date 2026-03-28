@@ -1,11 +1,17 @@
 /**
- * Firebase Cloud Functions — scheduled station database publishes.
+ * Firebase Functions entrypoint.
+ *
+ * - Scheduler: `processScheduledStationPublishJobs` (defined below).
+ * - New-station notifications: import from `./onNewStationAdded` — keep that file stable;
+ *   edit only when intentionally changing FCM/OneSignal behavior.
  */
 import {setGlobalOptions} from "firebase-functions";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import {processDueScheduledStationJobs} from "./stationScheduledPublish";
+
+export {onNewStationAdded} from "./onNewStationAdded";
 
 setGlobalOptions({maxInstances: 10});
 
