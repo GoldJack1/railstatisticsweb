@@ -3,6 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useTheme } from '../../hooks/useTheme'
 import { getTileLayersConfig } from '../../utils/mapTiles'
+import { useOsmBackendProxy } from '../../utils/osmBackendProxy'
 
 // Same as view: precise circle marker (draggable in edit mode)
 const CIRCLE_ICON = L.divIcon({
@@ -17,7 +18,7 @@ const NOMINATIM_PROXY = '/api/nominatim-search'
 const USER_AGENT = 'RailStatisticsWebsite/1.0 (station location picker)'
 
 function nominatimSearchUrl(): string {
-  return import.meta.env.VITE_USE_OSM_PROXY === 'true' ? NOMINATIM_PROXY : NOMINATIM_DIRECT
+  return useOsmBackendProxy() ? NOMINATIM_PROXY : NOMINATIM_DIRECT
 }
 
 export interface NominatimResult {
@@ -154,10 +155,7 @@ export function LocationMapPicker({
         })
         const base = nominatimSearchUrl()
         const res = await fetch(`${base}?${params}`, {
-          headers:
-            import.meta.env.VITE_USE_OSM_PROXY === 'true'
-              ? {}
-              : { 'User-Agent': USER_AGENT }
+          headers: useOsmBackendProxy() ? {} : { 'User-Agent': USER_AGENT }
         })
         const data: NominatimResult[] = await res.json()
         setSearchResults(Array.isArray(data) ? data : [])

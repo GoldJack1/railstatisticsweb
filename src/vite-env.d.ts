@@ -13,7 +13,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_CHECK_RECAPTCHA_SITE_KEY: string
   readonly VITE_USE_LOCAL_DATA_ONLY: string
   readonly VITE_USE_FIREBASE_EMULATOR: string
-  /** Netlify production: same-origin OSM tile + Nominatim proxy for strict browsers. */
+  /** OSM proxy: 'true' forces on (e.g. netlify dev). 'false' disables in production builds. Otherwise production uses proxy by default. */
   readonly VITE_USE_OSM_PROXY?: string
   /** Dev only: Firebase Email/Password auto sign-in from .env.local (never commit). */
   readonly VITE_LOCAL_AUTH_EMAIL: string
