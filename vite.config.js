@@ -51,6 +51,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,otf}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/_/, /\/[^/?]+\.[^/]+$/],
+        // Drop old precaches after deploy so navigations pick up new index.html + CSP header.
+        cleanupOutdatedCaches: true,
       },
     }),
   ],

@@ -26,9 +26,7 @@
   status = 200
 
 # Headers for security and performance
-# CSP is defined in public/_headers (copied to dist/) and mirrored as a meta tag in index.html —
-# Netlify was not emitting Content-Security-Policy from [[headers]] on the live site; _headers + meta
-# are reliable for SPA routes and OSM / Analytics / Nominatim.
+# CSP is defined only in public/_headers (copied to dist/). img-src includes https: for map tiles + analytics pixels.
 [[headers]]
   for = "/*"
   [headers.values]
