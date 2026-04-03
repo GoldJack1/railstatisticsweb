@@ -18,6 +18,19 @@
   VITE_BUILD_MODE = "production"
   # Disable telemetry for faster builds
   VITE_DISABLE_TELEMETRY = "true"
+  # Same-origin OSM tile + Nominatim proxies (strict browsers / Perplexity)
+  VITE_USE_OSM_PROXY = "true"
+
+# API routes must be declared before the SPA catch-all
+[[redirects]]
+  from = "/api/osm-tile"
+  to = "/.netlify/functions/osm-tile"
+  status = 200
+
+[[redirects]]
+  from = "/api/nominatim-search"
+  to = "/.netlify/functions/nominatim-proxy"
+  status = 200
 
 # Redirect rules for SPA (Single Page Application) behavior
 [[redirects]]

@@ -12,8 +12,13 @@ const CIRCLE_ICON = L.divIcon({
   iconAnchor: [10, 10]
 })
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+const NOMINATIM_DIRECT = 'https://nominatim.openstreetmap.org/search'
+const NOMINATIM_PROXY = '/api/nominatim-search'
 const USER_AGENT = 'RailStatisticsWebsite/1.0 (station location picker)'
+
+function nominatimSearchUrl(): string {
+  return import.meta.env.VITE_USE_OSM_PROXY === 'true' ? NOMINATIM_PROXY : NOMINATIM_DIRECT
+}
 
 export interface NominatimResult {
   place_id: number
@@ -147,8 +152,12 @@ export function LocationMapPicker({
           format: 'json',
           limit: '8'
         })
-        const res = await fetch(`${NOMINATIM_URL}?${params}`, {
-          headers: { 'User-Agent': USER_AGENT }
+        const base = nominatimSearchUrl()
+        const res = await fetch(`${base}?${params}`, {
+          headers:
+            import.meta.env.VITE_USE_OSM_PROXY === 'true'
+              ? {}
+              : { 'User-Agent': USER_AGENT }
         })
         const data: NominatimResult[] = await res.json()
         setSearchResults(Array.isArray(data) ? data : [])

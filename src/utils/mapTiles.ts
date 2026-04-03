@@ -7,8 +7,12 @@ export interface TileLayerConfig {
   options: { attribution: string }
 }
 
+const OSM_DIRECT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+/** Netlify build sets VITE_USE_OSM_PROXY=true so tiles load same-origin (strict embeds / Perplexity). */
+const OSM_PROXY = '/api/osm-tile?s={s}&z={z}&x={x}&y={y}'
+
 const OSM_CONFIG: TileLayerConfig = {
-  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  url: import.meta.env.VITE_USE_OSM_PROXY === 'true' ? OSM_PROXY : OSM_DIRECT,
   options: {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }
