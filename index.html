@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- CSP: only in public/_headers (copied to dist/). Avoid a meta CSP here: two policies (meta + header) are both enforced; a stale PWA precache could leave an old meta out of sync with the header and confuse debugging. -->
+    <!-- PRECACHE-REVISION -->
+    <!-- Replaced with a unique value each prod build so Workbox refetches this document; otherwise CSP header updates in public/_headers alone never change the precache revision and clients keep an old Content-Security-Policy. -->
     <!-- Single viewport tag; viewport-fit=cover needed for safe-area env() on iOS / Safari -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0, user-scalable=yes">
     <!-- Lets UA know both schemes exist; active scheme follows data-theme + CSS color-scheme -->

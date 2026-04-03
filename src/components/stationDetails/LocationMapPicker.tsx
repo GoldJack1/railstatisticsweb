@@ -183,6 +183,7 @@ export function LocationMapPicker({
         </label>
         <input
           id="location-search-place"
+          name="location-place-search"
           type="text"
           className="edit-input location-map-picker-input"
           placeholder="e.g. London King's Cross"

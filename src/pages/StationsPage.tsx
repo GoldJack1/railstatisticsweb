@@ -860,6 +860,8 @@ const StationsPage: React.FC<StationsProps> = ({ initialMode = 'view' }) => {
                 <path d="M21 21l-4.35-4.35" />
               </svg>
               <input
+                id="stations-sidebar-search"
+                name="station-search"
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

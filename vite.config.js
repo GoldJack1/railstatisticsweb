@@ -6,6 +6,18 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [
     react(),
+    // Workbox keys precached index.html by content hash. _headers-only CSP updates do not change
+    // that hash, so clients keep a stale cached document + old CSP until this revision changes.
+    {
+      name: 'precache-revision-bump',
+      transformIndexHtml(html, ctx) {
+        if (ctx.server) return html
+        return html.replace(
+          '<!-- PRECACHE-REVISION -->',
+          `<!-- precache-revision:${Date.now()} -->`
+        )
+      }
+    },
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
