@@ -43,6 +43,8 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    # SPA shell (/, /review-pending, etc.) must not sit in browser cache while hashed /assets/* stay long-lived below.
+    Cache-Control = "public, max-age=0, must-revalidate"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
