@@ -1,30 +1,30 @@
 /*
  * Flex shell: .app (column, full viewport min-height) → fixed Header | .app-main | .app-footer
  * .app and .app-main share --bg-primary; .site-footer / .app-footer use --bg-secondary so any
- * thin gap above the safe-area band still reads as “page” until padding-bottom + env() fills it.
+ * thin gap above the safe-area band still reads as "page" until padding-bottom + env() fills it.
  */
 .app {
     min-height: 100vh;
     min-height: 100svh;
-    min-height: 100dvh;
     min-height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
 }
 
 /* Fixed header height + notch / Dynamic Island (viewport-fit=cover + env safe-area).
- * min-height uses the full viewport stack. Because box-sizing:border-box is applied
- * globally, the element's total height (including padding-top) equals 100dvh — content
- * starts just below the header, footer is pushed to/below the fold on short pages,
- * and the area expands freely when page content is longer. */
+ * min-height uses 100lvh (Large Viewport Height — full screen with toolbars collapsed).
+ * Because viewport-fit=cover extends the CSS layout to y=0 (physical screen top), but the
+ * visible content area starts below the browser chrome, using 100svh (visible area only)
+ * left the footer within the viewport on short-content pages. 100lvh = full screen height,
+ * so the element always extends below the visible fold regardless of browser chrome height.
+ * The area expands freely beyond 100lvh on pages with more content. */
 .main-content.app-main {
     flex: 1 0 auto;
     display: flex;
     flex-direction: column;
     padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
+    min-height: 100lvh;
     min-width: 0;
 }
 
@@ -32,8 +32,7 @@
     .main-content.app-main {
         padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
         min-height: 100vh;
-        min-height: 100svh;
-        min-height: 100dvh;
+        min-height: 100lvh;
     }
 }
 
@@ -43,8 +42,7 @@
         .main-content.app-main {
             padding-top: calc(4rem + env(safe-area-inset-top, 0px) + 5px);
             min-height: 100vh;
-            min-height: 100svh;
-            min-height: 100dvh;
+            min-height: 100lvh;
         }
     }
 
@@ -52,8 +50,7 @@
         .main-content.app-main {
             padding-top: calc(3.5rem + env(safe-area-inset-top, 0px) + 5px);
             min-height: 100vh;
-            min-height: 100svh;
-            min-height: 100dvh;
+            min-height: 100lvh;
         }
     }
 }

@@ -8,7 +8,10 @@
   display: flex;
   flex-direction: column;
   --footer-pad-y: var(--space-2xl);
-  padding: var(--footer-pad-y) 0;
+  /* padding-bottom adds safe-area-inset-bottom on top of the design padding so the footer
+   * background visually fills into the iPhone home indicator zone. Resolves to 0 on devices
+   * without a home indicator (desktop, older iPhones), so no media query is needed. */
+  padding: var(--footer-pad-y) 0 calc(var(--footer-pad-y) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-disabled);

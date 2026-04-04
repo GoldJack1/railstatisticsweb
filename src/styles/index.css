@@ -158,7 +158,9 @@ html {
     width: 100%;
     overflow-x: hidden;
     overflow-y: scroll;
-    background-color: var(--bg-primary);
+    /* Use --bg-secondary (footer colour) so the iOS rubber-band overscroll zone at the bottom
+     * seamlessly continues the footer background. Body retains --bg-primary for page content. */
+    background-color: var(--bg-secondary);
 }
 
 @media (max-width: 639px) {
@@ -174,7 +176,10 @@ body {
     font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
     line-height: 1.6;
     color: var(--text-primary);
-    background-color: var(--bg-primary);
+    /* iOS Safari uses body (not html) for the rubber-band overscroll background.
+     * --bg-secondary matches the footer so the bounce zone looks like a footer extension.
+     * Page content is unaffected — .app and .main-content carry their own --bg-primary. */
+    background-color: var(--bg-secondary);
     transition: background-color 0.3s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
