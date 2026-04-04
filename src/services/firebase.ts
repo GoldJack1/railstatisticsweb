@@ -224,6 +224,15 @@ export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'
 
 export type StationCollectionId = 'stations2603' | 'newsandboxstations1'
 
+/** Human-readable labels for UI (matches station list “Data source” options). */
+export const STATION_COLLECTION_DISPLAY_LABELS: Record<StationCollectionId, string> = {
+  stations2603: 'Production (stations2603)',
+  newsandboxstations1: 'Sandbox (newsandboxstations1)'
+}
+
+export const getStationCollectionDisplayLabel = (id: StationCollectionId): string =>
+  STATION_COLLECTION_DISPLAY_LABELS[id]
+
 const DEFAULT_STATION_COLLECTION: StationCollectionId = 'stations2603'
 
 /** Read the currently selected station collection from localStorage (falls back to production). */

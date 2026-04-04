@@ -6,10 +6,6 @@
   font-family: inherit;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100vh;
-  min-height: 100svh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -5933,10 +5929,7 @@
 
 /* ——— Migration: full-page “match station” search (same shell as StationDetailsPage) ——— */
 .migration-station-search {
-  min-height: 100vh;
-  min-height: 100svh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  min-height: 100%;
   box-sizing: border-box;
   background: var(--bg-primary);
 }

@@ -1,0 +1,39 @@
+.pending-action-overlay {
+  z-index: 10001;
+}
+
+.pending-action-dialog {
+  max-width: min(520px, 100%);
+  max-height: min(90vh, 900px);
+  overflow-y: auto;
+}
+
+.pending-action-lead {
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.pending-action-station-list {
+  margin: 0 0 var(--space-lg);
+  padding-left: 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.pending-action-warn {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.firebase-reauth-panel--stacked .password-reauth-title {
+  font-size: var(--text-lg);
+}

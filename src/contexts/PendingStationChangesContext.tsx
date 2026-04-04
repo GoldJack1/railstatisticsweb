@@ -8,7 +8,10 @@ import {
   writeScheduleSavedFingerprint
 } from '../utils/scheduledPublishStorage'
 import { computePendingChangesFingerprint } from '../utils/pendingChangesFingerprint'
-import { deleteScheduledStationPublishJobDocument } from '../services/firebase'
+import {
+  pendingEntryMatchesScheduledPayload,
+  type ScheduledJobStationPayload
+} from '../utils/scheduledJobPendingMatch'
 import ScheduledServerJobFirestoreSync, { type ServerScheduledJobDetail } from './ScheduledServerJobFirestoreSync'
 
 const PENDING_CHANGES_STORAGE_KEY = 'railstatistics-pending-station-changes-v1'
@@ -151,8 +154,8 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
   }, [])
 
   /**
-   * Legacy: job id in storage but no fingerprint — assume current pending matches once, then edits invalidate.
-   * New: fingerprint is written when the user clicks Save changes on StationsPage.
+   * Legacy: job id in storage but no fingerprint — baseline once from current pending.
+   * New: fingerprint is written when the user saves a schedule (for UI drift hints vs current queue).
    */
   useEffect(() => {
     if (!trackedScheduledJobId) {
@@ -168,43 +171,38 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
     scheduleFingerprintBaselinedForJobRef.current = trackedScheduledJobId
   }, [trackedScheduledJobId, pendingChanges])
 
-  /** Pending queue changed after schedule was saved — cancel server job until user saves schedule again. */
-  useEffect(() => {
-    const id = trackedScheduledJobId
-    if (!id) return
-    const saved = readScheduleSavedFingerprint()
-    if (saved === null) return
-    const current = computePendingChangesFingerprint(pendingChanges)
-    if (saved === current) return
-
-    let cancelled = false
-    void (async () => {
-      try {
-        await deleteScheduledStationPublishJobDocument(id)
-      } catch (e) {
-        console.warn('Removed outdated scheduled publish job (pending edits changed):', e)
-      }
-      if (cancelled) return
-      clearTrackedScheduledServerJob()
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [pendingChanges, trackedScheduledJobId, clearTrackedScheduledServerJob])
-
   const handleServerJobDetail = useCallback((detail: ServerScheduledJobDetail | null) => {
     setServerScheduledJobDetail(detail)
   }, [])
 
   const handleServerJobCompleted = useCallback(
-    (stationIds: string[]) => {
-      clearPendingChangesForIds(stationIds)
+    (stationIds: string[], scheduledChanges: Record<string, ScheduledJobStationPayload> | null) => {
+      setPendingChanges(prev => {
+        const next = { ...prev }
+        for (const id of stationIds) {
+          const entry = next[id]
+          if (!entry) continue
+          if (scheduledChanges == null) {
+            delete next[id]
+            continue
+          }
+          const sch = scheduledChanges[id]
+          if (sch == null) {
+            delete next[id]
+            continue
+          }
+          if (pendingEntryMatchesScheduledPayload(entry, sch)) {
+            delete next[id]
+          }
+        }
+        return next
+      })
       clearTrackedScheduledServerJob()
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('railstats-stations-refetch'))
       }
     },
-    [clearPendingChangesForIds, clearTrackedScheduledServerJob]
+    [clearTrackedScheduledServerJob]
   )
 
   return (

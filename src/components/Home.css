@@ -6,7 +6,6 @@
     width: 100%;
     gap: 0;
     padding-top: var(--space-2xl);
-    height: fit-content;
 }
 
 /* Hero Section */
@@ -54,12 +53,18 @@
     border-radius: var(--radius-lg);
     padding: var(--space-2xl);
     text-align: center;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    contain: layout style paint;
 }
 
 .feature:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-lg);
+    will-change: transform, box-shadow;
+}
+
+.feature:not(:hover) {
+    will-change: auto;
 }
 
 .feature-icon {
@@ -110,10 +115,6 @@
 
 /* Responsive Design */
 @media (max-width: 1023px) {
-    .container {
-        padding: 0 var(--space-lg);
-    }
-    
     .main {
         gap: var(--space-3xl);
         padding-top: var(--space-xl);
@@ -163,10 +164,6 @@
 }
 
 @media (max-width: 639px) {
-    .container {
-        padding: 0 var(--space-md);
-    }
-    
     .main {
         gap: var(--space-2xl);
         padding-top: var(--space-lg);

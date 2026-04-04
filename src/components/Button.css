@@ -45,7 +45,7 @@
   font-size: 16px;
   line-height: 16px;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
@@ -208,6 +208,11 @@
 .rs-button--active:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.25);
+  will-change: transform, box-shadow;
+}
+
+.rs-button--active:not(:hover) {
+  will-change: auto;
 }
 
 /* Active (Click) State */

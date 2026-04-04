@@ -8,10 +8,7 @@ export type PendingFingerprintEntry = {
   isNew?: boolean
 }
 
-/**
- * Stable fingerprint of the pending publish queue. Used to ensure a server scheduled job
- * only stays active while it matches the current pending edits (until the user saves schedule again).
- */
+/** Stable fingerprint of the pending publish queue (for comparing to the last saved schedule snapshot). */
 export function computePendingChangesFingerprint(
   pending: Record<string, PendingFingerprintEntry>
 ): string {

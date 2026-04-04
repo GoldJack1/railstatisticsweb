@@ -12,19 +12,28 @@
     flex-direction: column;
 }
 
-/* Fixed header height + notch / Dynamic Island (viewport-fit=cover + env safe-area) */
+/* Fixed header height + notch / Dynamic Island (viewport-fit=cover + env safe-area).
+ * min-height uses the full viewport stack. Because box-sizing:border-box is applied
+ * globally, the element's total height (including padding-top) equals 100dvh — content
+ * starts just below the header, footer is pushed to/below the fold on short pages,
+ * and the area expands freely when page content is longer. */
 .main-content.app-main {
     flex: 1 0 auto;
     display: flex;
     flex-direction: column;
     padding-top: calc(4rem + env(safe-area-inset-top, 0px));
-    min-height: 0;
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
     min-width: 0;
 }
 
 @media (max-width: 639px) {
     .main-content.app-main {
         padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+        min-height: 100vh;
+        min-height: 100svh;
+        min-height: 100dvh;
     }
 }
 
@@ -33,12 +42,18 @@
     @media (max-width: 1199px) {
         .main-content.app-main {
             padding-top: calc(4rem + env(safe-area-inset-top, 0px) + 5px);
+            min-height: 100vh;
+            min-height: 100svh;
+            min-height: 100dvh;
         }
     }
 
     @media (max-width: 639px) {
         .main-content.app-main {
             padding-top: calc(3.5rem + env(safe-area-inset-top, 0px) + 5px);
+            min-height: 100vh;
+            min-height: 100svh;
+            min-height: 100dvh;
         }
     }
 }

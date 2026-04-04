@@ -150,25 +150,24 @@ html[data-theme='dark'] {
 
 /* Base Styles */
 html {
-    /* Percentage height chain + viewport min heights — helps iOS fill behind safe areas */
-    min-height: 100%;
     scroll-behavior: smooth;
+    /* Offset scroll targets (anchor links, scrollIntoView, hash nav) by the fixed header height */
+    scroll-padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
     width: 100%;
     overflow-x: hidden;
-    overflow-y: scroll; /* Prevent layout shift when scrollbar appears/disappears */
-    /* Same token as body — avoids light “gutter” when html shows through (zoom, subpixel, overflow) */
+    overflow-y: scroll;
     background-color: var(--bg-primary);
-    /* iOS Safari / WebKit: svh = stable toolbar size; dvh = dynamic; fill-available last for in-tab Safari */
-    min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
+}
+
+@media (max-width: 639px) {
+    html {
+        scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+    }
 }
 
 body {
-    min-height: 100%;
     font-family: var(--font-body);
     font-weight: 400;
     -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
@@ -177,10 +176,6 @@ body {
     color: var(--text-primary);
     background-color: var(--bg-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
-    min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -231,24 +226,16 @@ button, a, input, select, textarea, [role="button"] {
 
 /* App Layout */
 #root {
-    min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    display: flex;
-    flex-direction: column;
+    width: 100%;
+    background-color: var(--bg-primary);
 }
 
 .app {
-    min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
     width: 100%;
     background-color: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 .main-content {
@@ -283,26 +270,54 @@ button, a, input, select, textarea, [role="button"] {
 .container {
     max-width: var(--container-2xl);
     margin: 0 auto;
-    padding: 0 var(--space-xl);
-    min-height: 100vh;
-    min-height: 100svh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    display: flex;
-    flex-direction: column;
+    padding: 0 var(--space-2xl);
+    width: 100%;
+    background-color: var(--bg-primary);
 }
 
-/* Accessibility */
-@media (prefers-reduced-motion: reduce) {
-    html {
-        scroll-behavior: auto;
+/* Container responsive breakpoints */
+@media (max-width: 1023px) {
+    .container {
+        padding: 0 var(--space-xl);
     }
+}
 
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+@media (max-width: 639px) {
+    .container {
+        padding: 0 var(--space-lg);
     }
+}
+
+/* Reduce motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .feature:hover {
+    transform: none !important;
+  }
+
+  .rs-button--active:hover:not(:disabled) {
+    transform: none !important;
+  }
+
+  .rs-button-bar__button:hover:not(:disabled):not(.rs-button-bar__button--pressed) {
+    transform: none !important;
+  }
+
+  .rs-visit-button:hover:not(:disabled) {
+    transform: none !important;
+  }
 }
 
 /*

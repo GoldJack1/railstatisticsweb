@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
+  '/stations/pending-review': 'Review changes | Rail Statistics',
   '/stations/new': 'New Station | Rail Statistics',
   '/station-database-edit': 'Edit Station Database | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
@@ -31,7 +32,8 @@ const PAGE_TITLES: Record<string, string> = {
 // Lazy load components for better performance
 const HomePage = React.lazy(() => import('./pages/HomePage'))
 const LoginPage = React.lazy(() => import('./pages/LoginPage'))
-const StationsPage = React.lazy(() => import('./pages/StationsPage'))
+const StationsPageRefactored = React.lazy(() => import('./pages/StationsPageRefactored'))
+const ReviewPendingChangesPage = React.lazy(() => import('./pages/ReviewPendingChangesPage'))
 const StationDatabaseEditPage = React.lazy(() => import('./pages/StationDatabaseEditPage'))
 const StationDetailsPage = React.lazy(() => import('./pages/StationDetailsPage'))
 const NewStationPage = React.lazy(() => import('./pages/NewStationPage'))
@@ -52,6 +54,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     document.title = PAGE_TITLES[pathname] ?? 'Rail Statistics'
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pathname])
 
   return (
@@ -81,7 +84,8 @@ const App: React.FC = () => {
                   <Route path="/" element={<MigrationPage />} />
                   <Route path="/home" element={<HomePage />} />
                   <Route path="/log-in" element={<LoginPage />} />
-                  <Route path="/stations" element={<ProtectedRoute><StationsPage /></ProtectedRoute>} />
+                  <Route path="/stations" element={<ProtectedRoute><StationsPageRefactored /></ProtectedRoute>} />
+                  <Route path="/stations/pending-review" element={<ProtectedRoute><ReviewPendingChangesPage /></ProtectedRoute>} />
                   <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
                   <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
                   <Route path="/stations/:stationId/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />

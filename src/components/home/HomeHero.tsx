@@ -1,5 +1,6 @@
 import React from 'react'
 import Button from '../Button'
+import { getOptimalImageLoading } from '../../utils/performance'
 import './HomeHero.css'
 
 export interface HomeHeroProps {
@@ -46,7 +47,15 @@ const HomeHero: React.FC<HomeHeroProps> = ({
       </div>
 
       <div className="rs-home-hero__right">
-        <img className="rs-home-hero__image" src={imageSrc} alt={imageAlt} />
+        <img 
+          className="rs-home-hero__image" 
+          src={imageSrc} 
+          alt={imageAlt}
+          loading={getOptimalImageLoading()}
+          decoding="async"
+          width={400}
+          height={300}
+        />
       </div>
     </section>
   )

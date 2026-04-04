@@ -6,7 +6,7 @@ import HomeHero from '../components/home/HomeHero'
 const HomePage: React.FC = () => {
   return (
     <div className="container">
-      <main className="main">
+      <div className="main">
         <HomeHero
           title="Rail Statistics is Officially Live!"
           body={
@@ -80,7 +80,7 @@ const HomePage: React.FC = () => {
             View Button Components
           </NavigationButton>
         </section>
-      </main>
+      </div>
     </div>
   )
 }

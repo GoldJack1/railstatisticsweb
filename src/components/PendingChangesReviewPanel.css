@@ -1,0 +1,343 @@
+/* Pending review — full page uses a two-column layout; compact stacks for sidebar. */
+
+.pending-review-shell {
+  width: 100%;
+}
+
+.pending-review-shell--page {
+  max-width: 100%;
+}
+
+.pending-review-shell__intro {
+  margin-bottom: var(--space-xl);
+}
+
+.pending-review-shell__intro .pending-review-title {
+  font-size: var(--text-xl);
+}
+
+.pending-review-shell__intro--with-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.pending-review-shell__intro-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.pending-review-shell__intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.pending-review-shell__main-only {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.pending-review-master-notice {
+  margin: calc(var(--space-md) * -1) 0 var(--space-lg);
+  padding: var(--space-md);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.pending-review-scheduled-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.pending-review-scheduled-strip__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.pending-review-scheduled-strip__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.pending-review-scheduled-strip__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.pending-review-scheduled-strip__detail {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.pending-review-scheduled-stations {
+  margin: 0;
+  padding: 0;
+  border-top: 1px dashed var(--border-color);
+  padding-top: var(--space-md);
+}
+
+.pending-review-scheduled-stations__summary {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.pending-review-scheduled-stations__summary::-webkit-details-marker {
+  display: none;
+}
+
+.pending-review-scheduled-stations__list {
+  margin: var(--space-sm) 0 0;
+  padding-left: 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.pending-review-scheduled-stations__item {
+  margin-bottom: var(--space-xs);
+}
+
+.pending-review-scheduled-stations__name {
+  font-weight: 500;
+}
+
+.pending-review-scheduled-stations__id {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.pending-review-table__station-row,
+.pending-review-card__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pending-review-scheduled-badge {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-color) 18%, var(--bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--accent-color) 40%, var(--border-color));
+}
+
+.pending-review-schedule-drift {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, var(--border-color));
+  border-radius: var(--radius-lg);
+}
+
+.pending-review-actions--compact-footer {
+  margin-top: var(--space-xl);
+}
+
+.pending-review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pending-review-toolbar__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-right: var(--space-xs);
+}
+
+.pending-review-table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.pending-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.pending-review-table th,
+.pending-review-table td {
+  padding: var(--space-md) var(--space-lg);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pending-review-table th {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.pending-review-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pending-review-table__station {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pending-review-table__meta {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.pending-review-table__count {
+  color: var(--text-secondary);
+  max-width: 14rem;
+}
+
+.pending-review-table__details {
+  margin-top: var(--space-sm);
+}
+
+.pending-review-table__details .pending-review-schedule-picker-summary {
+  font-size: var(--text-xs);
+  cursor: pointer;
+  color: var(--accent-color);
+}
+
+.pending-review-table__check {
+  text-align: center;
+  width: 7rem;
+}
+
+.pending-review-table__check label,
+.pending-review-row__checks label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+/*
+ * Global `index.css` sets `appearance: none` and 44×44 min size on all inputs — that hides native checkboxes.
+ * Restore native checkbox rendering and sensible hit target inside labels.
+ */
+.pending-review-shell input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+  min-width: unset;
+  min-height: unset;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.pending-review-row__details {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px dashed var(--border-color);
+}
+
+/* Compact / mobile card list */
+.pending-review-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.pending-review-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  background: var(--bg-secondary);
+}
+
+.pending-review-card__head {
+  margin-bottom: var(--space-md);
+}
+
+.pending-review-row__checks {
+  display: flex;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+}
+
+/* Mobile-first: cards; page + wide viewport → table */
+.pending-review-table-wrap {
+  display: none;
+}
+
+.pending-review-cards {
+  display: flex;
+}
+
+@media (min-width: 960px) {
+  .pending-review-shell--page .pending-review-table-wrap {
+    display: block;
+  }
+
+  .pending-review-shell--page .pending-review-cards {
+    display: none;
+  }
+}
+
+.pending-review-shell--compact .pending-review-table-wrap {
+  display: none;
+}
+
+.pending-review-shell--compact .pending-review-cards {
+  display: flex;
+}
+

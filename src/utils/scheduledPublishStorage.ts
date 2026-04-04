@@ -50,8 +50,8 @@ export function writeServerScheduledJobId(id: string | null): void {
 }
 
 /**
- * Fingerprint of pending changes at the time the user last clicked “Save changes” (schedule).
- * If pending edits diverge, the server job is cancelled until they save again.
+ * Fingerprint of pending changes when the user last saved a server schedule.
+ * Used to show when the local queue has drifted from that snapshot (the job is not auto-cancelled).
  */
 export const SCHEDULE_SAVED_PENDING_FINGERPRINT_KEY = 'railstatistics-schedule-saved-pending-fingerprint'
 

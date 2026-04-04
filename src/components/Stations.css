@@ -8,6 +8,21 @@
     background-color: var(--bg-primary);
 }
 
+/* Container responsive breakpoints for stations */
+@media (max-width: 1023px) {
+    .container--stations {
+        padding-left: var(--space-xl);
+        padding-right: var(--space-xl);
+    }
+}
+
+@media (max-width: 639px) {
+    .container--stations {
+        padding-left: var(--space-lg);
+        padding-right: var(--space-lg);
+    }
+}
+
 .page-header {
     display: flex;
     justify-content: space-between;
@@ -20,36 +35,49 @@
 
 .stations-layout {
     display: grid;
-    grid-template-columns: minmax(340px, 420px) 1fr;
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    grid-template-rows: 1fr; /* Ensure equal height rows */
     gap: var(--space-2xl);
-    align-items: start;
+    align-items: stretch; /* Stretch items to full height */
     margin-top: var(--space-2xl);
     width: 100%;
-    /* Use full content width on large / zoomed-out viewports (was 1800px + pale html gutters) */
+    /* Use full content width on large / zoomed-out viewports */
     max-width: min(100%, var(--container-3xl, 1920px));
     margin-left: auto;
     margin-right: auto;
     flex: 1 1 auto;
-    min-height: 550px;
+    min-height: calc(100vh - (4rem + var(--space-xl) + var(--space-2xl))); /* Match viewport height */
     background-color: var(--bg-primary);
 }
 
 .stations-sidebar {
     position: sticky;
     top: calc(4rem + var(--space-xl));
-    align-self: start;
-    min-height: 550px;
+    align-self: stretch; /* Stretch to full height */
+    min-height: 0; /* Allow shrinking */
+    display: flex;
+    flex-direction: column;
 }
 
 .stations-main {
     min-width: 0;
     padding-bottom: var(--space-4xl);
-    /* Right side is the scroll view; ensure it's never shorter than 550px */
-    max-height: max(550px, calc(170vh - (4rem + var(--space-xl)) - var(--space-xl)));
+    /* Remove height constraints for natural page scrolling */
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior: auto;
     background-color: var(--bg-primary);
-    scrollbar-color: var(--bg-tertiary) var(--bg-primary);
+    align-self: stretch; /* Stretch to match sidebar height */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Only add constraints on very large screens to prevent overly long pages */
+@media (min-width: 1400px) {
+    .stations-main {
+        max-height: calc(100vh - (4rem + var(--space-xl) + var(--space-2xl)));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
 }
 
 .stations-main::-webkit-scrollbar {
@@ -107,6 +135,10 @@
 
 .sidebar-pending-summary {
     margin-top: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
 }
 
 .search-row-primary {
@@ -129,10 +161,6 @@
 .pending-changes-button {
     /* Allow `Button` design-system styles to apply. */
     min-width: 0;
-}
-
-.pending-changes-button:disabled {
-    /* `Button` handles disabled styling. */
 }
 
 .pending-review-section {
@@ -396,11 +424,6 @@
 .pending-review-publish {
     /* Allow `Button` design-system styles to apply. */
     min-width: 0;
-}
-
-.pending-review-publish:disabled,
-.pending-review-cancel:disabled {
-    /* `Button` handles disabled styling. */
 }
 
 .station-controls-strip {
@@ -842,13 +865,28 @@
     }
 
     .stations-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: 280px 1fr;
+        grid-template-rows: 1fr;
         gap: var(--space-xl);
+        min-height: calc(100vh - (3.5rem + var(--space-xl) + var(--space-xl)));
     }
 
     .stations-sidebar {
-        position: static;
-        top: auto;
+        position: sticky;
+        top: calc(3.5rem + var(--space-xl));
+        align-self: stretch;
+        min-height: 0;
+        max-height: calc(100vh - (3.5rem + var(--space-xl) + var(--space-xl)));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stations-main {
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
     }
 
     .page-header {
@@ -879,7 +917,7 @@
     }
 
     .stations-grid {
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
         gap: var(--space-lg);
     }
 
@@ -909,6 +947,30 @@
     .container--stations {
         padding-left: var(--space-lg);
         padding-right: var(--space-lg);
+    }
+
+    .stations-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto; /* Allow natural height on mobile */
+        gap: var(--space-lg);
+        min-height: auto; /* Remove fixed height on mobile */
+    }
+
+    .stations-sidebar {
+        position: static;
+        top: auto;
+        align-self: stretch;
+        max-height: none;
+        overflow-y: visible;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stations-main {
+        align-self: stretch;
+        overflow-y: visible;
+        display: flex;
+        flex-direction: column;
     }
 
     .page-title {
@@ -1190,10 +1252,6 @@
     min-width: 0;
 }
 
-.clear-filters-button:hover {
-    /* `Button` handles hover styling. */
-}
-
 /* Pagination */
 .pagination {
     display: flex;
@@ -1207,14 +1265,6 @@
 .pagination-button {
     /* Allow `Button` design-system styles to apply. */
     min-width: 0;
-}
-
-.pagination-button:hover:not(:disabled) {
-    /* `Button` handles hover styling. */
-}
-
-.pagination-button:disabled {
-    /* `Button` handles disabled styling. */
 }
 
 .pagination-info {
@@ -1256,8 +1306,12 @@
         justify-content: center;
     }
 
-    /* Reduce animations on mobile for better performance */
-    * {
+    /* Reduce animations on station elements for mobile performance */
+    .station-card,
+    .filters-panel,
+    .station-card *,
+    .stations-grid,
+    .stations-layout {
         animation-duration: 0.2s !important;
         transition-duration: 0.2s !important;
     }
