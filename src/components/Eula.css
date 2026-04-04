@@ -23,7 +23,7 @@
 .eula-intro {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
   margin-bottom: var(--space-2xl);
 }
 
@@ -53,13 +53,13 @@
 .eula-section p {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
 }
 
 .eula-toc {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.8;
+  line-height: normal;
   padding-left: var(--space-xl);
   margin-bottom: 0;
 }
@@ -68,7 +68,7 @@
 .eula-section ol {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
   padding-left: var(--space-xl);
   margin-top: var(--space-sm);
   margin-bottom: var(--space-md);

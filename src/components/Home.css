@@ -18,7 +18,7 @@
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: var(--space-lg);
-    line-height: 1.1;
+    line-height: normal;
 }
 
 .hero-subtitle {
@@ -28,7 +28,7 @@
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
-    line-height: 1.6;
+    line-height: normal;
 }
 
 /* CTA Section */
@@ -87,7 +87,7 @@
 
 .feature p {
     color: var(--text-secondary);
-    line-height: 1.6;
+    line-height: normal;
     font-size: var(--text-base);
 }
 

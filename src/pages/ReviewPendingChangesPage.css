@@ -142,12 +142,12 @@
 
   .review-pending-page .station-details-title {
     font-size: clamp(1.15rem, 4.5vw, 1.5rem);
-    line-height: 1.25;
+    line-height: normal;
   }
 
   .review-pending-page .station-details-subtitle {
     font-size: var(--text-xs);
-    line-height: 1.45;
+    line-height: normal;
   }
 
   .review-pending-page__action-bar {

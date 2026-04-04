@@ -3,7 +3,7 @@
 .pending-review-page-empty-pending {
   margin: var(--space-md) 0 0;
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-secondary);
 }
 
@@ -55,7 +55,7 @@
   margin: calc(var(--space-md) * -1) 0 var(--space-lg);
   padding: var(--space-md);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-primary);
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -100,7 +100,7 @@
 .pending-review-scheduled-strip__detail {
   font-size: var(--text-sm);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: normal;
 }
 
 .pending-review-scheduled-stations {
@@ -127,7 +127,7 @@
   padding-left: 1.25rem;
   font-size: var(--text-sm);
   color: var(--text-primary);
-  line-height: 1.45;
+  line-height: normal;
 }
 
 .pending-review-scheduled-stations__item {
@@ -157,7 +157,7 @@
   align-items: center;
   font-size: var(--text-xs);
   font-weight: 500;
-  line-height: 1.2;
+  line-height: normal;
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -272,7 +272,7 @@
 }
 
 .pending-review-change-list--card .pending-review-change-arrow {
-  line-height: 1;
+  line-height: normal;
   padding: 0.1rem 0;
 }
 
@@ -301,7 +301,7 @@
   margin: 0 0 var(--space-lg);
   padding: var(--space-md) var(--space-lg);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-primary);
   background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-secondary));
   border: 1px solid color-mix(in srgb, var(--accent-color) 35%, var(--border-color));
@@ -511,7 +511,7 @@
   margin: 0;
   font-size: var(--text-lg);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: normal;
   color: var(--text-primary);
   word-break: break-word;
 }
@@ -570,7 +570,7 @@
 
 .pending-review-card__action-hint {
   font-size: var(--text-xs);
-  line-height: 1.4;
+  line-height: normal;
   color: var(--text-secondary);
 }
 
@@ -626,7 +626,7 @@
   margin: var(--space-md) var(--space-lg) 0;
   padding: var(--space-md) var(--space-lg);
   font-size: var(--text-sm);
-  line-height: 1.45;
+  line-height: normal;
   color: var(--text-secondary);
   background: var(--bg-primary);
   border: 1px dashed var(--border-color);
@@ -693,7 +693,7 @@
   margin: var(--space-sm) 0 var(--space-xs);
   padding: 0;
   font-size: var(--text-xs);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-secondary);
 }
 
@@ -767,7 +767,7 @@
   align-items: baseline;
   gap: var(--space-sm);
   font-size: var(--text-sm);
-  line-height: 1.45;
+  line-height: normal;
   color: var(--text-primary);
 }
 

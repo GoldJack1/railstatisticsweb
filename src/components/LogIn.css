@@ -73,7 +73,7 @@
   color: var(--text-secondary);
   margin: 0 0 var(--space-lg);
   text-align: center;
-  line-height: 1.55;
+  line-height: normal;
   max-width: 26rem;
   margin-left: auto;
   margin-right: auto;
@@ -135,7 +135,7 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 0 0 var(--space-md);
-  line-height: 1.5;
+  line-height: normal;
 }
 
 .login-totp-secret-label {
@@ -288,7 +288,7 @@
   padding: var(--space-sm);
   background: var(--accent-light, rgba(59, 130, 246, 0.12));
   border-radius: var(--radius-sm);
-  line-height: 1.5;
+  line-height: normal;
 }
 
 .login-submit {

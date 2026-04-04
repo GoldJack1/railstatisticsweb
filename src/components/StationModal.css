@@ -333,7 +333,7 @@
 .modal-passengers-content {
   font-size: var(--text-base);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: normal;
   padding: var(--space-md);
   background: var(--bg-secondary);
   border-radius: var(--radius-md);

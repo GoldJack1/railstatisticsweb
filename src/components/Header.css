@@ -128,7 +128,7 @@
 }
 
 .logo-text {
-    line-height: 1.2;
+    line-height: normal;
 }
 
 .logo:hover {

@@ -12,7 +12,7 @@
   margin: 0 0 var(--space-md);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: normal;
 }
 
 .pending-action-station-list {
@@ -20,14 +20,14 @@
   padding-left: 1.25rem;
   font-size: var(--text-sm);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: normal;
 }
 
 .pending-action-warn {
   margin: 0 0 var(--space-lg);
   padding: var(--space-md);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-primary);
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -91,13 +91,13 @@
 .pending-action-radio-title {
   font-size: var(--text-sm);
   font-weight: 500;
-  line-height: 1.35;
+  line-height: normal;
 }
 
 .pending-action-radio-meta {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: normal;
 }
 
 .pending-action-loading {
@@ -107,7 +107,7 @@
 .pending-action-choice-hint {
   margin: 0 0 var(--space-md);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: normal;
   color: var(--text-secondary);
 }
 

@@ -55,6 +55,7 @@
     box-sizing: border-box;
     font-family: var(--font-body);
     font-weight: 400;
+    line-height: normal;
     /* CRSV = 1 uses cursive style (self-hosted variable font) */
     -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
     font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
@@ -174,7 +175,7 @@ body {
     font-weight: 400;
     -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
     font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
-    line-height: 1.6;
+    line-height: normal;
     color: var(--text-primary);
     /* iOS Safari uses body (not html) for the rubber-band overscroll background.
      * --bg-secondary matches the footer so the bounce zone looks like a footer extension.

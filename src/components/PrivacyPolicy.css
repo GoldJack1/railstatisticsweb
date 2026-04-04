@@ -23,7 +23,7 @@
 .privacy-intro {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
   margin-bottom: var(--space-2xl);
 }
 
@@ -53,7 +53,7 @@
 .privacy-section p {
   font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
 }
 
 .privacy-section a {

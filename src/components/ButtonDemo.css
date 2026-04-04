@@ -155,7 +155,7 @@
 .button-demo__guideline p {
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: normal;
 }
 
 /* Responsive Design */

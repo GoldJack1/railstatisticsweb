@@ -44,7 +44,7 @@
   -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
   font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
   font-size: 16px;
-  line-height: 16px;
+  line-height: normal;
   text-align: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   -webkit-tap-highlight-color: transparent;

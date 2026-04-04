@@ -7,7 +7,7 @@ const PrivacyPolicyPage: React.FC = () => {
     <div className="container">
       <main className="privacy-main">
         <h1 className="privacy-title">Privacy Policy</h1>
-        <p className="privacy-updated">Effective date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p className="privacy-updated">Last updated February 26, 2026</p>
 
         <p className="privacy-intro">
           Thank you for using Rail Statistics (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). Your privacy is important, and this Privacy Policy explains how your information is collected, used, and protected.
