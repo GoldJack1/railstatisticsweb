@@ -5,6 +5,7 @@ export interface ButtonBarItem {
   label: string
   value: string
   disabled?: boolean
+  id?: string
 }
 
 export interface ButtonBarProps {
@@ -74,6 +75,8 @@ const ButtonBar: React.FC<ButtonBarProps> = ({
         return (
           <div key={button.value} className="rs-button-bar__item">
             <button
+              type="button"
+              id={button.id}
               className={buttonClasses}
               onClick={() => handleClick(index, button.value, button.disabled)}
               disabled={button.disabled}

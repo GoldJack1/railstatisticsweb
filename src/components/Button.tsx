@@ -23,6 +23,11 @@ export interface ButtonProps {
   title?: string
   /** Associate submit/reset with a `<form id="...">` outside the form (native `form` attribute). */
   form?: string
+  /**
+   * Run `onClick` immediately (no 300ms delay). Use for toolbars, list-row actions, and anywhere
+   * mobile touch can be lost if the handler fires after a timeout.
+   */
+  instantAction?: boolean
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -39,7 +44,8 @@ const Button: React.FC<ButtonProps> = ({
   className = '',
   ariaLabel,
   title,
-  form
+  form,
+  instantAction = false
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   
@@ -56,6 +62,11 @@ const Button: React.FC<ButtonProps> = ({
     }
 
     if (!onClick) return
+
+    if (instantAction) {
+      onClick(event)
+      return
+    }
 
     // Show pressed state
     setIsPressed(true)

@@ -17,6 +17,8 @@ export interface ServerScheduledJobDetail {
   stationIds: string[]
   /** Names captured in the job payload when available. */
   stationLabels: Record<string, string>
+  /** Raw scheduled payload keyed by station id (used for merge/cleanup decisions). */
+  scheduledChanges: Record<string, ScheduledJobStationPayload> | null
 }
 
 interface ScheduledServerJobFirestoreSyncProps {
@@ -67,13 +69,19 @@ const ScheduledServerJobFirestoreSync: React.FC<ScheduledServerJobFirestoreSyncP
           const runAt = d.runAt as { toMillis?: () => number } | undefined
           const runAtMs = typeof runAt?.toMillis === 'function' ? runAt.toMillis() : 0
           const { stationIds, stationLabels, scheduledChanges } = parseScheduledJobDocForDisplay(d)
+          if (status === 'cancelled') {
+            onJobDocMissingRef.current()
+            return
+          }
+
           onDetailRef.current({
             jobId,
             runAtMs,
             status,
             errorMessage: typeof d.errorMessage === 'string' ? d.errorMessage : undefined,
             stationIds,
-            stationLabels
+            stationLabels,
+            scheduledChanges
           })
 
           if (status === 'completed') {

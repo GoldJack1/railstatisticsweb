@@ -1,5 +1,27 @@
 /* Loading / error states and empty main content (layout chrome from StationDetailsPage.css). */
 
+.review-pending-page__tab-bar-wrap {
+  width: 100%;
+  margin-bottom: var(--space-lg);
+}
+
+.review-pending-page__button-bar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.review-pending-page__button-bar.rs-button-bar--2 .rs-button-bar__item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.review-pending-page__button-bar.rs-button-bar--2 .rs-button-bar__button {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .review-pending-page__action-bar {
   display: flex;
   flex-wrap: nowrap;
@@ -7,7 +29,7 @@
   justify-content: space-between;
   gap: var(--space-md);
   width: 100%;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-md);
 }
 
 .review-pending-page__action-bar-back {
@@ -98,5 +120,61 @@
 @keyframes review-pending-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Narrow viewports: comfortable padding, stacked toolbar, full-width primary actions */
+@media (max-width: 768px) {
+  .container--station-details.review-pending-page {
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-xl);
+  }
+
+  .review-pending-page .station-details-page {
+    gap: var(--space-md);
+  }
+
+  .review-pending-page .station-details-header {
+    gap: var(--space-sm);
+  }
+
+  .review-pending-page .station-details-title {
+    font-size: clamp(1.15rem, 4.5vw, 1.5rem);
+    line-height: 1.25;
+  }
+
+  .review-pending-page .station-details-subtitle {
+    font-size: var(--text-xs);
+    line-height: 1.45;
+  }
+
+  .review-pending-page__action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .review-pending-page__action-bar-end {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .review-pending-page__action-bar-back .rs-button,
+  .review-pending-page__action-bar-end .rs-button {
+    width: 100%;
+    max-width: none;
+  }
+
+  .review-pending-page__tab-bar-wrap {
+    margin-bottom: var(--space-md);
+  }
+
+  .review-pending-page__state {
+    min-height: 40vh;
+    padding: var(--space-lg);
   }
 }

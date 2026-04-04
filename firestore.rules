@@ -4,7 +4,7 @@ rules_version = '2';
  * Firestore security
  * ------------------
  * - All documents: **public read** (no sign-in required), including station collections and scheduled jobs.
- * - Writes: station editors only for stations and job create/delete; no client updates on jobs; other paths no client writes.
+ * - Writes: station editors for stations; scheduled jobs: create, delete own, and limited update (pending → cancelled only); other paths no client writes.
  *
  * Who is a "station editor"?
  * - Custom claim `rs_station_editor == true` (set via scripts/set-rs-station-editor-claim.mjs), OR
@@ -30,8 +30,27 @@ service cloud.firestore {
     function isStationEditor() {
       return isSignedIn() && (
         request.auth.token.rs_station_editor == true ||
-        request.auth.token.email == defaultOwnerEmail()
+        (
+          request.auth.token.email is string
+          && request.auth.token.email.lower().trim() == defaultOwnerEmail().lower().trim()
+        )
       );
+    }
+
+    /**
+     * Client cancel update: pending → cancelled via merge update.
+     * Use added/changed/removed key sets (not affectedKeys().hasOnly) so we do not reject valid
+     * writes when Firestore classifies the same logical change across those sets differently.
+     */
+    function scheduleJobCancelDiffOk() {
+      let d = request.resource.data.diff(resource.data);
+      return d.removedKeys().size() == 0
+        && d.changedKeys().hasOnly(['status'])
+        && (
+          d.addedKeys().hasOnly(['cancelledAt'])
+          || d.addedKeys().hasOnly(['cancelledAt', 'cancelReason'])
+          || d.addedKeys().hasOnly(['cancelledAt', 'cancelReason', 'supersededByJobId'])
+        );
     }
 
     match /stations2603/{stationId} {
@@ -59,8 +78,25 @@ service cloud.firestore {
         && request.resource.data.changes.size() > 0
         && request.resource.data.changes.size() <= 500;
 
-      // Cloud Function updates use Admin SDK (bypasses rules). Block direct client updates.
-      allow update: if false;
+      // Cloud Function updates use Admin SDK (bypasses rules). Clients may only mark their own **pending** job cancelled.
+      // Note: do not use `cancelledAt is timestamp` — FieldValue.serverTimestamp() is not a timestamp during rule evaluation.
+      // Optional cancelReason + supersededByJobId when a schedule was replaced by merging into a new job.
+      allow update: if isStationEditor()
+        && resource.data.createdByUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && scheduleJobCancelDiffOk()
+        && (!request.resource.data.keys().hasAny(['cancelReason'])
+            || (request.resource.data.cancelReason is string
+                && request.resource.data.cancelReason in ['user', 'publish', 'superseded']))
+        && (!request.resource.data.keys().hasAny(['supersededByJobId'])
+            || (request.resource.data.cancelReason == 'superseded'
+                && request.resource.data.supersededByJobId is string
+                && request.resource.data.supersededByJobId.size() > 0
+                && request.resource.data.supersededByJobId.size() <= 800))
+        && (request.resource.data.cancelReason != 'superseded'
+            || request.resource.data.keys().hasAny(['supersededByJobId']));
 
       allow delete: if isStationEditor()
         && resource.data.createdByUid == request.auth.uid;

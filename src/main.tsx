@@ -8,7 +8,22 @@ import './styles/index.css'
 
 applyStoredThemeToDocument()
 
-registerSW({ immediate: true })
+if (import.meta.env.PROD) {
+  const updateSW = registerSW({
+    immediate: true,
+    // Ensure users move to the latest bundle quickly instead of staying on stale app code.
+    onNeedRefresh() {
+      void updateSW(true)
+    }
+  })
+} else if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  // Avoid stale UI during local dev if a previous SW was installed on this origin.
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      void registration.unregister()
+    })
+  })
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

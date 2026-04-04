@@ -23,7 +23,7 @@ Scripts in `package.json` only wrap **rules** today (`firebase:deploy` → `fire
 | Collection | Read | Write |
 |------------|------|--------|
 | `stations2603`, `newsandboxstations1` | **Anyone** (including signed-out clients) | **Station editors only** |
-| `scheduledStationPublishJobs` | **Anyone** | Create (validated) + delete own jobs (editors only); **no client updates** (Cloud Function uses Admin SDK) |
+| `scheduledStationPublishJobs` | **Anyone** | Create (validated) + delete own jobs + **cancel** own pending jobs (`status` → `cancelled`, optional `cancelReason` / `supersededByJobId`, editors only); Cloud Function uses Admin SDK for processing |
 | **Any other path** (`/{document=**}`) | **Anyone** | **Denied** (add an explicit `match` if a collection needs client writes) |
 
 Anonymous users **can read**; they **cannot** write station data or queue jobs without being a station editor.

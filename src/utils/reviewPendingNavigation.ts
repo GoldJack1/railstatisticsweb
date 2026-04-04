@@ -1,6 +1,5 @@
 /**
- * Full review lives at `/stations/pending-review` but can be opened from `/stations` or
- * `/station-database-edit` (same component; edit vs view default). Pass `state.from`
+ * Full review lives at `/stations/pending-review`. Pass `state.from`
  * when navigating so Back returns to the correct surface.
  */
 export type ReviewPendingLocationState = {

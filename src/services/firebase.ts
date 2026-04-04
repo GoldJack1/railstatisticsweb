@@ -19,9 +19,13 @@ import {
   doc,
   getDocs,
   getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
   updateDoc,
   setDoc,
-  addDoc,
   deleteDoc,
   GeoPoint,
   connectFirestoreEmulator,
@@ -32,6 +36,8 @@ import {
 import { Analytics } from 'firebase/analytics'
 import type { Station } from '../types'
 import type { SandboxStationDoc } from '../types'
+import { parseScheduledJobDocForDisplay } from '../utils/scheduledJobDocParse'
+import type { ScheduledJobStationPayload } from '../utils/scheduledJobPendingMatch'
 
 // Firebase configuration from environment variables (set in Netlify or .env.local)
 const firebaseConfig = {
@@ -577,6 +583,144 @@ export const fetchStationDocumentById = async (stationId: string): Promise<Recor
 /** Firestore collection processed by Cloud Function `processScheduledStationPublishJobs`. */
 export const SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION = 'scheduledStationPublishJobs'
 
+/** Summary row for scheduled publish jobs (pending review list + schedule modal). */
+export type PendingScheduleJobSummary = {
+  id: string
+  runAtMs: number
+  status: string
+  stationIds: string[]
+  stationLabels: Record<string, string>
+  errorMessage?: string
+  collectionId?: string
+  /** Set when status is `cancelled` (client writes). */
+  cancelReason?: 'user' | 'publish' | 'superseded'
+  supersededByJobId?: string
+}
+
+export type ScheduleJobSoftCancelMeta =
+  | { kind: 'user' }
+  | { kind: 'publish' }
+  | { kind: 'superseded'; replacedByJobId: string }
+
+export function mapScheduledJobDocToSummary(docId: string, d: Record<string, unknown>): PendingScheduleJobSummary {
+  const runAt = d.runAt as { toMillis?: () => number } | undefined
+  const runAtMs = typeof runAt?.toMillis === 'function' ? runAt.toMillis() : 0
+  const parsed = parseScheduledJobDocForDisplay(d)
+  const cr = d.cancelReason
+  const cancelReason =
+    cr === 'user' || cr === 'publish' || cr === 'superseded' ? (cr as PendingScheduleJobSummary['cancelReason']) : undefined
+  const sid = d.supersededByJobId
+  return {
+    id: docId,
+    runAtMs,
+    status: String(d.status ?? ''),
+    stationIds: parsed.stationIds,
+    stationLabels: parsed.stationLabels,
+    errorMessage: typeof d.errorMessage === 'string' ? d.errorMessage : undefined,
+    collectionId: typeof d.collectionId === 'string' ? d.collectionId : undefined,
+    cancelReason,
+    supersededByJobId: typeof sid === 'string' && sid.trim() !== '' ? sid : undefined
+  }
+}
+
+/**
+ * Live list of this user’s scheduled jobs (all statuses), newest `runAt` first.
+ * Requires Firestore composite index: `createdByUid` + `runAt` (desc).
+ */
+export function subscribeMyScheduleJobsForUser(
+  uid: string,
+  onRows: (rows: PendingScheduleJobSummary[]) => void,
+  onError: (err: Error) => void,
+  maxJobs = 80
+): () => void {
+  let unsub: (() => void) | undefined
+  let cancelled = false
+
+  void initializeFirebase().then(() => {
+    if (cancelled) return
+    const database = getFirebaseDB()
+    if (!database) {
+      onError(new Error('Firestore is not available.'))
+      return
+    }
+
+    const q = query(
+      collection(database, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION),
+      where('createdByUid', '==', uid),
+      orderBy('runAt', 'desc'),
+      limit(maxJobs)
+    )
+
+    unsub = onSnapshot(
+      q,
+      snap => {
+        onRows(snap.docs.map(docSnap => mapScheduledJobDocToSummary(docSnap.id, docSnap.data() as Record<string, unknown>)))
+      },
+      err => {
+        onError(err instanceof Error ? err : new Error(String(err)))
+      }
+    )
+  })
+
+  return () => {
+    cancelled = true
+    unsub?.()
+  }
+}
+
+/** Pending jobs only (for schedule modal radios), soonest `runAt` first. */
+export async function fetchMyPendingScheduleJobs(uid: string): Promise<PendingScheduleJobSummary[]> {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) return []
+
+  const q = query(
+    collection(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION),
+    where('createdByUid', '==', uid),
+    where('status', '==', 'pending')
+  )
+  const snap = await getDocs(q)
+  const rows: PendingScheduleJobSummary[] = snap.docs.map(docSnap =>
+    mapScheduledJobDocToSummary(docSnap.id, docSnap.data() as Record<string, unknown>)
+  )
+  rows.sort((a, b) => a.runAtMs - b.runAtMs)
+  return rows
+}
+
+/** Load `changes` + `runAt` from a pending job doc (for merge-into-existing saves). */
+export async function getScheduledStationPublishJobMergeSource(
+  jobId: string
+): Promise<{ runAtMs: number; changes: Record<string, ScheduledJobStationPayload> } | null> {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) return null
+
+  const snap = await getDoc(doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, jobId))
+  if (!snap.exists()) return null
+  const d = snap.data() as Record<string, unknown>
+  if (String(d.status ?? '') !== 'pending') return null
+  const runAt = d.runAt as { toMillis?: () => number } | undefined
+  const runAtMs = typeof runAt?.toMillis === 'function' ? runAt.toMillis() : 0
+  const parsed = parseScheduledJobDocForDisplay(d)
+  if (!parsed.scheduledChanges) return null
+  return { runAtMs, changes: parsed.scheduledChanges }
+}
+
+/**
+ * Document id for `scheduledStationPublishJobs`: embeds UTC date/time when the job was created,
+ * plus a random suffix so two jobs in the same millisecond cannot collide.
+ */
+export function buildScheduledStationPublishJobDocId(createdAtMs: number = Date.now()): string {
+  const iso = new Date(createdAtMs).toISOString()
+  const stamped = iso.replace(/[:.]/g, '-')
+  const suffix = Math.random().toString(36).slice(2, 10)
+  return `${stamped}_${suffix}`
+}
+
 function stripUndefinedDeep<T>(value: T): T {
   if (value === undefined) return value
   if (value === null || typeof value !== 'object') return value
@@ -624,7 +768,9 @@ export const createScheduledStationPublishJob = async (params: {
   if (keys.length === 0) throw new Error('No pending changes to schedule')
 
   const col = collection(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION)
-  const docRef = await addDoc(col, {
+  const jobId = buildScheduledStationPublishJobDocId()
+  const docRef = doc(col, jobId)
+  await setDoc(docRef, {
     createdAt: serverTimestamp(),
     runAt: Timestamp.fromMillis(params.runAtMs),
     collectionId: params.collectionId,
@@ -633,9 +779,10 @@ export const createScheduledStationPublishJob = async (params: {
     changes: stripUndefinedDeep(params.changes),
     stationIds: keys
   })
-  return docRef.id
+  return jobId
 }
 
+/** Delete job document (e.g. admin). Prefer soft cancel for normal user flows. */
 export const deleteScheduledStationPublishJobDocument = async (jobId: string): Promise<void> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
@@ -643,4 +790,98 @@ export const deleteScheduledStationPublishJobDocument = async (jobId: string): P
   }
   if (!db) throw new Error('Failed to initialize Firebase database')
   await deleteDoc(doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, jobId))
+}
+
+/**
+ * If the job is still `pending`, mark it `cancelled` so it remains in history. No-op if missing or not pending.
+ * Use after publish-all or when superseding a job during save.
+ */
+export const softCancelScheduledStationPublishJobDocument = async (
+  jobId: string,
+  cancelMeta?: ScheduleJobSoftCancelMeta
+): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const ref = doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, jobId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const st = String((snap.data() as Record<string, unknown>).status ?? '')
+  if (st !== 'pending') return
+  const payload: Record<string, unknown> = {
+    status: 'cancelled',
+    cancelledAt: serverTimestamp()
+  }
+  if (cancelMeta?.kind === 'superseded') {
+    payload.cancelReason = 'superseded'
+    payload.supersededByJobId = cancelMeta.replacedByJobId
+  } else if (cancelMeta?.kind === 'publish') {
+    payload.cancelReason = 'publish'
+  } else if (cancelMeta?.kind === 'user') {
+    payload.cancelReason = 'user'
+  }
+  await updateDoc(ref, payload)
+}
+
+/**
+ * After saving a replacement schedule document, ensure the previous job cannot still run as `pending`.
+ * Tries soft cancel first (keeps history); if the doc is still pending (e.g. rules blocked update), deletes it.
+ */
+export const supersedeScheduledStationPublishJobDocument = async (
+  supersededJobId: string,
+  replacementJobId: string
+): Promise<void> => {
+  if (!supersededJobId.trim() || !replacementJobId.trim()) return
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const ref = doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, supersededJobId)
+  try {
+    await softCancelScheduledStationPublishJobDocument(supersededJobId, {
+      kind: 'superseded',
+      replacedByJobId: replacementJobId
+    })
+  } catch (e) {
+    console.warn('Soft cancel superseded schedule job failed:', e)
+  }
+  let snap = await getDoc(ref)
+  if (!snap.exists()) return
+  let st = String((snap.data() as Record<string, unknown>).status ?? '')
+  if (st !== 'pending') return
+  try {
+    await deleteScheduledStationPublishJobDocument(supersededJobId)
+  } catch (e) {
+    console.warn('Could not delete superseded pending schedule job:', e)
+  }
+}
+
+/**
+ * User-initiated cancel: pending jobs only (same as rules). Throws if the job is gone or no longer pending.
+ */
+export const cancelScheduledStationPublishJobDocument = async (jobId: string): Promise<void> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) throw new Error('Failed to initialize Firebase database')
+  const ref = doc(db, SCHEDULED_STATION_PUBLISH_JOBS_COLLECTION, jobId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) {
+    throw new Error('That schedule no longer exists.')
+  }
+  const st = String((snap.data() as Record<string, unknown>).status ?? '')
+  if (st !== 'pending') {
+    throw new Error(
+      'Only a pending schedule can be cancelled here. If it is already running, wait for it to finish.'
+    )
+  }
+  await updateDoc(ref, {
+    status: 'cancelled',
+    cancelledAt: serverTimestamp(),
+    cancelReason: 'user'
+  })
 }

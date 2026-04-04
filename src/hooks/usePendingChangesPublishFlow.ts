@@ -7,7 +7,11 @@ import {
   createStationInFirebase,
   mergeStationAdditionalDetailsInFirebase,
   createScheduledStationPublishJob,
-  deleteScheduledStationPublishJobDocument
+  softCancelScheduledStationPublishJobDocument,
+  supersedeScheduledStationPublishJobDocument,
+  cancelScheduledStationPublishJobDocument,
+  deleteScheduledStationPublishJobDocument,
+  getScheduledStationPublishJobMergeSource
 } from '../services/firebase'
 import { writeScheduledPublishAtMs, writeScheduleSavedFingerprint } from '../utils/scheduledPublishStorage'
 import { computePendingChangesFingerprint } from '../utils/pendingChangesFingerprint'
@@ -17,6 +21,7 @@ import { isMasterPublishUser, MASTER_PUBLISH_DENIED_MESSAGE } from '../utils/mas
 
 /** When the schedule picker is empty, save uses now + this offset (1 hour). */
 export const PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS = 60 * 60 * 1000
+export type ScheduleSaveMode = 'add' | 'replace'
 
 export interface UsePendingChangesPublishFlowOptions {
   refetch: () => void | Promise<void>
@@ -33,6 +38,7 @@ export function usePendingChangesPublishFlow({
   const { collectionId } = useStationCollection()
   const {
     pendingChanges,
+    clearPendingChange,
     clearPendingChangesForIds,
     trackedScheduledJobId,
     registerScheduledServerJob,
@@ -44,6 +50,9 @@ export function usePendingChangesPublishFlow({
   const pendingScheduleMsRef = useRef<number | null>(null)
   const pendingPublishStationIdsRef = useRef<string[] | null>(null)
   const pendingScheduleStationIdsRef = useRef<string[] | null>(null)
+  const pendingScheduleSaveModeRef = useRef<ScheduleSaveMode>('replace')
+  const pendingScheduleMergeFromJobIdRef = useRef<string | null>(null)
+  const pendingCancelSpecificJobIdRef = useRef<string | null>(null)
   const [isPublishingAll, setIsPublishingAll] = useState(false)
   const [isSavingSchedule, setIsSavingSchedule] = useState(false)
   const [scheduleDatetimeLocal, setScheduleDatetimeLocal] = useState('')
@@ -78,9 +87,9 @@ export function usePendingChangesPublishFlow({
     const id = trackedScheduledJobId
     if (id) {
       try {
-        await deleteScheduledStationPublishJobDocument(id)
+        await softCancelScheduledStationPublishJobDocument(id, { kind: 'user' })
       } catch (e) {
-        console.warn('Could not delete scheduled job document:', e)
+        console.warn('Could not cancel scheduled job document:', e)
       }
     }
     clearTrackedScheduledServerJob()
@@ -88,6 +97,54 @@ export function usePendingChangesPublishFlow({
     setScheduleDatetimeLocal('')
     setScheduleDatetimeUserEdited(false)
   }, [trackedScheduledJobId, clearTrackedScheduledServerJob, user])
+
+  const cancelScheduledJobById = useCallback(
+    async (jobId: string) => {
+      if (!isMasterPublishUser(user)) {
+        window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+        return
+      }
+      if (!jobId.trim()) return
+      try {
+        await cancelScheduledStationPublishJobDocument(jobId)
+      } catch (e) {
+        console.warn('Could not cancel scheduled job document:', e)
+        window.alert(e instanceof Error ? e.message : 'Could not cancel that schedule.')
+        return
+      }
+      if (jobId === trackedScheduledJobId) {
+        clearTrackedScheduledServerJob()
+        writeScheduledPublishAtMs(null)
+        setScheduleDatetimeLocal('')
+        setScheduleDatetimeUserEdited(false)
+      }
+    },
+    [trackedScheduledJobId, clearTrackedScheduledServerJob, user]
+  )
+
+  const deleteScheduleJobFromHistoryById = useCallback(
+    async (jobId: string) => {
+      if (!isMasterPublishUser(user)) {
+        window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
+        return
+      }
+      if (!jobId.trim()) return
+      try {
+        await deleteScheduledStationPublishJobDocument(jobId)
+      } catch (e) {
+        console.warn('Could not delete scheduled job document:', e)
+        window.alert(e instanceof Error ? e.message : 'Could not delete that job.')
+        return
+      }
+      if (jobId === trackedScheduledJobId) {
+        clearTrackedScheduledServerJob()
+        writeScheduledPublishAtMs(null)
+        setScheduleDatetimeLocal('')
+        setScheduleDatetimeUserEdited(false)
+      }
+    },
+    [trackedScheduledJobId, clearTrackedScheduledServerJob, user]
+  )
 
   const runPublishImmediateForIds = useCallback(
     async (stationIds: string[]) => {
@@ -124,9 +181,9 @@ export function usePendingChangesPublishFlow({
 
         if (clearsAllPending && serverJobId) {
           try {
-            await deleteScheduledStationPublishJobDocument(serverJobId)
+            await softCancelScheduledStationPublishJobDocument(serverJobId, { kind: 'publish' })
           } catch (e) {
-            console.warn('Could not delete scheduled job after manual publish:', e)
+            console.warn('Could not cancel scheduled job after manual publish:', e)
           }
         }
         if (clearsAllPending) {
@@ -162,7 +219,12 @@ export function usePendingChangesPublishFlow({
   }, [trackedScheduledJobId, serverScheduledJobDetail?.runAtMs])
 
   const executeSaveSchedule = useCallback(
-    async (ms: number, stationIds: string[]) => {
+    async (
+      ms: number,
+      stationIds: string[],
+      saveMode: ScheduleSaveMode = 'replace',
+      mergeFromJobId: string | null = null
+    ) => {
       if (!isMasterPublishUser(user)) {
         window.alert(MASTER_PUBLISH_DENIED_MESSAGE)
         return
@@ -177,19 +239,47 @@ export function usePendingChangesPublishFlow({
       setIsSavingSchedule(true)
       try {
         const previousId = trackedScheduledJobId
-        if (previousId) {
-          try {
-            await deleteScheduledStationPublishJobDocument(previousId)
-          } catch {
-            /* previous job may already be processed or missing */
+
+        let basePayload: Record<
+          string,
+          { isNew?: boolean; updated: Partial<Station>; sandboxUpdated?: Partial<SandboxStationDoc> | null }
+        > = {}
+        let effectiveRunAtMs = ms
+
+        if (saveMode === 'add') {
+          if (mergeFromJobId) {
+            const src = await getScheduledStationPublishJobMergeSource(mergeFromJobId)
+            if (!src) {
+              window.alert('Could not load that schedule from the server. Try again or pick Create new.')
+              return
+            }
+            basePayload = { ...src.changes } as Record<
+              string,
+              { isNew?: boolean; updated: Partial<Station>; sandboxUpdated?: Partial<SandboxStationDoc> | null }
+            >
+            effectiveRunAtMs = src.runAtMs
+          } else if (
+            previousId &&
+            serverScheduledJobDetail?.scheduledChanges &&
+            typeof serverScheduledJobDetail.scheduledChanges === 'object'
+          ) {
+            basePayload = { ...serverScheduledJobDetail.scheduledChanges } as Record<
+              string,
+              { isNew?: boolean; updated: Partial<Station>; sandboxUpdated?: Partial<SandboxStationDoc> | null }
+            >
+            effectiveRunAtMs = serverScheduledJobDetail.runAtMs
+          } else {
+            window.alert('No schedule selected to add to.')
+            return
           }
-          clearTrackedScheduledServerJob()
         }
 
         const changesPayload: Record<
           string,
           { isNew?: boolean; updated: Partial<Station>; sandboxUpdated?: Partial<SandboxStationDoc> | null }
-        > = {}
+        > = {
+          ...basePayload
+        }
         for (const stationId of validIds) {
           const entry = pendingChanges[stationId]
           if (!entry) continue
@@ -201,11 +291,18 @@ export function usePendingChangesPublishFlow({
         }
 
         const jobId = await createScheduledStationPublishJob({
-          runAtMs: ms,
+          runAtMs: effectiveRunAtMs,
           collectionId,
           changes: changesPayload
         })
         registerScheduledServerJob(jobId)
+
+        // Only supersede when merging into an existing pending job (same run time, expanded station list).
+        // "Create new schedule" (replace) must leave other pending jobs alone so multiple schedules can run.
+        const jobToDelete = saveMode === 'add' ? mergeFromJobId ?? previousId ?? null : null
+        if (jobToDelete && jobToDelete !== jobId) {
+          await supersedeScheduledStationPublishJobDocument(jobToDelete, jobId)
+        }
         writeScheduleSavedFingerprint(computePendingChangesFingerprint(pendingChanges))
         writeScheduledPublishAtMs(null)
         setScheduleDatetimeUserEdited(false)
@@ -217,10 +314,11 @@ export function usePendingChangesPublishFlow({
     },
     [
       trackedScheduledJobId,
-      clearTrackedScheduledServerJob,
       pendingChanges,
       collectionId,
       registerScheduledServerJob,
+      serverScheduledJobDetail?.scheduledChanges,
+      serverScheduledJobDetail?.runAtMs,
       user
     ]
   )
@@ -232,17 +330,26 @@ export function usePendingChangesPublishFlow({
     passwordReauthActionRef.current = 'publish'
   }, [])
 
-  const prepareScheduleReauth = useCallback((stationIds: string[], runAtMs: number) => {
-    pendingPublishStationIdsRef.current = null
-    pendingScheduleStationIdsRef.current = stationIds
-    pendingScheduleMsRef.current = runAtMs
-    passwordReauthActionRef.current = 'schedule'
-  }, [])
+  const prepareScheduleReauth = useCallback(
+    (stationIds: string[], runAtMs: number, mode: ScheduleSaveMode, mergeFromJobId: string | null) => {
+      pendingPublishStationIdsRef.current = null
+      pendingScheduleStationIdsRef.current = stationIds
+      pendingScheduleMsRef.current = runAtMs
+      pendingScheduleSaveModeRef.current = mode
+      pendingScheduleMergeFromJobIdRef.current = mergeFromJobId
+      passwordReauthActionRef.current = 'schedule'
+    },
+    []
+  )
 
-  const prepareCancelScheduleReauth = useCallback(() => {
+  const prepareCancelScheduleReauth = useCallback((specificJobId?: string | null) => {
     pendingPublishStationIdsRef.current = null
     pendingScheduleMsRef.current = null
     pendingScheduleStationIdsRef.current = null
+    pendingScheduleSaveModeRef.current = 'replace'
+    pendingScheduleMergeFromJobIdRef.current = null
+    pendingCancelSpecificJobIdRef.current =
+      typeof specificJobId === 'string' && specificJobId.trim() !== '' ? specificJobId : null
     passwordReauthActionRef.current = 'cancelSchedule'
   }, [])
 
@@ -253,6 +360,7 @@ export function usePendingChangesPublishFlow({
       pendingScheduleMsRef.current = null
       pendingPublishStationIdsRef.current = null
       pendingScheduleStationIdsRef.current = null
+      pendingScheduleMergeFromJobIdRef.current = null
       return
     }
     const action = passwordReauthActionRef.current
@@ -266,26 +374,40 @@ export function usePendingChangesPublishFlow({
     if (action === 'schedule') {
       const ms = pendingScheduleMsRef.current
       const ids = pendingScheduleStationIdsRef.current
+      const mergeFrom = pendingScheduleMergeFromJobIdRef.current
       pendingScheduleMsRef.current = null
       pendingScheduleStationIdsRef.current = null
-      if (ms != null && ids && ids.length > 0) void executeSaveSchedule(ms, ids)
+      pendingScheduleMergeFromJobIdRef.current = null
+      const mode = pendingScheduleSaveModeRef.current
+      pendingScheduleSaveModeRef.current = 'replace'
+      if (ms != null && ids && ids.length > 0) void executeSaveSchedule(ms, ids, mode, mergeFrom)
       return
     }
     if (action === 'cancelSchedule') {
-      void clearScheduledPublish()
+      const specific = pendingCancelSpecificJobIdRef.current
+      pendingCancelSpecificJobIdRef.current = null
+      if (specific) {
+        void cancelScheduledJobById(specific)
+      } else {
+        void clearScheduledPublish()
+      }
     }
-  }, [runPublishImmediateForIds, executeSaveSchedule, clearScheduledPublish, user])
+  }, [runPublishImmediateForIds, executeSaveSchedule, clearScheduledPublish, cancelScheduledJobById, user])
 
   const clearReauthIntent = useCallback(() => {
     passwordReauthActionRef.current = null
     pendingScheduleMsRef.current = null
     pendingPublishStationIdsRef.current = null
     pendingScheduleStationIdsRef.current = null
+    pendingScheduleSaveModeRef.current = 'replace'
+    pendingScheduleMergeFromJobIdRef.current = null
+    pendingCancelSpecificJobIdRef.current = null
   }, [])
 
   return {
     user,
     pendingChanges,
+    clearPendingChange,
     pendingCount,
     canMasterPublish,
     isPublishingAll,
@@ -301,6 +423,7 @@ export function usePendingChangesPublishFlow({
     preparePublishReauth,
     prepareScheduleReauth,
     prepareCancelScheduleReauth,
+    deleteScheduleJobFromHistoryById,
     completeReauthVerified,
     clearReauthIntent
   }

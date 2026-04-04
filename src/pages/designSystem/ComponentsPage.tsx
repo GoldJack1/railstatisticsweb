@@ -191,7 +191,7 @@ const ComponentsPage: React.FC = () => {
           <div className="ds-components__links">
             <Link to="/migration">Open Migration</Link>
             <Link to="/stations">Open Stations</Link>
-            <Link to="/station-database-edit">Open Station Database Edit</Link>
+            <Link to="/stations">Open Stations</Link>
           </div>
         </section>
 

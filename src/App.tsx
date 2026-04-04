@@ -15,7 +15,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/stations': 'Stations | Rail Statistics',
   '/stations/pending-review': 'Review changes | Rail Statistics',
   '/stations/new': 'New Station | Rail Statistics',
-  '/station-database-edit': 'Edit Station Database | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
   '/buttons': 'Button Components | Rail Statistics',
   '/design-system': 'Design System | Rail Statistics',
@@ -34,7 +33,6 @@ const HomePage = React.lazy(() => import('./pages/HomePage'))
 const LoginPage = React.lazy(() => import('./pages/LoginPage'))
 const StationsPageRefactored = React.lazy(() => import('./pages/StationsPageRefactored'))
 const ReviewPendingChangesPage = React.lazy(() => import('./pages/ReviewPendingChangesPage'))
-const StationDatabaseEditPage = React.lazy(() => import('./pages/StationDatabaseEditPage'))
 const StationDetailsPage = React.lazy(() => import('./pages/StationDetailsPage'))
 const NewStationPage = React.lazy(() => import('./pages/NewStationPage'))
 const MigrationPage = React.lazy(() => import('./pages/MigrationPage'))
@@ -89,7 +87,6 @@ const App: React.FC = () => {
                   <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
                   <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
                   <Route path="/stations/:stationId/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
-                  <Route path="/station-database-edit" element={<ProtectedRoute><StationDatabaseEditPage /></ProtectedRoute>} />
                   <Route path="/migration" element={<MigrationPage />} />
                   <Route path="/buttons" element={<ButtonDemoPage />} />
                   <Route path="/design-system" element={<ProtectedRoute><DesignSystemHomePage /></ProtectedRoute>} />

@@ -1,15 +1,30 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { User } from 'firebase/auth'
 import Button from './Button'
 import FirebaseReauthPanel from './FirebaseReauthPanel'
 import type { PendingChangeEntry } from '../contexts/PendingStationChangesContext'
 import type { ServerScheduledJobDetail } from '../contexts/ScheduledServerJobFirestoreSync'
 import { toDatetimeLocalValue } from '../utils/datetimeLocal'
-import { PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS } from '../hooks/usePendingChangesPublishFlow'
+import {
+  PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS,
+  type ScheduleSaveMode
+} from '../hooks/usePendingChangesPublishFlow'
+import { fetchMyPendingScheduleJobs, type PendingScheduleJobSummary } from '../services/firebase'
 import './PasswordReauthModal.css'
 import './PendingChangesActionModal.css'
 
 export type PendingActionModalMode = 'publish' | 'schedule' | 'cancelSchedule'
+
+/** When cancelling a specific job from the schedule list (not only the app-tracked job). */
+export type CancelScheduleTargetJob = {
+  id: string
+  status: string
+  runAtMs: number
+  stationCount: number
+}
+
+/** `null` = nothing selected yet; `'new'` = create new job; else Firestore job id to merge into. */
+export type ScheduleTargetSelection = 'new' | string | null
 
 export interface PendingChangesActionModalProps {
   open: boolean
@@ -23,8 +38,15 @@ export interface PendingChangesActionModalProps {
   serverScheduledJobDetail: ServerScheduledJobDetail | null
   scheduleLocalNowMs: number
   preparePublishReauth: (ids: string[]) => void
-  prepareScheduleReauth: (ids: string[], runAtMs: number) => void
-  prepareCancelScheduleReauth: () => void
+  prepareScheduleReauth: (
+    ids: string[],
+    runAtMs: number,
+    mode: ScheduleSaveMode,
+    mergeFromJobId: string | null
+  ) => void
+  prepareCancelScheduleReauth: (specificJobId?: string | null) => void
+  /** Set when opening cancel flow for one list row; `null` = cancel the app-tracked job only. */
+  cancelScheduleTargetJob: CancelScheduleTargetJob | null
   onReauthSuccess: () => void
   clearReauthIntent: () => void
 }
@@ -46,24 +68,110 @@ const PendingChangesActionModal: React.FC<PendingChangesActionModalProps> = ({
   preparePublishReauth,
   prepareScheduleReauth,
   prepareCancelScheduleReauth,
+  cancelScheduleTargetJob,
   onReauthSuccess,
   clearReauthIntent
 }) => {
+  const scheduleTargetGroupId = useId()
   const [step, setStep] = useState<'summary' | 'verify'>('summary')
   const [verifyKey, setVerifyKey] = useState(0)
   const [modalScheduleDatetime, setModalScheduleDatetime] = useState('')
+  const [selectedScheduleTarget, setSelectedScheduleTarget] = useState<ScheduleTargetSelection>(null)
+  const [scheduleJobRows, setScheduleJobRows] = useState<PendingScheduleJobSummary[]>([])
+  const [scheduleJobsLoading, setScheduleJobsLoading] = useState(false)
+  const scheduleModalWasOpenRef = useRef(false)
+  /** Tracks last schedule radio so we only reset datetime when switching *to* Create new (not every tick). */
+  const schedulePickerPrevRef = useRef<ScheduleTargetSelection>(null)
 
   useEffect(() => {
     if (!open) {
       setStep('summary')
       clearReauthIntent()
       setModalScheduleDatetime('')
+      setSelectedScheduleTarget(null)
+      setScheduleJobRows([])
+      setScheduleJobsLoading(false)
+      scheduleModalWasOpenRef.current = false
+      schedulePickerPrevRef.current = null
       return
     }
-    if (mode === 'schedule') {
-      setModalScheduleDatetime(toDatetimeLocalValue(new Date(scheduleLocalNowMs + PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS)))
+
+    const justOpened = !scheduleModalWasOpenRef.current
+    scheduleModalWasOpenRef.current = true
+
+    if (!justOpened || mode !== 'schedule') {
+      return
     }
-  }, [open, mode, scheduleLocalNowMs, clearReauthIntent])
+
+    // Default run time is always local now + 1h — not the previous / tracked job's runAt (Create new should feel fresh).
+    const defaultRunAtMs = scheduleLocalNowMs + PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS
+    setModalScheduleDatetime(toDatetimeLocalValue(new Date(defaultRunAtMs)))
+    setSelectedScheduleTarget(null)
+    schedulePickerPrevRef.current = null
+
+    const uid = user?.uid
+    if (!uid) {
+      setScheduleJobRows([])
+      setScheduleJobsLoading(false)
+      return
+    }
+
+    setScheduleJobsLoading(true)
+    let cancelled = false
+
+    void fetchMyPendingScheduleJobs(uid)
+      .then(rows => {
+        if (cancelled) return
+        const list = [...rows]
+        if (
+          trackedScheduledJobId &&
+          serverScheduledJobDetail &&
+          !list.some(r => r.id === trackedScheduledJobId)
+        ) {
+          list.push({
+            id: trackedScheduledJobId,
+            runAtMs: serverScheduledJobDetail.runAtMs,
+            status: serverScheduledJobDetail.status,
+            stationIds: [...serverScheduledJobDetail.stationIds],
+            stationLabels: { ...serverScheduledJobDetail.stationLabels }
+          })
+        }
+        list.sort((a, b) => a.runAtMs - b.runAtMs)
+        setScheduleJobRows(list)
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleJobRows([])
+      })
+      .finally(() => {
+        if (!cancelled) setScheduleJobsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    open,
+    mode,
+    scheduleLocalNowMs,
+    clearReauthIntent,
+    serverScheduledJobDetail,
+    trackedScheduledJobId,
+    user?.uid
+  ])
+
+  useEffect(() => {
+    if (!open || mode !== 'schedule') return
+    if (selectedScheduleTarget !== 'new') {
+      schedulePickerPrevRef.current = selectedScheduleTarget
+      return
+    }
+    const prev = schedulePickerPrevRef.current
+    schedulePickerPrevRef.current = 'new'
+    if (prev === 'new') return
+    setModalScheduleDatetime(
+      toDatetimeLocalValue(new Date(Date.now() + PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS))
+    )
+  }, [open, mode, selectedScheduleTarget])
 
   const handleClose = useCallback(() => {
     clearReauthIntent()
@@ -86,6 +194,14 @@ const PendingChangesActionModal: React.FC<PendingChangesActionModalProps> = ({
     return Number.isFinite(t) ? t : NaN
   }, [modalScheduleDatetime, scheduleLocalNowMs])
 
+  const selectedJobRow = useMemo(
+    () =>
+      selectedScheduleTarget && selectedScheduleTarget !== 'new'
+        ? scheduleJobRows.find(j => j.id === selectedScheduleTarget)
+        : undefined,
+    [scheduleJobRows, selectedScheduleTarget]
+  )
+
   const goToVerify = () => {
     if (mode === 'publish') {
       if (publishStationIds.length === 0) return
@@ -96,22 +212,34 @@ const PendingChangesActionModal: React.FC<PendingChangesActionModalProps> = ({
     }
     if (mode === 'schedule') {
       if (scheduleStationIds.length === 0) return
-      if (!Number.isFinite(modalRunAtMs)) {
-        window.alert('Enter a valid date and time.')
+      if (selectedScheduleTarget === null) {
+        window.alert('Choose one of the schedule options below.')
         return
       }
-      if (modalRunAtMs <= Date.now()) {
-        window.alert('Pick a time in the future.')
-        return
+      if (selectedScheduleTarget === 'new') {
+        if (!Number.isFinite(modalRunAtMs)) {
+          window.alert('Enter a valid date and time.')
+          return
+        }
+        if (modalRunAtMs <= Date.now()) {
+          window.alert('Pick a time in the future.')
+          return
+        }
+        prepareScheduleReauth(scheduleStationIds, modalRunAtMs, 'replace', null)
+      } else {
+        prepareScheduleReauth(scheduleStationIds, 0, 'add', selectedScheduleTarget)
       }
-      prepareScheduleReauth(scheduleStationIds, modalRunAtMs)
       setVerifyKey(k => k + 1)
       setStep('verify')
       return
     }
     if (mode === 'cancelSchedule') {
-      if (!trackedScheduledJobId) return
-      prepareCancelScheduleReauth()
+      if (cancelScheduleTargetJob) {
+        prepareCancelScheduleReauth(cancelScheduleTargetJob.id)
+      } else {
+        if (!trackedScheduledJobId) return
+        prepareCancelScheduleReauth()
+      }
       setVerifyKey(k => k + 1)
       setStep('verify')
     }
@@ -171,45 +299,142 @@ const PendingChangesActionModal: React.FC<PendingChangesActionModalProps> = ({
                     <li key={id}>{stationLabel(pendingChanges[id], id)}</li>
                   ))}
                 </ul>
-                <p className="password-reauth-intro">
-                  Your time: <strong>{new Date(scheduleLocalNowMs).toLocaleString()}</strong>
-                </p>
-                <p className="password-reauth-intro">
-                  {Number.isFinite(modalRunAtMs) ? (
-                    <>
-                      Will publish at: <strong>{new Date(modalRunAtMs).toLocaleString()}</strong>
-                    </>
-                  ) : (
-                    <span className="password-reauth-error">Enter a valid date and time.</span>
+
+                <fieldset className="pending-action-schedule-fieldset">
+                  <legend className="pending-action-fieldset-legend">Choose a schedule</legend>
+                  {scheduleJobsLoading && (
+                    <p className="password-reauth-intro pending-action-loading">Loading your pending schedules…</p>
                   )}
-                </p>
-                <label className="password-reauth-label" htmlFor="pending-action-schedule-dt">
-                  Date &amp; time
-                </label>
-                <input
-                  id="pending-action-schedule-dt"
-                  type="datetime-local"
-                  className="password-reauth-input"
-                  min={toDatetimeLocalValue(new Date(scheduleLocalNowMs))}
-                  value={modalScheduleDatetime}
-                  onChange={e => setModalScheduleDatetime(e.target.value)}
-                />
+                  {!scheduleJobsLoading &&
+                    scheduleJobRows.map(job => (
+                      <label key={job.id} className="pending-action-radio-row">
+                        <input
+                          type="radio"
+                          name={scheduleTargetGroupId}
+                          value={job.id}
+                          checked={selectedScheduleTarget === job.id}
+                          onChange={() => setSelectedScheduleTarget(job.id)}
+                        />
+                        <span className="pending-action-radio-body">
+                          <span className="pending-action-radio-title">
+                            Add to this schedule — {job.stationIds.length} station
+                            {job.stationIds.length === 1 ? '' : 's'}
+                          </span>
+                          <span className="pending-action-radio-meta">
+                            Runs at {new Date(job.runAtMs).toLocaleString()}
+                            {job.status ? ` · ${job.status}` : ''}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  <label className="pending-action-radio-row">
+                    <input
+                      type="radio"
+                      name={scheduleTargetGroupId}
+                      value="new"
+                      checked={selectedScheduleTarget === 'new'}
+                      onChange={() => setSelectedScheduleTarget('new')}
+                    />
+                    <span className="pending-action-radio-body">
+                      <span className="pending-action-radio-title">Create new schedule</span>
+                      <span className="pending-action-radio-meta">
+                        Pick a new run time. Other pending server schedules stay active; the app will track this new job.
+                        Cancel old jobs from the Schedules tab if you no longer need them.
+                      </span>
+                    </span>
+                  </label>
+                </fieldset>
+
+                {selectedScheduleTarget === null && (
+                  <p className="pending-action-choice-hint" role="status">
+                    Select a radio option above before continuing.
+                  </p>
+                )}
+
+                {selectedJobRow && (
+                  <details
+                    className="pending-action-existing-list"
+                    open={selectedJobRow.stationIds.length <= 8}
+                  >
+                    <summary>
+                      Stations already in this schedule ({selectedJobRow.stationIds.length})
+                    </summary>
+                    <ul className="pending-action-station-list pending-action-station-list--compact">
+                      {selectedJobRow.stationIds.map(id => (
+                        <li key={id}>
+                          {selectedJobRow.stationLabels[id]?.trim() || stationLabel(pendingChanges[id], id)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+
+                {selectedScheduleTarget === 'new' && (
+                  <>
+                    <p className="password-reauth-intro">
+                      Your time: <strong>{new Date(scheduleLocalNowMs).toLocaleString()}</strong>
+                    </p>
+                    <p className="password-reauth-intro">
+                      {Number.isFinite(modalRunAtMs) ? (
+                        <>
+                          Will publish at: <strong>{new Date(modalRunAtMs).toLocaleString()}</strong>
+                        </>
+                      ) : (
+                        <span className="password-reauth-error">Enter a valid date and time.</span>
+                      )}
+                    </p>
+                    <label className="password-reauth-label" htmlFor="pending-action-schedule-dt">
+                      Date &amp; time
+                    </label>
+                    <input
+                      id="pending-action-schedule-dt"
+                      type="datetime-local"
+                      className="password-reauth-input"
+                      min={toDatetimeLocalValue(new Date(scheduleLocalNowMs))}
+                      value={modalScheduleDatetime}
+                      onChange={e => setModalScheduleDatetime(e.target.value)}
+                    />
+                  </>
+                )}
+
                 <p className="password-reauth-intro" style={{ marginTop: 0 }}>
-                  Nothing runs on the server until you complete verification below. If you already have a scheduled
-                  run, saving a new schedule replaces it. Further local edits do not cancel an existing schedule — reschedule
-                  if you need the new edits included in the server job.
+                  Nothing runs on the server until you complete verification below.
+                  {selectedScheduleTarget !== null && selectedScheduleTarget !== 'new' && (
+                    <>
+                      {' '}
+                      The selected job keeps its run time; your stations are merged into it.
+                    </>
+                  )}
+                  {selectedScheduleTarget === 'new' && <> Use a future date and time for the new job.</>}
                 </p>
               </>
             )}
 
             {mode === 'cancelSchedule' && (
               <>
-                <p className="pending-action-lead">This will remove the server-side job. Your local pending edits stay.</p>
-                {serverScheduledJobDetail && (
+                <p className="pending-action-lead">
+                  This will mark the server job as <strong>cancelled</strong> (it stays in your history). Your local
+                  pending edits stay.
+                </p>
+                {(cancelScheduleTargetJob || serverScheduledJobDetail) && (
                   <p className="password-reauth-intro">
-                    Job <strong>{serverScheduledJobDetail.status}</strong>
+                    Job{' '}
+                    <strong>{cancelScheduleTargetJob?.status ?? serverScheduledJobDetail?.status}</strong>
                     {' · '}
-                    run at <strong>{new Date(serverScheduledJobDetail.runAtMs).toLocaleString()}</strong>
+                    {cancelScheduleTargetJob ? (
+                      <>
+                        <strong>{cancelScheduleTargetJob.stationCount}</strong> station
+                        {cancelScheduleTargetJob.stationCount === 1 ? '' : 's'} · run at{' '}
+                        <strong>{new Date(cancelScheduleTargetJob.runAtMs).toLocaleString()}</strong>
+                      </>
+                    ) : (
+                      serverScheduledJobDetail && (
+                        <>
+                          run at{' '}
+                          <strong>{new Date(serverScheduledJobDetail.runAtMs).toLocaleString()}</strong>
+                        </>
+                      )
+                    )}
                   </p>
                 )}
               </>
@@ -219,7 +444,16 @@ const PendingChangesActionModal: React.FC<PendingChangesActionModalProps> = ({
               <Button type="button" variant="wide" width="hug" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="button" variant="wide" width="hug" onClick={goToVerify}>
+              <Button
+                type="button"
+                variant="wide"
+                width="hug"
+                onClick={goToVerify}
+                disabled={
+                  (mode === 'schedule' && selectedScheduleTarget === null) ||
+                  (mode === 'cancelSchedule' && !cancelScheduleTargetJob && !trackedScheduledJobId)
+                }
+              >
                 Continue to verify
               </Button>
             </div>
