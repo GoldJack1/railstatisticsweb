@@ -17,10 +17,14 @@ export interface ButtonProps {
   pressed?: boolean
   icon?: React.ReactNode
   children?: React.ReactNode
-  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onClick?: (event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
   className?: string
   ariaLabel?: string
   title?: string
+  /** When set, renders a link (e.g. store URLs) instead of a `<button>`. */
+  href?: string
+  target?: React.HTMLAttributeAnchorTarget
+  rel?: string
   /** Associate submit/reset with a `<form id="...">` outside the form (native `form` attribute). */
   form?: string
   /**
@@ -45,7 +49,10 @@ const Button: React.FC<ButtonProps> = ({
   ariaLabel,
   title,
   form,
-  instantAction = false
+  instantAction = false,
+  href,
+  target = '_blank',
+  rel = 'noopener noreferrer'
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   
@@ -86,6 +93,23 @@ const Button: React.FC<ButtonProps> = ({
     width && `rs-button--width-${width}`,
     className
   ].filter(Boolean).join(' ')
+
+  if (href) {
+    return (
+      <a
+        className={buttonClasses}
+        href={href}
+        target={target}
+        rel={rel}
+        aria-label={ariaLabel}
+        title={title}
+      >
+        {icon && <span className="rs-button__icon">{icon}</span>}
+        {children && <span className="rs-button__text">{children}</span>}
+        <div className="rs-button__inner-shadow" aria-hidden="true" />
+      </a>
+    )
+  }
 
   return (
     <button

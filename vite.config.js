@@ -1,11 +1,46 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+/** CORS + MIME for font requests (must live in a plugin — top-level `configureServer` is not applied by Vite). */
+function fontHeadersPlugin() {
+  return {
+    name: 'font-headers',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.match(/\.(woff2?|ttf|otf|eot)$/)) {
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+          res.setHeader('Access-Control-Allow-Headers', '*')
+          res.setHeader('Cache-Control', 'public, max-age=31536000')
+          if (req.url.endsWith('.woff2')) {
+            res.setHeader('Content-Type', 'font/woff2')
+          } else if (req.url.endsWith('.woff')) {
+            res.setHeader('Content-Type', 'font/woff')
+          } else if (req.url.endsWith('.ttf')) {
+            res.setHeader('Content-Type', 'font/ttf')
+          } else if (req.url.endsWith('.otf')) {
+            res.setHeader('Content-Type', 'font/otf')
+          }
+        }
+        next()
+      })
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Stable root (avoids cwd quirks); important when the path contains spaces (e.g. "Rail Statistics").
+  root: path.resolve(__dirname),
+  appType: 'spa',
   plugins: [
     react(),
+    fontHeadersPlugin(),
     // Workbox keys precached index.html by content hash. _headers-only CSP updates do not change
     // that hash, so clients keep a stale cached document + old CSP until this revision changes.
     {
@@ -69,35 +104,24 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Listen on LAN (0.0.0.0) so phones/tablets can load the app; pairs with hmr below.
+    host: true,
     port: 3000,
     open: true,
     cors: true,
-    fs: {
-      strict: false
-    }
-  },
-  configureServer: (server) => {
-    server.middlewares.use((req, res, next) => {
-      // Add CORS and proper headers for fonts
-      if (req.url?.match(/\.(woff2?|ttf|otf|eot)$/)) {
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        res.setHeader('Access-Control-Allow-Headers', '*')
-        res.setHeader('Cache-Control', 'public, max-age=31536000')
-        
-        // Set proper MIME types
-        if (req.url.endsWith('.woff2')) {
-          res.setHeader('Content-Type', 'font/woff2')
-        } else if (req.url.endsWith('.woff')) {
-          res.setHeader('Content-Type', 'font/woff')
-        } else if (req.url.endsWith('.ttf')) {
-          res.setHeader('Content-Type', 'font/ttf')
-        } else if (req.url.endsWith('.otf')) {
-          res.setHeader('Content-Type', 'font/otf')
-        }
-      }
-      next()
-    })
+    // Default fs.strict is true. strict:false allowed /@fs/ outside the project and could hit
+    // sockets / special nodes → ENOTSUP during readFile in loadAndTransform.
+    preTransformRequests: false,
+    hmr: {
+      // Same port the browser uses for HTTP (needed when host is not localhost).
+      clientPort: 3000,
+    },
+    watch: {
+      ignored: ['**/data/**'],
+      // Projects under ~/Documents are often iCloud-backed; native watchers + readFileHandle can throw ENOTSUP.
+      usePolling: true,
+      interval: 300,
+    },
   },
   build: {
     outDir: 'dist',

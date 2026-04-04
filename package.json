@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:poll": "CHOKIDAR_USEPOLLING=1 vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "start": "vite",

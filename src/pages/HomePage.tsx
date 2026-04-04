@@ -12,13 +12,15 @@ const HomePage: React.FC = () => {
           body={
             <>
               <p>After a year of development, the ultimate station tracker is out of beta.</p>
-              <p>Explore comprehensive data for every station, visualise your visits on an interactive map, and get real-time alerts the second a new station opens.</p>
               <p>Download now and start logging your journeys.</p>
+              <p>
+                Explore comprehensive data for every station, visualise your visits on an interactive map, and get
+                real-time alerts the second a new station opens.
+              </p>
             </>
           }
           primaryCtaLabel="Download on iOS"
           secondaryCtaLabel="Download on Android"
-          imageSrc="/images/home/hero.png"
           imageAlt="Rail Statistics app preview"
         />
 
