@@ -9,7 +9,6 @@
   max-width: none;
   margin-left: calc(50% - 50vw);
   overflow: hidden;
-  box-shadow: var(--button-drop-shadow);
   /* Prefer native vertical pan so scrolling through the hero stays smooth; horizontal swipes still reach JS. */
   touch-action: pan-y;
 }
@@ -295,7 +294,7 @@
   min-height: 20px;
   max-height: 20px;
   border-radius: 44px;
-  background: var(--text-primary);
+  background: var(--accent-color);
 }
 
 /* Autoplay countdown on the active pill (duration = --rs-home-hero-autoplay-ms on .rs-home-hero) */
