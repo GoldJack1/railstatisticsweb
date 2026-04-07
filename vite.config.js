@@ -95,6 +95,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Activate the new worker immediately and take over open tabs.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,otf}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/_/, /\/[^/?]+\.[^/]+$/],

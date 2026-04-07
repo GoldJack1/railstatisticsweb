@@ -11,6 +11,13 @@ applyStoredThemeToDocument()
 if (import.meta.env.PROD) {
   const updateSW = registerSW({
     immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      // Periodically ask the browser for an updated service worker script.
+      if (!registration) return
+      setInterval(() => {
+        void registration.update()
+      }, 60 * 1000)
+    },
     // Ensure users move to the latest bundle quickly instead of staying on stale app code.
     onNeedRefresh() {
       void updateSW(true)
