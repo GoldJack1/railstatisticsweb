@@ -68,15 +68,21 @@
     --font-aronetiv-normal: 'Aronetiv Irpin Type Normal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
     /* Light Theme Colors */
-    --bg-primary: hsl(220, 10%, 85%);
-    --bg-secondary: hsl(220, 10%, 92%);
-    --bg-tertiary: #f5f5f5;
+    --bg-primary: hsl(0 0% 96%);
+    --bg-secondary: hsl(0 0% 91%);
+    --bg-tertiary: hsl(0 0% 82%);
     --text-primary: #000000;
-    --text-secondary: #666666;
-    --text-disabled: #999999;
+    --text-secondary: hsl(0 0% 25%);
+    --text-disabled: hsl(0 0% 45%);
     --border-color: transparent;
-    --accent-color: var(--text-primary);
+    --accent-bright: #E50000;
+    --accent-strong: #CC0000;
+    --accent-base: #B20016;
+    --accent-deep: #990000;
+    --accent-darkest: #7F0000;
+    --accent-color: var(--accent-base);
     --accent-hover: var(--text-primary);
+    --accent-pressed: var(--accent-deep);
     --accent-light: var(--bg-secondary);
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -134,15 +140,21 @@ html[data-theme='dark'] {
 
 /* Dark Theme Colors */
 [data-theme="dark"] {
-    --bg-primary: hsl(220, 10%, 10%);
-    --bg-secondary: hsl(220, 10%, 15%);
-    --bg-tertiary: #2a2a2a;
+    --bg-primary: hsl(0 0% 20%);
+    --bg-secondary: hsl(0 0% 15%);
+    --bg-tertiary: hsl(0 0% 10%);
     --text-primary: #ffffff;
-    --text-secondary: #cccccc;
-    --text-disabled: #999999;
+    --text-secondary: hsl(0 0% 75%);
+    --text-disabled: hsl(0 0% 55%);
     --border-color: transparent;
-    --accent-color: var(--text-primary);
+    --accent-bright: #E50000;
+    --accent-strong: #CC0000;
+    --accent-base: #B20016;
+    --accent-deep: #990000;
+    --accent-darkest: #7F0000;
+    --accent-color: var(--accent-base);
     --accent-hover: var(--text-primary);
+    --accent-pressed: var(--accent-deep);
     --accent-light: var(--bg-secondary);
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
@@ -159,9 +171,9 @@ html {
     width: 100%;
     overflow-x: hidden;
     overflow-y: scroll;
-    /* Use --bg-secondary (footer colour) so the iOS rubber-band overscroll zone at the bottom
-     * seamlessly continues the footer background. Body retains --bg-primary for page content. */
-    background-color: var(--bg-secondary);
+    /* Use --bg-tertiary for global page canvas (rubber-band overscroll zone included).
+     * Component surfaces (cards/modules, footer/header chrome) continue to use --bg-secondary. */
+    background-color: var(--bg-tertiary);
 }
 
 @media (max-width: 639px) {
@@ -177,10 +189,9 @@ body {
     font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
     line-height: normal;
     color: var(--text-primary);
-    /* iOS Safari uses body (not html) for the rubber-band overscroll background.
-     * --bg-secondary matches the footer so the bounce zone looks like a footer extension.
-     * Page content is unaffected — .app and .main-content carry their own --bg-primary. */
-    background-color: var(--bg-secondary);
+    /* iOS Safari uses body (not html) for rubber-band overscroll; keep canvas tertiary.
+     * Page content remains on .app/.main-content using --bg-primary. */
+    background-color: var(--bg-tertiary);
     transition: background-color 0.3s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -233,12 +244,12 @@ button, a, input, select, textarea, [role="button"] {
 /* App Layout */
 #root {
     width: 100%;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
 }
 
 .app {
     width: 100%;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -250,7 +261,7 @@ button, a, input, select, textarea, [role="button"] {
     flex-direction: column;
     width: 100%;
     min-width: 0;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
 }
 
 /*
@@ -263,6 +274,8 @@ button, a, input, select, textarea, [role="button"] {
             flex-direction: column;
             min-height: 100dvh;
             min-height: -webkit-fill-available;
+            /* Keep iOS rubber-band zone aligned with footer surface colour. */
+            background-color: var(--bg-primary);
         }
 
         #root {
@@ -278,7 +291,7 @@ button, a, input, select, textarea, [role="button"] {
     margin: 0 auto;
     padding: 0 var(--space-2xl);
     width: 100%;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
 }
 
 /* Container responsive breakpoints */
@@ -313,17 +326,6 @@ button, a, input, select, textarea, [role="button"] {
     transform: none !important;
   }
 
-  .rs-button--active:hover:not(:disabled) {
-    transform: none !important;
-  }
-
-  .rs-button-bar__button:hover:not(:disabled):not(.rs-button-bar__button--pressed) {
-    transform: none !important;
-  }
-
-  .rs-visit-button:hover:not(:disabled) {
-    transform: none !important;
-  }
 }
 
 /*

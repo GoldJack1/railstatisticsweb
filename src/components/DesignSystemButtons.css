@@ -39,8 +39,78 @@
 
 .ds-buttons__controls-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-lg);
+}
+
+.ds-buttons__matrix {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+.ds-buttons__matrix-title {
+  text-transform: none;
+}
+
+.ds-buttons__state-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ds-buttons__state-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.ds-buttons__state-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-md);
+}
+
+.ds-buttons__state-detail {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-buttons__state-detail-title {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ds-buttons__value-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  word-break: break-word;
+}
+
+.ds-buttons__value-block strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ds-buttons__variant-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-width: 4.75rem;
+  text-transform: capitalize;
 }
 
 .ds-buttons__card {
@@ -69,23 +139,32 @@
   gap: var(--space-md);
 }
 
+.ds-buttons__prompt-textarea {
+  width: 100%;
+  min-height: 320px;
+  resize: vertical;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: var(--space-md);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.ds-buttons__card--span-2 {
+  grid-column: span 2;
+}
+
+.ds-buttons__card--full {
+  grid-column: 1 / -1;
+}
+
 .ds-buttons__icon-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
-}
-
-.ds-buttons__demo-wrap {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
-  overflow: hidden;
-}
-
-/* Remove nested page outer spacing when embedded */
-.ds-buttons__demo-wrap .container {
-  min-height: auto;
-  padding: 0;
 }
 
 @media (max-width: 1023px) {
@@ -99,5 +178,21 @@
 
   .ds-buttons__header p {
     font-size: var(--text-base);
+  }
+
+  .ds-buttons__variant-label {
+    min-width: 4.25rem;
+  }
+
+  .ds-buttons__controls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ds-buttons__card--span-2 {
+    grid-column: auto;
+  }
+
+  .ds-buttons__card--full {
+    grid-column: auto;
   }
 }

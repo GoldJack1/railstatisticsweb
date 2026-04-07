@@ -1,6 +1,6 @@
 /*
  * Layout: .app > Header | main.app-main | footer.site-footer.app-footer — no extra wrapper.
- * .app / .app-main use --bg-primary; the footer bar uses --bg-secondary.
+ * .app / .app-main use page canvas colours; the footer bar uses --bg-primary.
  */
 .site-footer.app-footer {
   margin-top: auto;
@@ -13,7 +13,7 @@
    * without a home indicator (desktop, older iPhones), so no media query is needed. */
   padding: var(--footer-pad-y) 0 calc(var(--footer-pad-y) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--text-disabled);
   font-size: var(--text-sm);
   font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -47,7 +47,7 @@
 }
 
 .site-footer-link:hover {
-  color: var(--accent-color);
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
@@ -72,8 +72,40 @@
 }
 
 .site-footer-logout:hover {
-  color: var(--accent-color);
+  color: var(--text-primary);
   text-decoration: underline;
+}
+
+.site-footer-theme-toggle {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  display: inline;
+  vertical-align: baseline;
+  min-width: unset;
+  min-height: unset;
+}
+
+.site-footer-theme-toggle__icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: text-bottom;
+  position: relative;
+  top: -2px;
+}
+
+.site-footer-theme-toggle__icon--sun {
+  top: -1.5px;
+}
+
+.site-footer-theme-toggle:hover {
+  color: var(--text-primary);
+  text-decoration: none;
 }
 
 /* Match header / page horizontal padding at design breakpoints */

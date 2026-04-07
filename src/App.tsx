@@ -36,7 +36,6 @@ const ReviewPendingChangesPage = React.lazy(() => import('./pages/ReviewPendingC
 const StationDetailsPage = React.lazy(() => import('./pages/StationDetailsPage'))
 const NewStationPage = React.lazy(() => import('./pages/NewStationPage'))
 const MigrationPage = React.lazy(() => import('./pages/MigrationPage'))
-const ButtonDemoPage = React.lazy(() => import('./pages/ButtonDemoPage'))
 const DesignSystemHomePage = React.lazy(() => import('./pages/designSystem/DesignSystemHomePage'))
 const ColoursPage = React.lazy(() => import('./pages/designSystem/ColoursPage'))
 const TypographyPage = React.lazy(() => import('./pages/designSystem/TypographyPage'))
@@ -88,7 +87,7 @@ const App: React.FC = () => {
                   <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
                   <Route path="/stations/:stationId/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
                   <Route path="/migration" element={<MigrationPage />} />
-                  <Route path="/buttons" element={<ButtonDemoPage />} />
+                  <Route path="/buttons" element={<ButtonsPage />} />
                   <Route path="/design-system" element={<ProtectedRoute><DesignSystemHomePage /></ProtectedRoute>} />
                   <Route path="/design-system/colours" element={<ProtectedRoute><ColoursPage /></ProtectedRoute>} />
                   <Route path="/design-system/typography" element={<ProtectedRoute><TypographyPage /></ProtectedRoute>} />

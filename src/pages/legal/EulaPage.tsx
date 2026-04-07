@@ -1,28 +1,69 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import Button from '../../components/Button'
 import '../../components/Eula.css'
 
 const EulaPage: React.FC = () => {
+  const navigate = useNavigate()
+  const sections = [
+    { id: 'section-1', label: '1. The Application' },
+    { id: 'section-2', label: '2. Scope of Licence' },
+    { id: 'section-3', label: '3. Technical Requirements' },
+    { id: 'section-4', label: '4. Maintenance and Support' },
+    { id: 'section-5', label: '5. Use of Data' },
+    { id: 'section-6', label: '6. User-Generated Contributions' },
+    { id: 'section-7', label: '7. Contribution Licence' },
+    { id: 'section-8', label: '8. Liability' },
+    { id: 'section-9', label: '9. Warranty' },
+    { id: 'section-10', label: '10. Product Claims' },
+    { id: 'section-11', label: '11. Legal Compliance' },
+    { id: 'section-12', label: '12. Contact Information' },
+    { id: 'section-13', label: '13. Termination' },
+    { id: 'section-14', label: '14. Third-Party Terms and Beneficiary' },
+    { id: 'section-15', label: '15. Intellectual Property Rights' },
+    { id: 'section-16', label: '16. Applicable Law' },
+    { id: 'section-17', label: '17. Miscellaneous' },
+  ]
+
   return (
     <div className="container">
       <main className="eula-main">
-        <h1 className="eula-title">END USER LICENCE AGREEMENT</h1>
-        <p className="eula-updated">Last updated February 26, 2026</p>
+        <header className="eula-header">
+          <h1 className="eula-title">END USER LICENCE AGREEMENT</h1>
+          <p className="eula-updated">Last updated February 26, 2026</p>
+        </header>
 
-        <p className="eula-intro">
+        <div className="eula-layout">
+          <aside className="eula-sidebar">
+            <div className="eula-sidebar-actions">
+              <Button variant="wide" width="hug" onClick={() => navigate('/')}>
+                ← Back to home
+              </Button>
+            </div>
+            <nav className="eula-tabs" aria-label="EULA sections">
+              {sections.map((section) => (
+                <a key={section.id} href={`#${section.id}`} className="eula-tab">
+                  {section.label}
+                </a>
+              ))}
+            </nav>
+          </aside>
+
+          <div className="eula-content">
+        <p className="eula-intro eula-card">
           Rail Statistics is licensed to You (End-User) by Rail Statistics, located and registered at 1 Runtlings Lane, Wakefield, West Yorkshire WF5 8JL, England (&apos;Licensor&apos;), for use only under the terms of this Licence Agreement.
         </p>
-        <p className="eula-intro">
+        <p className="eula-intro eula-card">
           By downloading the Licensed Application from Apple&apos;s software distribution platform (&apos;App Store&apos;) and Google&apos;s software distribution platform (&apos;Play Store&apos;), and any update thereto (as permitted by this Licence Agreement), You indicate that You agree to be bound by all of the terms and conditions of this Licence Agreement, and that You accept this Licence Agreement.
         </p>
-        <p className="eula-intro">
+        <p className="eula-intro eula-card">
           Rail Statistics, not the Services, is solely responsible for the Licensed Application and the content thereof. This Licence Agreement may not provide for usage rules for the Licensed Application that are in conflict with the latest Apple Media Services Terms and Conditions and Google Play Terms of Service (&apos;Usage Rules&apos;). Rail Statistics acknowledges that it had the opportunity to review the Usage Rules and this Licence Agreement is not conflicting with them.
         </p>
-        <p className="eula-intro">
+        <p className="eula-intro eula-card">
           Rail Statistics when purchased or downloaded through the Services, is licensed to You for use only under the terms of this Licence Agreement. The Licensor reserves all rights not expressly granted to You. Rail Statistics is to be used on devices that operate with Apple&apos;s operating systems (&apos;iOS&apos; and &apos;Mac OS&apos;) or Google&apos;s operating system (&apos;Android&apos;).
         </p>
 
-        <section className="eula-section">
+        <section className="eula-section eula-card">
           <h2>TABLE OF CONTENTS</h2>
           <ol className="eula-toc">
             <li>THE APPLICATION</li>
@@ -46,7 +87,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>1. THE APPLICATION</h2>
+          <h2 id="section-1">1. THE APPLICATION</h2>
           <p>
             Rail Statistics (&apos;Licensed Application&apos;) is a piece of software created to allow users to keep track of railway stations visited on the go, as well to keep track of rail fares. and customised for iOS and Android mobile devices (&apos;Devices&apos;). It is used to track railway stations visited on the go...
           </p>
@@ -56,7 +97,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>2. SCOPE OF LICENCE</h2>
+          <h2 id="section-2">2. SCOPE OF LICENCE</h2>
           <ul>
             <li><strong>2.1</strong> You are given a non-transferable, non-exclusive, non-sublicensable licence to install and use the Licensed Application on any Devices that You (End-User) own or control and as permitted by the Usage Rules, with the exception that such Licensed Application may be accessed and used by other accounts associated with You (End-User, The Purchaser) via Family Sharing or volume purchasing.</li>
             <li><strong>2.2</strong> This licence will also govern any updates of the Licensed Application provided by Licensor that replace, repair, and/or supplement the first Licensed Application, unless a separate licence is provided for such update, in which case the terms of that new licence will govern.</li>
@@ -70,7 +111,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>3. TECHNICAL REQUIREMENTS</h2>
+          <h2 id="section-3">3. TECHNICAL REQUIREMENTS</h2>
           <ul>
             <li><strong>3.1</strong> The Licensed Application requires a firmware version 26.03.1 or higher. Licensor recommends using the latest version of the firmware.</li>
             <li><strong>3.2</strong> Licensor attempts to keep the Licensed Application updated so that it complies with modified/new versions of the firmware and new hardware. You are not granted rights to claim such an update.</li>
@@ -80,7 +121,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>4. MAINTENANCE AND SUPPORT</h2>
+          <h2 id="section-4">4. MAINTENANCE AND SUPPORT</h2>
           <ul>
             <li><strong>4.1</strong> The Licensor is solely responsible for providing any maintenance and support services for this Licensed Application. You can reach the Licensor at the email address listed in the App Store or Play Store Overview for this Licensed Application.</li>
             <li><strong>4.2</strong> Rail Statistics and the End-User acknowledge that the Services have no obligation whatsoever to furnish any maintenance and support services with respect to the Licensed Application.</li>
@@ -88,7 +129,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>5. USE OF DATA</h2>
+          <h2 id="section-5">5. USE OF DATA</h2>
           <p>
             You acknowledge that Licensor will be able to access and adjust Your downloaded Licensed Application content and Your personal information, and that Licensor&apos;s use of such material and information is subject to Your legal agreements with Licensor and Licensor&apos;s privacy policy, which can be accessed via Settings &gt; About App &gt; Privacy Policy, or by visiting <a href="https://www.railstatistics.co.uk/privacy" target="_blank" rel="noopener noreferrer">http://www.railstatistics.co.uk/privacy</a>.
           </p>
@@ -98,7 +139,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>6. USER-GENERATED CONTRIBUTIONS</h2>
+          <h2 id="section-6">6. USER-GENERATED CONTRIBUTIONS</h2>
           <p>
             The Licensed Application may invite you to chat, contribute to, or participate in blogs, message boards, online forums, and other functionality, and may provide you with the opportunity to create, submit, post, display, transmit, perform, publish, distribute, or broadcast content and materials to us or in the Licensed Application, including but not limited to text, writings, video, audio, photographs, graphics, comments, suggestions, or personal information or other material (collectively, &apos;Contributions&apos;). Contributions may be viewable by other users of the Licensed Application and through third-party websites or applications. As such, any Contributions you transmit may be treated as non-confidential and non-proprietary.
           </p>
@@ -122,7 +163,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>7. CONTRIBUTION LICENCE</h2>
+          <h2 id="section-7">7. CONTRIBUTION LICENCE</h2>
           <p>
             By posting your Contributions, you automatically grant us an unrestricted, unlimited, irrevocable, perpetual, non-exclusive, transferable, royalty-free, worldwide right and licence to host, use, copy, reproduce, disclose, sell, publish, and distribute such Contributions for any purpose. This includes the use of your name and any trademarks or images you provide. You waive all moral rights in your Contributions.
           </p>
@@ -132,7 +173,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>8. LIABILITY</h2>
+          <h2 id="section-8">8. LIABILITY</h2>
           <ul>
             <li><strong>8.1</strong> Licensor&apos;s responsibility in the case of violation of obligations and tort shall be limited to intent and gross negligence. In case of a breach of essential contractual duties, Licensor shall also be liable for slight negligence. Liability is limited to foreseeable, contractually typical damages, except for injuries to life, limb, or health.</li>
             <li><strong>8.2</strong> Licensor takes no accountability for damages caused by a breach of duties in Section 2. You are required to use backup functions to avoid data loss.</li>
@@ -141,7 +182,7 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>9. WARRANTY</h2>
+          <h2 id="section-9">9. WARRANTY</h2>
           <ul>
             <li><strong>9.1</strong> Licensor warrants the application is free of malware at the time of download and works as described in documentation.</li>
             <li><strong>9.2</strong> No warranty is provided for applications that are non-executable due to unauthorised modification, inappropriate handling, or use with inappropriate hardware/software.</li>
@@ -153,21 +194,21 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>10. PRODUCT CLAIMS</h2>
+          <h2 id="section-10">10. PRODUCT CLAIMS</h2>
           <p>
             Rail Statistics, not the Services, is responsible for addressing claims relating to the Licensed Application, including product liability, legal/regulatory non-conformance, and consumer protection or privacy claims.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>11. LEGAL COMPLIANCE</h2>
+          <h2 id="section-11">11. LEGAL COMPLIANCE</h2>
           <p>
             You represent and warrant that you are not located in a country subject to a US Government embargo or designated as a &apos;terrorist supporting country,&apos; and are not on any prohibited parties list.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>12. CONTACT INFORMATION</h2>
+          <h2 id="section-12">12. CONTACT INFORMATION</h2>
           <p>
             For inquiries or complaints, contact:
           </p>
@@ -183,44 +224,43 @@ const EulaPage: React.FC = () => {
         </section>
 
         <section className="eula-section">
-          <h2>13. TERMINATION</h2>
+          <h2 id="section-13">13. TERMINATION</h2>
           <p>
             The licence is valid until terminated by Rail Statistics or You. Rights terminate automatically without notice if you fail to adhere to any terms. Upon termination, you must stop all use and destroy all copies of the application.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>14. THIRD-PARTY TERMS OF AGREEMENTS AND BENEFICIARY</h2>
+          <h2 id="section-14">14. THIRD-PARTY TERMS OF AGREEMENTS AND BENEFICIARY</h2>
           <p>
             Rail Statistics will comply with applicable third-party terms. Apple and Google and their subsidiaries are third-party beneficiaries of this EULA and have the right to enforce it against You.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>15. INTELLECTUAL PROPERTY RIGHTS</h2>
+          <h2 id="section-15">15. INTELLECTUAL PROPERTY RIGHTS</h2>
           <p>
             In the event of a third-party IP infringement claim, Rail Statistics (not the Services) is solely responsible for the investigation, defence, and settlement.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>16. APPLICABLE LAW</h2>
+          <h2 id="section-16">16. APPLICABLE LAW</h2>
           <p>
             This agreement is governed by the laws of England and Wales.
           </p>
         </section>
 
         <section className="eula-section">
-          <h2>17. MISCELLANEOUS</h2>
+          <h2 id="section-17">17. MISCELLANEOUS</h2>
           <ul>
             <li><strong>17.1</strong> If any term becomes invalid, the remaining provisions remain valid. Invalid terms will be replaced by valid ones achieving the primary purpose.</li>
             <li><strong>17.2</strong> Amendments are only valid if laid down in writing.</li>
           </ul>
         </section>
 
-        <p className="eula-back">
-          <Link to="/">← Back to home</Link>
-        </p>
+          </div>
+        </div>
       </main>
     </div>
   )

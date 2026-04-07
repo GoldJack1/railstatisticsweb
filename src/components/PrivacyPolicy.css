@@ -2,9 +2,75 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-2xl) 0;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  padding: var(--space-xl) 0;
+  gap: var(--space-lg);
+}
+
+.privacy-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.privacy-layout {
+  display: flex;
+  gap: var(--space-xl);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.privacy-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.privacy-sidebar-actions {
+  display: flex;
+}
+
+.privacy-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: calc(5rem + env(safe-area-inset-top, 0px));
+}
+
+.privacy-tab {
+  text-decoration: none;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.privacy-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.privacy-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.privacy-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
 }
 
 .privacy-title {
@@ -24,11 +90,11 @@
   font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: normal;
-  margin-bottom: var(--space-2xl);
+  margin: 0;
 }
 
 .privacy-section {
-  margin-bottom: var(--space-2xl);
+  margin: 0;
 }
 
 .privacy-section h2 {
@@ -77,4 +143,31 @@
 
 .privacy-back a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 1023px) {
+  .privacy-layout {
+    flex-direction: column;
+  }
+
+  .privacy-sidebar {
+    width: 100%;
+  }
+
+  .privacy-tabs {
+    position: static;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-xs);
+  }
+
+  .privacy-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+  }
 }

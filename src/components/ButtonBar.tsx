@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import './ButtonBar.css'
+import type { ButtonColorVariant } from './Button'
 
 export interface ButtonBarItem {
   label: string
@@ -12,6 +13,7 @@ export interface ButtonBarProps {
   buttons: ButtonBarItem[]
   selectedIndex?: number | null
   onChange?: (index: number | null, value: string | null) => void
+  colorVariant?: ButtonColorVariant
   className?: string
 }
 
@@ -19,6 +21,7 @@ const ButtonBar: React.FC<ButtonBarProps> = ({
   buttons,
   selectedIndex: controlledIndex,
   onChange,
+  colorVariant = 'primary',
   className = ''
 }) => {
   // Track which button is currently pressed (only one at a time, or null for none)
@@ -45,6 +48,7 @@ const ButtonBar: React.FC<ButtonBarProps> = ({
   const barClasses = [
     'rs-button-bar',
     `rs-button-bar--${buttonCount}`,
+    `rs-button-bar--color-${colorVariant}`,
     className
   ].filter(Boolean).join(' ')
 

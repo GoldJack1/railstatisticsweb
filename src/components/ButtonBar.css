@@ -56,6 +56,79 @@
   white-space: nowrap;
 }
 
+/* Color variants */
+.rs-button-bar--color-primary {
+  /* Uses global button tokens as-is. */
+}
+
+.rs-button-bar--color-secondary {
+  --button-bg-active: hsl(0 0% 5%);
+  --button-bg-inactive: hsl(0 0% 20%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 77%);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .rs-button-bar--color-secondary {
+  --button-bg-active: hsl(0 0% 100%);
+  --button-bg-inactive: hsl(0 0% 89%);
+  --button-text-active: #000000;
+  --button-text-inactive: #000000;
+  --button-text-disabled: var(--text-disabled);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
+}
+
+.rs-button-bar--color-accent {
+  --button-bg-active: hsl(353 57% 48%);
+  --button-bg-inactive: hsl(353 57% 38%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-accent {
+  --button-bg-active: hsl(353 100% 19%);
+  --button-bg-inactive: hsl(352, 100%, 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button-bar--color-green-action {
+  --button-bg-active: hsl(141 60% 40%);
+  --button-bg-inactive: hsl(141 60% 35%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-green-action {
+  --button-bg-active: hsl(141 100% 19%);
+  --button-bg-inactive: hsl(141 100% 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button-bar--color-red-action {
+  --button-bg-active: hsl(0 68% 58%);
+  --button-bg-inactive: hsl(0 68% 48%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-red-action {
+  --button-bg-active: hsl(359 100% 25%);
+  --button-bg-inactive: hsl(359 100% 17%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
 /* Pressed State (for selected button) */
 .rs-button-bar__button--pressed {
   background-color: var(--button-bg-inactive);
@@ -69,8 +142,14 @@
 
 /* Disabled State */
 .rs-button-bar__button--disabled {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-disabled, var(--text-disabled));
+  box-shadow: none;
   cursor: not-allowed;
-  opacity: 0.6;
+}
+
+.rs-button-bar__button--disabled .rs-button-bar__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
 }
 
 /* Button Shapes in Bar */
@@ -96,16 +175,7 @@
   min-width: 147px;
 }
 
-/* Hover States */
-.rs-button-bar__button:hover:not(:disabled):not(.rs-button-bar__button--pressed) {
-  transform: translateY(-1px);
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.25);
-  will-change: transform, box-shadow;
-}
-
-.rs-button-bar__button:not(:hover) {
-  will-change: auto;
-}
+/* Hover states removed by design. */
 
 /* Focus States */
 .rs-button-bar__button:focus-visible {

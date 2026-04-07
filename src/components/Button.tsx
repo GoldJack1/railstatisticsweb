@@ -6,16 +6,20 @@ export type ButtonShape = 'rounded' | 'left-rounded' | 'right-rounded' | 'top-ro
 export type ButtonState = 'active' | 'pressed' | 'disabled'
 export type ButtonWidth = 'fixed' | 'hug' | 'fill'
 export type ButtonType = 'button' | 'submit' | 'reset'
+export type ButtonColorVariant = 'primary' | 'secondary' | 'accent' | 'green-action' | 'red-action'
+export type ButtonIconPosition = 'left' | 'right'
 
 export interface ButtonProps {
   variant?: ButtonVariant
   shape?: ButtonShape
   state?: ButtonState
+  colorVariant?: ButtonColorVariant
   width?: ButtonWidth
   type?: ButtonType
   disabled?: boolean
   pressed?: boolean
   icon?: React.ReactNode
+  iconPosition?: ButtonIconPosition
   children?: React.ReactNode
   onClick?: (event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
   className?: string
@@ -38,11 +42,13 @@ const Button: React.FC<ButtonProps> = ({
   variant = 'wide',
   shape = 'rounded',
   state,
+  colorVariant = 'primary',
   width = 'fixed',
   type = 'button',
   disabled = false,
   pressed = false,
   icon,
+  iconPosition = 'left',
   children,
   onClick,
   className = '',
@@ -90,6 +96,8 @@ const Button: React.FC<ButtonProps> = ({
     `rs-button--${variant}`,
     `rs-button--${shape}`,
     `rs-button--${actualState}`,
+    `rs-button--color-${colorVariant}`,
+    icon && `rs-button--icon-${iconPosition}`,
     width && `rs-button--width-${width}`,
     className
   ].filter(Boolean).join(' ')

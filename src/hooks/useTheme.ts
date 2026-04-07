@@ -7,8 +7,8 @@ interface UseThemeReturn {
 
 /** Matches [data-theme] --bg-secondary in index.css (header chrome / Safari UI tint). */
 const THEME_COLOR_HEX = {
-  light: '#e8eaed', // hsl(220, 10%, 92%)
-  dark: '#22252d', // hsl(220, 10%, 15%)
+  light: '#e8e8e8', // hsl(0 0% 91%)
+  dark: '#262626', // hsl(0 0% 15%)
 } as const
 
 type ThemeMode = 'light' | 'dark'

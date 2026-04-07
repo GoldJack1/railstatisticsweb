@@ -2,9 +2,82 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-2xl) 0;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  padding: var(--space-xl) 0;
+  gap: var(--space-lg);
+}
+
+.eula-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.eula-layout {
+  display: flex;
+  gap: var(--space-xl);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.eula-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.eula-sidebar-actions {
+  display: flex;
+}
+
+.eula-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: calc(5rem + env(safe-area-inset-top, 0px));
+}
+
+.eula-tab {
+  text-decoration: none;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.eula-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.eula-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.eula-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
+}
+
+.eula-content > .eula-section {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
 }
 
 .eula-title {
@@ -24,11 +97,11 @@
   font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: normal;
-  margin-bottom: var(--space-2xl);
+  margin: 0;
 }
 
 .eula-section {
-  margin-bottom: var(--space-2xl);
+  margin: 0;
 }
 
 .eula-section h2 {
@@ -105,4 +178,31 @@
 
 .eula-back a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 1023px) {
+  .eula-layout {
+    flex-direction: column;
+  }
+
+  .eula-sidebar {
+    width: 100%;
+  }
+
+  .eula-tabs {
+    position: static;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-xs);
+  }
+
+  .eula-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+  }
 }

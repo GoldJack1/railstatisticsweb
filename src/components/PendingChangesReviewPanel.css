@@ -161,7 +161,7 @@
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   max-width: 100%;
   word-break: break-word;
@@ -175,7 +175,7 @@
 .pending-review-station-chip--stat {
   font-weight: 600;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-tertiary));
+  background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-secondary));
   border-color: color-mix(in srgb, var(--accent-color) 22%, var(--border-color));
 }
 
@@ -293,7 +293,7 @@
   padding: 0.2rem 0.45rem;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-color) 18%, var(--bg-tertiary));
+  background: color-mix(in srgb, var(--accent-color) 18%, var(--bg-secondary));
   border: 1px solid color-mix(in srgb, var(--accent-color) 40%, var(--border-color));
 }
 
@@ -356,7 +356,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 .pending-review-table tr:last-child td {
@@ -425,7 +425,7 @@
 }
 
 .pending-review-table tbody tr:nth-child(even) {
-  background: color-mix(in srgb, var(--bg-tertiary) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 35%, transparent);
 }
 
 .pending-review-table tbody tr:hover {
@@ -501,7 +501,7 @@
   padding: var(--space-md) var(--space-lg);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--bg-tertiary) 80%, var(--bg-secondary)) 0%,
+    color-mix(in srgb, var(--bg-secondary) 80%, var(--bg-secondary)) 0%,
     var(--bg-secondary) 100%
   );
   border-bottom: 1px solid var(--border-color);
@@ -594,7 +594,7 @@
   font-weight: 600;
   color: var(--text-primary);
   user-select: none;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 .pending-review-card__details-summary::-webkit-details-marker {
@@ -637,7 +637,7 @@
   margin-top: var(--space-lg);
   padding: var(--space-md) var(--space-lg) var(--space-lg);
   border-top: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-tertiary) 40%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--bg-secondary) 40%, var(--bg-secondary));
 }
 
 .pending-review-card__discard-btn {
@@ -801,7 +801,7 @@
   letter-spacing: 0.04em;
   padding: 0.15rem 0.45rem;
   border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
@@ -834,14 +834,14 @@
 }
 
 .pending-review-schedule-status--unknown {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 .pending-review-inline-code {
   font-size: 0.85em;
   padding: 0.1em 0.35em;
   border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 @media (max-width: 768px) {

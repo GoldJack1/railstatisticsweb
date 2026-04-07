@@ -2,7 +2,7 @@
  * iOS Safari 26+ (in-browser): toolbar / status-area tint often ignores <meta name="theme-color">
  * and samples position:fixed elements within ~4px of the top with a solid background-color.
  * Our header uses backdrop-filter, which can yield a dark or mismatched sample. This layer is
- * plain --bg-secondary only, sits under .universal-header (z-index), and matches the bar visually.
+ * plain --bg-primary only, sits under .universal-header (z-index), and matches the bar visually.
  * Ref: https://github.com/andesco/safari-color-tinting — https://jahir.dev/blog/safari-toolbar
  */
 .safari-toolbar-tint {
@@ -18,7 +18,7 @@
     padding: 0;
     border: none;
     /* Must be background-color (not only backdrop) for Safari’s sampler */
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     z-index: 1000;
     pointer-events: none;
     /* Own compositing layer: reduces fixed-header drift / tearing during iOS scroll */
@@ -38,7 +38,7 @@
 /* Universal Header — logo + theme only (site nav & auth live in the footer) */
 .universal-header {
     /* Opaque fill so status-bar region isn’t only backdrop-filter (Safari can look washed out there) */
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
     position: fixed;
     /*
@@ -132,7 +132,7 @@
 }
 
 .logo:hover {
-    color: var(--accent-color);
+    color: var(--text-secondary);
 }
 
 /* Station collection toggle (Production / Sandbox) — used elsewhere if needed */
