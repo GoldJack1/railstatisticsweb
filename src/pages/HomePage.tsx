@@ -53,8 +53,6 @@ const HomePage: React.FC = () => {
 
         <HomeHero
           slides={HERO_SLIDES}
-          primaryCtaLabel="Download on iOS"
-          secondaryCtaLabel="Download on Android"
         />
       </div>
     </div>

@@ -215,6 +215,14 @@ body {
     font-variation-settings: normal;
 }
 
+/*
+ * Global widow/orphan handling:
+ * let the browser choose better line breaks for body/headline copy.
+ */
+h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption {
+    text-wrap: pretty;
+}
+
 .font-aronetiv-normal {
     font-family: var(--font-aronetiv-normal);
     -webkit-font-variation-settings: normal;

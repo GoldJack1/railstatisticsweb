@@ -273,7 +273,7 @@
   min-height: 20px;
   max-height: 20px;
   border-radius: 20px;
-  background: var(--rs-home-hero-indicator-inactive, #c1c5cc);
+  background: color-mix(in srgb, var(--text-primary) 70%, transparent);
   cursor: pointer;
   vertical-align: middle;
   transition:
@@ -306,7 +306,7 @@
   pointer-events: none;
   transform-origin: left center;
   transform: scaleX(0);
-  background: color-mix(in srgb, var(--bg-secondary) 42%, transparent);
+  background: var(--accent-darkest);
   animation: rs-home-hero-indicator-progress linear forwards;
   animation-duration: var(--rs-home-hero-autoplay-ms, 10s);
 }
@@ -483,8 +483,4 @@
   .rs-home-hero__content {
     padding: 24px;
   }
-}
-
-[data-theme='dark'] .rs-home-hero__indicator:not(.rs-home-hero__indicator--active) {
-  background: color-mix(in srgb, var(--text-secondary) 45%, var(--bg-secondary));
 }

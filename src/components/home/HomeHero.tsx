@@ -3,10 +3,6 @@ import Button from '../Button'
 import { getOptimalImageLoading } from '../../utils/performance'
 import './HomeHero.css'
 
-const DEFAULT_IOS_APP_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
-const DEFAULT_ANDROID_PLAY_URL =
-  'https://play.google.com/store/apps/details?id=com.jw.railstatisticsandroid.beta&pli=1'
-
 const DEFAULT_IMAGE_SOURCES = {
   desktop: '/images/home/hero-newhero-desktop.png',
   tablet: '/images/home/hero-newhero-tablet.png',
@@ -59,10 +55,6 @@ export interface HomeHeroSlide {
 export interface HomeHeroProps {
   /** At least 3 slides (Figma NEWHERO carousel). */
   slides: HomeHeroSlide[]
-  primaryCtaLabel: string
-  secondaryCtaLabel: string
-  primaryCtaHref?: string
-  secondaryCtaHref?: string
   /** Autoplay interval in ms; ignored when `prefers-reduced-motion: reduce`. */
   autoPlayMs?: number
   className?: string
@@ -107,10 +99,6 @@ const HeroSlideMeasureCopy: React.FC<{ title: string; body: React.ReactNode }> =
 
 const HomeHero: React.FC<HomeHeroProps> = ({
   slides,
-  primaryCtaLabel,
-  secondaryCtaLabel,
-  primaryCtaHref = DEFAULT_IOS_APP_URL,
-  secondaryCtaHref = DEFAULT_ANDROID_PLAY_URL,
   autoPlayMs = AUTO_PLAY_MS_DEFAULT,
   className = ''
 }) => {
@@ -178,18 +166,6 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   ]
     .filter(Boolean)
     .join(' ')
-
-  const heroCtaDir = textEnterDirRef.current
-  const heroCtaRowClass = [
-    'rs-home-hero__cta-row',
-    safeIndex === 0
-      ? shouldAnimateHeroCarousel
-        ? `rs-home-hero__cta-row--enter-${heroCtaDir}`
-        : 'rs-home-hero__cta-row--at-rest-visible'
-      : shouldAnimateHeroCarousel
-        ? `rs-home-hero__cta-row--exit-${heroCtaDir}`
-        : 'rs-home-hero__cta-row--at-rest-hidden'
-  ].join(' ')
 
   const textShellRef = useRef<HTMLDivElement>(null)
   const measureRootRef = useRef<HTMLDivElement>(null)
@@ -343,15 +319,6 @@ const HomeHero: React.FC<HomeHeroProps> = ({
         </div>
 
         <div className="rs-home-hero__actions">
-          <div className={heroCtaRowClass} aria-hidden={safeIndex > 0 ? true : undefined}>
-            <Button variant="wide" shape="rounded" width="fill" href={primaryCtaHref}>
-              {primaryCtaLabel}
-            </Button>
-            <Button variant="wide" shape="rounded" width="fill" href={secondaryCtaHref}>
-              {secondaryCtaLabel}
-            </Button>
-          </div>
-
           <div className="rs-home-hero__carousel-bar">
             <div className="rs-home-hero__indicator-track" role="group" aria-label="Choose slide">
               {slides.map((_, i) => (
@@ -385,7 +352,6 @@ const HomeHero: React.FC<HomeHeroProps> = ({
                 type="button"
                 ariaLabel="Previous slide"
                 icon={<ChevronLeft />}
-                instantAction
                 onClick={goPrev}
               />
               <Button
@@ -394,7 +360,6 @@ const HomeHero: React.FC<HomeHeroProps> = ({
                 type="button"
                 ariaLabel="Next slide"
                 icon={<ChevronRight />}
-                instantAction
                 onClick={goNext}
               />
             </div>
