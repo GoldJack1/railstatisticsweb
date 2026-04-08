@@ -5,8 +5,14 @@ import './HomeTopHero.css'
 
 const IOS_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
 const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.jw.railstatisticsandroid.beta&pli=1'
-const DEFAULT_IMAGE_URL_DARK = '/images/home/newherotopdark.png'
-const DEFAULT_IMAGE_URL_LIGHT = '/images/home/newherotoplight.png'
+const TOP_HERO_IMAGE_DARK_DESKTOP_TABLET = '/images/home/hometophero-desktop-tablet-dark.png'
+const TOP_HERO_IMAGE_DARK_MOBILE = '/images/home/hometophero-mobile-dark.png'
+const TOP_HERO_IMAGE_LIGHT_DESKTOP_TABLET = '/images/home/hometophero-desktop-tablet-light.png'
+const TOP_HERO_IMAGE_LIGHT_MOBILE = '/images/home/hometophero-mobile-light.png'
+const MAX_SCROLL_SCALE_DELTA = 1
+const MAX_SCROLL_PARALLAX_Y = 44
+const MAX_POINTER_PARALLAX_X = 18
+const MAX_POINTER_PARALLAX_Y = 12
 
 type Platform = 'ios' | 'android' | 'desktop'
 
@@ -15,6 +21,10 @@ function detectPlatform(): Platform {
   if (/iPad|iPhone|iPod/.test(ua)) return 'ios'
   if (/Android/.test(ua)) return 'android'
   return 'desktop'
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 export interface HomeTopHeroProps {
@@ -30,9 +40,14 @@ const HomeTopHero: React.FC<HomeTopHeroProps> = ({
   ctaLabel = 'Download Now',
   className = ''
 }) => {
+  const heroRef = useRef<HTMLElement>(null)
   const [platform, setPlatform] = useState<Platform>('desktop')
   const [modalOpen, setModalOpen] = useState(false)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
+  const [imageScale, setImageScale] = useState(1)
+  const [imageParallaxX, setImageParallaxX] = useState(0)
+  const [imageParallaxY, setImageParallaxY] = useState(0)
+  const [imageMotionParallaxY, setImageMotionParallaxY] = useState(0)
   const modalRef = useRef<HTMLDivElement>(null)
 
   const copyLink = useCallback(async (url: string) => {
@@ -51,6 +66,115 @@ const HomeTopHero: React.FC<HomeTopHeroProps> = ({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [modalOpen])
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let rafId = 0
+
+    const updateScale = () => {
+      rafId = 0
+      const heroEl = heroRef.current
+      if (!heroEl) return
+
+      const rect = heroEl.getBoundingClientRect()
+      const progress = Math.min(1, Math.max(0, (-rect.top) / Math.max(rect.height, 1)))
+      const nextScale = 1 + progress * MAX_SCROLL_SCALE_DELTA
+      const nextParallaxY = progress * MAX_SCROLL_PARALLAX_Y
+      setImageScale(nextScale)
+      setImageParallaxY(nextParallaxY)
+    }
+
+    const requestUpdate = () => {
+      if (rafId !== 0) return
+      rafId = window.requestAnimationFrame(updateScale)
+    }
+
+    requestUpdate()
+    window.addEventListener('scroll', requestUpdate, { passive: true })
+    window.addEventListener('resize', requestUpdate)
+
+    return () => {
+      if (rafId !== 0) window.cancelAnimationFrame(rafId)
+      window.removeEventListener('scroll', requestUpdate)
+      window.removeEventListener('resize', requestUpdate)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!window.matchMedia('(pointer:fine)').matches) return
+
+    const heroEl = heroRef.current
+    if (!heroEl) return
+
+    const onMouseMove = (event: MouseEvent) => {
+      const rect = heroEl.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return
+
+      const normX = clamp((event.clientX - rect.left) / rect.width, 0, 1) * 2 - 1
+      const normY = clamp((event.clientY - rect.top) / rect.height, 0, 1) * 2 - 1
+
+      setImageParallaxX(normX * MAX_POINTER_PARALLAX_X)
+      setImageMotionParallaxY(normY * MAX_POINTER_PARALLAX_Y)
+    }
+
+    const onMouseLeave = () => {
+      setImageParallaxX(0)
+      setImageMotionParallaxY(0)
+    }
+
+    heroEl.addEventListener('mousemove', onMouseMove)
+    heroEl.addEventListener('mouseleave', onMouseLeave)
+
+    return () => {
+      heroEl.removeEventListener('mousemove', onMouseMove)
+      heroEl.removeEventListener('mouseleave', onMouseLeave)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!window.matchMedia('(pointer:coarse)').matches) return
+    if (!('DeviceOrientationEvent' in window)) return
+
+    const OrientationCtor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
+      requestPermission?: () => Promise<'granted' | 'denied'>
+    }
+
+    const onOrientation = (event: DeviceOrientationEvent) => {
+      if (event.gamma == null || event.beta == null) return
+      const x = clamp(event.gamma, -30, 30) / 30
+      const y = clamp(event.beta, -30, 30) / 30
+      setImageParallaxX(x * MAX_POINTER_PARALLAX_X * 0.8)
+      setImageMotionParallaxY(y * MAX_POINTER_PARALLAX_Y * 0.8)
+    }
+
+    const attachOrientation = () => {
+      window.addEventListener('deviceorientation', onOrientation)
+    }
+
+    if (typeof OrientationCtor.requestPermission === 'function') {
+      const requestPermission = () => {
+        void OrientationCtor.requestPermission?.()
+          .then((state) => {
+            if (state === 'granted') attachOrientation()
+          })
+          .catch(() => {})
+      }
+
+      window.addEventListener('touchstart', requestPermission, { once: true, passive: true })
+
+      return () => {
+        window.removeEventListener('touchstart', requestPermission)
+        window.removeEventListener('deviceorientation', onOrientation)
+      }
+    }
+
+    attachOrientation()
+    return () => {
+      window.removeEventListener('deviceorientation', onOrientation)
+    }
+  }, [])
 
   const handleCta = () => {
     if (platform === 'ios') {
@@ -92,8 +216,17 @@ const HomeTopHero: React.FC<HomeTopHeroProps> = ({
 
   return (
     <section
+      ref={heroRef}
       className={['rs-home-top-hero', className].filter(Boolean).join(' ')}
       aria-label="Download Rail Statistics"
+      style={
+        {
+          ['--hero-image-scale' as string]: imageScale,
+          ['--hero-image-parallax-x' as string]: `${imageParallaxX}px`,
+          ['--hero-image-parallax-y' as string]: `${imageParallaxY}px`,
+          ['--hero-image-motion-y' as string]: `${imageMotionParallaxY}px`
+        } as React.CSSProperties
+      }
     >
       <div className="rs-home-top-hero__frame12">
         <div className="rs-home-top-hero__text-and-button">
@@ -122,11 +255,13 @@ const HomeTopHero: React.FC<HomeTopHeroProps> = ({
         <div className="rs-home-top-hero__frame4" aria-hidden="true">
           {/* Dark mode image */}
           <picture className="rs-home-top-hero__picture rs-home-top-hero__picture--dark">
-            <img className="rs-home-top-hero__image" src={DEFAULT_IMAGE_URL_DARK} alt="" loading="eager" decoding="async" />
+            <source media="(min-width: 640px)" srcSet={TOP_HERO_IMAGE_DARK_DESKTOP_TABLET} />
+            <img className="rs-home-top-hero__image" src={TOP_HERO_IMAGE_DARK_MOBILE} alt="" loading="eager" decoding="async" />
           </picture>
           {/* Light mode image */}
           <picture className="rs-home-top-hero__picture rs-home-top-hero__picture--light">
-            <img className="rs-home-top-hero__image" src={DEFAULT_IMAGE_URL_LIGHT} alt="" loading="eager" decoding="async" />
+            <source media="(min-width: 640px)" srcSet={TOP_HERO_IMAGE_LIGHT_DESKTOP_TABLET} />
+            <img className="rs-home-top-hero__image" src={TOP_HERO_IMAGE_LIGHT_MOBILE} alt="" loading="eager" decoding="async" />
           </picture>
         </div>
 
