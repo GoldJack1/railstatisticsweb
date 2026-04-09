@@ -5,15 +5,12 @@ import HomeHero, { DEFAULT_IMAGE_SOURCES, type HomeHeroSlide } from '../componen
 
 const HERO_SLIDES: HomeHeroSlide[] = [
   {
-    title: 'Rail Statistics is Officially Live!',
+    title: 'Track Stations in Just One Click!',
     body: (
       <>
-        <p>After a year of development, the ultimate station tracker is out of beta.</p>
-        <p>Download now and start logging your journeys.</p>
-        <p>
-          Explore comprehensive data for every station, visualise your visits on an interactive map, and get real-time
-          alerts the second a new station opens.
-        </p>
+        <p>Find any station fast in list view or map view.</p>
+        <p>Update station status in one click, instantly date-stamped.</p>
+        <p>Upgrade to First Class to unlock one-click station updates directly on the map.</p>
       </>
     ),
     imageAlt: 'Rail Statistics app preview',
