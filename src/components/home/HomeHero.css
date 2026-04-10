@@ -1,7 +1,17 @@
 /* NEWHERO: full-bleed; carousel bar matches Figma (pill + dots, prev/next 40×40) */
 
+/* Same idea as HomeTopHero: full-bleed image layer (z-index 0), text+carousel card above (z-index 2). */
 .rs-home-hero {
+  /* Image stack motion (parallax/scale). */
+  --hero-image-left-desktop: 50%;
+  --hero-image-left-mobile: 40%;
+  --hero-image-top-desktop: -50px;
+  --hero-image-scale: 1;
+  --hero-image-parallax-x: 0px;
+  --hero-image-parallax-y: 0px;
+  --hero-image-motion-y: 0px;
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -9,27 +19,59 @@
   max-width: none;
   margin-left: calc(50% - 50vw);
   overflow: hidden;
-  /* Prefer native vertical pan so scrolling through the hero stays smooth; horizontal swipes still reach JS. */
+  min-height: 560px;
   touch-action: pan-y;
 }
 
-.rs-home-hero__inner-shadow {
+/* Match HomeTopHero section tint behind the art (light / dark). */
+.rs-home-hero__visual {
   position: absolute;
   inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: hsl(0 100% 92%);
   pointer-events: none;
-  border-radius: 0;
-  box-shadow: var(--button-inner-shadow-active);
-  z-index: 1;
+}
+
+[data-theme='dark'] .rs-home-hero__visual {
+  background: hsl(0 100% 8%);
+}
+
+/* Desktop only: HomeHero is a shorter band than TopHero — center art vertically (shared stack uses TopHero-style top offset). */
+@keyframes rs-home-hero-image-fade-in-desktop-centered {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(calc(var(--hero-image-scale) * 0.985));
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(var(--hero-image-scale));
+  }
 }
 
 .rs-home-hero__content {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
   background: var(--bg-secondary);
   padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  z-index: 0;
   min-width: 0;
+  width: 100%;
+  margin-top: auto;
 }
 
 .rs-home-hero__text-shell {
@@ -236,7 +278,7 @@
   width: 100%;
 }
 
-/* Figma Frame 7: gap above carousel row (below CTAs). Mobile ≤639: 24px; ≥640 (tablet + desktop): 32px */
+/* Figma Frame 7: gap above carousel row; 32px from desktop block; <1024 uses 24px in max-width 1023 rules */
 .rs-home-hero__carousel-bar {
   display: flex;
   flex-direction: row;
@@ -253,9 +295,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  padding-right: 12px;
 }
 
 .rs-home-hero__indicator {
@@ -326,44 +367,16 @@
   outline-offset: 2px;
 }
 
-.rs-home-hero__nav-pair {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.rs-home-hero__visual {
-  position: relative;
-  width: 100%;
-  height: 300px;
-  max-height: 600px;
-  overflow: hidden;
-  background: var(--bg-primary);
-  flex-shrink: 0;
-  order: -1;
-}
-
-.rs-home-hero__slide-visual {
+.rs-home-hero__visual .rs-home-hero__inner-shadow {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  transition: opacity 0.45s ease;
   pointer-events: none;
-  z-index: 0;
-}
-
-.rs-home-hero__slide-visual.is-active {
-  opacity: 1;
-  z-index: 1;
+  border-radius: 0;
+  box-shadow: var(--button-inner-shadow-active);
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rs-home-hero__slide-visual {
-    transition: none;
-  }
-
   .rs-home-hero__indicator {
     transition: none;
   }
@@ -395,51 +408,35 @@
     transform: scaleX(0);
     opacity: 0;
   }
+
+  @media (min-width: 1024px) {
+    .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+      transform: translate(
+          calc(-50% + var(--hero-image-parallax-x)),
+          calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+        )
+        scale(var(--hero-image-scale));
+    }
+  }
 }
 
-.rs-home-hero__slide-visual picture {
-  display: block;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.rs-home-hero__image {
-  display: block;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 50%;
-}
-
-/* Desktop: text | image; actions pinned toward bottom */
+/* Desktop: opaque card ~half width on the left; image fills the section behind it */
 @media (min-width: 1024px) {
   .rs-home-hero {
-    flex-direction: row;
-    align-items: stretch;
     min-height: 600px;
     max-height: none;
-  }
-
-  .rs-home-hero__visual {
-    order: 0;
-    height: 600px;
-    max-height: 600px;
-    flex: 1 0 0;
-    min-width: 0;
   }
 
   .rs-home-hero__content {
-    flex: 1 0 0;
+    width: 50%;
+    max-width: none;
+    margin-top: 0;
     min-height: 600px;
     height: auto;
-    max-height: none;
     gap: 0;
     justify-content: space-between;
-    box-sizing: border-box;
+    /* Same as `.rs-home-top-hero__text-and-button` so the split lines up with TopHero image positioning. */
+    padding: var(--space-2xl);
   }
 
   .rs-home-hero__text-shell {
@@ -453,6 +450,11 @@
 
   .rs-home-hero__title-wrap {
     align-items: flex-start;
+  }
+
+  .rs-home-hero__text-pane .rs-home-hero__body > *,
+  .rs-home-hero__text-measure-item .rs-home-hero__body > * {
+    padding-right: 25px;
   }
 
   .rs-home-hero__actions {
@@ -470,17 +472,41 @@
     width: auto;
     min-width: 0;
   }
-}
 
-@media (min-width: 640px) {
   .rs-home-hero__carousel-bar {
     margin-top: 32px;
   }
+
+  .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    top: 50%;
+    transform-origin: center center;
+    animation: rs-home-hero-image-fade-in-desktop-centered 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
 }
 
-/* Mobile: tighter inset; tablet (640–1023px) keeps 32px content padding from base */
-@media (max-width: 639px) {
+/* Mobile + tablet: same layout until desktop (matches former ≤639px rules across <1024) */
+@media (max-width: 1023px) {
+  .rs-home-hero {
+    min-height: 760px;
+  }
+
   .rs-home-hero__content {
     padding: 24px;
+  }
+
+  .rs-home-hero__carousel-bar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .rs-home-hero__carousel-bar .rs-home-hero__indicator-track {
+    justify-self: center;
+  }
+
+  .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    left: var(--hero-image-left-mobile);
   }
 }

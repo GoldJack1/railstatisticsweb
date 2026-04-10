@@ -1,0 +1,122 @@
+/* Dual light/dark pictures; optional gradient (TopHero only). Motion via --hero-image-* on an ancestor. */
+.rs-home-hero-image-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.rs-home-hero-image-stack__frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.rs-home-hero-image-stack__picture {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+}
+
+:root:not([data-theme='dark']) .rs-home-hero-image-stack__picture--light {
+  display: block;
+}
+
+[data-theme='dark'] .rs-home-hero-image-stack__picture--dark {
+  display: block;
+}
+
+.rs-home-hero-image-stack__image {
+  position: absolute;
+  top: 0;
+  left: var(--hero-image-left-desktop);
+  transform: translate(
+      calc(-50% + var(--hero-image-parallax-x)),
+      calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+    )
+    scale(var(--hero-image-scale));
+  transform-origin: center top;
+  opacity: 0;
+  animation: rs-home-hero-image-stack-fade-in 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+
+@keyframes rs-home-hero-image-stack-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(calc(var(--hero-image-scale) * 0.985));
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(var(--hero-image-scale));
+  }
+}
+
+.rs-home-hero-image-stack__gradient {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  background: linear-gradient(to top, var(--hero-gradient-color) 50%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
+  mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
+}
+
+/* Top hero + Home hero: art sits in the viewport right half on desktop (aligns with TopHero text padding / split). */
+@media (min-width: 1024px) {
+  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__frame,
+  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame {
+    left: 50%;
+  }
+
+  .rs-home-hero-image-stack__image {
+    top: var(--hero-image-top-desktop);
+  }
+
+  .rs-home-hero-image-stack__gradient {
+    background: linear-gradient(90deg, var(--hero-gradient-color) 40%, transparent 60%);
+    -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
+    mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
+  }
+}
+
+@media (max-width: 639px) {
+  .rs-home-hero-image-stack__image {
+    left: var(--hero-image-left-mobile);
+  }
+
+  .rs-home-hero-image-stack__gradient {
+    background: linear-gradient(to top, var(--hero-gradient-color) 50%, transparent 72%);
+    -webkit-mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
+    mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-home-hero-image-stack__image {
+    animation: none;
+    opacity: 1;
+    filter: none;
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(var(--hero-image-scale));
+  }
+}

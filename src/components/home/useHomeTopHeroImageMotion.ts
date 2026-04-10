@@ -1,0 +1,61 @@
+import { type RefObject, useEffect } from 'react'
+
+/**
+ * Legacy `HomeTopHero` scroll effect (CASE RS-004): as the hero’s top edge moves above the viewport,
+ * progress runs 0→1 over one hero-height of scroll; scale becomes `1 + progress * MAX_SCROLL_SCALE_DELTA`.
+ */
+const MAX_SCROLL_SCALE_DELTA = 1
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n))
+}
+
+/**
+ * Drives `--hero-image-scale` on the hero section from window scroll so the art subtly scales up as the user
+ * scrolls down through the viewport. Respects `prefers-reduced-motion`.
+ *
+ * @param active When false, skips setup (e.g. hero not mounted yet).
+ */
+export function useHomeTopHeroImageMotion(heroRef: RefObject<HTMLElement | null>, active = true): void {
+  useEffect(() => {
+    if (!active) return
+    const el = heroRef.current
+    if (!el) return
+
+    let raf = 0
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const apply = () => {
+      raf = 0
+      if (mq.matches) {
+        el.style.removeProperty('--hero-image-scale')
+        return
+      }
+
+      const rect = el.getBoundingClientRect()
+      const progress = clamp((-rect.top) / Math.max(rect.height, 1), 0, 1)
+      const scale = 1 + progress * MAX_SCROLL_SCALE_DELTA
+      el.style.setProperty('--hero-image-scale', scale.toFixed(4))
+    }
+
+    const schedule = () => {
+      if (raf) return
+      raf = requestAnimationFrame(apply)
+    }
+
+    apply()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+
+    const onMq = () => apply()
+    mq.addEventListener('change', onMq)
+
+    return () => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      mq.removeEventListener('change', onMq)
+      if (raf) cancelAnimationFrame(raf)
+      el.style.removeProperty('--hero-image-scale')
+    }
+  }, [heroRef, active])
+}

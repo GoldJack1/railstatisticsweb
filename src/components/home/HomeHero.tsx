@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Button from '../Button'
-import { getOptimalImageLoading } from '../../utils/performance'
+import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
+import { DEFAULT_HERO_STACK_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES } from './homeTopHeroImageConstants'
+import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
 import './HomeHero.css'
 
-const DEFAULT_IMAGE_SOURCES = {
-  desktop: '/images/home/hero-newhero-desktop.png',
-  tablet: '/images/home/hero-newhero-tablet.png',
-  mobile: '/images/home/hero-newhero-mobile.png'
-} as const
+/** @deprecated Use DEFAULT_HOMETOPHERO_IMAGE_SOURCES — same hometophero assets as HomeTopHero. */
+const DEFAULT_IMAGE_SOURCES = DEFAULT_HOMETOPHERO_IMAGE_SOURCES
 
 const AUTO_PLAY_MS_DEFAULT = 10_000
 /** Minimum horizontal travel (px) to count as a swipe. */
@@ -41,14 +40,37 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
+/** Same URLs as `HomeTopHeroImageStack`: dark/light × desktop-tablet / mobile. */
+export type HomeHeroSlideImageSources = HomeTopHeroImageStackSources
+
 export interface HomeHeroSlide {
   title: string
   body: React.ReactNode
-  imageAlt: string
-  imageSources: {
-    desktop: string
-    tablet: string
-    mobile: string
+  /** Meaningful description if the slide art conveys information (visual is `aria-hidden` today). */
+  imageAlt?: string
+  /**
+   * Per-slide hero art. Omitted keys use default hometophero URLs.
+   * Desktop art uses `(min-width: 1024px)`; mobile below that (matches HomeHero layout).
+   */
+  imageSources?: Partial<HomeHeroSlideImageSources>
+}
+
+function mergeHomeHeroSlideSources(slide: HomeHeroSlide): HomeTopHeroImageStackSources {
+  const base = DEFAULT_HERO_STACK_IMAGE_SOURCES
+  const p = slide.imageSources
+  if (!p) {
+    return {
+      darkDesktopTablet: base.darkDesktopTablet,
+      darkMobile: base.darkMobile,
+      lightDesktopTablet: base.lightDesktopTablet,
+      lightMobile: base.lightMobile
+    }
+  }
+  return {
+    darkDesktopTablet: p.darkDesktopTablet ?? base.darkDesktopTablet,
+    darkMobile: p.darkMobile ?? base.darkMobile,
+    lightDesktopTablet: p.lightDesktopTablet ?? base.lightDesktopTablet,
+    lightMobile: p.lightMobile ?? base.lightMobile
   }
 }
 
@@ -167,6 +189,9 @@ const HomeHero: React.FC<HomeHeroProps> = ({
     .filter(Boolean)
     .join(' ')
 
+  const heroSectionRef = useRef<HTMLElement | null>(null)
+  useHomeTopHeroImageMotion(heroSectionRef, slideCount > 0)
+
   const textShellRef = useRef<HTMLDivElement>(null)
   const measureRootRef = useRef<HTMLDivElement>(null)
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
@@ -277,6 +302,7 @@ const HomeHero: React.FC<HomeHeroProps> = ({
 
   return (
     <section
+      ref={heroSectionRef}
       className={['rs-home-hero', className].filter(Boolean).join(' ')}
       style={{ ['--rs-home-hero-autoplay-ms' as string]: `${autoPlayMs}ms` } as React.CSSProperties}
       aria-roledescription="carousel"
@@ -286,7 +312,16 @@ const HomeHero: React.FC<HomeHeroProps> = ({
       onTouchEnd={onHeroTouchEnd}
       onTouchCancel={onHeroTouchCancel}
     >
-      <div className="rs-home-hero__inner-shadow" aria-hidden="true" />
+      <div className="rs-home-hero__visual" aria-hidden="true">
+        <HomeTopHeroImageStack
+          key={safeIndex}
+          variant="homeHero"
+          loading="lazy"
+          sources={mergeHomeHeroSlideSources(current)}
+          alt={current.imageAlt ?? ''}
+        />
+        <div className="rs-home-hero__inner-shadow" aria-hidden="true" />
+      </div>
 
       <div className="rs-home-hero__content">
         <div
@@ -320,6 +355,14 @@ const HomeHero: React.FC<HomeHeroProps> = ({
 
         <div className="rs-home-hero__actions">
           <div className="rs-home-hero__carousel-bar">
+            <Button
+              variant="circle"
+              shape="rounded"
+              type="button"
+              ariaLabel="Previous slide"
+              icon={<ChevronLeft />}
+              onClick={goPrev}
+            />
             <div className="rs-home-hero__indicator-track" role="group" aria-label="Choose slide">
               {slides.map((_, i) => (
                 <button
@@ -345,54 +388,20 @@ const HomeHero: React.FC<HomeHeroProps> = ({
                 </button>
               ))}
             </div>
-            <div className="rs-home-hero__nav-pair">
-              <Button
-                variant="circle"
-                shape="rounded"
-                type="button"
-                ariaLabel="Previous slide"
-                icon={<ChevronLeft />}
-                onClick={goPrev}
-              />
-              <Button
-                variant="circle"
-                shape="rounded"
-                type="button"
-                ariaLabel="Next slide"
-                icon={<ChevronRight />}
-                onClick={goNext}
-              />
-            </div>
+            <Button
+              variant="circle"
+              shape="rounded"
+              type="button"
+              ariaLabel="Next slide"
+              icon={<ChevronRight />}
+              onClick={goNext}
+            />
           </div>
         </div>
-      </div>
-
-      <div className="rs-home-hero__visual">
-        {slides.map((slide, i) => (
-          <div
-            key={i}
-            className={['rs-home-hero__slide-visual', i === safeIndex ? 'is-active' : ''].filter(Boolean).join(' ')}
-            aria-hidden={i !== safeIndex}
-          >
-            <picture>
-              <source media="(min-width: 1024px)" srcSet={slide.imageSources.desktop} />
-              <source media="(min-width: 640px)" srcSet={slide.imageSources.tablet} />
-              <img
-                className="rs-home-hero__image"
-                src={slide.imageSources.mobile}
-                alt={slide.imageAlt}
-                loading={getOptimalImageLoading()}
-                decoding="async"
-                width={800}
-                height={600}
-              />
-            </picture>
-          </div>
-        ))}
       </div>
     </section>
   )
 }
 
 export default HomeHero
-export { DEFAULT_IMAGE_SOURCES }
+export { DEFAULT_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES, DEFAULT_HERO_STACK_IMAGE_SOURCES }

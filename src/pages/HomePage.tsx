@@ -1,8 +1,9 @@
 import React from 'react'
 import '../components/Home.css'
 import HomeTopHero from '../components/home/HomeTopHero'
-import HomeHero, { DEFAULT_IMAGE_SOURCES, type HomeHeroSlide } from '../components/home/HomeHero'
+import HomeHero, { type HomeHeroSlide } from '../components/home/HomeHero'
 
+/** Optional per slide: `imageSources` (partial ok) + `imageAlt` — see `HomeHeroSlide` in `HomeHero.tsx`. */
 const HERO_SLIDES: HomeHeroSlide[] = [
   {
     title: 'Track Stations in Just One Click!',
@@ -12,9 +13,7 @@ const HERO_SLIDES: HomeHeroSlide[] = [
         <p>Update station status in one click, instantly date-stamped.</p>
         <p>Upgrade to First Class to unlock one-click station updates directly on the map.</p>
       </>
-    ),
-    imageAlt: 'Rail Statistics app preview',
-    imageSources: DEFAULT_IMAGE_SOURCES
+    )
   },
   {
     title: 'See every visit on the map',
@@ -24,9 +23,7 @@ const HERO_SLIDES: HomeHeroSlide[] = [
         <p>Pan, zoom, and tap stations to open rich detail without leaving your flow.</p>
         <p>First Class subscribers can use the Station Action Bar to update visits and favourites in a single tap.</p>
       </>
-    ),
-    imageAlt: 'Rail Statistics map and station list preview',
-    imageSources: DEFAULT_IMAGE_SOURCES
+    )
   },
   {
     title: 'Usage data and instant updates',
@@ -36,9 +33,7 @@ const HERO_SLIDES: HomeHeroSlide[] = [
         <p>Get notified when new stations open—our cloud database keeps everyone on the latest network.</p>
         <p>Start free, then upgrade when you are ready for deeper tools.</p>
       </>
-    ),
-    imageAlt: 'Rail Statistics insights and notifications preview',
-    imageSources: DEFAULT_IMAGE_SOURCES
+    )
   }
 ]
 
