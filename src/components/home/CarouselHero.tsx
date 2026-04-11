@@ -42,6 +42,7 @@ const SWIPE_HORIZONTAL_DOMINANCE_RATIO = 1.35
 const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
 /** Same idea for the shared CTA row slot when any slide has buttons. */
 const CTA_SLOT_HEIGHT_BUFFER_PX = 4
+const LOCKED_TEXT_BLOCK_SCROLL_CLASS = 'rs-carousel-hero__text-block--scroll-y'
 /** Must match `--carousel-hero-slide-*` on `.rs-carousel-hero` (exit + gap + enter + buffer before DOM unmount). */
 const HERO_SLIDE_EXIT_MS = 380
 const HERO_SLIDE_GAP_MS = 45
@@ -303,6 +304,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   useHomeTopHeroImageMotion(carouselSectionRef, slideCount > 0)
 
   const textShellRef = useRef<HTMLDivElement>(null)
+  const textBlockRef = useRef<HTMLDivElement>(null)
   const measureRootRef = useRef<HTMLDivElement>(null)
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
   const ctaMeasureRootRef = useRef<HTMLDivElement>(null)
@@ -394,6 +396,28 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     current.title,
     current.ctas?.length
   ])
+
+  useLayoutEffect(() => {
+    const block = textBlockRef.current
+    if (!block) return
+    if (tallestSlideTextPx == null) {
+      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
+      return
+    }
+    const sync = () => {
+      const el = textBlockRef.current
+      if (!el) return
+      const needsScroll = el.scrollHeight > el.clientHeight + 2
+      el.classList.toggle(LOCKED_TEXT_BLOCK_SCROLL_CLASS, needsScroll)
+    }
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(block)
+    return () => {
+      ro.disconnect()
+      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
+    }
+  }, [tallestSlideTextPx, safeIndex])
 
   useEffect(() => {
     let cancelled = false
@@ -579,7 +603,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 <HeroSlideMeasureCopy key={i} slide={slide} />
               ))}
             </div>
-            <div className="rs-carousel-hero__text-block rs-carousel-hero__text-block--swap" aria-live="polite">
+            <div
+              ref={textBlockRef}
+              className="rs-carousel-hero__text-block rs-carousel-hero__text-block--swap"
+              aria-live="polite"
+            >
               {outgoingSlide ? (
                 <div className="rs-carousel-hero__text-pane-outgoing" aria-hidden="true">
                   <div className="rs-carousel-hero__text-pane rs-carousel-hero__text-pane--exit-y">

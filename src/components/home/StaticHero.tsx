@@ -24,6 +24,7 @@ export type StaticHeroTextStyle = 'hero' | 'splash'
 
 const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
 const CTA_SLOT_HEIGHT_BUFFER_PX = 4
+const LOCKED_TEXT_BLOCK_SCROLL_CLASS = 'rs-static-hero__text-block--scroll-y'
 
 function measureBlockHeight(el: HTMLElement): number {
   const rect = el.getBoundingClientRect().height
@@ -116,6 +117,7 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   useHomeTopHeroImageMotion(staticSectionRef, true)
 
   const textShellRef = useRef<HTMLDivElement>(null)
+  const textBlockRef = useRef<HTMLDivElement>(null)
   const measureRootRef = useRef<HTMLDivElement>(null)
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
   const ctaMeasureRootRef = useRef<HTMLDivElement>(null)
@@ -203,6 +205,28 @@ const StaticHero: React.FC<StaticHeroProps> = ({
     measureTallestCtaRow()
   }, [slide.title, slide.body, slide.ctas?.length, textStyle, measureTallestSlideText, measureTallestCtaRow])
 
+  useLayoutEffect(() => {
+    const block = textBlockRef.current
+    if (!block) return
+    if (tallestSlideTextPx == null) {
+      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
+      return
+    }
+    const sync = () => {
+      const el = textBlockRef.current
+      if (!el) return
+      const needsScroll = el.scrollHeight > el.clientHeight + 2
+      el.classList.toggle(LOCKED_TEXT_BLOCK_SCROLL_CLASS, needsScroll)
+    }
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(block)
+    return () => {
+      ro.disconnect()
+      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
+    }
+  }, [tallestSlideTextPx, slide.title, slide.body, textStyle])
+
   useEffect(() => {
     let cancelled = false
     void document.fonts.ready.then(() => {
@@ -266,7 +290,7 @@ const StaticHero: React.FC<StaticHeroProps> = ({
             <div ref={measureRootRef} className="rs-static-hero__text-measure" aria-hidden="true">
               <HeroSlideMeasureCopy slide={slide} />
             </div>
-            <div className="rs-static-hero__text-block">
+            <div ref={textBlockRef} className="rs-static-hero__text-block">
               <div ref={visibleTextBlockRef} className="rs-static-hero__text-pane-incoming">
                 <div className="rs-static-hero__text-pane">
                   <HeroSlideTextContent title={slide.title} body={slide.body} />

@@ -247,17 +247,21 @@
   flex-shrink: 0;
 }
 
-/* Locked copy: scroll when tall; hide scrollbar so Y slide motion does not flash a transient bar. */
+/* Locked copy: only become a scroll container when content actually overflows (see CarouselHero.tsx). */
 .rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block {
   max-height: 100%;
   overflow-x: clip;
+  overflow-y: hidden;
+}
+
+.rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block.rs-carousel-hero__text-block--scroll-y {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block::-webkit-scrollbar {
+.rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block.rs-carousel-hero__text-block--scroll-y::-webkit-scrollbar {
   display: none;
 }
 
@@ -728,11 +732,17 @@
 
   .rs-carousel-hero__title-wrap {
     align-items: flex-start;
+    padding-right: 150px;
   }
 
   .rs-carousel-hero__text-pane .rs-carousel-hero__body > *,
   .rs-carousel-hero__text-measure-item .rs-carousel-hero__body > * {
-    padding-right: 25px;
+    padding-right: 150px;
+  }
+
+  /* Match multi-CTA row inset from the image column (see `__slide-ctas--multi` above). */
+  .rs-carousel-hero__slide-ctas--single .rs-carousel-hero__slide-ctas-inner {
+    padding-right: 150px;
   }
 
   .rs-carousel-hero__actions {

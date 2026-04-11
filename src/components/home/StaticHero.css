@@ -228,17 +228,21 @@
   flex-shrink: 0;
 }
 
-/* Locked copy: scroll when tall; hide scrollbar so Y slide motion does not flash a transient bar. */
+/* Locked copy: only become a scroll container when content actually overflows (see StaticHero.tsx). */
 .rs-static-hero__text-shell--locked .rs-static-hero__text-block {
   max-height: 100%;
   overflow-x: clip;
+  overflow-y: hidden;
+}
+
+.rs-static-hero__text-shell--locked .rs-static-hero__text-block.rs-static-hero__text-block--scroll-y {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.rs-static-hero__text-shell--locked .rs-static-hero__text-block::-webkit-scrollbar {
+.rs-static-hero__text-shell--locked .rs-static-hero__text-block.rs-static-hero__text-block--scroll-y::-webkit-scrollbar {
   display: none;
 }
 
@@ -594,11 +598,17 @@
 
   .rs-static-hero__title-wrap {
     align-items: flex-start;
+    padding-right: 150px;
   }
 
   .rs-static-hero__text-pane .rs-static-hero__body > *,
   .rs-static-hero__text-measure-item .rs-static-hero__body > * {
-    padding-right: 25px;
+    padding-right: 150px;
+  }
+
+  /* Match multi-CTA row inset from the image column (see `__slide-ctas--multi` below). */
+  .rs-static-hero__slide-ctas--single .rs-static-hero__slide-ctas-inner {
+    padding-right: 150px;
   }
 
   .rs-static-hero__cta-row {
