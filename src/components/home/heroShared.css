@@ -18,7 +18,7 @@
   }
 }
 
-/* First-paint stagger (legacy HomeTopHero: 300 / 400 / 500 ms delays, 700 ms ease). */
+/* First-paint stagger (300 / 400 / 500 ms delays, 700 ms ease). */
 @keyframes rs-hero-mount-fade-up {
   from {
     opacity: 0;

@@ -1,4 +1,4 @@
-/* Dual light/dark pictures; optional gradient (TopHero only). Motion via --hero-image-* on an ancestor. */
+/* Dual light/dark pictures. Motion via --hero-image-* on the hero section. */
 .rs-home-hero-image-stack {
   position: absolute;
   inset: 0;
@@ -67,36 +67,7 @@
   }
 }
 
-.rs-home-hero-image-stack__gradient {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  background: linear-gradient(to top, var(--hero-gradient-color) 50%, transparent 72%);
-  -webkit-mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
-  mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
-}
-
-/* Top hero: art in viewport right half from 1024px. Home hero: same only from 1200px so tablet matches mobile layout. */
-@media (min-width: 1024px) {
-  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__frame {
-    left: 50%;
-  }
-
-  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__image {
-    top: var(--hero-image-top-desktop);
-  }
-
-  .rs-home-hero-image-stack__gradient {
-    background: linear-gradient(90deg, var(--hero-gradient-color) 40%, transparent 60%);
-    -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
-    mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
-  }
-}
-
 @media (min-width: 1200px) {
-  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame,
   .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__frame,
   .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__frame {
     left: 50%;
@@ -106,12 +77,6 @@
 @media (max-width: 639px) {
   .rs-home-hero-image-stack__image {
     left: var(--hero-image-left-mobile);
-  }
-
-  .rs-home-hero-image-stack__gradient {
-    background: linear-gradient(to top, var(--hero-gradient-color) 50%, transparent 72%);
-    -webkit-mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
-    mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
   }
 }
 

@@ -2,8 +2,8 @@
  * Single-slide hero: same full-bleed layout and image stack as `CarouselHero`, without strip, autoplay, or controls.
  */
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
-import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './homeTopHeroImageConstants'
+import HeroImageStack, { type HeroImageStackSources } from './HeroImageStack'
+import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './heroImageConstants'
 import {
   HeroSlideCtaRow,
   HeroSlideMeasureCopy,
@@ -26,7 +26,7 @@ import {
 import { unionDOMRects, useScrollDirectionFadeBounds } from '../../hooks/useScrollDirectionFade'
 import { scrollFadeRevealClassNames } from '../ScrollFadeReveal'
 import '../ScrollFadeReveal.css'
-import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
+import { useHeroImageMotion } from './useHeroImageMotion'
 import { useLockedHeroTextBlockScroll } from './useLockedHeroTextBlockScroll'
 import './StaticHero.css'
 
@@ -44,7 +44,7 @@ const LOCKED_TEXT_BLOCK_SCROLL_CLASS = 'rs-static-hero__text-block--scroll-y'
 export interface StaticHeroProps {
   slide: StaticHeroSlide
   /** Defaults merged into `slide.imageSources` (partials override). */
-  defaultImageSources?: HomeTopHeroImageStackSources
+  defaultImageSources?: HeroImageStackSources
   /**
    * Hero image `loading` hint. Use `eager` for the primary above-the-fold hero; `lazy` for lower sections (default).
    */
@@ -63,7 +63,7 @@ export interface StaticHeroProps {
    */
   desktopContentVerticalAlign?: StaticHeroDesktopContentVerticalAlign
   /**
-   * Typography scale: `splash` uses HomeTopHero-sized copy on desktop only (≥1200px).
+   * Typography scale: `splash` uses large splash copy on desktop only (≥1200px).
    * On desktop, splash also **vertically centers** the copy + CTA block; set `desktopContentVerticalAlign="top"` to pin it to the top instead.
    */
   textStyle?: HeroTextStyle
@@ -83,7 +83,7 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   titleHeadingLevel = 2
 }) => {
   const staticSectionRef = useRef<HTMLElement | null>(null)
-  useHomeTopHeroImageMotion(staticSectionRef, true)
+  useHeroImageMotion(staticSectionRef, true)
 
   const textShellRef = useRef<HTMLDivElement>(null)
   const textBlockRef = useRef<HTMLDivElement>(null)
@@ -224,8 +224,8 @@ const StaticHero: React.FC<StaticHeroProps> = ({
           ref={scrollFadeVisualRef}
           className={`rs-static-hero__visual-inner ${scrollFadeRevealClassNames(scrollFadeVisible)}`}
         >
-          <HomeTopHeroImageStack
-            variant="staticHero"
+          <HeroImageStack
+            variant="static"
             loading={imageLoading}
             sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
             alt={slide.imageAlt ?? ''}

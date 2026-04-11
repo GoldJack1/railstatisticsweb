@@ -5,8 +5,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Button from '../Button'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
-import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
-import { DEFAULT_HERO_STACK_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES } from './homeTopHeroImageConstants'
+import HeroImageStack, { type HeroImageStackSources } from './HeroImageStack'
+import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './heroImageConstants'
 import {
   HeroSlideCtaRow,
   HeroSlideMeasureCopy,
@@ -29,7 +29,7 @@ import { getHeroSlideSwapClearTimeoutMs, heroCopySlideCssVarProperties } from '.
 import { unionDOMRects, useScrollDirectionFadeBounds } from '../../hooks/useScrollDirectionFade'
 import { scrollFadeRevealClassNames } from '../ScrollFadeReveal'
 import '../ScrollFadeReveal.css'
-import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
+import { useHeroImageMotion } from './useHeroImageMotion'
 import { useLockedHeroTextBlockScroll } from './useLockedHeroTextBlockScroll'
 import './CarouselHero.css'
 
@@ -44,9 +44,6 @@ export type {
 } from './heroCarouselSlideModel'
 export { mergeCarouselHeroSlideSources } from './heroCarouselSlideModel'
 /* eslint-enable react-refresh/only-export-components */
-
-/** @deprecated Use DEFAULT_HOMETOPHERO_IMAGE_SOURCES — same hometophero assets as HomeTopHero. */
-const DEFAULT_IMAGE_SOURCES = DEFAULT_HOMETOPHERO_IMAGE_SOURCES
 
 const AUTO_PLAY_MS_DEFAULT = 10_000
 /** Minimum horizontal travel (px) to count as a swipe. */
@@ -71,7 +68,7 @@ export interface CarouselHeroProps {
    * Defaults merged into each slide’s `imageSources` (per-slide partials override).
    * Defaults to shared hometophero assets when omitted.
    */
-  defaultImageSources?: HomeTopHeroImageStackSources
+  defaultImageSources?: HeroImageStackSources
   /** Autoplay interval in ms; ignored when `prefers-reduced-motion: reduce`. */
   autoPlayMs?: number
   className?: string
@@ -291,7 +288,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const ctaSwapEnterClass = slideCrossfadeActive ? 'rs-carousel-hero__cta-row--enter-y' : ''
 
   const carouselSectionRef = useRef<HTMLElement | null>(null)
-  useHomeTopHeroImageMotion(carouselSectionRef, slideCount > 0)
+  useHeroImageMotion(carouselSectionRef, slideCount > 0)
 
   const textShellRef = useRef<HTMLDivElement>(null)
   const textBlockRef = useRef<HTMLDivElement>(null)
@@ -608,8 +605,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
           >
           {slides.map((slide, i) => (
             <div key={i} className="rs-carousel-hero-image-strip__cell">
-              <HomeTopHeroImageStack
-                variant="carouselHero"
+              <HeroImageStack
+                variant="carousel"
                 loading="lazy"
                 sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
                 alt={slide.imageAlt ?? ''}
@@ -618,8 +615,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
           ))}
           {useStripClone ? (
             <div key="strip-clone-0" className="rs-carousel-hero-image-strip__cell">
-              <HomeTopHeroImageStack
-                variant="carouselHero"
+              <HeroImageStack
+                variant="carousel"
                 loading="lazy"
                 sources={mergeCarouselHeroSlideSources(slides[0], defaultImageSources)}
                 alt={slides[0].imageAlt ?? ''}
@@ -815,4 +812,3 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
 }
 
 export default CarouselHero
-export { DEFAULT_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES, DEFAULT_HERO_STACK_IMAGE_SOURCES }

@@ -32,7 +32,6 @@ export const HeroSlideCtaRow: React.FC<{
               shape="rounded"
               width="fill"
               colorVariant="accent"
-              className="rs-home-top-hero__cta"
               href={cta.href}
               target={cta.target}
               onClick={cta.onClick}

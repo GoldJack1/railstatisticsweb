@@ -1,0 +1,102 @@
+.rs-download-platform-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.rs-download-platform-modal {
+  position: relative;
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: var(--space-2xl);
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.rs-download-platform-modal__close {
+  position: absolute;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.rs-download-platform-modal__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rs-download-platform-modal__subtitle {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.rs-download-platform-modal__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.rs-download-platform-modal__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.rs-download-platform-modal__row .rs-button--wide {
+  grid-column: 1;
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+}
+
+.rs-download-platform-modal__row .rs-button--circle {
+  grid-column: 2;
+  justify-self: end;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.rs-download-platform-modal__copy-icon-stack {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.rs-download-platform-modal__copy-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+.rs-download-platform-modal__copy-icon.is-visible {
+  opacity: 1;
+}

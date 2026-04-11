@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Button from '../Button'
-import './HomeTopHero.css'
+import './HomeDownloadPlatformModal.css'
 
 const IOS_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
 const ANDROID_URL =
@@ -12,9 +12,9 @@ export interface HomeDownloadPlatformModalProps {
 }
 
 const getCopyIcon = (isCopied: boolean) => (
-  <span className="rs-home-top-hero__copy-icon-stack" aria-hidden="true">
+  <span className="rs-download-platform-modal__copy-icon-stack" aria-hidden="true">
     <svg
-      className={['rs-home-top-hero__copy-icon', !isCopied && 'is-visible'].filter(Boolean).join(' ')}
+      className={['rs-download-platform-modal__copy-icon', !isCopied && 'is-visible'].filter(Boolean).join(' ')}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -26,7 +26,7 @@ const getCopyIcon = (isCopied: boolean) => (
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
     <svg
-      className={['rs-home-top-hero__copy-icon', isCopied && 'is-visible'].filter(Boolean).join(' ')}
+      className={['rs-download-platform-modal__copy-icon', isCopied && 'is-visible'].filter(Boolean).join(' ')}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -39,9 +39,7 @@ const getCopyIcon = (isCopied: boolean) => (
   </span>
 )
 
-/**
- * Desktop “choose platform” dialog for the home download CTA (styles live in `HomeTopHero.css`).
- */
+/** Desktop “choose platform” dialog for the home download CTA. */
 const HomeDownloadPlatformModal: React.FC<HomeDownloadPlatformModalProps> = ({ open, onClose }) => {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
 
@@ -64,7 +62,7 @@ const HomeDownloadPlatformModal: React.FC<HomeDownloadPlatformModalProps> = ({ o
 
   return (
     <div
-      className="rs-home-top-hero__modal-backdrop"
+      className="rs-download-platform-modal__backdrop"
       role="dialog"
       aria-modal="true"
       aria-label="Download Rail Statistics"
@@ -72,14 +70,14 @@ const HomeDownloadPlatformModal: React.FC<HomeDownloadPlatformModalProps> = ({ o
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="rs-home-top-hero__modal">
-        <button type="button" className="rs-home-top-hero__modal-close" aria-label="Close" onClick={onClose}>
+      <div className="rs-download-platform-modal">
+        <button type="button" className="rs-download-platform-modal__close" aria-label="Close" onClick={onClose}>
           ✕
         </button>
-        <h2 className="rs-home-top-hero__modal-title">Download Rail Statistics</h2>
-        <p className="rs-home-top-hero__modal-subtitle">Choose your platform</p>
-        <div className="rs-home-top-hero__modal-buttons">
-          <div className="rs-home-top-hero__modal-row">
+        <h2 className="rs-download-platform-modal__title">Download Rail Statistics</h2>
+        <p className="rs-download-platform-modal__subtitle">Choose your platform</p>
+        <div className="rs-download-platform-modal__buttons">
+          <div className="rs-download-platform-modal__row">
             <Button
               variant="wide"
               shape="rounded"
@@ -102,7 +100,7 @@ const HomeDownloadPlatformModal: React.FC<HomeDownloadPlatformModalProps> = ({ o
               icon={getCopyIcon(copiedUrl === IOS_URL)}
             />
           </div>
-          <div className="rs-home-top-hero__modal-row">
+          <div className="rs-download-platform-modal__row">
             <Button
               variant="wide"
               shape="rounded"

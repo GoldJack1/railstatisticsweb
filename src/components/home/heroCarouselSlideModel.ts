@@ -1,12 +1,12 @@
 import type { MouseEvent, ReactNode } from 'react'
-import type { HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
+import type { HeroImageStackSources } from './HeroImageStack'
 
-/** Same URLs as `HomeTopHeroImageStack`: dark/light × desktop-tablet / mobile. */
-export type CarouselHeroSlideImageSources = HomeTopHeroImageStackSources
+/** Per-slide art: dark/light × desktop-tablet / mobile (same shape as `HeroImageStack`). */
+export type CarouselHeroSlideImageSources = HeroImageStackSources
 
 export interface CarouselHeroSlideCta {
   label: string
-  /** Renders as `<a>` (same as HomeTopHero download). Omit to use `onClick` on a `<button>`. */
+  /** Renders as `<a>`. Omit to use `onClick` on a `<button>`. */
   href?: string
   target?: React.HTMLAttributeAnchorTarget
   onClick?: (e: MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
@@ -15,7 +15,7 @@ export interface CarouselHeroSlideCta {
 export interface CarouselHeroSlide {
   title: string
   body: ReactNode
-  /** Optional row below body; one button uses TopHero width cap, two+ share desktop row rules in CSS. */
+  /** Optional row below body; one button uses hero width cap, two+ share desktop row rules in CSS. */
   ctas?: CarouselHeroSlideCta[]
   /**
    * `img` alt text when the art is informative. Leave empty for decorative art; the stack wrapper is then
@@ -24,7 +24,7 @@ export interface CarouselHeroSlide {
    */
   imageAlt?: string
   /**
-   * Per-slide art: light/dark × desktop-tablet / mobile URLs (`HomeTopHeroImageStack`).
+   * Per-slide art: light/dark × desktop-tablet / mobile URLs (`HeroImageStack`).
    * Omitted keys are filled from `defaultImageSources` on `CarouselHero` / `StaticHero`.
    */
   imageSources?: Partial<CarouselHeroSlideImageSources>
@@ -32,8 +32,8 @@ export interface CarouselHeroSlide {
 
 export function mergeCarouselHeroSlideSources(
   slide: CarouselHeroSlide,
-  base: HomeTopHeroImageStackSources
-): HomeTopHeroImageStackSources {
+  base: HeroImageStackSources
+): HeroImageStackSources {
   const p = slide.imageSources
   if (!p) {
     return {
@@ -54,5 +54,5 @@ export function mergeCarouselHeroSlideSources(
 /** Solid colour for text-panel gradient stops (before transparent fade). */
 export type CarouselHeroContentFill = 'bgSecondary' | 'heroTint'
 
-/** `hero` (default): hero band title/body sizes. `splash`: HomeTopHero-sized copy on desktop only (≥1200px). */
+/** `hero` (default): hero band title/body sizes. `splash`: large splash copy on desktop only (≥1200px). */
 export type HeroTextStyle = 'hero' | 'splash'

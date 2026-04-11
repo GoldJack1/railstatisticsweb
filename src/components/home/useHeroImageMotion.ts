@@ -1,9 +1,9 @@
 import { type RefObject, useEffect } from 'react'
 
 /**
- * Legacy `HomeTopHero` scroll effect (CASE RS-004): as the hero’s top edge moves above the viewport,
- * progress runs 0→1 over one hero-height of scroll; scale becomes `1 + progress * MAX_SCROLL_SCALE_DELTA`,
- * then multiplied by `NARROW_VIEWPORT_IMAGE_SCALE` when `max-width: 409px` so the art reads smaller on very narrow phones.
+ * As the hero’s top edge moves above the viewport, progress runs 0→1 over one hero-height of scroll;
+ * scale becomes `1 + progress * MAX_SCROLL_SCALE_DELTA`, then multiplied by `NARROW_VIEWPORT_IMAGE_SCALE`
+ * when `max-width: 409px` so the art reads smaller on very narrow phones.
  */
 const MAX_SCROLL_SCALE_DELTA = 1
 /** Must match hero CSS `@media (max-width: 409px)` — scales `--hero-image-scale` for both scroll motion and static fallback. */
@@ -20,7 +20,7 @@ function clamp(n: number, lo: number, hi: number): number {
  *
  * @param active When false, skips setup (e.g. hero not mounted yet).
  */
-export function useHomeTopHeroImageMotion(heroRef: RefObject<HTMLElement | null>, active = true): void {
+export function useHeroImageMotion(heroRef: RefObject<HTMLElement | null>, active = true): void {
   useEffect(() => {
     if (!active) return
     const el = heroRef.current
