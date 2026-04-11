@@ -24,6 +24,11 @@ const SWIPE_HORIZONTAL_DOMINANCE_RATIO = 1.35
 const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
 /** Same idea for the shared CTA row slot when any slide has buttons. */
 const CTA_SLOT_HEIGHT_BUFFER_PX = 4
+/** Must match `--home-hero-slide-*` on `.rs-home-hero` (exit + gap + enter + buffer before DOM unmount). */
+const HERO_SLIDE_EXIT_MS = 380
+const HERO_SLIDE_GAP_MS = 45
+const HERO_SLIDE_ENTER_MS = 520
+const HERO_SLIDE_SWAP_CLEAR_MS = HERO_SLIDE_EXIT_MS + HERO_SLIDE_GAP_MS + HERO_SLIDE_ENTER_MS + 50
 
 function measureBlockHeight(el: HTMLElement): number {
   const rect = el.getBoundingClientRect().height
@@ -161,12 +166,18 @@ const HeroSlideCtaRow: React.FC<{ ctas?: HomeHeroSlideCta[] }> = ({ ctas }) => {
 }
 
 /** Measure title + body only — CTAs render outside the locked shell so they sit above the carousel. */
+const HeroSlideTextContent: React.FC<{ title: string; body: React.ReactNode }> = ({ title, body }) => (
+  <>
+    <div className="rs-home-hero__title-wrap">
+      <h1 className="rs-home-hero__title">{title}</h1>
+    </div>
+    <div className="rs-home-hero__body">{body}</div>
+  </>
+)
+
 const HeroSlideMeasureCopy: React.FC<{ slide: Pick<HomeHeroSlide, 'title' | 'body'> }> = ({ slide }) => (
   <div className="rs-home-hero__text-measure-item">
-    <div className="rs-home-hero__title-wrap">
-      <h1 className="rs-home-hero__title">{slide.title}</h1>
-    </div>
-    <div className="rs-home-hero__body">{slide.body}</div>
+    <HeroSlideTextContent title={slide.title} body={slide.body} />
   </div>
 )
 
@@ -185,16 +196,18 @@ const HomeHero: React.FC<HomeHeroProps> = ({
     setTimerToken((t) => t + 1)
   }, [])
 
-  /** Set before each index change so the text pane can enter in the same direction as the carousel. */
-  const textEnterDirRef = useRef<'next' | 'prev'>('next')
   /** Once true (autoplay, swipe, dots, arrows), slide changes animate; initial slide 0 stays static. */
   const heroCarouselEngagedRef = useRef(false)
+  /** Previous slide index while an outgoing copy is fading out (Y-fade) over the incoming pane. */
+  const [outgoingSlideIndex, setOutgoingSlideIndex] = useState<number | null>(null)
+  const prevSafeIndexRef = useRef(0)
+  const swapClearTimeoutRef = useRef<number | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number; scrollIntent: boolean } | null>(null)
 
   useEffect(() => {
     if (reducedMotion || slideCount < 2) return
     const id = window.setInterval(() => {
       heroCarouselEngagedRef.current = true
-      textEnterDirRef.current = 'next'
       setIndex((i) => (i + 1) % slideCount)
     }, autoPlayMs)
     return () => window.clearInterval(id)
@@ -202,14 +215,12 @@ const HomeHero: React.FC<HomeHeroProps> = ({
 
   const goPrev = useCallback(() => {
     heroCarouselEngagedRef.current = true
-    textEnterDirRef.current = 'prev'
     setIndex((i) => (i - 1 + slideCount) % slideCount)
     restartAutoplay()
   }, [slideCount, restartAutoplay])
 
   const goNext = useCallback(() => {
     heroCarouselEngagedRef.current = true
-    textEnterDirRef.current = 'next'
     setIndex((i) => (i + 1) % slideCount)
     restartAutoplay()
   }, [slideCount, restartAutoplay])
@@ -220,9 +231,6 @@ const HomeHero: React.FC<HomeHeroProps> = ({
       setIndex((current) => {
         if (normalized === current) return current
         heroCarouselEngagedRef.current = true
-        const forward = (normalized - current + slideCount) % slideCount
-        const backward = (current - normalized + slideCount) % slideCount
-        textEnterDirRef.current = forward <= backward ? 'next' : 'prev'
         return normalized
       })
       restartAutoplay()
@@ -241,12 +249,19 @@ const HomeHero: React.FC<HomeHeroProps> = ({
     maxCtaCountAcrossSlides >= 2 ? '2' : maxCtaCountAcrossSlides === 1 ? '1' : '0'
 
   const shouldAnimateHeroCarousel = !reducedMotion && heroCarouselEngagedRef.current
+  /** Outgoing state updates in `useLayoutEffect`; compare ref so enter-y applies on first paint of the new slide. */
+  const slideCrossfadeActive =
+    shouldAnimateHeroCarousel &&
+    (outgoingSlideIndex !== null || prevSafeIndexRef.current !== safeIndex)
+
   const heroTextPaneClass = [
     'rs-home-hero__text-pane',
-    shouldAnimateHeroCarousel ? `rs-home-hero__text-pane--enter-${textEnterDirRef.current}` : ''
+    slideCrossfadeActive ? 'rs-home-hero__text-pane--enter-y' : ''
   ]
     .filter(Boolean)
     .join(' ')
+
+  const ctaSwapEnterClass = slideCrossfadeActive ? 'rs-home-hero__cta-row--enter-y' : ''
 
   const heroSectionRef = useRef<HTMLElement | null>(null)
   useHomeTopHeroImageMotion(heroSectionRef, slideCount > 0)
@@ -355,10 +370,34 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   }, [scheduleMeasure, slides])
 
   useEffect(() => {
+    setOutgoingSlideIndex(null)
     setIndex((i) => Math.min(i, Math.max(0, slideCount - 1)))
   }, [slideCount])
 
-  const touchStartRef = useRef<{ x: number; y: number; scrollIntent: boolean } | null>(null)
+  useLayoutEffect(() => {
+    if (prevSafeIndexRef.current === safeIndex) return
+    if (!heroCarouselEngagedRef.current || reducedMotion) {
+      prevSafeIndexRef.current = safeIndex
+      setOutgoingSlideIndex(null)
+      return
+    }
+    const leaving = prevSafeIndexRef.current
+    prevSafeIndexRef.current = safeIndex
+    if (swapClearTimeoutRef.current) {
+      clearTimeout(swapClearTimeoutRef.current)
+    }
+    setOutgoingSlideIndex(leaving)
+    swapClearTimeoutRef.current = window.setTimeout(() => {
+      setOutgoingSlideIndex(null)
+      swapClearTimeoutRef.current = null
+    }, HERO_SLIDE_SWAP_CLEAR_MS)
+    return () => {
+      if (swapClearTimeoutRef.current) {
+        clearTimeout(swapClearTimeoutRef.current)
+        swapClearTimeoutRef.current = null
+      }
+    }
+  }, [safeIndex, reducedMotion])
 
   const onHeroTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length !== 1) return
@@ -403,6 +442,11 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   const onHeroTouchCancel = useCallback(() => {
     touchStartRef.current = null
   }, [])
+
+  const outgoingSlide =
+    outgoingSlideIndex !== null && outgoingSlideIndex >= 0 && outgoingSlideIndex < slideCount
+      ? slides[outgoingSlideIndex]
+      : null
 
   if (slideCount === 0) {
     return null
@@ -470,12 +514,18 @@ const HomeHero: React.FC<HomeHeroProps> = ({
                 <HeroSlideMeasureCopy key={i} slide={slide} />
               ))}
             </div>
-            <div ref={visibleTextBlockRef} className="rs-home-hero__text-block" aria-live="polite">
-              <div key={safeIndex} className={heroTextPaneClass}>
-                <div className="rs-home-hero__title-wrap">
-                  <h1 className="rs-home-hero__title">{current.title}</h1>
+            <div className="rs-home-hero__text-block rs-home-hero__text-block--swap" aria-live="polite">
+              {outgoingSlide ? (
+                <div className="rs-home-hero__text-pane-outgoing" aria-hidden="true">
+                  <div className="rs-home-hero__text-pane rs-home-hero__text-pane--exit-y">
+                    <HeroSlideTextContent title={outgoingSlide.title} body={outgoingSlide.body} />
+                  </div>
                 </div>
-                <div className="rs-home-hero__body">{current.body}</div>
+              ) : null}
+              <div ref={visibleTextBlockRef} className="rs-home-hero__text-pane-incoming">
+                <div key={safeIndex} className={heroTextPaneClass}>
+                  <HeroSlideTextContent title={current.title} body={current.body} />
+                </div>
               </div>
             </div>
           </div>
@@ -484,15 +534,26 @@ const HomeHero: React.FC<HomeHeroProps> = ({
             <div
               className={[
                 'rs-home-hero__cta-slot',
-                tallestCtaRowPx != null ? 'rs-home-hero__cta-slot--locked' : ''
+                tallestCtaRowPx != null ? 'rs-home-hero__cta-slot--locked' : '',
+                'rs-home-hero__cta-slot--swap'
               ]
                 .filter(Boolean)
                 .join(' ')}
               style={tallestCtaRowPx != null ? { minHeight: tallestCtaRowPx } : undefined}
             >
+              {outgoingSlide?.ctas?.length ? (
+                <div className="rs-home-hero__cta-outgoing" aria-hidden="true">
+                  <div className="rs-home-hero__cta-exit-wrap rs-home-hero__cta-row--exit-y">
+                    <HeroSlideCtaRow ctas={outgoingSlide.ctas} />
+                  </div>
+                </div>
+              ) : null}
               <div ref={ctaSlotInnerRef} className="rs-home-hero__cta-slot-inner">
                 {current.ctas?.length ? (
-                  <div key={safeIndex}>
+                  <div
+                    key={safeIndex}
+                    className={['rs-home-hero__cta-enter-wrap', ctaSwapEnterClass].filter(Boolean).join(' ')}
+                  >
                     <HeroSlideCtaRow ctas={current.ctas} />
                   </div>
                 ) : null}

@@ -14,6 +14,13 @@
   --home-hero-content-fill: var(--bg-secondary);
   /* Progressive backdrop blur behind the transparent tail of the content gradient. */
   --home-hero-content-backdrop-blur: 28px;
+  /* Copy/CTA slide swap: exit → pause → enter (must match `HomeHero.tsx` clear timeout). */
+  --home-hero-slide-exit-duration: 380ms;
+  --home-hero-slide-enter-gap: 45ms;
+  --home-hero-slide-enter-duration: 520ms;
+  --home-hero-slide-enter-delay: calc(
+    var(--home-hero-slide-exit-duration) + var(--home-hero-slide-enter-gap)
+  );
   position: relative;
   isolation: isolate;
   display: flex;
@@ -166,6 +173,25 @@
   box-sizing: border-box;
 }
 
+.rs-home-hero__cta-slot--swap {
+  position: relative;
+}
+
+.rs-home-hero__cta-outgoing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  width: 100%;
+  pointer-events: none;
+}
+
+.rs-home-hero__cta-enter-wrap,
+.rs-home-hero__cta-exit-wrap {
+  width: 100%;
+}
+
 /* When JS sets a shared min-height, fill it and pin CTAs to the bottom of the band. */
 .rs-home-hero__cta-slot--locked {
   display: flex;
@@ -190,10 +216,18 @@
   flex-shrink: 0;
 }
 
+/* Locked copy: scroll when tall; hide scrollbar so Y slide motion does not flash a transient bar. */
 .rs-home-hero__text-shell--locked .rs-home-hero__text-block {
   max-height: 100%;
+  overflow-x: clip;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.rs-home-hero__text-shell--locked .rs-home-hero__text-block::-webkit-scrollbar {
+  display: none;
 }
 
 .rs-home-hero__text-measure {
@@ -222,6 +256,25 @@
   overflow-x: clip;
 }
 
+.rs-home-hero__text-block--swap {
+  position: relative;
+}
+
+.rs-home-hero__text-pane-outgoing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.rs-home-hero__text-pane-incoming {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
 .rs-home-hero__text-pane {
   display: flex;
   flex-direction: column;
@@ -231,18 +284,21 @@
   min-width: 0;
 }
 
-.rs-home-hero__text-pane--enter-next {
-  animation: rs-home-hero-text-in-next 0.45s ease forwards;
+/* Slide swap: top → bottom (enter from above, exit downward); exit first, gap, then enter (`both` = hold `from` during delay). */
+.rs-home-hero__text-pane--enter-y {
+  animation: rs-home-hero-copy-y-fade-in var(--home-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--home-hero-slide-enter-delay) 1 normal both;
 }
 
-.rs-home-hero__text-pane--enter-prev {
-  animation: rs-home-hero-text-in-prev 0.45s ease forwards;
+.rs-home-hero__text-pane--exit-y {
+  animation: rs-home-hero-copy-y-fade-out var(--home-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
 }
 
-@keyframes rs-home-hero-text-in-next {
+@keyframes rs-home-hero-copy-y-fade-in {
   from {
     opacity: 0;
-    transform: translate3d(18px, 0, 0);
+    transform: translate3d(0, -14px, 0);
   }
 
   to {
@@ -251,20 +307,7 @@
   }
 }
 
-@keyframes rs-home-hero-text-in-prev {
-  from {
-    opacity: 0;
-    transform: translate3d(-18px, 0, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* CTAs use the same motion when leaving slide 1 (inverse of text enter). */
-@keyframes rs-home-hero-text-out-next {
+@keyframes rs-home-hero-copy-y-fade-out {
   from {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -272,19 +315,7 @@
 
   to {
     opacity: 0;
-    transform: translate3d(-18px, 0, 0);
-  }
-}
-
-@keyframes rs-home-hero-text-out-prev {
-  from {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translate3d(18px, 0, 0);
+    transform: translate3d(0, 14px, 0);
   }
 }
 
@@ -406,22 +437,14 @@
   width: 100%;
 }
 
-/* Same 0.45s ease + ±18px horizontal motion as `.rs-home-hero__text-pane--enter-*` */
-.rs-home-hero__cta-row--enter-next {
-  animation: rs-home-hero-text-in-next 0.45s ease forwards;
+.rs-home-hero__cta-row--enter-y {
+  animation: rs-home-hero-copy-y-fade-in var(--home-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--home-hero-slide-enter-delay) 1 normal both;
 }
 
-.rs-home-hero__cta-row--enter-prev {
-  animation: rs-home-hero-text-in-prev 0.45s ease forwards;
-}
-
-.rs-home-hero__cta-row--exit-next {
-  animation: rs-home-hero-text-out-next 0.45s ease forwards;
-  pointer-events: none;
-}
-
-.rs-home-hero__cta-row--exit-prev {
-  animation: rs-home-hero-text-out-prev 0.45s ease forwards;
+.rs-home-hero__cta-row--exit-y {
+  animation: rs-home-hero-copy-y-fade-out var(--home-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
   pointer-events: none;
 }
 
@@ -543,16 +566,20 @@
     transition: none;
   }
 
-  .rs-home-hero__text-pane--enter-next,
-  .rs-home-hero__text-pane--enter-prev {
+  .rs-home-hero__text-pane--enter-y,
+  .rs-home-hero__text-pane--exit-y {
     animation: none;
+    animation-delay: 0s;
+    opacity: 1;
+    transform: none;
   }
 
-  .rs-home-hero__cta-row--enter-next,
-  .rs-home-hero__cta-row--enter-prev,
-  .rs-home-hero__cta-row--exit-next,
-  .rs-home-hero__cta-row--exit-prev {
+  .rs-home-hero__cta-row--enter-y,
+  .rs-home-hero__cta-row--exit-y {
     animation: none;
+    animation-delay: 0s;
+    opacity: 1;
+    transform: none;
   }
 
   .rs-home-hero__cta-row--at-rest-visible {
