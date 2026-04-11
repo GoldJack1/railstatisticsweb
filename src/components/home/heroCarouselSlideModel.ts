@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react'
+import type { ButtonColorVariant } from '../Button'
 import type { HeroImageStackSources } from './HeroImageStack'
 
 /** Per-slide art: dark/light × desktop-tablet / mobile (same shape as `HeroImageStack`). */
@@ -6,6 +7,8 @@ export type CarouselHeroSlideImageSources = HeroImageStackSources
 
 export interface CarouselHeroSlideCta {
   label: string
+  /** Wide hero CTA colour; defaults to `accent`. */
+  colorVariant?: ButtonColorVariant
   /** Renders as `<a>`. Omit to use `onClick` on a `<button>`. */
   href?: string
   target?: React.HTMLAttributeAnchorTarget
@@ -53,6 +56,18 @@ export function mergeCarouselHeroSlideSources(
 
 /** Solid colour for text-panel gradient stops (before transparent fade). */
 export type CarouselHeroContentFill = 'bgSecondary' | 'heroTint'
+
+/** ≥1200px: which horizontal half holds the copy panel (LTR). Art stays full-bleed behind. */
+export type HeroDesktopPanelSide = 'left' | 'right'
+
+/** Viewports below 1200px: copy panel toward the top or bottom of the stacked hero band. */
+export type HeroMobilePanelPosition = 'top' | 'bottom'
+
+/**
+ * Within the text panel: horizontal alignment for copy, CTAs, and (carousel) prev/next + indicators.
+ * `start` = LTR left; `end` = LTR right.
+ */
+export type HeroPanelChromeAlign = 'start' | 'end'
 
 /** `hero` (default): hero band title/body sizes. `splash`: large splash copy on desktop only (≥1200px). */
 export type HeroTextStyle = 'hero' | 'splash'

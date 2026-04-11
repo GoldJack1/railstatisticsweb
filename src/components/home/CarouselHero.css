@@ -1,5 +1,6 @@
 @import './heroShared.css';
 @import './heroSplashText.css';
+@import './heroLayoutPlacement.css';
 
 /* CarouselHero: full-bleed; carousel bar matches Figma (pill + dots, prev/next 40×40) */
 

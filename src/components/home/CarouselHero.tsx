@@ -17,6 +17,8 @@ import {
   mergeCarouselHeroSlideSources,
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
+  type HeroDesktopPanelSide,
+  type HeroMobilePanelPosition,
   type HeroTextStyle
 } from './heroCarouselSlideModel'
 import {
@@ -40,6 +42,8 @@ export type {
   CarouselHeroSlideCta,
   CarouselHeroSlide,
   CarouselHeroContentFill,
+  HeroDesktopPanelSide,
+  HeroMobilePanelPosition,
   HeroTextStyle
 } from './heroCarouselSlideModel'
 export { mergeCarouselHeroSlideSources } from './heroCarouselSlideModel'
@@ -91,6 +95,10 @@ export interface CarouselHeroProps {
   textStyle?: HeroTextStyle
   /** Semantic level for the visible title (default `1` for a primary page carousel). */
   titleHeadingLevel?: HeroTitleHeadingLevel
+  /** ≥1200px: copy panel on the start half (left in LTR) or end half (right). */
+  desktopPanelSide?: HeroDesktopPanelSide
+  /** Below 1200px: stack copy toward the bottom (default) or top of the hero band. */
+  mobilePanelPosition?: HeroMobilePanelPosition
 }
 
 const ChevronLeft: React.FC = () => (
@@ -140,7 +148,9 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   pauseOnHover = true,
   pauseOnFocusWithin = true,
   textStyle = 'hero',
-  titleHeadingLevel = 1
+  titleHeadingLevel = 1,
+  desktopPanelSide = 'left',
+  mobilePanelPosition = 'bottom'
 }) => {
   const slideCount = slides.length
   const [index, setIndex] = useState(0)
@@ -571,6 +581,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
         .filter(Boolean)
         .join(' ')}
       data-carousel-hero-cta-band={carouselHeroCtaBand}
+      data-hero-desktop-panel={desktopPanelSide === 'right' ? 'right' : undefined}
+      data-hero-mobile-panel={mobilePanelPosition === 'top' ? 'top' : undefined}
       style={
         {
           ...heroCopySlideCssVarProperties('carousel'),

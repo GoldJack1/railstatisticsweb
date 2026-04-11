@@ -34,6 +34,11 @@ const SECTIONS = [
     description: 'Current icon usage patterns and shared icon guidance.',
     to: '/design-system/icons',
   },
+  {
+    title: 'Heroes',
+    description: 'Static and carousel heroes: type scale, panel fill, CTAs, button colours, and carousel chrome.',
+    to: '/design-system/heros',
+  },
 ]
 
 const DesignSystemHomePage: React.FC = () => {

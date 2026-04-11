@@ -1,5 +1,6 @@
 @import './heroShared.css';
 @import './heroSplashText.css';
+@import './heroLayoutPlacement.css';
 
 /* StaticHero: full-bleed single panel (same layout shell as CarouselHero, no strip or controls). */
 

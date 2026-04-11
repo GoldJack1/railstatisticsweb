@@ -21,15 +21,14 @@ function detectPlatform(): Platform {
 const HOME_PRIMARY_SUBTITLE =
   "Start building a map of where you've been, one station at a time."
 
-/** Optional per slide: `imageSources` (partial ok) + `imageAlt` — see `CarouselHeroSlide` in `CarouselHero.tsx`. */
-const HERO_SLIDES: CarouselHeroSlide[] = [
+/** First carousel below the fold: three slides. */
+const HOME_CAROUSEL_THREE_SLIDES: CarouselHeroSlide[] = [
   {
-    title: 'Track Stations in Just One Click!',
+    title: 'Track stations in one tap',
     body: (
       <>
-        <p>Find any station fast in list view or map view.</p>
-        <p>Update station status in one click, instantly date-stamped.</p>
-        <p>Upgrade to First Class to unlock one-click station updates directly on the map.</p>
+        <p>Search and filter thousands of National Rail stations from a fast list or an interactive map.</p>
+        <p>Mark visited, planned, or favourite in a single action—each change is date-stamped automatically.</p>
       </>
     )
   },
@@ -37,87 +36,101 @@ const HERO_SLIDES: CarouselHeroSlide[] = [
     title: 'See every visit on the map',
     body: (
       <>
-        <p>Visualise the stations you have visited and the ones still on your list in one interactive map.</p>
-        <p>Pan, zoom, and tap stations to open rich detail without leaving your flow.</p>
-        <p>First Class subscribers can use the Station Action Bar to update visits and favourites in a single tap.</p>
+        <p>Pan and zoom across Great Britain with stations plotted where you expect them.</p>
+        <p>Open rich detail for any station without losing your place on the map.</p>
       </>
     ),
-    ctas: [{ label: 'Download Now', href: IOS_APP_URL, target: '_blank' }]
+    ctas: [{ label: 'Download on iOS', href: IOS_APP_URL, target: '_blank' }]
   },
   {
-    title: 'Usage data and instant updates',
+    title: 'Upgrade when you need more',
     body: (
       <>
-        <p>Browse passenger usage figures for National Rail stations, with history back to 1998 and annual refreshes.</p>
-        <p>Get notified when new stations open—our cloud database keeps everyone on the latest network.</p>
-        <p>Start free, then upgrade when you are ready for deeper tools.</p>
+        <p>Start free with core logging tools, then move to First Class for deeper map workflows and batch updates.</p>
+        <p>One subscription covers your signed-in devices; your data stays tied to your account.</p>
       </>
     ),
-    ctas: [
-      { label: 'Browse stations', onClick: () => undefined },
-      { label: 'See pricing', onClick: () => undefined }
-    ]
+    ctas: [{ label: 'Get the Android app', href: ANDROID_APP_URL, target: '_blank' }]
   }
 ]
 
-/** Demo: desktop text column aligned to the top (`desktopContentVerticalAlign="top"`) + one CTA. */
-const STATIC_HERO_EXAMPLE_SINGLE_CTA: CarouselHeroSlide = {
-  title: 'Example — top alignment, single CTA',
+const HOME_STATIC_STATIONS: CarouselHeroSlide = {
+  title: 'A living station database',
   body: (
-    <p>
-      On wide desktop the copy and button sit toward the <strong>top</strong> of the left panel. Narrower breakpoints
-      keep the stacked layout unchanged.
-    </p>
+    <>
+      <p>
+        CRS codes, coordinates, TOC, fare zones, and London borough fields are kept current in the cloud—when the
+        network changes, your app and this website update together.
+      </p>
+      <p>Browse the same authoritative list on the web when you are at a desk, and pick it up in the app on the move.</p>
+    </>
   ),
-  ctas: [{ label: 'Primary action', href: IOS_APP_URL, target: '_blank' }]
+  ctas: [{ label: 'Browse stations', href: '/stations', target: '_self' }]
 }
 
-/** Demo: desktop text column vertically centered + two CTAs. */
-const STATIC_HERO_EXAMPLE_DUAL_CTA: CarouselHeroSlide = {
-  title: 'Example — centered block, dual CTAs',
+const HOME_STATIC_USAGE: CarouselHeroSlide = {
+  title: 'Passenger usage you can trust',
   body: (
-    <p>
-      Here the copy + CTA group is <strong>vertically centered</strong> in the desktop content column. Two buttons use
-      the multi-CTA row layout.
-    </p>
+    <>
+      <p>Annual entries and totals for stations go back to 1998, with a consistent methodology year on year.</p>
+      <p>Use the figures to plan trips, compare hubs, or settle curiosity about how busy a line has become.</p>
+    </>
+  )
+}
+
+/** Second carousel: four slides. */
+const HOME_CAROUSEL_FOUR_SLIDES: CarouselHeroSlide[] = [
+  {
+    title: 'List and map, same account',
+    body: (
+      <p>
+        Switch between dense tables and a map canvas whenever the task suits—filters and sort orders follow you between
+        views on web and mobile.
+      </p>
+    )
+  },
+  {
+    title: 'Visits that remember the day',
+    body: (
+      <p>
+        Every status change records when it happened so you can reconstruct a trip months later or export a clear
+        history for yourself.
+      </p>
+    )
+  },
+  {
+    title: 'Figures for planners and bashers',
+    body: (
+      <p>
+        Compare stations by usage band, spot fast-growing hubs, and notice when new platforms open—all without leaving
+        Rail Statistics.
+      </p>
+    )
+  },
+  {
+    title: 'Ready when you are',
+    body: (
+      <>
+        <p>Install on iPhone, iPad, or Android, or stay in the browser—pick the surface that fits the moment.</p>
+        <p>Sign in once; pending reviews and edits line up the same wherever you work.</p>
+      </>
+    ),
+    ctas: [{ label: 'Download now', href: IOS_APP_URL, target: '_blank' }]
+  }
+]
+
+const HOME_STATIC_WEB: CarouselHeroSlide = {
+  title: 'This website mirrors the app',
+  body: (
+    <>
+      <p>
+        Manage stations, review pending contributions, and read the same legal and policy pages you see in product—all
+        from a responsive layout tuned for keyboard and large screens.
+      </p>
+      <p>Heavy editing workflows stay here; quick logging stays in your pocket.</p>
+    </>
   ),
-  ctas: [
-    { label: 'First action', onClick: () => undefined },
-    { label: 'Second action', onClick: () => undefined }
-  ]
-}
-
-/** Demo: no CTAs, desktop copy column aligned to the top. */
-const STATIC_HERO_EXAMPLE_NO_CTA_TOP: CarouselHeroSlide = {
-  title: 'Example — top alignment, no CTAs',
-  body: (
-    <p>
-      Same static hero layout with <strong>no buttons</strong>; on wide desktop the text block sits toward the{' '}
-      <strong>top</strong> of the panel.
-    </p>
-  )
-}
-
-/** Demo: no CTAs, desktop copy column vertically centered. */
-const STATIC_HERO_EXAMPLE_NO_CTA_CENTER: CarouselHeroSlide = {
-  title: 'Example — centered, no CTAs',
-  body: (
-    <p>
-      Copy only: on desktop the text group is <strong>vertically centered</strong> in the left column, with no CTA row
-      below.
-    </p>
-  )
-}
-
-/** Demo: `textStyle="splash"` — splash headline/body scale at all widths; title steps up at 1200px. */
-const STATIC_HERO_EXAMPLE_SPLASH: CarouselHeroSlide = {
-  title: 'Splash style — big type on desktop',
-  body: (
-    <p>
-      From <strong>1200px</strong> up, this block uses the same headline and subcopy scale as the home top hero. Below
-      that width you still get the standard static hero typography.
-    </p>
-  )
+  ctas: [{ label: 'Log in', href: '/log-in', target: '_self' }]
 }
 
 const HomePage: React.FC = () => {
@@ -154,7 +167,6 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={homePrimarySlide}
             ariaLabel="Download Rail Statistics"
-            /* Splash type scale + desktop: copy + CTA vertically centered in the left panel (≥1200px). */
             textStyle="splash"
             desktopContentVerticalAlign="center"
             titleHeadingLevel={1}
@@ -164,38 +176,37 @@ const HomePage: React.FC = () => {
 
         <HomeDownloadPlatformModal open={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} />
 
-        <div className="home-page__carousel-hero">
-          <CarouselHero slides={HERO_SLIDES} />
-        </div>
-
-        <div className="home-page__static-hero-examples">
-          <StaticHero
-            slide={STATIC_HERO_EXAMPLE_SINGLE_CTA}
-            ariaLabel="Static hero example: single CTA, top-aligned on desktop"
-            desktopContentVerticalAlign="top"
-          />
-          <StaticHero
-            slide={STATIC_HERO_EXAMPLE_DUAL_CTA}
-            ariaLabel="Static hero example: two CTAs, vertically centered on desktop"
-            desktopContentVerticalAlign="center"
-          />
-          <StaticHero
-            slide={STATIC_HERO_EXAMPLE_NO_CTA_TOP}
-            ariaLabel="Static hero example: no CTAs, top-aligned on desktop"
-            desktopContentVerticalAlign="top"
-          />
-          <StaticHero
-            slide={STATIC_HERO_EXAMPLE_NO_CTA_CENTER}
-            ariaLabel="Static hero example: no CTAs, vertically centered on desktop"
-            desktopContentVerticalAlign="center"
+        <div className="home-page__hero-row">
+          <CarouselHero
+            slides={HOME_CAROUSEL_THREE_SLIDES}
+            ariaLabel="Rail Statistics highlights"
+            titleHeadingLevel={2}
+            pauseOnHover={false}
+            pauseOnFocusWithin={false}
           />
         </div>
 
-        <StaticHero
-          slide={STATIC_HERO_EXAMPLE_SPLASH}
-          ariaLabel="Static hero example: splash text style"
-          textStyle="splash"
-        />
+        <div className="home-page__hero-row">
+          <StaticHero slide={HOME_STATIC_STATIONS} ariaLabel="Station database" titleHeadingLevel={2} />
+        </div>
+
+        <div className="home-page__hero-row">
+          <StaticHero slide={HOME_STATIC_USAGE} ariaLabel="Passenger usage data" titleHeadingLevel={2} />
+        </div>
+
+        <div className="home-page__hero-row">
+          <CarouselHero
+            slides={HOME_CAROUSEL_FOUR_SLIDES}
+            ariaLabel="Product details"
+            titleHeadingLevel={2}
+            pauseOnHover={false}
+            pauseOnFocusWithin={false}
+          />
+        </div>
+
+        <div className="home-page__hero-row">
+          <StaticHero slide={HOME_STATIC_WEB} ariaLabel="Website and account" titleHeadingLevel={2} />
+        </div>
       </div>
     </div>
   )

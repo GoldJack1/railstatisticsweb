@@ -14,6 +14,8 @@ import {
   mergeCarouselHeroSlideSources,
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
+  type HeroDesktopPanelSide,
+  type HeroMobilePanelPosition,
   type HeroTextStyle
 } from './heroCarouselSlideModel'
 import { heroCopySlideCssVarProperties } from './heroSlideAnimationTokens'
@@ -69,6 +71,10 @@ export interface StaticHeroProps {
   textStyle?: HeroTextStyle
   /** Semantic level for the visible title (default `2` for a typical section hero). */
   titleHeadingLevel?: HeroTitleHeadingLevel
+  /** ≥1200px: copy panel on the start half (left in LTR) or end half (right). */
+  desktopPanelSide?: HeroDesktopPanelSide
+  /** Below 1200px: stack copy toward the bottom (default) or top of the hero band. */
+  mobilePanelPosition?: HeroMobilePanelPosition
 }
 
 const StaticHero: React.FC<StaticHeroProps> = ({
@@ -80,7 +86,9 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   contentFill = 'bgSecondary',
   desktopContentVerticalAlign = 'bottom',
   textStyle = 'hero',
-  titleHeadingLevel = 2
+  titleHeadingLevel = 2,
+  desktopPanelSide = 'left',
+  mobilePanelPosition = 'bottom'
 }) => {
   const staticSectionRef = useRef<HTMLElement | null>(null)
   useHeroImageMotion(staticSectionRef, true)
@@ -216,6 +224,8 @@ const StaticHero: React.FC<StaticHeroProps> = ({
         .join(' ')}
       data-static-hero-cta-band={staticHeroCtaBand}
       data-static-hero-desktop-valign={desktopContentVerticalAlign}
+      data-hero-desktop-panel={desktopPanelSide === 'right' ? 'right' : undefined}
+      data-hero-mobile-panel={mobilePanelPosition === 'top' ? 'top' : undefined}
       aria-label={ariaLabel}
       style={heroCopySlideCssVarProperties('static')}
     >

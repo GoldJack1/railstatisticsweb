@@ -31,7 +31,7 @@ export const HeroSlideCtaRow: React.FC<{
               variant="wide"
               shape="rounded"
               width="fill"
-              colorVariant="accent"
+              colorVariant={cta.colorVariant ?? 'accent'}
               href={cta.href}
               target={cta.target}
               onClick={cta.onClick}

@@ -1,0 +1,279 @@
+/*
+ * Optional layout: desktop copy panel left vs right; mobile stack panel top vs bottom.
+ * Defaults live in StaticHero.css / CarouselHero.css; this file only adds overrides.
+ */
+
+/* ---- Mobile / tablet: panel toward top of band ---- */
+@media (max-width: 1199px) {
+  .rs-static-hero[data-hero-mobile-panel='top'] .rs-static-hero__content {
+    margin-top: 0;
+    margin-bottom: auto;
+    padding: 24px 24px 50px;
+    background: linear-gradient(
+      to bottom,
+      var(--static-hero-content-fill) 0%,
+      var(--static-hero-content-fill) 87%,
+      transparent 100%
+    );
+  }
+
+  .rs-static-hero[data-hero-mobile-panel='top'] .rs-static-hero__content::before {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 87%,
+      #fff 87%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 87%,
+      #fff 87%,
+      transparent 100%
+    );
+  }
+
+  .rs-carousel-hero[data-hero-mobile-panel='top'] .rs-carousel-hero__content {
+    margin-top: 0;
+    margin-bottom: auto;
+    padding: 24px 24px 50px;
+    background: linear-gradient(
+      to bottom,
+      var(--carousel-hero-content-fill) 0%,
+      var(--carousel-hero-content-fill) 87%,
+      transparent 100%
+    );
+  }
+
+  .rs-carousel-hero[data-hero-mobile-panel='top'] .rs-carousel-hero__content::before {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 87%,
+      #fff 87%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 87%,
+      #fff 87%,
+      transparent 100%
+    );
+  }
+}
+
+/* ---- Desktop: copy panel on the right (image reads on the left) ---- */
+@media (min-width: 1200px) {
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__content {
+    margin-left: auto;
+    margin-right: 0;
+    background: linear-gradient(
+      to left,
+      var(--static-hero-content-fill) 0%,
+      var(--static-hero-content-fill) 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__content::before {
+    -webkit-mask-image: linear-gradient(
+      to left,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to left,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__title-wrap {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__text-pane .rs-static-hero__body > *,
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__text-measure-item .rs-static-hero__body > * {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-ctas-inner {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__slide-ctas--single .rs-static-hero__slide-ctas-inner {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  /*
+   * Default stack keeps the art frame on the right half (`left: 50%` in HeroImageStack.css).
+   * When the copy panel is on the right, pin the art to the left half so it does not sit under the panel.
+   */
+  .rs-static-hero[data-hero-desktop-panel='right'] .rs-static-hero__visual .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__frame,
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__visual .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__frame {
+    left: 0;
+    right: 50%;
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__content {
+    margin-left: auto;
+    margin-right: 0;
+    background: linear-gradient(
+      to left,
+      var(--carousel-hero-content-fill) 0%,
+      var(--carousel-hero-content-fill) 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__content::before {
+    -webkit-mask-image: linear-gradient(
+      to left,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to left,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__title-wrap {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__text-pane .rs-carousel-hero__body > *,
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__text-measure-item .rs-carousel-hero__body > * {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-ctas-inner {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__slide-ctas--single .rs-carousel-hero__slide-ctas-inner {
+    padding-right: 0;
+    padding-left: 150px;
+  }
+
+  /* Prev/next + indicators sit in `__actions` outside `__copy-stack`; match copy inset toward the image. */
+  .rs-carousel-hero[data-hero-desktop-panel='right'] .rs-carousel-hero__actions {
+    padding-left: 150px;
+    padding-right: 0;
+    box-sizing: border-box;
+  }
+}
+
+/* ---- Panel chrome: copy + CTAs + carousel controls toward start vs end (LTR left / right) ---- */
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__copy-stack {
+  align-items: flex-end;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__text-shell {
+  text-align: right;
+  width: 100%;
+  align-self: stretch;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__text-measure {
+  align-self: stretch;
+  width: 100%;
+  text-align: right;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__title-wrap {
+  align-items: flex-end;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__text-pane,
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__text-measure-item {
+  text-align: right;
+  width: 100%;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__slide-ctas {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__slide-ctas-inner {
+  align-items: flex-end;
+}
+
+@media (min-width: 1200px) {
+  .rs-static-hero[data-hero-panel-chrome-align='end'] .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-ctas-inner {
+    justify-content: flex-end;
+  }
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__copy-stack {
+  align-items: flex-end;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__text-shell {
+  text-align: right;
+  width: 100%;
+  align-self: stretch;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__text-measure {
+  align-self: stretch;
+  width: 100%;
+  text-align: right;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__title-wrap {
+  align-items: flex-end;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__text-pane,
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__text-measure-item {
+  text-align: right;
+  width: 100%;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__slide-ctas {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__slide-ctas-inner {
+  align-items: flex-end;
+}
+
+@media (min-width: 1200px) {
+  .rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-ctas-inner {
+    justify-content: flex-end;
+  }
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__actions {
+  align-items: flex-end;
+  width: 100%;
+}
+
+.rs-carousel-hero[data-hero-panel-chrome-align='end'] .rs-carousel-hero__carousel-bar {
+  justify-content: flex-end;
+}

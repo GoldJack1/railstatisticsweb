@@ -24,6 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/design-system/layout': 'Design System Layout | Rail Statistics',
   '/design-system/components': 'Design System Components | Rail Statistics',
   '/design-system/icons': 'Design System Icons | Rail Statistics',
+  '/design-system/heros': 'Design System Heroes | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
 }
@@ -43,6 +44,7 @@ const ButtonsPage = React.lazy(() => import('./pages/designSystem/ButtonsPage'))
 const LayoutPage = React.lazy(() => import('./pages/designSystem/LayoutPage'))
 const ComponentsPage = React.lazy(() => import('./pages/designSystem/ComponentsPage'))
 const IconsPage = React.lazy(() => import('./pages/designSystem/IconsPage'))
+const HerosPage = React.lazy(() => import('./pages/designSystem/HerosPage'))
 const PrivacyPolicyPage = React.lazy(() => import('./pages/legal/PrivacyPolicyPage'))
 const EulaPage = React.lazy(() => import('./pages/legal/EulaPage'))
 
@@ -95,6 +97,7 @@ const App: React.FC = () => {
                   <Route path="/design-system/layout" element={<ProtectedRoute><LayoutPage /></ProtectedRoute>} />
                   <Route path="/design-system/components" element={<ProtectedRoute><ComponentsPage /></ProtectedRoute>} />
                   <Route path="/design-system/icons" element={<ProtectedRoute><IconsPage /></ProtectedRoute>} />
+                  <Route path="/design-system/heros" element={<ProtectedRoute><HerosPage /></ProtectedRoute>} />
                   <Route path="/privacy" element={<PrivacyPolicyPage />} />
                   <Route path="/eula" element={<EulaPage />} />
                 </Routes>

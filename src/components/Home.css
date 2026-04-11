@@ -29,15 +29,8 @@
     }
 }
 
-/* HomePage: carousel hero (full-bleed). */
-.home-page__carousel-hero {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-
-/* HomePage: extra StaticHero demos (single vs dual CTA, desktop vertical align). */
-.home-page__static-hero-examples {
+/* HomePage: full-bleed hero rows below the primary band (carousel or static). */
+.home-page__hero-row {
     display: flex;
     flex-direction: column;
     width: 100%;
