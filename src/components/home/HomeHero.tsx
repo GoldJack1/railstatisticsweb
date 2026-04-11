@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Button from '../Button'
 import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
 import { DEFAULT_HERO_STACK_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES } from './homeTopHeroImageConstants'
@@ -22,6 +22,8 @@ const VERTICAL_SCROLL_CANCEL_RATIO = 1.28
 const SWIPE_HORIZONTAL_DOMINANCE_RATIO = 1.35
 /** Extra px so rounding / font rasterization does not let the live block exceed the locked shell height. */
 const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
+/** Same idea for the shared CTA row slot when any slide has buttons. */
+const CTA_SLOT_HEIGHT_BUFFER_PX = 4
 
 function measureBlockHeight(el: HTMLElement): number {
   const rect = el.getBoundingClientRect().height
@@ -43,14 +45,24 @@ function usePrefersReducedMotion(): boolean {
 /** Same URLs as `HomeTopHeroImageStack`: dark/light × desktop-tablet / mobile. */
 export type HomeHeroSlideImageSources = HomeTopHeroImageStackSources
 
+export interface HomeHeroSlideCta {
+  label: string
+  /** Renders as `<a>` (same as HomeTopHero download). Omit to use `onClick` on a `<button>`. */
+  href?: string
+  target?: React.HTMLAttributeAnchorTarget
+  onClick?: (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
+}
+
 export interface HomeHeroSlide {
   title: string
   body: React.ReactNode
+  /** Optional row below body; one button uses TopHero width cap, two+ share desktop row rules in CSS. */
+  ctas?: HomeHeroSlideCta[]
   /** Meaningful description if the slide art conveys information (visual is `aria-hidden` today). */
   imageAlt?: string
   /**
    * Per-slide hero art. Omitted keys use default hometophero URLs.
-   * Desktop art uses `(min-width: 1024px)`; mobile below that (matches HomeHero layout).
+   * Wide-desktop art uses `(min-width: 1200px)`; mobile + tablet below that (matches HomeHero layout).
    */
   imageSources?: Partial<HomeHeroSlideImageSources>
 }
@@ -74,12 +86,20 @@ function mergeHomeHeroSlideSources(slide: HomeHeroSlide): HomeTopHeroImageStackS
   }
 }
 
+/** Solid colour for text-panel gradient stops (before transparent fade). */
+export type HomeHeroContentFill = 'bgSecondary' | 'heroTint'
+
 export interface HomeHeroProps {
   /** At least 3 slides (Figma NEWHERO carousel). */
   slides: HomeHeroSlide[]
   /** Autoplay interval in ms; ignored when `prefers-reduced-motion: reduce`. */
   autoPlayMs?: number
   className?: string
+  /**
+   * `bgSecondary` (default): gradient solid uses `var(--bg-secondary)`.
+   * `heroTint`: solid matches the hometophero band (`hsl(0 100% 92%)` / dark `hsl(0 100% 8%)`).
+   */
+  contentFill?: HomeHeroContentFill
 }
 
 const ChevronLeft: React.FC = () => (
@@ -106,23 +126,55 @@ const ChevronRight: React.FC = () => (
   </svg>
 )
 
-/**
- * Clone of the live copy block for measurement only (parent has aria-hidden).
- * Uses `h1` like the visible slide so height matches slide 1/2/3 when slide 3 is tallest.
- */
-const HeroSlideMeasureCopy: React.FC<{ title: string; body: React.ReactNode }> = ({ title, body }) => (
+const HeroSlideCtaRow: React.FC<{ ctas?: HomeHeroSlideCta[] }> = ({ ctas }) => {
+  if (!ctas?.length) return null
+  const multi = ctas.length > 1
+  return (
+    <div
+      className={[
+        'rs-home-hero__slide-ctas',
+        multi ? 'rs-home-hero__slide-ctas--multi' : 'rs-home-hero__slide-ctas--single'
+      ].join(' ')}
+    >
+      <div className="rs-home-hero__slide-ctas-inner">
+        {ctas.map((cta, i) => (
+          <div key={i} className="rs-home-hero__slide-cta-wrap">
+            <Button
+              variant="wide"
+              shape="rounded"
+              width="fill"
+              colorVariant="accent"
+              className="rs-home-top-hero__cta"
+              href={cta.href}
+              target={cta.target}
+              onClick={cta.onClick}
+              type="button"
+              instantAction={!cta.href && Boolean(cta.onClick)}
+            >
+              {cta.label}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Measure title + body only — CTAs render outside the locked shell so they sit above the carousel. */
+const HeroSlideMeasureCopy: React.FC<{ slide: Pick<HomeHeroSlide, 'title' | 'body'> }> = ({ slide }) => (
   <div className="rs-home-hero__text-measure-item">
     <div className="rs-home-hero__title-wrap">
-      <h1 className="rs-home-hero__title">{title}</h1>
+      <h1 className="rs-home-hero__title">{slide.title}</h1>
     </div>
-    <div className="rs-home-hero__body">{body}</div>
+    <div className="rs-home-hero__body">{slide.body}</div>
   </div>
 )
 
 const HomeHero: React.FC<HomeHeroProps> = ({
   slides,
   autoPlayMs = AUTO_PLAY_MS_DEFAULT,
-  className = ''
+  className = '',
+  contentFill = 'bgSecondary'
 }) => {
   const slideCount = slides.length
   const [index, setIndex] = useState(0)
@@ -181,6 +233,13 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   const safeIndex = slideCount > 0 ? Math.min(index, slideCount - 1) : 0
   const current = slides[safeIndex] ?? slides[0]
 
+  const maxCtaCountAcrossSlides = useMemo(
+    () => slides.reduce((max, s) => Math.max(max, s.ctas?.length ?? 0), 0),
+    [slides]
+  )
+  const homeHeroCtaBand: '0' | '1' | '2' =
+    maxCtaCountAcrossSlides >= 2 ? '2' : maxCtaCountAcrossSlides === 1 ? '1' : '0'
+
   const shouldAnimateHeroCarousel = !reducedMotion && heroCarouselEngagedRef.current
   const heroTextPaneClass = [
     'rs-home-hero__text-pane',
@@ -195,8 +254,12 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   const textShellRef = useRef<HTMLDivElement>(null)
   const measureRootRef = useRef<HTMLDivElement>(null)
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
-  /** Locked height of the copy shell = tallest slide (clones + live), so CTAs don’t move when `space-between` runs on desktop. */
+  const ctaMeasureRootRef = useRef<HTMLDivElement>(null)
+  const ctaSlotInnerRef = useRef<HTMLDivElement>(null)
+  /** Locked height of the copy shell = tallest title+body (clones + live); CTAs live outside the shell above the carousel. */
   const [tallestSlideTextPx, setTallestSlideTextPx] = useState<number | undefined>(undefined)
+  /** When any slide has CTAs, all slides reserve this min height so the carousel line stays aligned. */
+  const [tallestCtaRowPx, setTallestCtaRowPx] = useState<number | undefined>(undefined)
 
   const measureTallestSlideText = useCallback(() => {
     const root = measureRootRef.current
@@ -215,14 +278,41 @@ const HomeHero: React.FC<HomeHeroProps> = ({
     setTallestSlideTextPx(Math.ceil(max) + TEXT_SHELL_HEIGHT_BUFFER_PX)
   }, [])
 
+  const measureTallestCtaRow = useCallback(() => {
+    if (maxCtaCountAcrossSlides === 0) {
+      setTallestCtaRowPx(undefined)
+      return
+    }
+    let max = 0
+    const measureRoot = ctaMeasureRootRef.current
+    if (measureRoot) {
+      const kids = Array.from(measureRoot.children) as HTMLElement[]
+      kids.forEach((el) => {
+        max = Math.max(max, measureBlockHeight(el))
+      })
+    }
+    // Measure the live row wrapper, not `.cta-slot-inner` — the inner is `flex:1` and fills the slot
+    // `minHeight`, so its box height tracks state and would ratchet `tallestCtaRowPx` up on every resize.
+    const live = ctaSlotInnerRef.current
+    const liveRow = live?.firstElementChild
+    if (liveRow instanceof HTMLElement) {
+      max = Math.max(max, measureBlockHeight(liveRow))
+    }
+    if (max <= 0) return
+    setTallestCtaRowPx(Math.ceil(max) + CTA_SLOT_HEIGHT_BUFFER_PX)
+  }, [maxCtaCountAcrossSlides])
+
   const scheduleMeasure = useCallback(() => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(measureTallestSlideText)
+      requestAnimationFrame(() => {
+        measureTallestSlideText()
+        measureTallestCtaRow()
+      })
     })
-  }, [measureTallestSlideText])
+  }, [measureTallestSlideText, measureTallestCtaRow])
 
   useLayoutEffect(() => {
-    measureTallestSlideText()
+    scheduleMeasure()
     const shell = textShellRef.current
     if (!shell) return
     const ro = new ResizeObserver(() => {
@@ -230,11 +320,29 @@ const HomeHero: React.FC<HomeHeroProps> = ({
     })
     ro.observe(shell)
     return () => ro.disconnect()
-  }, [measureTallestSlideText, scheduleMeasure, slides])
+  }, [scheduleMeasure, slides])
+
+  useLayoutEffect(() => {
+    if (maxCtaCountAcrossSlides === 0) return
+    const el = ctaMeasureRootRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      scheduleMeasure()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [maxCtaCountAcrossSlides, scheduleMeasure, slides])
 
   useLayoutEffect(() => {
     measureTallestSlideText()
-  }, [safeIndex, measureTallestSlideText, current.title])
+    measureTallestCtaRow()
+  }, [
+    safeIndex,
+    measureTallestSlideText,
+    measureTallestCtaRow,
+    current.title,
+    current.ctas?.length
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -303,7 +411,14 @@ const HomeHero: React.FC<HomeHeroProps> = ({
   return (
     <section
       ref={heroSectionRef}
-      className={['rs-home-hero', className].filter(Boolean).join(' ')}
+      className={[
+        'rs-home-hero',
+        contentFill === 'heroTint' ? 'rs-home-hero--content-fill-hero-tint' : '',
+        className
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      data-home-hero-cta-band={homeHeroCtaBand}
       style={{ ['--rs-home-hero-autoplay-ms' as string]: `${autoPlayMs}ms` } as React.CSSProperties}
       aria-roledescription="carousel"
       aria-label="Featured"
@@ -320,37 +435,70 @@ const HomeHero: React.FC<HomeHeroProps> = ({
           sources={mergeHomeHeroSlideSources(current)}
           alt={current.imageAlt ?? ''}
         />
-        <div className="rs-home-hero__inner-shadow" aria-hidden="true" />
       </div>
 
       <div className="rs-home-hero__content">
-        <div
-          ref={textShellRef}
-          className={[
-            'rs-home-hero__text-shell',
-            tallestSlideTextPx != null ? 'rs-home-hero__text-shell--locked' : ''
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          style={
-            tallestSlideTextPx != null
-              ? { minHeight: tallestSlideTextPx, height: tallestSlideTextPx }
-              : undefined
-          }
-        >
-          <div ref={measureRootRef} className="rs-home-hero__text-measure" aria-hidden="true">
-            {slides.map((slide, i) => (
-              <HeroSlideMeasureCopy key={i} title={slide.title} body={slide.body} />
-            ))}
+        {maxCtaCountAcrossSlides > 0 ? (
+          <div ref={ctaMeasureRootRef} className="rs-home-hero__cta-measure" aria-hidden="true">
+            {slides.map((slide, i) =>
+              slide.ctas?.length ? (
+                <div key={i} className="rs-home-hero__cta-measure-item">
+                  <HeroSlideCtaRow ctas={slide.ctas} />
+                </div>
+              ) : null
+            )}
           </div>
-          <div ref={visibleTextBlockRef} className="rs-home-hero__text-block" aria-live="polite">
-            <div key={safeIndex} className={heroTextPaneClass}>
-              <div className="rs-home-hero__title-wrap">
-                <h1 className="rs-home-hero__title">{current.title}</h1>
+        ) : null}
+
+        <div className="rs-home-hero__copy-stack">
+          <div
+            ref={textShellRef}
+            className={[
+              'rs-home-hero__text-shell',
+              tallestSlideTextPx != null ? 'rs-home-hero__text-shell--locked' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={
+              tallestSlideTextPx != null
+                ? { minHeight: tallestSlideTextPx, height: tallestSlideTextPx }
+                : undefined
+            }
+          >
+            <div ref={measureRootRef} className="rs-home-hero__text-measure" aria-hidden="true">
+              {slides.map((slide, i) => (
+                <HeroSlideMeasureCopy key={i} slide={slide} />
+              ))}
+            </div>
+            <div ref={visibleTextBlockRef} className="rs-home-hero__text-block" aria-live="polite">
+              <div key={safeIndex} className={heroTextPaneClass}>
+                <div className="rs-home-hero__title-wrap">
+                  <h1 className="rs-home-hero__title">{current.title}</h1>
+                </div>
+                <div className="rs-home-hero__body">{current.body}</div>
               </div>
-              <div className="rs-home-hero__body">{current.body}</div>
             </div>
           </div>
+
+          {maxCtaCountAcrossSlides > 0 ? (
+            <div
+              className={[
+                'rs-home-hero__cta-slot',
+                tallestCtaRowPx != null ? 'rs-home-hero__cta-slot--locked' : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              style={tallestCtaRowPx != null ? { minHeight: tallestCtaRowPx } : undefined}
+            >
+              <div ref={ctaSlotInnerRef} className="rs-home-hero__cta-slot-inner">
+                {current.ctas?.length ? (
+                  <div key={safeIndex}>
+                    <HeroSlideCtaRow ctas={current.ctas} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="rs-home-hero__actions">

@@ -78,14 +78,13 @@
   mask-image: linear-gradient(to top, #000 50%, rgba(0, 0, 0, 0) 72%);
 }
 
-/* Top hero + Home hero: art sits in the viewport right half on desktop (aligns with TopHero text padding / split). */
+/* Top hero: art in viewport right half from 1024px. Home hero: same only from 1200px so tablet matches mobile layout. */
 @media (min-width: 1024px) {
-  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__frame,
-  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame {
+  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__frame {
     left: 50%;
   }
 
-  .rs-home-hero-image-stack__image {
+  .rs-home-hero-image-stack--top-hero .rs-home-hero-image-stack__image {
     top: var(--hero-image-top-desktop);
   }
 
@@ -93,6 +92,12 @@
     background: linear-gradient(90deg, var(--hero-gradient-color) 40%, transparent 60%);
     -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
     mask-image: linear-gradient(90deg, #000 40%, transparent 60%);
+  }
+}
+
+@media (min-width: 1200px) {
+  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame {
+    left: 50%;
   }
 }
 

@@ -3,6 +3,8 @@ import '../components/Home.css'
 import HomeTopHero from '../components/home/HomeTopHero'
 import HomeHero, { type HomeHeroSlide } from '../components/home/HomeHero'
 
+const IOS_APP_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
+
 /** Optional per slide: `imageSources` (partial ok) + `imageAlt` — see `HomeHeroSlide` in `HomeHero.tsx`. */
 const HERO_SLIDES: HomeHeroSlide[] = [
   {
@@ -23,7 +25,8 @@ const HERO_SLIDES: HomeHeroSlide[] = [
         <p>Pan, zoom, and tap stations to open rich detail without leaving your flow.</p>
         <p>First Class subscribers can use the Station Action Bar to update visits and favourites in a single tap.</p>
       </>
-    )
+    ),
+    ctas: [{ label: 'Download Now', href: IOS_APP_URL, target: '_blank' }]
   },
   {
     title: 'Usage data and instant updates',
@@ -33,7 +36,11 @@ const HERO_SLIDES: HomeHeroSlide[] = [
         <p>Get notified when new stations open—our cloud database keeps everyone on the latest network.</p>
         <p>Start free, then upgrade when you are ready for deeper tools.</p>
       </>
-    )
+    ),
+    ctas: [
+      { label: 'Browse stations', onClick: () => undefined },
+      { label: 'See pricing', onClick: () => undefined }
+    ]
   }
 ]
 

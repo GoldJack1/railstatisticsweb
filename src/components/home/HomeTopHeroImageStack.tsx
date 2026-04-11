@@ -27,10 +27,10 @@ export interface HomeTopHeroImageStackProps {
   alt?: string
 }
 
-/** TopHero: desktop-tablet art from 640px. HomeHero: mobile art until 1024px (matches CSS layout). */
+/** TopHero: desktop-tablet art from 640px. HomeHero: mobile art until 1200px (matches HomeHero CSS split). */
 const DESKTOP_PICTURE_MEDIA: Record<HomeTopHeroImageStackVariant, string> = {
   topHero: '(min-width: 640px)',
-  homeHero: '(min-width: 1024px)'
+  homeHero: '(min-width: 1200px)'
 }
 
 const HomeTopHeroImageStack: React.FC<HomeTopHeroImageStackProps> = ({
