@@ -463,7 +463,13 @@ const HomeHero: React.FC<HomeHeroProps> = ({
         .filter(Boolean)
         .join(' ')}
       data-home-hero-cta-band={homeHeroCtaBand}
-      style={{ ['--rs-home-hero-autoplay-ms' as string]: `${autoPlayMs}ms` } as React.CSSProperties}
+      style={
+        {
+          ['--rs-home-hero-autoplay-ms' as string]: `${autoPlayMs}ms`,
+          ['--home-hero-slide-count' as string]: String(slideCount),
+          ['--home-hero-slide-index' as string]: String(safeIndex)
+        } as React.CSSProperties
+      }
       aria-roledescription="carousel"
       aria-label="Featured"
       onTouchStart={onHeroTouchStart}
@@ -472,13 +478,18 @@ const HomeHero: React.FC<HomeHeroProps> = ({
       onTouchCancel={onHeroTouchCancel}
     >
       <div className="rs-home-hero__visual" aria-hidden="true">
-        <HomeTopHeroImageStack
-          key={safeIndex}
-          variant="homeHero"
-          loading="lazy"
-          sources={mergeHomeHeroSlideSources(current)}
-          alt={current.imageAlt ?? ''}
-        />
+        <div className="rs-home-hero-image-strip">
+          {slides.map((slide, i) => (
+            <div key={i} className="rs-home-hero-image-strip__cell">
+              <HomeTopHeroImageStack
+                variant="homeHero"
+                loading="lazy"
+                sources={mergeHomeHeroSlideSources(slide)}
+                alt={slide.imageAlt ?? ''}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="rs-home-hero__content">

@@ -48,6 +48,26 @@
   background: hsl(0 100% 8%);
 }
 
+/* One row of `HomeTopHeroImageStack` per slide; `--home-hero-slide-index` / `--home-hero-slide-count` on `.rs-home-hero`. */
+.rs-home-hero__visual .rs-home-hero-image-strip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  width: calc(var(--home-hero-slide-count, 1) * 100%);
+  height: 100%;
+  transform: translateX(calc(var(--home-hero-slide-index, 0) * (-100% / var(--home-hero-slide-count, 1))));
+  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rs-home-hero__visual .rs-home-hero-image-strip__cell {
+  position: relative;
+  flex: 0 0 calc(100% / var(--home-hero-slide-count, 1));
+  height: 100%;
+  min-width: 0;
+}
+
 /* Secondary option: match hometophero band tint instead of `--bg-secondary`. */
 .rs-home-hero.rs-home-hero--content-fill-hero-tint {
   --home-hero-content-fill: hsl(0 100% 92%);
@@ -598,6 +618,10 @@
     opacity: 0;
   }
 
+  .rs-home-hero__visual .rs-home-hero-image-strip {
+    transition: none;
+  }
+
   .rs-home-hero__content::before {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -723,6 +747,20 @@
     transform-origin: center center;
     animation: rs-home-hero-image-fade-in-desktop-centered 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
+
+  /* Strip: no per-cell remount fade; keep same parallax transform as single-stack desktop hero. */
+  .rs-home-hero__visual .rs-home-hero-image-strip .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    animation: none;
+    opacity: 1;
+    filter: none;
+    top: 50%;
+    transform-origin: center center;
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(var(--hero-image-scale));
+  }
 }
 
 /* Mobile + tablet: stacked panel through 1199px; split card from 1200px. */
@@ -763,6 +801,13 @@
   }
 
   .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    left: var(--hero-image-left-mobile);
+  }
+
+  .rs-home-hero__visual .rs-home-hero-image-strip .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    animation: none;
+    opacity: 1;
+    filter: none;
     left: var(--hero-image-left-mobile);
   }
 }
