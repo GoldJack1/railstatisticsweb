@@ -96,7 +96,9 @@
 }
 
 @media (min-width: 1200px) {
-  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame {
+  .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__frame,
+  .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__frame,
+  .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__frame {
     left: 50%;
   }
 }

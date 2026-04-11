@@ -1,4 +1,4 @@
-/** Shared hometophero assets + motion caps (HomeTopHero + HomeHero media). */
+/** Shared hometophero assets + motion caps (HomeTopHero + CarouselHero media). */
 export const TOP_HERO_IMAGE_DARK_DESKTOP_TABLET = '/images/home/hometophero-desktop-tablet-dark.png'
 export const TOP_HERO_IMAGE_DARK_MOBILE = '/images/home/hometophero-mobile-dark.png'
 export const TOP_HERO_IMAGE_LIGHT_DESKTOP_TABLET = '/images/home/hometophero-desktop-tablet-light.png'
@@ -11,7 +11,7 @@ export const DEFAULT_HOMETOPHERO_IMAGE_SOURCES = {
   mobile: TOP_HERO_IMAGE_LIGHT_MOBILE
 } as const
 
-/** Full light/dark + desktop/mobile URLs for `HomeTopHeroImageStack` / per-slide HomeHero art. */
+/** Full light/dark + desktop/mobile URLs for `HomeTopHeroImageStack` / per-slide carousel art. */
 export const DEFAULT_HERO_STACK_IMAGE_SOURCES = {
   darkDesktopTablet: TOP_HERO_IMAGE_DARK_DESKTOP_TABLET,
   darkMobile: TOP_HERO_IMAGE_DARK_MOBILE,

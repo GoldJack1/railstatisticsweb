@@ -1,0 +1,714 @@
+/* StaticHero: full-bleed single panel (same layout shell as CarouselHero, no strip or controls). */
+
+/* Same idea as HomeTopHero: full-bleed image layer (z-index 0), text card above (z-index 2). */
+.rs-static-hero {
+  /* Image stack motion (parallax/scale). */
+  --hero-image-left-desktop: 50%;
+  --hero-image-left-mobile: 40%;
+  --hero-image-top-desktop: -50px;
+  --hero-image-scale: 1;
+  --hero-image-parallax-x: 0px;
+  --hero-image-parallax-y: 0px;
+  --hero-image-motion-y: 0px;
+  /* Text panel gradient solid stops (primary: page secondary surface). */
+  --static-hero-content-fill: var(--bg-secondary);
+  /* Progressive backdrop blur behind the transparent tail of the content gradient. */
+  --static-hero-content-backdrop-blur: 28px;
+  /* Unused by default markup; kept so swap animation rules stay valid if reused. */
+  --static-hero-slide-exit-duration: 380ms;
+  --static-hero-slide-enter-gap: 45ms;
+  --static-hero-slide-enter-duration: 520ms;
+  --static-hero-slide-enter-delay: calc(
+    var(--static-hero-slide-exit-duration) + var(--static-hero-slide-enter-gap)
+  );
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  overflow: hidden;
+  min-height: 560px;
+  touch-action: pan-y;
+}
+
+/* Match HomeTopHero section tint behind the art (light / dark). */
+.rs-static-hero__visual {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: hsl(0 100% 92%);
+  pointer-events: none;
+}
+
+[data-theme='dark'] .rs-static-hero__visual {
+  background: hsl(0 100% 8%);
+}
+
+/* Single image fills the visual layer (no strip). */
+.rs-static-hero__visual-inner {
+  position: absolute;
+  inset: 0;
+}
+
+/* Secondary option: match hometophero band tint instead of `--bg-secondary`. */
+.rs-static-hero.rs-static-hero--content-fill-hero-tint {
+  --static-hero-content-fill: hsl(0 100% 92%);
+}
+
+[data-theme='dark'] .rs-static-hero.rs-static-hero--content-fill-hero-tint {
+  --static-hero-content-fill: hsl(0 100% 8%);
+}
+
+/* Desktop only: StaticHero is a shorter band than TopHero — center art vertically (shared stack uses TopHero-style top offset). */
+@keyframes rs-static-hero-image-fade-in-desktop-centered {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(calc(var(--hero-image-scale) * 0.985));
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(var(--hero-image-scale));
+  }
+}
+
+@media (max-width: 409px) {
+  .rs-static-hero {
+    --hero-image-scale: 0.75;
+  }
+}
+
+.rs-static-hero__content {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  /* Mobile / tablet: 0% = bottom, 100% = top — solid below 87%, fade 87%→100% into the image. */
+  background: linear-gradient(
+    to top,
+    var(--static-hero-content-fill) 0%,
+    var(--static-hero-content-fill) 87%,
+    transparent 100%
+  );
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  width: 100%;
+  margin-top: auto;
+}
+
+/* Backdrop blur in the same band as the transparent gradient tail; mask = strong at 87% / 80% (desktop), none by 100%. */
+.rs-static-hero__content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  backdrop-filter: blur(var(--static-hero-content-backdrop-blur));
+  -webkit-backdrop-filter: blur(var(--static-hero-content-backdrop-blur));
+  -webkit-mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    transparent 87%,
+    #fff 87%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    transparent 87%,
+    #fff 87%,
+    transparent 100%
+  );
+}
+
+.rs-static-hero__content > * {
+  position: relative;
+  z-index: 1;
+}
+
+.rs-static-hero__content > .rs-static-hero__cta-measure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rs-static-hero__cta-measure-item {
+  width: 100%;
+}
+
+/* Groups headline + body with CTAs so desktop `space-between` keeps the block anchored, not CTAs in the middle gap. */
+.rs-static-hero__copy-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.rs-static-hero__text-shell {
+  position: relative;
+  width: 100%;
+  max-width: 930px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* CTAs sit between the locked copy shell and the bottom of the content panel (mobile/tablet + desktop). */
+.rs-static-hero__cta-slot {
+  width: 100%;
+  max-width: 930px;
+  flex-shrink: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.rs-static-hero__cta-slot--swap {
+  position: relative;
+}
+
+.rs-static-hero__cta-outgoing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  width: 100%;
+  pointer-events: none;
+}
+
+.rs-static-hero__cta-enter-wrap,
+.rs-static-hero__cta-exit-wrap {
+  width: 100%;
+}
+
+/* When JS sets a shared min-height, fill it and pin CTAs to the bottom of the band. */
+.rs-static-hero__cta-slot--locked {
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-static-hero__cta-slot--locked .rs-static-hero__cta-slot-inner {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.rs-static-hero__cta-slot-inner {
+  width: 100%;
+  min-height: 0;
+}
+
+/* Fixed height from JS: stops desktop `space-between` from moving CTAs when copy length changes. */
+.rs-static-hero__text-shell--locked {
+  flex-shrink: 0;
+}
+
+/* Locked copy: scroll when tall; hide scrollbar so Y slide motion does not flash a transient bar. */
+.rs-static-hero__text-shell--locked .rs-static-hero__text-block {
+  max-height: 100%;
+  overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.rs-static-hero__text-shell--locked .rs-static-hero__text-block::-webkit-scrollbar {
+  display: none;
+}
+
+.rs-static-hero__text-measure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.rs-static-hero__text-measure-item {
+  width: 100%;
+}
+
+.rs-static-hero__text-block {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+  min-height: 0;
+  overflow-x: clip;
+}
+
+.rs-static-hero__text-block--swap {
+  position: relative;
+}
+
+.rs-static-hero__text-pane-outgoing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.rs-static-hero__text-pane-incoming {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.rs-static-hero__text-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Slide swap: top → bottom (enter from above, exit downward); exit first, gap, then enter (`both` = hold `from` during delay). */
+.rs-static-hero__text-pane--enter-y {
+  animation: rs-static-hero-copy-y-fade-in var(--static-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--static-hero-slide-enter-delay) 1 normal both;
+}
+
+.rs-static-hero__text-pane--exit-y {
+  animation: rs-static-hero-copy-y-fade-out var(--static-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@keyframes rs-static-hero-copy-y-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes rs-static-hero-copy-y-fade-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+}
+
+.rs-static-hero__title-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 20px;
+  padding-right: 10px;
+  width: 100%;
+}
+
+.rs-static-hero__title {
+  font-family: 'Geologica Cursive';
+  font-weight: 500;
+  font-size: 36px;
+  line-height: normal;
+  color: var(--text-primary);
+  margin: 0;
+  width: 100%;
+}
+
+/* Keep copy area below the title visually consistent across slides (min ~8 lines). */
+.rs-static-hero__body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: normal;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: calc(8 * 1.35em);
+}
+
+@supports (min-height: 1lh) {
+  .rs-static-hero__body {
+    min-height: calc(8 * 1lh);
+  }
+}
+
+.rs-static-hero__body p {
+  margin: 0;
+}
+
+/* Optional per-slide CTAs (single button: same max width as HomeTopHero download). */
+.rs-static-hero__slide-ctas {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rs-static-hero__slide-ctas-inner {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rs-static-hero__slide-ctas--single .rs-static-hero__slide-ctas-inner {
+  flex-direction: column;
+}
+
+.rs-static-hero__slide-ctas--single .rs-static-hero__slide-cta-wrap {
+  width: 100%;
+  max-width: 365px;
+}
+
+.rs-static-hero__slide-cta-wrap .rs-button {
+  width: 100%;
+}
+
+@media (min-width: 1200px) {
+  .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-ctas-inner {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 32px;
+    padding-right: 150px;
+  }
+
+  .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-cta-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 1199px) {
+  .rs-static-hero__slide-ctas--single .rs-static-hero__slide-cta-wrap {
+    max-width: none;
+  }
+
+  .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-ctas-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding-right: 0;
+  }
+
+  .rs-static-hero__slide-ctas--multi .rs-static-hero__slide-cta-wrap {
+    width: 100%;
+  }
+}
+
+.rs-static-hero__cta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.rs-static-hero__cta-row--enter-y {
+  animation: rs-static-hero-copy-y-fade-in var(--static-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--static-hero-slide-enter-delay) 1 normal both;
+}
+
+.rs-static-hero__cta-row--exit-y {
+  animation: rs-static-hero-copy-y-fade-out var(--static-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+  pointer-events: none;
+}
+
+.rs-static-hero__cta-row--at-rest-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.rs-static-hero__cta-row--at-rest-hidden {
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+  pointer-events: none;
+}
+
+.rs-static-hero__cta-row .rs-button {
+  width: 100%;
+}
+
+/* Inner shadow on the visual layer (matches CarouselHero). */
+.rs-static-hero__visual .rs-static-hero__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 0;
+  box-shadow: var(--button-inner-shadow-active);
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-static-hero__text-pane--enter-y,
+  .rs-static-hero__text-pane--exit-y {
+    animation: none;
+    animation-delay: 0s;
+    opacity: 1;
+    transform: none;
+  }
+
+  .rs-static-hero__cta-row--enter-y,
+  .rs-static-hero__cta-row--exit-y {
+    animation: none;
+    animation-delay: 0s;
+    opacity: 1;
+    transform: none;
+  }
+
+  .rs-static-hero__cta-row--at-rest-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .rs-static-hero__cta-row--at-rest-hidden {
+    opacity: 0;
+    transform: none;
+  }
+
+  .rs-static-hero__content::before {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  @media (min-width: 1200px) {
+    .rs-static-hero__visual .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__image {
+      transform: translate(
+          calc(-50% + var(--hero-image-parallax-x)),
+          calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+        )
+        scale(var(--hero-image-scale));
+    }
+  }
+}
+
+/* Wide desktop only: opaque card ~half width on the left (tablet uses same stack as mobile). */
+@media (min-width: 1200px) {
+  .rs-static-hero {
+    min-height: 600px;
+    max-height: none;
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='1'] {
+    min-height: 684px;
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='2'] {
+    min-height: 708px;
+  }
+
+  .rs-static-hero__content {
+    /* Fill the section’s min-height so `justify-content` / copy-stack `margin-top: auto` see real vertical space. */
+    flex: 1 1 auto;
+    width: 50%;
+    max-width: none;
+    margin-top: 0;
+    min-height: 600px;
+    height: auto;
+    gap: 0;
+    justify-content: flex-start;
+    /* Same as `.rs-home-top-hero__text-and-button` so the split lines up with TopHero image positioning. */
+    padding: var(--space-2xl);
+    /* Desktop: 0% = left, 100% = right — solid to 80%, fade 80%→100% toward the image. */
+    background: linear-gradient(
+      to right,
+      var(--static-hero-content-fill) 0%,
+      var(--static-hero-content-fill) 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='1'] .rs-static-hero__content {
+    min-height: 684px;
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='2'] .rs-static-hero__content {
+    min-height: 708px;
+  }
+
+  .rs-static-hero__content::before {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      transparent 80%,
+      #fff 80%,
+      transparent 100%
+    );
+  }
+
+  .rs-static-hero__text-shell {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .rs-static-hero__text-block {
+    min-height: 0;
+  }
+
+  .rs-static-hero__title-wrap {
+    align-items: flex-start;
+  }
+
+  .rs-static-hero__text-pane .rs-static-hero__body > *,
+  .rs-static-hero__text-measure-item .rs-static-hero__body > * {
+    padding-right: 25px;
+  }
+
+  .rs-static-hero__cta-row {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .rs-static-hero__cta-row .rs-button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  /* CTAs sit directly under the copy; shared min-height still avoids layout jumps. */
+  .rs-static-hero__cta-slot--locked .rs-static-hero__cta-slot-inner {
+    justify-content: flex-start;
+  }
+
+  .rs-static-hero__visual .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__image {
+    top: 50%;
+    transform-origin: center center;
+    animation: rs-static-hero-image-fade-in-desktop-centered 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Default / bottom: push copy + CTAs toward the foot of the column (like CarouselHero + actions). */
+  .rs-static-hero[data-static-hero-desktop-valign='bottom'] .rs-static-hero__copy-stack,
+  .rs-static-hero:not([data-static-hero-desktop-valign]) .rs-static-hero__copy-stack {
+    margin-top: auto;
+  }
+
+  .rs-static-hero[data-static-hero-desktop-valign='top'] .rs-static-hero__copy-stack {
+    margin-top: 0;
+  }
+
+  .rs-static-hero[data-static-hero-desktop-valign='center'] .rs-static-hero__content {
+    justify-content: center;
+  }
+
+  .rs-static-hero[data-static-hero-desktop-valign='center'] .rs-static-hero__copy-stack {
+    margin-top: 0;
+  }
+
+  /*
+   * Splash text (desktop only): match HomeTopHero headline scale at wide desktop
+   * (`.rs-home-top-hero__title` / `__subtitle` at min-width 1024px → 45px / 24px).
+   * StaticHero applies this from min-width 1200px to match the split-card desktop layout.
+   */
+  .rs-static-hero--text-splash .rs-static-hero__title {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 45px;
+  }
+
+  .rs-static-hero--text-splash .rs-static-hero__body {
+    font-size: 24px;
+    /* Slightly fewer “lines” of reserved min-height than default hero — body is larger. */
+    min-height: calc(6 * 1.35em);
+  }
+
+  @supports (min-height: 1lh) {
+    .rs-static-hero--text-splash .rs-static-hero__body {
+      min-height: calc(6 * 1lh);
+    }
+  }
+
+  /*
+   * Splash: vertically center the copy + CTA block in the left column on desktop.
+   * Must beat `.rs-static-hero[data-static-hero-desktop-valign='bottom'] .__copy-stack`
+   * specificity (0,3,0): otherwise `margin-top: auto` keeps winning and eats free space,
+   * which blocks `justify-content: center` on `__content`.
+   */
+  .rs-static-hero--text-splash .rs-static-hero__content {
+    justify-content: center;
+  }
+
+  .rs-static-hero.rs-static-hero--text-splash .rs-static-hero__copy-stack {
+    margin-top: 0;
+  }
+
+  .rs-static-hero--text-splash[data-static-hero-desktop-valign='top'] .rs-static-hero__content {
+    justify-content: flex-start;
+  }
+}
+
+/* Mobile + tablet: stacked panel through 1199px; split card from 1200px. */
+@media (max-width: 1199px) {
+  .rs-static-hero {
+    min-height: 760px;
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='1'] {
+    min-height: 836px;
+  }
+
+  .rs-static-hero[data-static-hero-cta-band='2'] {
+    min-height: 912px;
+  }
+
+  /* Bottom text panel: extra air above copy on small screens. */
+  .rs-static-hero__content {
+    padding: 50px 24px 24px;
+    /* Clear stack: copy shell → CTAs */
+    gap: 16px;
+  }
+
+  .rs-static-hero__cta-slot {
+    margin-bottom: 20px;
+  }
+
+  .rs-static-hero__visual .rs-home-hero-image-stack--static-hero .rs-home-hero-image-stack__image {
+    left: var(--hero-image-left-mobile);
+  }
+}

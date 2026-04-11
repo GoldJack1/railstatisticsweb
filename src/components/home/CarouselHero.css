@@ -1,7 +1,7 @@
-/* NEWHERO: full-bleed; carousel bar matches Figma (pill + dots, prev/next 40×40) */
+/* CarouselHero: full-bleed; carousel bar matches Figma (pill + dots, prev/next 40×40) */
 
 /* Same idea as HomeTopHero: full-bleed image layer (z-index 0), text+carousel card above (z-index 2). */
-.rs-home-hero {
+.rs-carousel-hero {
   /* Image stack motion (parallax/scale). */
   --hero-image-left-desktop: 50%;
   --hero-image-left-mobile: 40%;
@@ -11,15 +11,15 @@
   --hero-image-parallax-y: 0px;
   --hero-image-motion-y: 0px;
   /* Text panel gradient solid stops (primary: page secondary surface). */
-  --home-hero-content-fill: var(--bg-secondary);
+  --carousel-hero-content-fill: var(--bg-secondary);
   /* Progressive backdrop blur behind the transparent tail of the content gradient. */
-  --home-hero-content-backdrop-blur: 28px;
-  /* Copy/CTA slide swap: exit → pause → enter (must match `HomeHero.tsx` clear timeout). */
-  --home-hero-slide-exit-duration: 380ms;
-  --home-hero-slide-enter-gap: 45ms;
-  --home-hero-slide-enter-duration: 520ms;
-  --home-hero-slide-enter-delay: calc(
-    var(--home-hero-slide-exit-duration) + var(--home-hero-slide-enter-gap)
+  --carousel-hero-content-backdrop-blur: 28px;
+  /* Copy/CTA slide swap: exit → pause → enter (must match `CarouselHero.tsx` clear timeout). */
+  --carousel-hero-slide-exit-duration: 380ms;
+  --carousel-hero-slide-enter-gap: 45ms;
+  --carousel-hero-slide-enter-duration: 520ms;
+  --carousel-hero-slide-enter-delay: calc(
+    var(--carousel-hero-slide-exit-duration) + var(--carousel-hero-slide-enter-gap)
   );
   position: relative;
   isolation: isolate;
@@ -35,7 +35,7 @@
 }
 
 /* Match HomeTopHero section tint behind the art (light / dark). */
-.rs-home-hero__visual {
+.rs-carousel-hero__visual {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -44,41 +44,46 @@
   pointer-events: none;
 }
 
-[data-theme='dark'] .rs-home-hero__visual {
+[data-theme='dark'] .rs-carousel-hero__visual {
   background: hsl(0 100% 8%);
 }
 
-/* One row of `HomeTopHeroImageStack` per slide; `--home-hero-slide-index` / `--home-hero-slide-count` on `.rs-home-hero`. */
-.rs-home-hero__visual .rs-home-hero-image-strip {
+/* Horizontal strip: `--carousel-hero-slide-count` = cells (slides + optional trailing clone); `--carousel-hero-slide-index` = active cell for translateX. */
+.rs-carousel-hero__visual .rs-carousel-hero-image-strip {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  width: calc(var(--home-hero-slide-count, 1) * 100%);
+  width: calc(var(--carousel-hero-slide-count, 1) * 100%);
   height: 100%;
-  transform: translateX(calc(var(--home-hero-slide-index, 0) * (-100% / var(--home-hero-slide-count, 1))));
+  transform: translateX(calc(var(--carousel-hero-slide-index, 0) * (-100% / var(--carousel-hero-slide-count, 1))));
   transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.rs-home-hero__visual .rs-home-hero-image-strip__cell {
+/* After forward wrap (last → duplicate first cell), snap real index 0 without animating backward. */
+.rs-carousel-hero__visual .rs-carousel-hero-image-strip.rs-carousel-hero-image-strip--instant {
+  transition: none !important;
+}
+
+.rs-carousel-hero__visual .rs-carousel-hero-image-strip__cell {
   position: relative;
-  flex: 0 0 calc(100% / var(--home-hero-slide-count, 1));
+  flex: 0 0 calc(100% / var(--carousel-hero-slide-count, 1));
   height: 100%;
   min-width: 0;
 }
 
 /* Secondary option: match hometophero band tint instead of `--bg-secondary`. */
-.rs-home-hero.rs-home-hero--content-fill-hero-tint {
-  --home-hero-content-fill: hsl(0 100% 92%);
+.rs-carousel-hero.rs-carousel-hero--content-fill-hero-tint {
+  --carousel-hero-content-fill: hsl(0 100% 92%);
 }
 
-[data-theme='dark'] .rs-home-hero.rs-home-hero--content-fill-hero-tint {
-  --home-hero-content-fill: hsl(0 100% 8%);
+[data-theme='dark'] .rs-carousel-hero.rs-carousel-hero--content-fill-hero-tint {
+  --carousel-hero-content-fill: hsl(0 100% 8%);
 }
 
-/* Desktop only: HomeHero is a shorter band than TopHero — center art vertically (shared stack uses TopHero-style top offset). */
-@keyframes rs-home-hero-image-fade-in-desktop-centered {
+/* Desktop only: CarouselHero is a shorter band than TopHero — center art vertically (shared stack uses TopHero-style top offset). */
+@keyframes rs-carousel-hero-image-fade-in-desktop-centered {
   from {
     opacity: 0;
     filter: blur(6px);
@@ -100,15 +105,21 @@
   }
 }
 
-.rs-home-hero__content {
+@media (max-width: 409px) {
+  .rs-carousel-hero {
+    --hero-image-scale: 0.75;
+  }
+}
+
+.rs-carousel-hero__content {
   position: relative;
   z-index: 2;
   box-sizing: border-box;
   /* Mobile / tablet: 0% = bottom, 100% = top — solid below 87%, fade 87%→100% into the image. */
   background: linear-gradient(
     to top,
-    var(--home-hero-content-fill) 0%,
-    var(--home-hero-content-fill) 87%,
+    var(--carousel-hero-content-fill) 0%,
+    var(--carousel-hero-content-fill) 87%,
     transparent 100%
   );
   padding: 32px;
@@ -121,14 +132,14 @@
 }
 
 /* Backdrop blur in the same band as the transparent gradient tail; mask = strong at 87% / 80% (desktop), none by 100%. */
-.rs-home-hero__content::before {
+.rs-carousel-hero__content::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  backdrop-filter: blur(var(--home-hero-content-backdrop-blur));
-  -webkit-backdrop-filter: blur(var(--home-hero-content-backdrop-blur));
+  backdrop-filter: blur(var(--carousel-hero-content-backdrop-blur));
+  -webkit-backdrop-filter: blur(var(--carousel-hero-content-backdrop-blur));
   -webkit-mask-image: linear-gradient(
     to top,
     transparent 0%,
@@ -145,12 +156,12 @@
   );
 }
 
-.rs-home-hero__content > * {
+.rs-carousel-hero__content > * {
   position: relative;
   z-index: 1;
 }
 
-.rs-home-hero__content > .rs-home-hero__cta-measure {
+.rs-carousel-hero__content > .rs-carousel-hero__cta-measure {
   position: absolute;
   left: 0;
   right: 0;
@@ -161,12 +172,12 @@
   z-index: 0;
 }
 
-.rs-home-hero__cta-measure-item {
+.rs-carousel-hero__cta-measure-item {
   width: 100%;
 }
 
 /* Groups headline + body with CTAs so desktop `space-between` keeps carousel at bottom, not CTAs in the middle gap. */
-.rs-home-hero__copy-stack {
+.rs-carousel-hero__copy-stack {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -176,7 +187,7 @@
   flex-shrink: 0;
 }
 
-.rs-home-hero__text-shell {
+.rs-carousel-hero__text-shell {
   position: relative;
   width: 100%;
   max-width: 930px;
@@ -185,7 +196,7 @@
 }
 
 /* CTAs sit between the locked copy shell and the carousel (mobile/tablet + desktop). */
-.rs-home-hero__cta-slot {
+.rs-carousel-hero__cta-slot {
   width: 100%;
   max-width: 930px;
   flex-shrink: 0;
@@ -193,11 +204,11 @@
   box-sizing: border-box;
 }
 
-.rs-home-hero__cta-slot--swap {
+.rs-carousel-hero__cta-slot--swap {
   position: relative;
 }
 
-.rs-home-hero__cta-outgoing {
+.rs-carousel-hero__cta-outgoing {
   position: absolute;
   left: 0;
   right: 0;
@@ -207,18 +218,18 @@
   pointer-events: none;
 }
 
-.rs-home-hero__cta-enter-wrap,
-.rs-home-hero__cta-exit-wrap {
+.rs-carousel-hero__cta-enter-wrap,
+.rs-carousel-hero__cta-exit-wrap {
   width: 100%;
 }
 
 /* When JS sets a shared min-height, fill it and pin CTAs to the bottom of the band. */
-.rs-home-hero__cta-slot--locked {
+.rs-carousel-hero__cta-slot--locked {
   display: flex;
   flex-direction: column;
 }
 
-.rs-home-hero__cta-slot--locked .rs-home-hero__cta-slot-inner {
+.rs-carousel-hero__cta-slot--locked .rs-carousel-hero__cta-slot-inner {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -226,18 +237,18 @@
   justify-content: flex-end;
 }
 
-.rs-home-hero__cta-slot-inner {
+.rs-carousel-hero__cta-slot-inner {
   width: 100%;
   min-height: 0;
 }
 
 /* Fixed height from JS: stops desktop `space-between` from moving CTAs when copy length changes. */
-.rs-home-hero__text-shell--locked {
+.rs-carousel-hero__text-shell--locked {
   flex-shrink: 0;
 }
 
 /* Locked copy: scroll when tall; hide scrollbar so Y slide motion does not flash a transient bar. */
-.rs-home-hero__text-shell--locked .rs-home-hero__text-block {
+.rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block {
   max-height: 100%;
   overflow-x: clip;
   overflow-y: auto;
@@ -246,11 +257,11 @@
   -ms-overflow-style: none;
 }
 
-.rs-home-hero__text-shell--locked .rs-home-hero__text-block::-webkit-scrollbar {
+.rs-carousel-hero__text-shell--locked .rs-carousel-hero__text-block::-webkit-scrollbar {
   display: none;
 }
 
-.rs-home-hero__text-measure {
+.rs-carousel-hero__text-measure {
   position: absolute;
   left: 0;
   right: 0;
@@ -260,11 +271,11 @@
   pointer-events: none;
 }
 
-.rs-home-hero__text-measure-item {
+.rs-carousel-hero__text-measure-item {
   width: 100%;
 }
 
-.rs-home-hero__text-block {
+.rs-carousel-hero__text-block {
   position: relative;
   z-index: 1;
   display: flex;
@@ -276,11 +287,11 @@
   overflow-x: clip;
 }
 
-.rs-home-hero__text-block--swap {
+.rs-carousel-hero__text-block--swap {
   position: relative;
 }
 
-.rs-home-hero__text-pane-outgoing {
+.rs-carousel-hero__text-pane-outgoing {
   position: absolute;
   left: 0;
   right: 0;
@@ -289,13 +300,13 @@
   pointer-events: none;
 }
 
-.rs-home-hero__text-pane-incoming {
+.rs-carousel-hero__text-pane-incoming {
   position: relative;
   z-index: 1;
   min-width: 0;
 }
 
-.rs-home-hero__text-pane {
+.rs-carousel-hero__text-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -305,17 +316,17 @@
 }
 
 /* Slide swap: top → bottom (enter from above, exit downward); exit first, gap, then enter (`both` = hold `from` during delay). */
-.rs-home-hero__text-pane--enter-y {
-  animation: rs-home-hero-copy-y-fade-in var(--home-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
-    var(--home-hero-slide-enter-delay) 1 normal both;
+.rs-carousel-hero__text-pane--enter-y {
+  animation: rs-carousel-hero-copy-y-fade-in var(--carousel-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--carousel-hero-slide-enter-delay) 1 normal both;
 }
 
-.rs-home-hero__text-pane--exit-y {
-  animation: rs-home-hero-copy-y-fade-out var(--home-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+.rs-carousel-hero__text-pane--exit-y {
+  animation: rs-carousel-hero-copy-y-fade-out var(--carousel-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
     forwards;
 }
 
-@keyframes rs-home-hero-copy-y-fade-in {
+@keyframes rs-carousel-hero-copy-y-fade-in {
   from {
     opacity: 0;
     transform: translate3d(0, -14px, 0);
@@ -327,7 +338,7 @@
   }
 }
 
-@keyframes rs-home-hero-copy-y-fade-out {
+@keyframes rs-carousel-hero-copy-y-fade-out {
   from {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -339,7 +350,7 @@
   }
 }
 
-.rs-home-hero__title-wrap {
+.rs-carousel-hero__title-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -349,7 +360,7 @@
   width: 100%;
 }
 
-.rs-home-hero__title {
+.rs-carousel-hero__title {
   font-family: 'Geologica Cursive';
   font-weight: 500;
   font-size: 36px;
@@ -360,7 +371,7 @@
 }
 
 /* Keep copy area below the title visually consistent across slides (min ~8 lines). */
-.rs-home-hero__body {
+.rs-carousel-hero__body {
   font-family: var(--font-body);
   font-weight: 400;
   font-size: 18px;
@@ -373,17 +384,17 @@
 }
 
 @supports (min-height: 1lh) {
-  .rs-home-hero__body {
+  .rs-carousel-hero__body {
     min-height: calc(8 * 1lh);
   }
 }
 
-.rs-home-hero__body p {
+.rs-carousel-hero__body p {
   margin: 0;
 }
 
 /* Optional per-slide CTAs (single button: same max width as HomeTopHero download). */
-.rs-home-hero__slide-ctas {
+.rs-carousel-hero__slide-ctas {
   margin-top: 0;
   margin-bottom: 0;
   padding-bottom: 0;
@@ -391,57 +402,57 @@
   box-sizing: border-box;
 }
 
-.rs-home-hero__slide-ctas-inner {
+.rs-carousel-hero__slide-ctas-inner {
   display: flex;
   width: 100%;
   box-sizing: border-box;
 }
 
-.rs-home-hero__slide-ctas--single .rs-home-hero__slide-ctas-inner {
+.rs-carousel-hero__slide-ctas--single .rs-carousel-hero__slide-ctas-inner {
   flex-direction: column;
 }
 
-.rs-home-hero__slide-ctas--single .rs-home-hero__slide-cta-wrap {
+.rs-carousel-hero__slide-ctas--single .rs-carousel-hero__slide-cta-wrap {
   width: 100%;
   max-width: 365px;
 }
 
-.rs-home-hero__slide-cta-wrap .rs-button {
+.rs-carousel-hero__slide-cta-wrap .rs-button {
   width: 100%;
 }
 
 @media (min-width: 1200px) {
-  .rs-home-hero__slide-ctas--multi .rs-home-hero__slide-ctas-inner {
+  .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-ctas-inner {
     flex-direction: row;
     align-items: stretch;
     gap: 32px;
     padding-right: 150px;
   }
 
-  .rs-home-hero__slide-ctas--multi .rs-home-hero__slide-cta-wrap {
+  .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-cta-wrap {
     flex: 1 1 0;
     min-width: 0;
   }
 }
 
 @media (max-width: 1199px) {
-  .rs-home-hero__slide-ctas--single .rs-home-hero__slide-cta-wrap {
+  .rs-carousel-hero__slide-ctas--single .rs-carousel-hero__slide-cta-wrap {
     max-width: none;
   }
 
-  .rs-home-hero__slide-ctas--multi .rs-home-hero__slide-ctas-inner {
+  .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-ctas-inner {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
     padding-right: 0;
   }
 
-  .rs-home-hero__slide-ctas--multi .rs-home-hero__slide-cta-wrap {
+  .rs-carousel-hero__slide-ctas--multi .rs-carousel-hero__slide-cta-wrap {
     width: 100%;
   }
 }
 
-.rs-home-hero__actions {
+.rs-carousel-hero__actions {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -449,7 +460,7 @@
   flex-shrink: 0;
 }
 
-.rs-home-hero__cta-row {
+.rs-carousel-hero__cta-row {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -457,34 +468,34 @@
   width: 100%;
 }
 
-.rs-home-hero__cta-row--enter-y {
-  animation: rs-home-hero-copy-y-fade-in var(--home-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
-    var(--home-hero-slide-enter-delay) 1 normal both;
+.rs-carousel-hero__cta-row--enter-y {
+  animation: rs-carousel-hero-copy-y-fade-in var(--carousel-hero-slide-enter-duration) cubic-bezier(0.22, 1, 0.36, 1)
+    var(--carousel-hero-slide-enter-delay) 1 normal both;
 }
 
-.rs-home-hero__cta-row--exit-y {
-  animation: rs-home-hero-copy-y-fade-out var(--home-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
+.rs-carousel-hero__cta-row--exit-y {
+  animation: rs-carousel-hero-copy-y-fade-out var(--carousel-hero-slide-exit-duration) cubic-bezier(0.22, 1, 0.36, 1)
     forwards;
   pointer-events: none;
 }
 
-.rs-home-hero__cta-row--at-rest-visible {
+.rs-carousel-hero__cta-row--at-rest-visible {
   opacity: 1;
   transform: translate3d(0, 0, 0);
 }
 
-.rs-home-hero__cta-row--at-rest-hidden {
+.rs-carousel-hero__cta-row--at-rest-hidden {
   opacity: 0;
   transform: translate3d(0, 0, 0);
   pointer-events: none;
 }
 
-.rs-home-hero__cta-row .rs-button {
+.rs-carousel-hero__cta-row .rs-button {
   width: 100%;
 }
 
 /* Figma Frame 7: gap above carousel row; 32px from desktop block; <1200 uses mobile rules */
-.rs-home-hero__carousel-bar {
+.rs-carousel-hero__carousel-bar {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -496,7 +507,7 @@
   box-sizing: border-box;
 }
 
-.rs-home-hero__indicator-track {
+.rs-carousel-hero__indicator-track {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -504,7 +515,7 @@
   min-width: 0;
 }
 
-.rs-home-hero__indicator {
+.rs-carousel-hero__indicator {
   flex-shrink: 0;
   box-sizing: border-box;
   appearance: none;
@@ -530,7 +541,7 @@
     border-radius 0.25s ease;
 }
 
-.rs-home-hero__indicator--active {
+.rs-carousel-hero__indicator--active {
   position: relative;
   overflow: hidden;
   width: 40px;
@@ -543,8 +554,8 @@
   background: var(--accent-color);
 }
 
-/* Autoplay countdown on the active pill (duration = --rs-home-hero-autoplay-ms on .rs-home-hero) */
-.rs-home-hero__indicator-progress {
+/* Autoplay countdown on the active pill (duration = --rs-carousel-hero-autoplay-ms on .rs-carousel-hero) */
+.rs-carousel-hero__indicator-progress {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -553,11 +564,11 @@
   transform-origin: left center;
   transform: scaleX(0);
   background: var(--accent-darkest);
-  animation: rs-home-hero-indicator-progress linear forwards;
-  animation-duration: var(--rs-home-hero-autoplay-ms, 10s);
+  animation: rs-carousel-hero-indicator-progress linear forwards;
+  animation-duration: var(--rs-carousel-hero-autoplay-ms, 10s);
 }
 
-@keyframes rs-home-hero-indicator-progress {
+@keyframes rs-carousel-hero-indicator-progress {
   from {
     transform: scaleX(0);
   }
@@ -567,12 +578,12 @@
   }
 }
 
-.rs-home-hero__indicator:focus-visible {
+.rs-carousel-hero__indicator:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
-.rs-home-hero__visual .rs-home-hero__inner-shadow {
+.rs-carousel-hero__visual .rs-carousel-hero__inner-shadow {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -582,47 +593,47 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rs-home-hero__indicator {
+  .rs-carousel-hero__indicator {
     transition: none;
   }
 
-  .rs-home-hero__text-pane--enter-y,
-  .rs-home-hero__text-pane--exit-y {
+  .rs-carousel-hero__text-pane--enter-y,
+  .rs-carousel-hero__text-pane--exit-y {
     animation: none;
     animation-delay: 0s;
     opacity: 1;
     transform: none;
   }
 
-  .rs-home-hero__cta-row--enter-y,
-  .rs-home-hero__cta-row--exit-y {
+  .rs-carousel-hero__cta-row--enter-y,
+  .rs-carousel-hero__cta-row--exit-y {
     animation: none;
     animation-delay: 0s;
     opacity: 1;
     transform: none;
   }
 
-  .rs-home-hero__cta-row--at-rest-visible {
+  .rs-carousel-hero__cta-row--at-rest-visible {
     opacity: 1;
     transform: none;
   }
 
-  .rs-home-hero__cta-row--at-rest-hidden {
+  .rs-carousel-hero__cta-row--at-rest-hidden {
     opacity: 0;
     transform: none;
   }
 
-  .rs-home-hero__indicator-progress {
+  .rs-carousel-hero__indicator-progress {
     animation: none;
     transform: scaleX(0);
     opacity: 0;
   }
 
-  .rs-home-hero__visual .rs-home-hero-image-strip {
+  .rs-carousel-hero__visual .rs-carousel-hero-image-strip {
     transition: none;
   }
 
-  .rs-home-hero__content::before {
+  .rs-carousel-hero__content::before {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     -webkit-mask-image: none;
@@ -630,7 +641,7 @@
   }
 
   @media (min-width: 1200px) {
-    .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+    .rs-carousel-hero__visual .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__image {
       transform: translate(
           calc(-50% + var(--hero-image-parallax-x)),
           calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
@@ -642,20 +653,27 @@
 
 /* Wide desktop only: opaque card ~half width on the left (tablet uses same stack as mobile). */
 @media (min-width: 1200px) {
-  .rs-home-hero {
+  /* Horizontal image strip: slightly slower slide than tablet/mobile (0.85s). */
+  @media (prefers-reduced-motion: no-preference) {
+    .rs-carousel-hero__visual .rs-carousel-hero-image-strip {
+      transition: transform 1.0s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  }
+
+  .rs-carousel-hero {
     min-height: 600px;
     max-height: none;
   }
 
-  .rs-home-hero[data-home-hero-cta-band='1'] {
+  .rs-carousel-hero[data-carousel-hero-cta-band='1'] {
     min-height: 684px;
   }
 
-  .rs-home-hero[data-home-hero-cta-band='2'] {
+  .rs-carousel-hero[data-carousel-hero-cta-band='2'] {
     min-height: 708px;
   }
 
-  .rs-home-hero__content {
+  .rs-carousel-hero__content {
     width: 50%;
     max-width: none;
     margin-top: 0;
@@ -668,21 +686,21 @@
     /* Desktop: 0% = left, 100% = right — solid to 80%, fade 80%→100% toward the image. */
     background: linear-gradient(
       to right,
-      var(--home-hero-content-fill) 0%,
-      var(--home-hero-content-fill) 80%,
+      var(--carousel-hero-content-fill) 0%,
+      var(--carousel-hero-content-fill) 80%,
       transparent 100%
     );
   }
 
-  .rs-home-hero[data-home-hero-cta-band='1'] .rs-home-hero__content {
+  .rs-carousel-hero[data-carousel-hero-cta-band='1'] .rs-carousel-hero__content {
     min-height: 684px;
   }
 
-  .rs-home-hero[data-home-hero-cta-band='2'] .rs-home-hero__content {
+  .rs-carousel-hero[data-carousel-hero-cta-band='2'] .rs-carousel-hero__content {
     min-height: 708px;
   }
 
-  .rs-home-hero__content::before {
+  .rs-carousel-hero__content::before {
     -webkit-mask-image: linear-gradient(
       to right,
       transparent 0%,
@@ -699,57 +717,57 @@
     );
   }
 
-  .rs-home-hero__text-shell {
+  .rs-carousel-hero__text-shell {
     flex: 0 0 auto;
     min-height: 0;
   }
 
-  .rs-home-hero__text-block {
+  .rs-carousel-hero__text-block {
     min-height: 0;
   }
 
-  .rs-home-hero__title-wrap {
+  .rs-carousel-hero__title-wrap {
     align-items: flex-start;
   }
 
-  .rs-home-hero__text-pane .rs-home-hero__body > *,
-  .rs-home-hero__text-measure-item .rs-home-hero__body > * {
+  .rs-carousel-hero__text-pane .rs-carousel-hero__body > *,
+  .rs-carousel-hero__text-measure-item .rs-carousel-hero__body > * {
     padding-right: 25px;
   }
 
-  .rs-home-hero__actions {
+  .rs-carousel-hero__actions {
     margin-top: auto;
     gap: 0;
   }
 
-  .rs-home-hero__cta-row {
+  .rs-carousel-hero__cta-row {
     flex-direction: row;
     gap: 16px;
   }
 
-  .rs-home-hero__cta-row .rs-button {
+  .rs-carousel-hero__cta-row .rs-button {
     flex: 1 1 0;
     width: auto;
     min-width: 0;
   }
 
-  .rs-home-hero__carousel-bar {
+  .rs-carousel-hero__carousel-bar {
     margin-top: 32px;
   }
 
   /* CTAs sit directly under the copy; shared min-height still avoids slide jumps, extra space stays below the buttons. */
-  .rs-home-hero__cta-slot--locked .rs-home-hero__cta-slot-inner {
+  .rs-carousel-hero__cta-slot--locked .rs-carousel-hero__cta-slot-inner {
     justify-content: flex-start;
   }
 
-  .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+  .rs-carousel-hero__visual .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__image {
     top: 50%;
     transform-origin: center center;
-    animation: rs-home-hero-image-fade-in-desktop-centered 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: rs-carousel-hero-image-fade-in-desktop-centered 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
   /* Strip: no per-cell remount fade; keep same parallax transform as single-stack desktop hero. */
-  .rs-home-hero__visual .rs-home-hero-image-strip .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+  .rs-carousel-hero__visual .rs-carousel-hero-image-strip .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__image {
     animation: none;
     opacity: 1;
     filter: none;
@@ -765,30 +783,30 @@
 
 /* Mobile + tablet: stacked panel through 1199px; split card from 1200px. */
 @media (max-width: 1199px) {
-  .rs-home-hero {
+  .rs-carousel-hero {
     min-height: 760px;
   }
 
-  .rs-home-hero[data-home-hero-cta-band='1'] {
+  .rs-carousel-hero[data-carousel-hero-cta-band='1'] {
     min-height: 836px;
   }
 
-  .rs-home-hero[data-home-hero-cta-band='2'] {
+  .rs-carousel-hero[data-carousel-hero-cta-band='2'] {
     min-height: 912px;
   }
 
   /* Bottom text + carousel panel: extra air above copy on small screens. */
-  .rs-home-hero__content {
+  .rs-carousel-hero__content {
     padding: 50px 24px 24px;
     /* Clear stack: copy shell → CTAs → carousel */
     gap: 16px;
   }
 
-  .rs-home-hero__cta-slot {
+  .rs-carousel-hero__cta-slot {
     margin-bottom: 20px;
   }
 
-  .rs-home-hero__carousel-bar {
+  .rs-carousel-hero__carousel-bar {
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
@@ -796,15 +814,15 @@
     margin-top: 0;
   }
 
-  .rs-home-hero__carousel-bar .rs-home-hero__indicator-track {
+  .rs-carousel-hero__carousel-bar .rs-carousel-hero__indicator-track {
     justify-self: center;
   }
 
-  .rs-home-hero__visual .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+  .rs-carousel-hero__visual .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__image {
     left: var(--hero-image-left-mobile);
   }
 
-  .rs-home-hero__visual .rs-home-hero-image-strip .rs-home-hero-image-stack--home-hero .rs-home-hero-image-stack__image {
+  .rs-carousel-hero__visual .rs-carousel-hero-image-strip .rs-home-hero-image-stack--carousel-hero .rs-home-hero-image-stack__image {
     animation: none;
     opacity: 1;
     filter: none;

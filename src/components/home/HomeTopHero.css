@@ -25,6 +25,12 @@
   background: hsl(0 100% 8%);
 }
 
+@media (max-width: 409px) {
+  .rs-home-top-hero {
+    --hero-image-scale: 0.75;
+  }
+}
+
 @media (max-width: 639px) {
   .rs-home-top-hero {
     margin-bottom: calc(-1 * var(--space-2xl));

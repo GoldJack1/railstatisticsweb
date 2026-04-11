@@ -7,6 +7,20 @@
     gap: 0;
 }
 
+/* HomePage: carousel hero (full-bleed). */
+.home-page__carousel-hero {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* HomePage: extra StaticHero demos (single vs dual CTA, desktop vertical align). */
+.home-page__static-hero-examples {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 /* Hero Section */
 .hero {
     text-align: center;

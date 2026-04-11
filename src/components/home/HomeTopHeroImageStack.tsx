@@ -7,7 +7,7 @@ import {
 } from './homeTopHeroImageConstants'
 import './HomeTopHeroImageStack.css'
 
-export type HomeTopHeroImageStackVariant = 'topHero' | 'homeHero'
+export type HomeTopHeroImageStackVariant = 'topHero' | 'homeHero' | 'carouselHero' | 'staticHero'
 
 /** Overrides default hometophero URLs (per-slide carousel art, tests, etc.). */
 export interface HomeTopHeroImageStackSources {
@@ -19,18 +19,20 @@ export interface HomeTopHeroImageStackSources {
 
 export interface HomeTopHeroImageStackProps {
   variant: HomeTopHeroImageStackVariant
-  /** `eager` for above-the-fold (TopHero); `lazy` ok for lower HomeHero. */
+  /** `eager` for above-the-fold (TopHero); `lazy` ok for lower carousel sections. */
   loading?: 'eager' | 'lazy'
-  /** When set, replaces built-in hometophero paths (HomeHero passes merged per-slide sources). */
+  /** When set, replaces built-in hometophero paths (e.g. `CarouselHero` merged per-slide sources). */
   sources?: HomeTopHeroImageStackSources
   /** Optional `img` alt when art is meaningful; empty for decorative. */
   alt?: string
 }
 
-/** TopHero: desktop-tablet art from 640px. HomeHero: mobile art until 1200px (matches HomeHero CSS split). */
+/** TopHero: desktop-tablet art from 640px. HomeHero / CarouselHero / StaticHero: mobile art until 1200px. */
 const DESKTOP_PICTURE_MEDIA: Record<HomeTopHeroImageStackVariant, string> = {
   topHero: '(min-width: 640px)',
-  homeHero: '(min-width: 1200px)'
+  homeHero: '(min-width: 1200px)',
+  carouselHero: '(min-width: 1200px)',
+  staticHero: '(min-width: 1200px)'
 }
 
 const HomeTopHeroImageStack: React.FC<HomeTopHeroImageStackProps> = ({
@@ -48,7 +50,13 @@ const HomeTopHeroImageStack: React.FC<HomeTopHeroImageStackProps> = ({
     <div
       className={[
         'rs-home-hero-image-stack',
-        variant === 'topHero' ? 'rs-home-hero-image-stack--top-hero' : 'rs-home-hero-image-stack--home-hero'
+        variant === 'topHero'
+          ? 'rs-home-hero-image-stack--top-hero'
+          : variant === 'carouselHero'
+            ? 'rs-home-hero-image-stack--carousel-hero'
+            : variant === 'staticHero'
+              ? 'rs-home-hero-image-stack--static-hero'
+              : 'rs-home-hero-image-stack--home-hero'
       ].join(' ')}
       aria-hidden="true"
     >
