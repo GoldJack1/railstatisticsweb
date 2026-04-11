@@ -35,6 +35,13 @@ function fontHeadersPlugin() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: path.resolve(__dirname, 'src/test/setup.ts'),
+    include: ['src/**/*.test.{ts,tsx}'],
+    css: true
+  },
   // Stable root (avoids cwd quirks); important when the path contains spaces (e.g. "Rail Statistics").
   root: path.resolve(__dirname),
   appType: 'spa',

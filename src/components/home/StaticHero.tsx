@@ -2,45 +2,59 @@
  * Single-slide hero: same full-bleed layout and image stack as `CarouselHero`, without strip, autoplay, or controls.
  */
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import Button from '../Button'
 import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
 import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './homeTopHeroImageConstants'
-import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
+import {
+  HeroSlideCtaRow,
+  HeroSlideMeasureCopy,
+  HeroSlideTextContent,
+  type HeroTitleHeadingLevel
+} from './HeroSlideCopy'
 import {
   mergeCarouselHeroSlideSources,
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
-  type CarouselHeroSlideCta
+  type HeroTextStyle
 } from './heroCarouselSlideModel'
+import { heroCopySlideCssVarProperties } from './heroSlideAnimationTokens'
+import {
+  CTA_SLOT_HEIGHT_BUFFER_PX,
+  measureBlockHeight,
+  scheduleDoubleRaf,
+  TEXT_SHELL_HEIGHT_BUFFER_PX
+} from './heroMeasure'
+import { unionDOMRects, useScrollDirectionFadeBounds } from '../../hooks/useScrollDirectionFade'
+import { scrollFadeRevealClassNames } from '../ScrollFadeReveal'
+import '../ScrollFadeReveal.css'
+import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
+import { useLockedHeroTextBlockScroll } from './useLockedHeroTextBlockScroll'
 import './StaticHero.css'
 
 export type StaticHeroSlide = CarouselHeroSlide
 
+/** @deprecated Use `HeroTextStyle` from `heroCarouselSlideModel` — same union. */
+export type StaticHeroTextStyle = HeroTextStyle
+
 /** Desktop (≥1200px): vertical placement of the text + CTA column inside the content panel. */
 export type StaticHeroDesktopContentVerticalAlign = 'bottom' | 'top' | 'center'
 
-/** `hero` (default): carousel-style title/body sizes. `splash`: wide desktop matches HomeTopHero title/subtitle scale (see CSS). */
-export type StaticHeroTextStyle = 'hero' | 'splash'
-
-const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
-const CTA_SLOT_HEIGHT_BUFFER_PX = 4
+const NS = 'static' as const
 const LOCKED_TEXT_BLOCK_SCROLL_CLASS = 'rs-static-hero__text-block--scroll-y'
-
-function measureBlockHeight(el: HTMLElement): number {
-  const rect = el.getBoundingClientRect().height
-  return Math.max(el.offsetHeight, el.scrollHeight, rect)
-}
 
 export interface StaticHeroProps {
   slide: StaticHeroSlide
   /** Defaults merged into `slide.imageSources` (partials override). */
   defaultImageSources?: HomeTopHeroImageStackSources
+  /**
+   * Hero image `loading` hint. Use `eager` for the primary above-the-fold hero; `lazy` for lower sections (default).
+   */
+  imageLoading?: 'eager' | 'lazy'
   className?: string
   /** `aria-label` on the region (default: Featured). */
   ariaLabel?: string
   /**
    * `bgSecondary` (default): gradient solid uses `var(--bg-secondary)`.
-   * `heroTint`: solid matches the hometophero band (`hsl(0 100% 92%)` / dark `hsl(0 100% 8%)`).
+   * `heroTint`: solid matches the hero band (`hsl(354 100% 85%)` / dark `hsl(0 100% 8%)`).
    */
   contentFill?: CarouselHeroContentFill
   /**
@@ -52,66 +66,21 @@ export interface StaticHeroProps {
    * Typography scale: `splash` uses HomeTopHero-sized copy on desktop only (≥1200px).
    * On desktop, splash also **vertically centers** the copy + CTA block; set `desktopContentVerticalAlign="top"` to pin it to the top instead.
    */
-  textStyle?: StaticHeroTextStyle
+  textStyle?: HeroTextStyle
+  /** Semantic level for the visible title (default `2` for a typical section hero). */
+  titleHeadingLevel?: HeroTitleHeadingLevel
 }
-
-const HeroSlideCtaRow: React.FC<{ ctas?: CarouselHeroSlideCta[] }> = ({ ctas }) => {
-  if (!ctas?.length) return null
-  const multi = ctas.length > 1
-  return (
-    <div
-      className={[
-        'rs-static-hero__slide-ctas',
-        multi ? 'rs-static-hero__slide-ctas--multi' : 'rs-static-hero__slide-ctas--single'
-      ].join(' ')}
-    >
-      <div className="rs-static-hero__slide-ctas-inner">
-        {ctas.map((cta, i) => (
-          <div key={i} className="rs-static-hero__slide-cta-wrap">
-            <Button
-              variant="wide"
-              shape="rounded"
-              width="fill"
-              colorVariant="accent"
-              className="rs-home-top-hero__cta"
-              href={cta.href}
-              target={cta.target}
-              onClick={cta.onClick}
-              type="button"
-              instantAction={!cta.href && Boolean(cta.onClick)}
-            >
-              {cta.label}
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const HeroSlideTextContent: React.FC<{ title: string; body: React.ReactNode }> = ({ title, body }) => (
-  <>
-    <div className="rs-static-hero__title-wrap">
-      <h2 className="rs-static-hero__title">{title}</h2>
-    </div>
-    <div className="rs-static-hero__body">{body}</div>
-  </>
-)
-
-const HeroSlideMeasureCopy: React.FC<{ slide: Pick<CarouselHeroSlide, 'title' | 'body'> }> = ({ slide }) => (
-  <div className="rs-static-hero__text-measure-item">
-    <HeroSlideTextContent title={slide.title} body={slide.body} />
-  </div>
-)
 
 const StaticHero: React.FC<StaticHeroProps> = ({
   slide,
   defaultImageSources = DEFAULT_HERO_STACK_IMAGE_SOURCES,
+  imageLoading = 'lazy',
   className = '',
   ariaLabel = 'Featured',
   contentFill = 'bgSecondary',
   desktopContentVerticalAlign = 'bottom',
-  textStyle = 'hero'
+  textStyle = 'hero',
+  titleHeadingLevel = 2
 }) => {
   const staticSectionRef = useRef<HTMLElement | null>(null)
   useHomeTopHeroImageMotion(staticSectionRef, true)
@@ -122,6 +91,8 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
   const ctaMeasureRootRef = useRef<HTMLDivElement>(null)
   const ctaSlotInnerRef = useRef<HTMLDivElement>(null)
+  const scrollFadeVisualRef = useRef<HTMLDivElement>(null)
+  const scrollFadeCopyRef = useRef<HTMLDivElement>(null)
 
   const [tallestSlideTextPx, setTallestSlideTextPx] = useState<number | undefined>(undefined)
   const [tallestCtaRowPx, setTallestCtaRowPx] = useState<number | undefined>(undefined)
@@ -170,11 +141,9 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   }, [maxCtaCount])
 
   const scheduleMeasure = useCallback(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        measureTallestSlideText()
-        measureTallestCtaRow()
-      })
+    scheduleDoubleRaf(() => {
+      measureTallestSlideText()
+      measureTallestCtaRow()
     })
   }, [measureTallestSlideText, measureTallestCtaRow])
 
@@ -205,27 +174,24 @@ const StaticHero: React.FC<StaticHeroProps> = ({
     measureTallestCtaRow()
   }, [slide.title, slide.body, slide.ctas?.length, textStyle, measureTallestSlideText, measureTallestCtaRow])
 
-  useLayoutEffect(() => {
-    const block = textBlockRef.current
-    if (!block) return
-    if (tallestSlideTextPx == null) {
-      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
-      return
-    }
-    const sync = () => {
-      const el = textBlockRef.current
-      if (!el) return
-      const needsScroll = el.scrollHeight > el.clientHeight + 2
-      el.classList.toggle(LOCKED_TEXT_BLOCK_SCROLL_CLASS, needsScroll)
-    }
-    sync()
-    const ro = new ResizeObserver(sync)
-    ro.observe(block)
-    return () => {
-      ro.disconnect()
-      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
-    }
-  }, [tallestSlideTextPx, slide.title, slide.body, textStyle])
+  const textBlockScrollLayoutKey = `${tallestSlideTextPx ?? ''}|${slide.title}|${textStyle}|${titleHeadingLevel}`
+  useLockedHeroTextBlockScroll(
+    textBlockRef,
+    tallestSlideTextPx != null,
+    LOCKED_TEXT_BLOCK_SCROLL_CLASS,
+    textBlockScrollLayoutKey
+  )
+
+  const getScrollFadeUnionBounds = useCallback((): DOMRect | null => {
+    const a = scrollFadeVisualRef.current?.getBoundingClientRect() ?? null
+    const b = scrollFadeCopyRef.current?.getBoundingClientRect() ?? null
+    if (a && b) return unionDOMRects(a, b)
+    return a ?? b
+  }, [])
+
+  const scrollFadeLayoutBust = `${slide.title}|${tallestSlideTextPx ?? ''}|${tallestCtaRowPx ?? ''}|${textStyle}|${maxCtaCount}`
+
+  const scrollFadeVisible = useScrollDirectionFadeBounds(getScrollFadeUnionBounds, scrollFadeLayoutBust)
 
   useEffect(() => {
     let cancelled = false
@@ -251,12 +217,16 @@ const StaticHero: React.FC<StaticHeroProps> = ({
       data-static-hero-cta-band={staticHeroCtaBand}
       data-static-hero-desktop-valign={desktopContentVerticalAlign}
       aria-label={ariaLabel}
+      style={heroCopySlideCssVarProperties('static')}
     >
       <div className="rs-static-hero__visual" aria-hidden="true">
-        <div className="rs-static-hero__visual-inner">
+        <div
+          ref={scrollFadeVisualRef}
+          className={`rs-static-hero__visual-inner ${scrollFadeRevealClassNames(scrollFadeVisible)}`}
+        >
           <HomeTopHeroImageStack
             variant="staticHero"
-            loading="lazy"
+            loading={imageLoading}
             sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
             alt={slide.imageAlt ?? ''}
           />
@@ -267,12 +237,15 @@ const StaticHero: React.FC<StaticHeroProps> = ({
         {slide.ctas?.length ? (
           <div ref={ctaMeasureRootRef} className="rs-static-hero__cta-measure" aria-hidden="true">
             <div className="rs-static-hero__cta-measure-item">
-              <HeroSlideCtaRow ctas={slide.ctas} />
+              <HeroSlideCtaRow namespace={NS} ctas={slide.ctas} />
             </div>
           </div>
         ) : null}
 
-        <div className="rs-static-hero__copy-stack">
+        <div
+          ref={scrollFadeCopyRef}
+          className={`rs-static-hero__copy-stack ${scrollFadeRevealClassNames(scrollFadeVisible)}`}
+        >
           <div
             ref={textShellRef}
             className={[
@@ -288,12 +261,17 @@ const StaticHero: React.FC<StaticHeroProps> = ({
             }
           >
             <div ref={measureRootRef} className="rs-static-hero__text-measure" aria-hidden="true">
-              <HeroSlideMeasureCopy slide={slide} />
+              <HeroSlideMeasureCopy namespace={NS} slide={slide} titleHeadingLevel={titleHeadingLevel} />
             </div>
             <div ref={textBlockRef} className="rs-static-hero__text-block">
               <div ref={visibleTextBlockRef} className="rs-static-hero__text-pane-incoming">
                 <div className="rs-static-hero__text-pane">
-                  <HeroSlideTextContent title={slide.title} body={slide.body} />
+                  <HeroSlideTextContent
+                    namespace={NS}
+                    title={slide.title}
+                    body={slide.body}
+                    titleHeadingLevel={titleHeadingLevel}
+                  />
                 </div>
               </div>
             </div>
@@ -311,7 +289,7 @@ const StaticHero: React.FC<StaticHeroProps> = ({
             >
               <div ref={ctaSlotInnerRef} className="rs-static-hero__cta-slot-inner">
                 <div className="rs-static-hero__cta-enter-wrap">
-                  <HeroSlideCtaRow ctas={slide.ctas} />
+                  <HeroSlideCtaRow namespace={NS} ctas={slide.ctas} />
                 </div>
               </div>
             </div>

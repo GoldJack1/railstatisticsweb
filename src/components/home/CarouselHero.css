@@ -1,27 +1,22 @@
+@import './heroShared.css';
+@import './heroSplashText.css';
+
 /* CarouselHero: full-bleed; carousel bar matches Figma (pill + dots, prev/next 40×40) */
 
 /* Same idea as HomeTopHero: full-bleed image layer (z-index 0), text+carousel card above (z-index 2). */
 .rs-carousel-hero {
-  /* Image stack motion (parallax/scale). */
-  --hero-image-left-desktop: 50%;
-  --hero-image-left-mobile: 40%;
-  --hero-image-top-desktop: -50px;
-  --hero-image-scale: 1;
-  --hero-image-parallax-x: 0px;
-  --hero-image-parallax-y: 0px;
-  --hero-image-motion-y: 0px;
+  position: relative;
   /* Text panel gradient solid stops (primary: page secondary surface). */
   --carousel-hero-content-fill: var(--bg-secondary);
   /* Progressive backdrop blur behind the transparent tail of the content gradient. */
   --carousel-hero-content-backdrop-blur: 28px;
-  /* Copy/CTA slide swap: exit → pause → enter (must match `CarouselHero.tsx` clear timeout). */
-  --carousel-hero-slide-exit-duration: 380ms;
-  --carousel-hero-slide-enter-gap: 45ms;
-  --carousel-hero-slide-enter-duration: 520ms;
+  /* Copy/CTA slide swap: defaults match `heroSlideAnimationTokens.ts`; overridden inline from JS. */
+  --carousel-hero-slide-exit-duration: 280ms;
+  --carousel-hero-slide-enter-gap: 8ms;
+  --carousel-hero-slide-enter-duration: 450ms;
   --carousel-hero-slide-enter-delay: calc(
     var(--carousel-hero-slide-exit-duration) + var(--carousel-hero-slide-enter-gap)
   );
-  position: relative;
   isolation: isolate;
   display: flex;
   flex-direction: column;
@@ -34,18 +29,38 @@
   touch-action: pan-y;
 }
 
+/* Screen reader status when the active slide changes (paired with `liveStatus` in CarouselHero.tsx). */
+.rs-carousel-hero__sr-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
 /* Match HomeTopHero section tint behind the art (light / dark). */
 .rs-carousel-hero__visual {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: hsl(0 100% 92%);
+  background: hsl(354 100% 85%);
   pointer-events: none;
 }
 
 [data-theme='dark'] .rs-carousel-hero__visual {
   background: hsl(0 100% 8%);
+}
+
+/* Image strip only: tint lives on `__visual` so scroll-fade never hides the hero backdrop. */
+.rs-carousel-hero__visual-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 /* Horizontal strip: `--carousel-hero-slide-count` = cells (slides + optional trailing clone); `--carousel-hero-slide-index` = active cell for translateX. */
@@ -58,7 +73,7 @@
   width: calc(var(--carousel-hero-slide-count, 1) * 100%);
   height: 100%;
   transform: translateX(calc(var(--carousel-hero-slide-index, 0) * (-100% / var(--carousel-hero-slide-count, 1))));
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 1.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* After forward wrap (last → duplicate first cell), snap real index 0 without animating backward. */
@@ -75,7 +90,7 @@
 
 /* Secondary option: match hometophero band tint instead of `--bg-secondary`. */
 .rs-carousel-hero.rs-carousel-hero--content-fill-hero-tint {
-  --carousel-hero-content-fill: hsl(0 100% 92%);
+  --carousel-hero-content-fill: hsl(354 100% 85%);
 }
 
 [data-theme='dark'] .rs-carousel-hero.rs-carousel-hero--content-fill-hero-tint {
@@ -102,12 +117,6 @@
         calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
       )
       scale(var(--hero-image-scale));
-  }
-}
-
-@media (max-width: 409px) {
-  .rs-carousel-hero {
-    --hero-image-scale: 0.75;
   }
 }
 
@@ -519,14 +528,13 @@
   min-width: 0;
 }
 
-.rs-carousel-hero__indicator {
+/* One wrapper per slide so width/background interpolate when the active slide changes. */
+.rs-carousel-hero__indicator-wrap {
+  --rs-carousel-indicator-pill-duration: 0.42s;
+  --rs-carousel-indicator-pill-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
   flex-shrink: 0;
   box-sizing: border-box;
-  appearance: none;
-  -webkit-appearance: none;
-  margin: 0;
-  padding: 0;
-  border: none;
   width: 20px;
   min-width: 20px;
   max-width: 20px;
@@ -536,33 +544,58 @@
   border-radius: 20px;
   background: color-mix(in srgb, var(--text-primary) 70%, transparent);
   cursor: pointer;
-  vertical-align: middle;
   transition:
-    width 0.25s ease,
-    min-width 0.25s ease,
-    max-width 0.25s ease,
-    background-color 0.25s ease,
-    border-radius 0.25s ease;
+    width var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    min-width var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    max-width var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    height var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    min-height var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    max-height var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    border-radius var(--rs-carousel-indicator-pill-duration) var(--rs-carousel-indicator-pill-ease),
+    background-color 0.32s ease;
 }
 
-.rs-carousel-hero__indicator--active {
-  position: relative;
+.rs-carousel-hero__indicator-wrap--active {
   overflow: hidden;
   width: 40px;
   min-width: 40px;
   max-width: 40px;
-  height: 20px;
-  min-height: 20px;
-  max-height: 20px;
   border-radius: 44px;
   background: var(--accent-color);
+  cursor: default;
+}
+
+.rs-carousel-hero__indicator {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: opacity 0.22s ease, transform 0.32s var(--rs-carousel-indicator-pill-ease);
+}
+
+.rs-carousel-hero__indicator:hover {
+  opacity: 0.92;
+}
+
+.rs-carousel-hero__indicator:active {
+  transform: scale(0.94);
 }
 
 /* Autoplay countdown on the active pill (duration = --rs-carousel-hero-autoplay-ms on .rs-carousel-hero) */
 .rs-carousel-hero__indicator-progress {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   border-radius: inherit;
   pointer-events: none;
   transform-origin: left center;
@@ -570,6 +603,40 @@
   background: var(--accent-darkest);
   animation: rs-carousel-hero-indicator-progress linear forwards;
   animation-duration: var(--rs-carousel-hero-autoplay-ms, 10s);
+}
+
+.rs-carousel-hero--autoplay-user-paused .rs-carousel-hero__indicator-progress {
+  animation-play-state: paused;
+}
+
+.rs-carousel-hero__indicator-autoplay-toggle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  /* High contrast on accent pill in light + dark themes. */
+  color: #fff;
+  background: transparent;
+  box-shadow: none;
+}
+
+.rs-carousel-hero__indicator-autoplay-toggle:hover {
+  opacity: 0.88;
+}
+
+.rs-carousel-hero__indicator-autoplay-toggle:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 @keyframes rs-carousel-hero-indicator-progress {
@@ -597,6 +664,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .rs-carousel-hero__indicator-wrap {
+    transition: none;
+  }
+
   .rs-carousel-hero__indicator {
     transition: none;
   }
@@ -657,10 +728,10 @@
 
 /* Wide desktop only: opaque card ~half width on the left (tablet uses same stack as mobile). */
 @media (min-width: 1200px) {
-  /* Horizontal image strip: slightly slower slide than tablet/mobile (0.85s). */
+  /* Horizontal image strip: slower slide than default (tablet/mobile use 1.15s). */
   @media (prefers-reduced-motion: no-preference) {
     .rs-carousel-hero__visual .rs-carousel-hero-image-strip {
-      transition: transform 1.0s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: transform 1.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
   }
 

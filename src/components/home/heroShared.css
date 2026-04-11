@@ -1,0 +1,76 @@
+/* Shared image-stack motion + breakpoint scale for StaticHero + CarouselHero. */
+
+.rs-static-hero,
+.rs-carousel-hero {
+  --hero-image-left-desktop: 50%;
+  --hero-image-left-mobile: 40%;
+  --hero-image-top-desktop: -50px;
+  --hero-image-scale: 1;
+  --hero-image-parallax-x: 0px;
+  --hero-image-parallax-y: 0px;
+  --hero-image-motion-y: 0px;
+}
+
+@media (max-width: 409px) {
+  .rs-static-hero,
+  .rs-carousel-hero {
+    --hero-image-scale: 0.75;
+  }
+}
+
+/* First-paint stagger (legacy HomeTopHero: 300 / 400 / 500 ms delays, 700 ms ease). */
+@keyframes rs-hero-mount-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /*
+   * StaticHero: stagger title → body → CTA on first paint.
+   * CarouselHero: do not stagger title/body — they sit inside scroll-fade + slide `enter-y` on the pane;
+   *   a second mount animation here read as a double fade-in/out with those layers.
+   */
+  .rs-static-hero__text-pane .rs-static-hero__title-wrap {
+    opacity: 0;
+    animation: rs-hero-mount-fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: 300ms;
+  }
+
+  .rs-static-hero__text-pane .rs-static-hero__body {
+    opacity: 0;
+    animation: rs-hero-mount-fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: 400ms;
+  }
+
+  .rs-static-hero__cta-slot,
+  .rs-carousel-hero__cta-slot {
+    opacity: 0;
+    animation: rs-hero-mount-fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: 500ms;
+  }
+
+  .rs-carousel-hero__actions {
+    opacity: 0;
+    animation: rs-hero-mount-fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: 600ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-static-hero__text-pane .rs-static-hero__title-wrap,
+  .rs-static-hero__text-pane .rs-static-hero__body,
+  .rs-static-hero__cta-slot,
+  .rs-carousel-hero__cta-slot,
+  .rs-carousel-hero__actions {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

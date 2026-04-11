@@ -1,23 +1,18 @@
+@import './heroShared.css';
+@import './heroSplashText.css';
+
 /* StaticHero: full-bleed single panel (same layout shell as CarouselHero, no strip or controls). */
 
 /* Same idea as HomeTopHero: full-bleed image layer (z-index 0), text card above (z-index 2). */
 .rs-static-hero {
-  /* Image stack motion (parallax/scale). */
-  --hero-image-left-desktop: 50%;
-  --hero-image-left-mobile: 40%;
-  --hero-image-top-desktop: -50px;
-  --hero-image-scale: 1;
-  --hero-image-parallax-x: 0px;
-  --hero-image-parallax-y: 0px;
-  --hero-image-motion-y: 0px;
   /* Text panel gradient solid stops (primary: page secondary surface). */
   --static-hero-content-fill: var(--bg-secondary);
   /* Progressive backdrop blur behind the transparent tail of the content gradient. */
   --static-hero-content-backdrop-blur: 28px;
-  /* Unused by default markup; kept so swap animation rules stay valid if reused. */
-  --static-hero-slide-exit-duration: 380ms;
-  --static-hero-slide-enter-gap: 45ms;
-  --static-hero-slide-enter-duration: 520ms;
+  /* Copy swap timings: defaults match `heroSlideAnimationTokens.ts`; overridden inline from JS. */
+  --static-hero-slide-exit-duration: 280ms;
+  --static-hero-slide-enter-gap: -100ms;
+  --static-hero-slide-enter-duration: 450ms;
   --static-hero-slide-enter-delay: calc(
     var(--static-hero-slide-exit-duration) + var(--static-hero-slide-enter-gap)
   );
@@ -40,7 +35,7 @@
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: hsl(0 100% 92%);
+  background: hsl(354 100% 85%);
   pointer-events: none;
 }
 
@@ -56,7 +51,7 @@
 
 /* Secondary option: match hometophero band tint instead of `--bg-secondary`. */
 .rs-static-hero.rs-static-hero--content-fill-hero-tint {
-  --static-hero-content-fill: hsl(0 100% 92%);
+  --static-hero-content-fill: hsl(354 100% 85%);
 }
 
 [data-theme='dark'] .rs-static-hero.rs-static-hero--content-fill-hero-tint {
@@ -83,12 +78,6 @@
         calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
       )
       scale(var(--hero-image-scale));
-  }
-}
-
-@media (max-width: 409px) {
-  .rs-static-hero {
-    --hero-image-scale: 0.75;
   }
 }
 
@@ -649,29 +638,6 @@
 
   .rs-static-hero[data-static-hero-desktop-valign='center'] .rs-static-hero__copy-stack {
     margin-top: 0;
-  }
-
-  /*
-   * Splash text (desktop only): match HomeTopHero headline scale at wide desktop
-   * (`.rs-home-top-hero__title` / `__subtitle` at min-width 1024px → 45px / 24px).
-   * StaticHero applies this from min-width 1200px to match the split-card desktop layout.
-   */
-  .rs-static-hero--text-splash .rs-static-hero__title {
-    font-family: var(--font-body);
-    font-weight: 400;
-    font-size: 45px;
-  }
-
-  .rs-static-hero--text-splash .rs-static-hero__body {
-    font-size: 24px;
-    /* Slightly fewer “lines” of reserved min-height than default hero — body is larger. */
-    min-height: calc(6 * 1.35em);
-  }
-
-  @supports (min-height: 1lh) {
-    .rs-static-hero--text-splash .rs-static-hero__body {
-      min-height: calc(6 * 1lh);
-    }
   }
 
   /*

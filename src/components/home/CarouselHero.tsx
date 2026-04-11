@@ -4,24 +4,46 @@
  */
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Button from '../Button'
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import HomeTopHeroImageStack, { type HomeTopHeroImageStackSources } from './HomeTopHeroImageStack'
 import { DEFAULT_HERO_STACK_IMAGE_SOURCES, DEFAULT_HOMETOPHERO_IMAGE_SOURCES } from './homeTopHeroImageConstants'
+import {
+  HeroSlideCtaRow,
+  HeroSlideMeasureCopy,
+  HeroSlideTextContent,
+  type HeroTitleHeadingLevel
+} from './HeroSlideCopy'
 import {
   mergeCarouselHeroSlideSources,
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
-  type CarouselHeroSlideCta
+  type HeroTextStyle
 } from './heroCarouselSlideModel'
+import {
+  CTA_SLOT_HEIGHT_BUFFER_PX,
+  measureBlockHeight,
+  scheduleDoubleRaf,
+  TEXT_SHELL_HEIGHT_BUFFER_PX
+} from './heroMeasure'
+import { getHeroSlideSwapClearTimeoutMs, heroCopySlideCssVarProperties } from './heroSlideAnimationTokens'
+import { unionDOMRects, useScrollDirectionFadeBounds } from '../../hooks/useScrollDirectionFade'
+import { scrollFadeRevealClassNames } from '../ScrollFadeReveal'
+import '../ScrollFadeReveal.css'
 import { useHomeTopHeroImageMotion } from './useHomeTopHeroImageMotion'
+import { useLockedHeroTextBlockScroll } from './useLockedHeroTextBlockScroll'
 import './CarouselHero.css'
 
+/* Re-export slide model next to the component for import ergonomics. */
+/* eslint-disable react-refresh/only-export-components */
 export type {
   CarouselHeroSlideImageSources,
   CarouselHeroSlideCta,
   CarouselHeroSlide,
-  CarouselHeroContentFill
+  CarouselHeroContentFill,
+  HeroTextStyle
 } from './heroCarouselSlideModel'
 export { mergeCarouselHeroSlideSources } from './heroCarouselSlideModel'
+/* eslint-enable react-refresh/only-export-components */
 
 /** @deprecated Use DEFAULT_HOMETOPHERO_IMAGE_SOURCES — same hometophero assets as HomeTopHero. */
 const DEFAULT_IMAGE_SOURCES = DEFAULT_HOMETOPHERO_IMAGE_SOURCES
@@ -38,33 +60,9 @@ const TOUCH_DIRECTION_SLOP_PX = 14
 const VERTICAL_SCROLL_CANCEL_RATIO = 1.28
 /** On touchend, horizontal distance must be at least this factor × vertical distance to count as a carousel swipe. */
 const SWIPE_HORIZONTAL_DOMINANCE_RATIO = 1.35
-/** Extra px so rounding / font rasterization does not let the live block exceed the locked shell height. */
-const TEXT_SHELL_HEIGHT_BUFFER_PX = 6
-/** Same idea for the shared CTA row slot when any slide has buttons. */
-const CTA_SLOT_HEIGHT_BUFFER_PX = 4
+
+const NS = 'carousel' as const
 const LOCKED_TEXT_BLOCK_SCROLL_CLASS = 'rs-carousel-hero__text-block--scroll-y'
-/** Must match `--carousel-hero-slide-*` on `.rs-carousel-hero` (exit + gap + enter + buffer before DOM unmount). */
-const HERO_SLIDE_EXIT_MS = 380
-const HERO_SLIDE_GAP_MS = 45
-const HERO_SLIDE_ENTER_MS = 520
-const HERO_SLIDE_SWAP_CLEAR_MS = HERO_SLIDE_EXIT_MS + HERO_SLIDE_GAP_MS + HERO_SLIDE_ENTER_MS + 50
-
-function measureBlockHeight(el: HTMLElement): number {
-  const rect = el.getBoundingClientRect().height
-  return Math.max(el.offsetHeight, el.scrollHeight, rect)
-}
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const apply = () => setReduced(mq.matches)
-    apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
-  }, [])
-  return reduced
-}
 
 export interface CarouselHeroProps {
   /** Any number of slides ≥ 1; navigation chrome hides when only one slide. */
@@ -81,9 +79,21 @@ export interface CarouselHeroProps {
   ariaLabel?: string
   /**
    * `bgSecondary` (default): gradient solid uses `var(--bg-secondary)`.
-   * `heroTint`: solid matches the hometophero band (`hsl(0 100% 92%)` / dark `hsl(0 100% 8%)`).
+   * `heroTint`: solid matches the hero band (`hsl(354 100% 85%)` / dark `hsl(0 100% 8%)`).
    */
   contentFill?: CarouselHeroContentFill
+  /**
+   * Pause autoplay while the pointer is over the carousel chrome (prev/next, dots, pause)
+   * — not the copy/CTA panel — so reading the hero does not freeze slides (ignored when reduced motion).
+   * Manual navigation clears this pause so autoplay can resume without moving the pointer off the bar.
+   */
+  pauseOnHover?: boolean
+  /** Pause autoplay while focus is inside the hero (keyboard users). */
+  pauseOnFocusWithin?: boolean
+  /** Desktop splash typography (≥1200px); layout matches default carousel band. */
+  textStyle?: HeroTextStyle
+  /** Semantic level for the visible title (default `1` for a primary page carousel). */
+  titleHeadingLevel?: HeroTitleHeadingLevel
 }
 
 const ChevronLeft: React.FC = () => (
@@ -110,54 +120,17 @@ const ChevronRight: React.FC = () => (
   </svg>
 )
 
-const HeroSlideCtaRow: React.FC<{ ctas?: CarouselHeroSlideCta[] }> = ({ ctas }) => {
-  if (!ctas?.length) return null
-  const multi = ctas.length > 1
-  return (
-    <div
-      className={[
-        'rs-carousel-hero__slide-ctas',
-        multi ? 'rs-carousel-hero__slide-ctas--multi' : 'rs-carousel-hero__slide-ctas--single'
-      ].join(' ')}
-    >
-      <div className="rs-carousel-hero__slide-ctas-inner">
-        {ctas.map((cta, i) => (
-          <div key={i} className="rs-carousel-hero__slide-cta-wrap">
-            <Button
-              variant="wide"
-              shape="rounded"
-              width="fill"
-              colorVariant="accent"
-              className="rs-home-top-hero__cta"
-              href={cta.href}
-              target={cta.target}
-              onClick={cta.onClick}
-              type="button"
-              instantAction={!cta.href && Boolean(cta.onClick)}
-            >
-              {cta.label}
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** Measure title + body only — CTAs render outside the locked shell so they sit above the carousel. */
-const HeroSlideTextContent: React.FC<{ title: string; body: React.ReactNode }> = ({ title, body }) => (
-  <>
-    <div className="rs-carousel-hero__title-wrap">
-      <h1 className="rs-carousel-hero__title">{title}</h1>
-    </div>
-    <div className="rs-carousel-hero__body">{body}</div>
-  </>
+const AutoplayPauseIcon: React.FC = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <rect x="2" y="1.5" width="2" height="7" rx="0.5" fill="currentColor" />
+    <rect x="6" y="1.5" width="2" height="7" rx="0.5" fill="currentColor" />
+  </svg>
 )
 
-const HeroSlideMeasureCopy: React.FC<{ slide: Pick<CarouselHeroSlide, 'title' | 'body'> }> = ({ slide }) => (
-  <div className="rs-carousel-hero__text-measure-item">
-    <HeroSlideTextContent title={slide.title} body={slide.body} />
-  </div>
+const AutoplayPlayIcon: React.FC = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <path d="M2.5 1.5L8.5 5 2.5 8.5V1.5Z" fill="currentColor" />
+  </svg>
 )
 
 const CarouselHero: React.FC<CarouselHeroProps> = ({
@@ -166,7 +139,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   autoPlayMs = AUTO_PLAY_MS_DEFAULT,
   className = '',
   contentFill = 'bgSecondary',
-  ariaLabel = 'Featured'
+  ariaLabel = 'Featured',
+  pauseOnHover = true,
+  pauseOnFocusWithin = true,
+  textStyle = 'hero',
+  titleHeadingLevel = 1
 }) => {
   const slideCount = slides.length
   const [index, setIndex] = useState(0)
@@ -176,6 +153,16 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const [stripInstantReset, setStripInstantReset] = useState(false)
   const [timerToken, setTimerToken] = useState(0)
   const reducedMotion = usePrefersReducedMotion()
+  const [hoverPaused, setHoverPaused] = useState(false)
+  const [focusPaused, setFocusPaused] = useState(false)
+  const [autoplayUserPaused, setAutoplayUserPaused] = useState(false)
+  const autoplaySuspended =
+    reducedMotion ||
+    (pauseOnHover && hoverPaused) ||
+    (pauseOnFocusWithin && focusPaused) ||
+    autoplayUserPaused
+  const [liveStatus, setLiveStatus] = useState('')
+  const announceIndexRef = useRef<number | null>(null)
   const stripVisualIndexRef = useRef(0)
   /** Logical index the strip is committed to (stays at `slideCount - 1` until clone snap after forward wrap). */
   const stripSyncedLogicalRef = useRef(0)
@@ -194,29 +181,32 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const touchStartRef = useRef<{ x: number; y: number; scrollIntent: boolean } | null>(null)
 
   useEffect(() => {
-    if (reducedMotion || slideCount < 2) return
+    if (autoplaySuspended || slideCount < 2) return
     const id = window.setInterval(() => {
       carouselEngagedRef.current = true
       setIndex((i) => (i + 1) % slideCount)
     }, autoPlayMs)
     return () => window.clearInterval(id)
-  }, [reducedMotion, slideCount, autoPlayMs, timerToken])
+  }, [autoplaySuspended, slideCount, autoPlayMs, timerToken])
 
   const goPrev = useCallback(() => {
     carouselEngagedRef.current = true
+    if (pauseOnHover) setHoverPaused(false)
     setIndex((i) => (i - 1 + slideCount) % slideCount)
     restartAutoplay()
-  }, [slideCount, restartAutoplay])
+  }, [pauseOnHover, slideCount, restartAutoplay])
 
   const goNext = useCallback(() => {
     carouselEngagedRef.current = true
+    if (pauseOnHover) setHoverPaused(false)
     setIndex((i) => (i + 1) % slideCount)
     restartAutoplay()
-  }, [slideCount, restartAutoplay])
+  }, [pauseOnHover, slideCount, restartAutoplay])
 
   const goTo = useCallback(
     (i: number) => {
       const normalized = ((i % slideCount) + slideCount) % slideCount
+      if (pauseOnHover) setHoverPaused(false)
       setIndex((current) => {
         if (normalized === current) return current
         carouselEngagedRef.current = true
@@ -224,7 +214,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       })
       restartAutoplay()
     },
-    [slideCount, restartAutoplay]
+    [pauseOnHover, slideCount, restartAutoplay]
   )
 
   const safeIndex = slideCount > 0 ? Math.min(index, slideCount - 1) : 0
@@ -309,6 +299,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const visibleTextBlockRef = useRef<HTMLDivElement>(null)
   const ctaMeasureRootRef = useRef<HTMLDivElement>(null)
   const ctaSlotInnerRef = useRef<HTMLDivElement>(null)
+  const scrollFadeVisualRef = useRef<HTMLDivElement>(null)
+  const scrollFadeCopyRef = useRef<HTMLDivElement>(null)
   /** Locked height of the copy shell = tallest title+body (clones + live); CTAs live outside the shell above the carousel. */
   const [tallestSlideTextPx, setTallestSlideTextPx] = useState<number | undefined>(undefined)
   /** When any slide has CTAs, all slides reserve this min height so the carousel line stays aligned. */
@@ -356,11 +348,9 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   }, [maxCtaCountAcrossSlides])
 
   const scheduleMeasure = useCallback(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        measureTallestSlideText()
-        measureTallestCtaRow()
-      })
+    scheduleDoubleRaf(() => {
+      measureTallestSlideText()
+      measureTallestCtaRow()
     })
   }, [measureTallestSlideText, measureTallestCtaRow])
 
@@ -373,7 +363,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     })
     ro.observe(shell)
     return () => ro.disconnect()
-  }, [scheduleMeasure, slides])
+  }, [scheduleMeasure, slides, textStyle])
 
   useLayoutEffect(() => {
     if (maxCtaCountAcrossSlides === 0) return
@@ -384,7 +374,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [maxCtaCountAcrossSlides, scheduleMeasure, slides])
+  }, [maxCtaCountAcrossSlides, scheduleMeasure, slides, textStyle])
 
   useLayoutEffect(() => {
     measureTallestSlideText()
@@ -394,30 +384,29 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     measureTallestSlideText,
     measureTallestCtaRow,
     current.title,
-    current.ctas?.length
+    current.ctas?.length,
+    textStyle,
+    titleHeadingLevel
   ])
 
-  useLayoutEffect(() => {
-    const block = textBlockRef.current
-    if (!block) return
-    if (tallestSlideTextPx == null) {
-      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
-      return
-    }
-    const sync = () => {
-      const el = textBlockRef.current
-      if (!el) return
-      const needsScroll = el.scrollHeight > el.clientHeight + 2
-      el.classList.toggle(LOCKED_TEXT_BLOCK_SCROLL_CLASS, needsScroll)
-    }
-    sync()
-    const ro = new ResizeObserver(sync)
-    ro.observe(block)
-    return () => {
-      ro.disconnect()
-      block.classList.remove(LOCKED_TEXT_BLOCK_SCROLL_CLASS)
-    }
-  }, [tallestSlideTextPx, safeIndex])
+  const textBlockScrollLayoutKey = `${tallestSlideTextPx ?? ''}|${safeIndex}|${textStyle}|${titleHeadingLevel}`
+  useLockedHeroTextBlockScroll(
+    textBlockRef,
+    tallestSlideTextPx != null,
+    LOCKED_TEXT_BLOCK_SCROLL_CLASS,
+    textBlockScrollLayoutKey
+  )
+
+  const getScrollFadeUnionBounds = useCallback((): DOMRect | null => {
+    const a = scrollFadeVisualRef.current?.getBoundingClientRect() ?? null
+    const b = scrollFadeCopyRef.current?.getBoundingClientRect() ?? null
+    if (a && b) return unionDOMRects(a, b)
+    return a ?? b
+  }, [])
+
+  const scrollFadeLayoutBust = `${safeIndex}|${tallestSlideTextPx ?? ''}|${tallestCtaRowPx ?? ''}|${outgoingSlideIndex ?? ''}|${stripVisualIndex}|${stripCellCount}|${current?.title ?? ''}`
+
+  const scrollFadeVisible = useScrollDirectionFadeBounds(getScrollFadeUnionBounds, scrollFadeLayoutBust)
 
   useEffect(() => {
     let cancelled = false
@@ -427,7 +416,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     return () => {
       cancelled = true
     }
-  }, [scheduleMeasure, slides])
+  }, [scheduleMeasure, slides, textStyle])
 
   useEffect(() => {
     setOutgoingSlideIndex(null)
@@ -450,7 +439,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     swapClearTimeoutRef.current = window.setTimeout(() => {
       setOutgoingSlideIndex(null)
       swapClearTimeoutRef.current = null
-    }, HERO_SLIDE_SWAP_CLEAR_MS)
+    }, getHeroSlideSwapClearTimeoutMs())
     return () => {
       if (swapClearTimeoutRef.current) {
         clearTimeout(swapClearTimeoutRef.current)
@@ -458,6 +447,66 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       }
     }
   }, [safeIndex, reducedMotion])
+
+  useEffect(() => {
+    if (slideCount < 2) {
+      setAutoplayUserPaused(false)
+    }
+  }, [slideCount])
+
+  useEffect(() => {
+    if (slideCount < 2 || reducedMotion) {
+      announceIndexRef.current = safeIndex
+      return
+    }
+    if (!carouselEngagedRef.current) {
+      announceIndexRef.current = safeIndex
+      return
+    }
+    if (announceIndexRef.current === null) {
+      announceIndexRef.current = safeIndex
+      return
+    }
+    if (announceIndexRef.current === safeIndex) return
+    announceIndexRef.current = safeIndex
+    setLiveStatus(`Slide ${safeIndex + 1} of ${slideCount}: ${current.title}`)
+  }, [slideCount, reducedMotion, safeIndex, current.title])
+
+  const onCarouselChromePointerEnter = useCallback(() => {
+    if (pauseOnHover) setHoverPaused(true)
+  }, [pauseOnHover])
+
+  const onCarouselChromePointerLeave = useCallback(() => {
+    if (pauseOnHover) setHoverPaused(false)
+  }, [pauseOnHover])
+
+  /** Only the carousel chrome (arrows / dots / pause) — not slide copy or CTAs — should pause autoplay on focus. */
+  const onCarouselChromeFocus = useCallback(
+    (e: React.FocusEvent<HTMLElement>) => {
+      if (!pauseOnFocusWithin) return
+      const t = e.target
+      if (!(t instanceof Element)) return
+      if (t.closest('.rs-carousel-hero__indicator-autoplay-toggle')) return
+      // Mouse clicks move focus onto prev/next/dots; :focus-visible is false — keep autoplay running.
+      // Keyboard focus shows a ring and should pause until the user leaves the chrome.
+      try {
+        if (typeof t.matches === 'function' && !t.matches(':focus-visible')) return
+      } catch {
+        /* :focus-visible unsupported — fall through and pause */
+      }
+      setFocusPaused(true)
+    },
+    [pauseOnFocusWithin]
+  )
+
+  const onCarouselChromeBlur = useCallback(
+    (e: React.FocusEvent<HTMLElement>) => {
+      if (!pauseOnFocusWithin) return
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+      setFocusPaused(false)
+    },
+    [pauseOnFocusWithin]
+  )
 
   const onCarouselTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length !== 1) return
@@ -518,6 +567,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       className={[
         'rs-carousel-hero',
         contentFill === 'heroTint' ? 'rs-carousel-hero--content-fill-hero-tint' : '',
+        textStyle === 'splash' ? 'rs-carousel-hero--text-splash' : '',
+        autoplayUserPaused ? 'rs-carousel-hero--autoplay-user-paused' : '',
         className
       ]
         .filter(Boolean)
@@ -525,6 +576,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       data-carousel-hero-cta-band={carouselHeroCtaBand}
       style={
         {
+          ...heroCopySlideCssVarProperties('carousel'),
           ['--rs-carousel-hero-autoplay-ms' as string]: `${autoPlayMs}ms`,
           ['--carousel-hero-slide-count' as string]: String(stripCellCount),
           ['--carousel-hero-slide-index' as string]: String(stripIndexForCss)
@@ -537,16 +589,23 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       onTouchEnd={onCarouselTouchEnd}
       onTouchCancel={onCarouselTouchCancel}
     >
+      <div className="rs-carousel-hero__sr-live" aria-live="polite" aria-atomic="true">
+        {liveStatus}
+      </div>
       <div className="rs-carousel-hero__visual" aria-hidden="true">
         <div
-          className={[
-            'rs-carousel-hero-image-strip',
-            stripInstantReset ? 'rs-carousel-hero-image-strip--instant' : ''
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onTransitionEnd={onImageStripTransitionEnd}
+          ref={scrollFadeVisualRef}
+          className={`rs-carousel-hero__visual-art ${scrollFadeRevealClassNames(scrollFadeVisible)}`}
         >
+          <div
+            className={[
+              'rs-carousel-hero-image-strip',
+              stripInstantReset ? 'rs-carousel-hero-image-strip--instant' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onTransitionEnd={onImageStripTransitionEnd}
+          >
           {slides.map((slide, i) => (
             <div key={i} className="rs-carousel-hero-image-strip__cell">
               <HomeTopHeroImageStack
@@ -567,6 +626,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
               />
             </div>
           ) : null}
+          </div>
         </div>
       </div>
 
@@ -576,14 +636,17 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
             {slides.map((slide, i) =>
               slide.ctas?.length ? (
                 <div key={i} className="rs-carousel-hero__cta-measure-item">
-                  <HeroSlideCtaRow ctas={slide.ctas} />
+                  <HeroSlideCtaRow namespace={NS} ctas={slide.ctas} />
                 </div>
               ) : null
             )}
           </div>
         ) : null}
 
-        <div className="rs-carousel-hero__copy-stack">
+        <div
+          ref={scrollFadeCopyRef}
+          className={`rs-carousel-hero__copy-stack ${scrollFadeRevealClassNames(scrollFadeVisible)}`}
+        >
           <div
             ref={textShellRef}
             className={[
@@ -600,7 +663,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
           >
             <div ref={measureRootRef} className="rs-carousel-hero__text-measure" aria-hidden="true">
               {slides.map((slide, i) => (
-                <HeroSlideMeasureCopy key={i} slide={slide} />
+                <HeroSlideMeasureCopy key={i} namespace={NS} slide={slide} titleHeadingLevel={titleHeadingLevel} />
               ))}
             </div>
             <div
@@ -611,13 +674,23 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
               {outgoingSlide ? (
                 <div className="rs-carousel-hero__text-pane-outgoing" aria-hidden="true">
                   <div className="rs-carousel-hero__text-pane rs-carousel-hero__text-pane--exit-y">
-                    <HeroSlideTextContent title={outgoingSlide.title} body={outgoingSlide.body} />
+                    <HeroSlideTextContent
+                      namespace={NS}
+                      title={outgoingSlide.title}
+                      body={outgoingSlide.body}
+                      titleHeadingLevel={titleHeadingLevel}
+                    />
                   </div>
                 </div>
               ) : null}
               <div ref={visibleTextBlockRef} className="rs-carousel-hero__text-pane-incoming">
                 <div key={safeIndex} className={carouselTextPaneClass}>
-                  <HeroSlideTextContent title={current.title} body={current.body} />
+                  <HeroSlideTextContent
+                    namespace={NS}
+                    title={current.title}
+                    body={current.body}
+                    titleHeadingLevel={titleHeadingLevel}
+                  />
                 </div>
               </div>
             </div>
@@ -637,7 +710,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
               {outgoingSlide?.ctas?.length ? (
                 <div className="rs-carousel-hero__cta-outgoing" aria-hidden="true">
                   <div className="rs-carousel-hero__cta-exit-wrap rs-carousel-hero__cta-row--exit-y">
-                    <HeroSlideCtaRow ctas={outgoingSlide.ctas} />
+                    <HeroSlideCtaRow namespace={NS} ctas={outgoingSlide.ctas} />
                   </div>
                 </div>
               ) : null}
@@ -647,7 +720,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                     key={safeIndex}
                     className={['rs-carousel-hero__cta-enter-wrap', ctaSwapEnterClass].filter(Boolean).join(' ')}
                   >
-                    <HeroSlideCtaRow ctas={current.ctas} />
+                    <HeroSlideCtaRow namespace={NS} ctas={current.ctas} />
                   </div>
                 ) : null}
               </div>
@@ -656,7 +729,13 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
         </div>
 
         {slideCount >= 2 ? (
-          <div className="rs-carousel-hero__actions">
+          <div
+            className="rs-carousel-hero__actions"
+            onPointerEnter={onCarouselChromePointerEnter}
+            onPointerLeave={onCarouselChromePointerLeave}
+            onFocus={onCarouselChromeFocus}
+            onBlur={onCarouselChromeBlur}
+          >
             <div className="rs-carousel-hero__carousel-bar">
               <Button
                 variant="circle"
@@ -667,29 +746,57 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 onClick={goPrev}
               />
               <div className="rs-carousel-hero__indicator-track" role="group" aria-label="Choose slide">
-                {slides.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`Slide ${i + 1} of ${slideCount}`}
-                    aria-current={i === safeIndex ? 'true' : undefined}
-                    className={[
-                      'rs-carousel-hero__indicator',
-                      i === safeIndex ? 'rs-carousel-hero__indicator--active' : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => goTo(i)}
-                  >
-                    {i === safeIndex && !reducedMotion ? (
-                      <span
-                        key={`${safeIndex}-${timerToken}`}
-                        className="rs-carousel-hero__indicator-progress"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </button>
-                ))}
+                {slides.map((_, i) => {
+                  const isActive = i === safeIndex
+                  return (
+                    <div
+                      key={i}
+                      className={[
+                        'rs-carousel-hero__indicator-wrap',
+                        isActive ? 'rs-carousel-hero__indicator-wrap--active' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-current={isActive ? 'true' : undefined}
+                      aria-label={
+                        isActive ? `Slide ${i + 1} of ${slideCount} (current)` : undefined
+                      }
+                    >
+                      {isActive && !reducedMotion ? (
+                        <>
+                          <span
+                            key={`${safeIndex}-${timerToken}`}
+                            className="rs-carousel-hero__indicator-progress"
+                            aria-hidden
+                          />
+                          <button
+                            type="button"
+                            className="rs-carousel-hero__indicator-autoplay-toggle"
+                            aria-pressed={!autoplayUserPaused}
+                            aria-label={autoplayUserPaused ? 'Resume autoplay' : 'Pause autoplay'}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setAutoplayUserPaused((was) => {
+                                if (was) restartAutoplay()
+                                return !was
+                              })
+                            }}
+                          >
+                            {autoplayUserPaused ? <AutoplayPlayIcon /> : <AutoplayPauseIcon />}
+                          </button>
+                        </>
+                      ) : null}
+                      {!isActive ? (
+                        <button
+                          type="button"
+                          aria-label={`Slide ${i + 1} of ${slideCount}`}
+                          className="rs-carousel-hero__indicator"
+                          onClick={() => goTo(i)}
+                        />
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
               <Button
                 variant="circle"

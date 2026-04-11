@@ -1,0 +1,55 @@
+/*
+ * Shared “splash” typography: legacy home top hero scale (38px / 24px stacked; 45px title on wide split ≥1200px).
+ * Layout for splash on StaticHero / CarouselHero is coordinated here and in StaticHero.css.
+ */
+
+.rs-static-hero--text-splash .rs-static-hero__title,
+.rs-carousel-hero--text-splash .rs-carousel-hero__title {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 38px;
+}
+
+.rs-static-hero--text-splash .rs-static-hero__body,
+.rs-carousel-hero--text-splash .rs-carousel-hero__body {
+  font-size: 24px;
+  min-height: calc(6 * 1.35em);
+}
+
+@supports (min-height: 1lh) {
+  .rs-static-hero--text-splash .rs-static-hero__body,
+  .rs-carousel-hero--text-splash .rs-carousel-hero__body {
+    min-height: calc(6 * 1lh);
+  }
+}
+
+/* With CTAs: drop reserved body min-height so buttons sit directly under subtext (not at bottom of a tall band). */
+.rs-static-hero--text-splash:not([data-static-hero-cta-band='0']) .rs-static-hero__body,
+.rs-carousel-hero--text-splash:not([data-carousel-hero-cta-band='0']) .rs-carousel-hero__body {
+  min-height: 0;
+}
+
+@supports (min-height: 1lh) {
+  .rs-static-hero--text-splash:not([data-static-hero-cta-band='0']) .rs-static-hero__body,
+  .rs-carousel-hero--text-splash:not([data-carousel-hero-cta-band='0']) .rs-carousel-hero__body {
+    min-height: 0;
+  }
+}
+
+/* Locked CTA band defaults to flex-end on small screens; splash + CTA should keep actions under copy. */
+.rs-static-hero--text-splash:not([data-static-hero-cta-band='0']) .rs-static-hero__cta-slot--locked .rs-static-hero__cta-slot-inner,
+.rs-carousel-hero--text-splash:not([data-carousel-hero-cta-band='0']) .rs-carousel-hero__cta-slot--locked .rs-carousel-hero__cta-slot-inner {
+  justify-content: flex-start;
+}
+
+.rs-static-hero--text-splash:not([data-static-hero-cta-band='0']) .rs-static-hero__copy-stack,
+.rs-carousel-hero--text-splash:not([data-carousel-hero-cta-band='0']) .rs-carousel-hero__copy-stack {
+  gap: 20px;
+}
+
+@media (min-width: 1200px) {
+  .rs-static-hero--text-splash .rs-static-hero__title,
+  .rs-carousel-hero--text-splash .rs-carousel-hero__title {
+    font-size: 45px;
+  }
+}

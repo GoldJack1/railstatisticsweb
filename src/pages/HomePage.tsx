@@ -1,10 +1,25 @@
-import React from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import '../components/Home.css'
-import HomeTopHero from '../components/home/HomeTopHero'
 import CarouselHero, { type CarouselHeroSlide } from '../components/home/CarouselHero'
+import HomeDownloadPlatformModal from '../components/home/HomeDownloadPlatformModal'
 import StaticHero from '../components/home/StaticHero'
+import { preventSingleWordWidow } from '../utils/textWidow'
 
 const IOS_APP_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
+const ANDROID_APP_URL =
+  'https://play.google.com/store/apps/details?id=com.jw.railstatisticsandroid.beta&pli=1'
+
+type Platform = 'ios' | 'android' | 'desktop'
+
+function detectPlatform(): Platform {
+  const ua = navigator.userAgent
+  if (/iPad|iPhone|iPod/.test(ua)) return 'ios'
+  if (/Android/.test(ua)) return 'android'
+  return 'desktop'
+}
+
+const HOME_PRIMARY_SUBTITLE =
+  "Start building a map of where you've been, one station at a time."
 
 /** Optional per slide: `imageSources` (partial ok) + `imageAlt` — see `CarouselHeroSlide` in `CarouselHero.tsx`. */
 const HERO_SLIDES: CarouselHeroSlide[] = [
@@ -94,7 +109,7 @@ const STATIC_HERO_EXAMPLE_NO_CTA_CENTER: CarouselHeroSlide = {
   )
 }
 
-/** Demo: `textStyle="splash"` — desktop uses HomeTopHero title/subtitle sizes; below 1200px keeps default static hero type. */
+/** Demo: `textStyle="splash"` — splash headline/body scale at all widths; title steps up at 1200px. */
 const STATIC_HERO_EXAMPLE_SPLASH: CarouselHeroSlide = {
   title: 'Splash style — big type on desktop',
   body: (
@@ -106,10 +121,48 @@ const STATIC_HERO_EXAMPLE_SPLASH: CarouselHeroSlide = {
 }
 
 const HomePage: React.FC = () => {
+  const [platform, setPlatform] = useState<Platform>('desktop')
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
+
+  useEffect(() => {
+    setPlatform(detectPlatform())
+  }, [])
+
+  const onDownloadCta = useCallback(() => {
+    if (platform === 'ios') {
+      window.location.href = IOS_APP_URL
+    } else if (platform === 'android') {
+      window.location.href = ANDROID_APP_URL
+    } else {
+      setDownloadModalOpen(true)
+    }
+  }, [platform])
+
+  const homePrimarySlide = useMemo(
+    (): CarouselHeroSlide => ({
+      title: 'The Ultimate Station Bashing App is Here!',
+      body: <p>{preventSingleWordWidow(HOME_PRIMARY_SUBTITLE)}</p>,
+      ctas: [{ label: 'Download Now', onClick: onDownloadCta }]
+    }),
+    [onDownloadCta]
+  )
+
   return (
     <div className="container">
       <div className="main">
-        <HomeTopHero />
+        <div className="home-page__top-static-hero">
+          <StaticHero
+            slide={homePrimarySlide}
+            ariaLabel="Download Rail Statistics"
+            /* Splash type scale + desktop: copy + CTA vertically centered in the left panel (≥1200px). */
+            textStyle="splash"
+            desktopContentVerticalAlign="center"
+            titleHeadingLevel={1}
+            imageLoading="eager"
+          />
+        </div>
+
+        <HomeDownloadPlatformModal open={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} />
 
         <div className="home-page__carousel-hero">
           <CarouselHero slides={HERO_SLIDES} />
@@ -149,4 +202,3 @@ const HomePage: React.FC = () => {
 }
 
 export default HomePage
-

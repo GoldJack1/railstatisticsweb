@@ -17,7 +17,7 @@
   margin-left: calc(50% - 50vw);
   margin-bottom: calc(-1 * var(--space-3xl));
   overflow: hidden;
-  background: hsl(0 100% 92%);
+  background: hsl(354 100% 85%);
 }
 
 [data-theme='dark'] .rs-home-top-hero {

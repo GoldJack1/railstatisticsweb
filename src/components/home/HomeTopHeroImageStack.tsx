@@ -45,6 +45,7 @@ const HomeTopHeroImageStack: React.FC<HomeTopHeroImageStackProps> = ({
   const darkMobile = sources?.darkMobile ?? TOP_HERO_IMAGE_DARK_MOBILE
   const lightDesktopTablet = sources?.lightDesktopTablet ?? TOP_HERO_IMAGE_LIGHT_DESKTOP_TABLET
   const lightMobile = sources?.lightMobile ?? TOP_HERO_IMAGE_LIGHT_MOBILE
+  const decorative = alt.trim() === ''
 
   return (
     <div
@@ -58,7 +59,7 @@ const HomeTopHeroImageStack: React.FC<HomeTopHeroImageStackProps> = ({
               ? 'rs-home-hero-image-stack--static-hero'
               : 'rs-home-hero-image-stack--home-hero'
       ].join(' ')}
-      aria-hidden="true"
+      aria-hidden={decorative ? true : undefined}
     >
       <div className="rs-home-hero-image-stack__frame">
         <picture className="rs-home-hero-image-stack__picture rs-home-hero-image-stack__picture--dark">
