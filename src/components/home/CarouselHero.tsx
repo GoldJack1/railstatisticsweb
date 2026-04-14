@@ -18,6 +18,7 @@ import {
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
   type HeroDesktopPanelSide,
+  type HeroMediaCropMode,
   type HeroMobilePanelPosition,
   type HeroTextStyle
 } from './heroCarouselSlideModel'
@@ -43,6 +44,7 @@ export type {
   CarouselHeroSlide,
   CarouselHeroContentFill,
   HeroDesktopPanelSide,
+  HeroMediaCropMode,
   HeroMobilePanelPosition,
   HeroTextStyle
 } from './heroCarouselSlideModel'
@@ -75,6 +77,8 @@ export interface CarouselHeroProps {
   defaultImageSources?: HeroImageStackSources
   /** Autoplay interval in ms; ignored when `prefers-reduced-motion: reduce`. */
   autoPlayMs?: number
+  /** Optional per-slide autoplay overrides in ms (index-aligned with `slides`). */
+  slideAutoPlayMs?: number[]
   className?: string
   /** `aria-label` on the carousel region (default: Featured). */
   ariaLabel?: string
@@ -99,6 +103,10 @@ export interface CarouselHeroProps {
   desktopPanelSide?: HeroDesktopPanelSide
   /** Below 1200px: stack copy toward the bottom (default) or top of the hero band. */
   mobilePanelPosition?: HeroMobilePanelPosition
+  /** Mobile/tablet media framing default for all slides. */
+  mobileTabletMediaMode?: HeroMediaCropMode
+  /** Optional default max scale cap for mobile/tablet uncropped slides. */
+  mobileTabletUncroppedMaxScale?: number
 }
 
 const ChevronLeft: React.FC = () => (
@@ -142,6 +150,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   slides,
   defaultImageSources = DEFAULT_HERO_STACK_IMAGE_SOURCES,
   autoPlayMs = AUTO_PLAY_MS_DEFAULT,
+  slideAutoPlayMs,
   className = '',
   contentFill = 'bgSecondary',
   ariaLabel = 'Featured',
@@ -150,7 +159,9 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   textStyle = 'hero',
   titleHeadingLevel = 1,
   desktopPanelSide = 'left',
-  mobilePanelPosition = 'bottom'
+  mobilePanelPosition = 'bottom',
+  mobileTabletMediaMode = 'cropped',
+  mobileTabletUncroppedMaxScale
 }) => {
   const slideCount = slides.length
   const [index, setIndex] = useState(0)
@@ -186,15 +197,18 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const prevSafeIndexRef = useRef(0)
   const swapClearTimeoutRef = useRef<number | null>(null)
   const touchStartRef = useRef<{ x: number; y: number; scrollIntent: boolean } | null>(null)
+  const safeIndex = slideCount > 0 ? Math.min(index, slideCount - 1) : 0
+  const current = slides[safeIndex] ?? slides[0]
+  const activeAutoPlayMs = current?.autoPlayMs ?? slideAutoPlayMs?.[safeIndex] ?? autoPlayMs
 
   useEffect(() => {
     if (autoplaySuspended || slideCount < 2) return
     const id = window.setInterval(() => {
       carouselEngagedRef.current = true
       setIndex((i) => (i + 1) % slideCount)
-    }, autoPlayMs)
+    }, activeAutoPlayMs)
     return () => window.clearInterval(id)
-  }, [autoplaySuspended, slideCount, autoPlayMs, timerToken])
+  }, [autoplaySuspended, slideCount, activeAutoPlayMs, timerToken])
 
   const goPrev = useCallback(() => {
     carouselEngagedRef.current = true
@@ -223,9 +237,6 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     },
     [pauseOnHover, slideCount, restartAutoplay]
   )
-
-  const safeIndex = slideCount > 0 ? Math.min(index, slideCount - 1) : 0
-  const current = slides[safeIndex] ?? slides[0]
 
   const useStripClone = slideCount >= 2 && !reducedMotion
   const stripCellCount = useStripClone ? slideCount + 1 : Math.max(slideCount, 1)
@@ -298,7 +309,6 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   const ctaSwapEnterClass = slideCrossfadeActive ? 'rs-carousel-hero__cta-row--enter-y' : ''
 
   const carouselSectionRef = useRef<HTMLElement | null>(null)
-  useHeroImageMotion(carouselSectionRef, slideCount > 0)
 
   const textShellRef = useRef<HTMLDivElement>(null)
   const textBlockRef = useRef<HTMLDivElement>(null)
@@ -403,6 +413,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
     LOCKED_TEXT_BLOCK_SCROLL_CLASS,
     textBlockScrollLayoutKey
   )
+
+  useHeroImageMotion(carouselSectionRef, slideCount > 0, {
+    ancestorScrollRoots: [textBlockRef],
+    ancestorScrollResyncKey: textBlockScrollLayoutKey
+  })
 
   const getScrollFadeUnionBounds = useCallback((): DOMRect | null => {
     const a = scrollFadeVisualRef.current?.getBoundingClientRect() ?? null
@@ -586,7 +601,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
       style={
         {
           ...heroCopySlideCssVarProperties('carousel'),
-          ['--rs-carousel-hero-autoplay-ms' as string]: `${autoPlayMs}ms`,
+          ['--rs-carousel-hero-autoplay-ms' as string]: `${activeAutoPlayMs}ms`,
           ['--carousel-hero-slide-count' as string]: String(stripCellCount),
           ['--carousel-hero-slide-index' as string]: String(stripIndexForCss)
         } as React.CSSProperties
@@ -621,6 +636,13 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 variant="carousel"
                 loading="lazy"
                 sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
+                videoSources={slide.videoSources}
+                mobileTabletMediaMode={slide.mobileTabletMediaMode ?? mobileTabletMediaMode}
+                mobileTabletUncroppedMaxScale={
+                  slide.mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
+                }
+                isActive={i === safeIndex}
+                videoLoop={autoplayUserPaused}
                 alt={slide.imageAlt ?? ''}
               />
             </div>
@@ -631,6 +653,13 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 variant="carousel"
                 loading="lazy"
                 sources={mergeCarouselHeroSlideSources(slides[0], defaultImageSources)}
+                videoSources={slides[0].videoSources}
+                mobileTabletMediaMode={slides[0].mobileTabletMediaMode ?? mobileTabletMediaMode}
+                mobileTabletUncroppedMaxScale={
+                  slides[0].mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
+                }
+                isActive={safeIndex === 0}
+                videoLoop={autoplayUserPaused}
                 alt={slides[0].imageAlt ?? ''}
               />
             </div>

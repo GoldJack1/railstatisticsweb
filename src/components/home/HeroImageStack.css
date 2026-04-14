@@ -28,7 +28,7 @@
   display: block;
 }
 
-.rs-home-hero-image-stack__image {
+.rs-home-hero-image-stack__media {
   position: absolute;
   top: 0;
   left: var(--hero-image-left-desktop);
@@ -45,25 +45,17 @@
   max-width: none;
 }
 
+/* Opacity + blur only: transform stays on `.rs-home-hero-image-stack__media` so
+ * `--hero-image-scale` updates on scroll (keyframes with `forwards` can pin transform in WebKit). */
 @keyframes rs-home-hero-image-stack-fade-in {
   from {
     opacity: 0;
     filter: blur(6px);
-    transform: translate(
-        calc(-50% + var(--hero-image-parallax-x)),
-        calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
-      )
-      scale(calc(var(--hero-image-scale) * 0.985));
   }
 
   to {
     opacity: 1;
     filter: blur(0);
-    transform: translate(
-        calc(-50% + var(--hero-image-parallax-x)),
-        calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
-      )
-      scale(var(--hero-image-scale));
   }
 }
 
@@ -75,13 +67,73 @@
 }
 
 @media (max-width: 639px) {
-  .rs-home-hero-image-stack__image {
+  .rs-home-hero-image-stack__media {
     left: var(--hero-image-left-mobile);
   }
 }
 
+@media (max-width: 1199px) {
+  /*
+   * Uncropped: shared framing + scroll scale on img and video (`scale` from hero section).
+   * Vertical offset differs — images use `<picture>`; videos use a `<div>` shell (same as before
+   * the wrapper removal: img 17.5%, video 20%).
+   */
+  .rs-home-hero-image-stack--mobile-tablet-uncropped .rs-home-hero-image-stack__media {
+    left: 50%;
+    width: 72.5%;
+    height: 100%;
+    object-fit: contain;
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(
+        min(
+          max(
+            1,
+            calc(
+              1 +
+                (var(--hero-image-scale) - 1) *
+                var(--hero-image-mobile-uncropped-scale-speed, 4)
+            )
+          ),
+          var(--hero-image-mobile-uncropped-max-scale, 100)
+        )
+      );
+    transform-origin: center center;
+    animation: none;
+    opacity: 1;
+    filter: none;
+  }
+
+  .rs-home-hero-image-stack--mobile-tablet-uncropped
+    picture.rs-home-hero-image-stack__picture
+    .rs-home-hero-image-stack__media {
+    top: 17.5%;
+    width: 100vw;
+  }
+
+  .rs-home-hero-image-stack--mobile-tablet-uncropped
+    div.rs-home-hero-image-stack__picture
+    .rs-home-hero-image-stack__media {
+    top: 20%;
+  }
+}
+
+/* Uncropped: widths > 420px and < 1024px (421px–1023px; typical tablet / large phone). */
+@media (min-width: 421px) and (max-width: 1023px) {
+  .rs-home-hero-image-stack--mobile-tablet-uncropped
+    picture.rs-home-hero-image-stack__picture
+    .rs-home-hero-image-stack__media,
+  .rs-home-hero-image-stack--mobile-tablet-uncropped
+    div.rs-home-hero-image-stack__picture
+    .rs-home-hero-image-stack__media {
+    top: 22.5%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rs-home-hero-image-stack__image {
+  .rs-home-hero-image-stack__media {
     animation: none;
     opacity: 1;
     filter: none;
@@ -90,5 +142,13 @@
         calc(var(--hero-image-parallax-y) + var(--hero-image-motion-y))
       )
       scale(var(--hero-image-scale));
+  }
+
+  .rs-home-hero-image-stack--mobile-tablet-uncropped .rs-home-hero-image-stack__media {
+    transform: translate(
+        calc(-50% + var(--hero-image-parallax-x)),
+        calc(-50% + var(--hero-image-parallax-y) + var(--hero-image-motion-y))
+      )
+      scale(1);
   }
 }

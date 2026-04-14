@@ -15,6 +15,7 @@ import {
   type CarouselHeroContentFill,
   type CarouselHeroSlide,
   type HeroDesktopPanelSide,
+  type HeroMediaCropMode,
   type HeroMobilePanelPosition,
   type HeroTextStyle
 } from './heroCarouselSlideModel'
@@ -75,6 +76,10 @@ export interface StaticHeroProps {
   desktopPanelSide?: HeroDesktopPanelSide
   /** Below 1200px: stack copy toward the bottom (default) or top of the hero band. */
   mobilePanelPosition?: HeroMobilePanelPosition
+  /** Mobile/tablet media framing default for this static hero. */
+  mobileTabletMediaMode?: HeroMediaCropMode
+  /** Optional default max scale cap for mobile/tablet uncropped media. */
+  mobileTabletUncroppedMaxScale?: number
 }
 
 const StaticHero: React.FC<StaticHeroProps> = ({
@@ -88,10 +93,11 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   textStyle = 'hero',
   titleHeadingLevel = 2,
   desktopPanelSide = 'left',
-  mobilePanelPosition = 'bottom'
+  mobilePanelPosition = 'bottom',
+  mobileTabletMediaMode = 'cropped',
+  mobileTabletUncroppedMaxScale
 }) => {
   const staticSectionRef = useRef<HTMLElement | null>(null)
-  useHeroImageMotion(staticSectionRef, true)
 
   const textShellRef = useRef<HTMLDivElement>(null)
   const textBlockRef = useRef<HTMLDivElement>(null)
@@ -190,6 +196,11 @@ const StaticHero: React.FC<StaticHeroProps> = ({
     textBlockScrollLayoutKey
   )
 
+  useHeroImageMotion(staticSectionRef, true, {
+    ancestorScrollRoots: [textBlockRef],
+    ancestorScrollResyncKey: textBlockScrollLayoutKey
+  })
+
   const getScrollFadeUnionBounds = useCallback((): DOMRect | null => {
     const a = scrollFadeVisualRef.current?.getBoundingClientRect() ?? null
     const b = scrollFadeCopyRef.current?.getBoundingClientRect() ?? null
@@ -238,6 +249,11 @@ const StaticHero: React.FC<StaticHeroProps> = ({
             variant="static"
             loading={imageLoading}
             sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
+            videoSources={slide.videoSources}
+            mobileTabletMediaMode={slide.mobileTabletMediaMode ?? mobileTabletMediaMode}
+            mobileTabletUncroppedMaxScale={
+              slide.mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
+            }
             alt={slide.imageAlt ?? ''}
           />
         </div>

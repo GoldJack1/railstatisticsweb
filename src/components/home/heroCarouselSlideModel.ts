@@ -4,6 +4,7 @@ import type { HeroImageStackSources } from './HeroImageStack'
 
 /** Per-slide art: dark/light × desktop-tablet / mobile (same shape as `HeroImageStack`). */
 export type CarouselHeroSlideImageSources = HeroImageStackSources
+export type HeroMediaCropMode = 'cropped' | 'uncropped'
 
 export interface CarouselHeroSlideCta {
   label: string
@@ -18,6 +19,8 @@ export interface CarouselHeroSlideCta {
 export interface CarouselHeroSlide {
   title: string
   body: ReactNode
+  /** Optional autoplay duration override for this slide in milliseconds. */
+  autoPlayMs?: number
   /** Optional row below body; one button uses hero width cap, two+ share desktop row rules in CSS. */
   ctas?: CarouselHeroSlideCta[]
   /**
@@ -31,6 +34,19 @@ export interface CarouselHeroSlide {
    * Omitted keys are filled from `defaultImageSources` on `CarouselHero` / `StaticHero`.
    */
   imageSources?: Partial<CarouselHeroSlideImageSources>
+  /**
+   * Optional themed video art for this slide. When provided, `HeroImageStack` renders video
+   * instead of images and plays only while the slide is active.
+   */
+  videoSources?: {
+    dark: string
+    light: string
+    darkMobileTablet?: string
+  }
+  /** Mobile/tablet media framing for this slide only (defaults to hero-level setting). */
+  mobileTabletMediaMode?: HeroMediaCropMode
+  /** Optional max scale cap for mobile/tablet uncropped mode. */
+  mobileTabletUncroppedMaxScale?: number
 }
 
 export function mergeCarouselHeroSlideSources(

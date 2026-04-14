@@ -21,6 +21,13 @@ function detectPlatform(): Platform {
 const HOME_PRIMARY_SUBTITLE =
   "Start building a map of where you've been, one station at a time."
 
+const HOME_PRIMARY_HERO_IMAGE_SOURCES = {
+  darkDesktopTablet: '/media/home/hero1/slide1/hometophero-desktop-tablet-dark.png',
+  darkMobile: '/media/home/hero1/slide1/hometophero-mobile-dark.png',
+  lightDesktopTablet: '/media/home/hero1/slide1/hometophero-desktop-tablet-light.png',
+  lightMobile: '/media/home/hero1/slide1/hometophero-mobile-light.png'
+} as const
+
 const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
   {
     title: 'A live station database, ready when you are',
@@ -60,7 +67,13 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
         Rail Statistics helps you stay current as the network changes.
       </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero2/slide3/light.mp4',
+      dark: '/media/home/hero2/slide3/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    autoPlayMs: 13_000
   },
   {
     title: 'See your progress on the map',
@@ -73,7 +86,13 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
         It is a simple and visual way to explore your journey history.
       </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero2/slide4/light.mp4',
+      dark: '/media/home/hero2/slide4/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    autoPlayMs: 15_000
   }
 ]
 
@@ -213,7 +232,8 @@ const HomePage: React.FC = () => {
     (): CarouselHeroSlide => ({
       title: 'The Ultimate Station Bashing App is Here!',
       body: <p>{preventSingleWordWidow(HOME_PRIMARY_SUBTITLE)}</p>,
-      ctas: [{ label: 'Download Now', onClick: onDownloadCta }]
+      ctas: [{ label: 'Download Now', onClick: onDownloadCta }],
+      imageSources: HOME_PRIMARY_HERO_IMAGE_SOURCES
     }),
     [onDownloadCta]
   )
@@ -248,6 +268,8 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={HOME_STATIC_STATION_DETAIL}
             ariaLabel="Detailed station pages"
+            desktopContentVerticalAlign="center"
+            desktopPanelSide="right"
             titleHeadingLevel={2}
           />
         </div>
@@ -256,6 +278,9 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={HOME_STATIC_FAVOURITES}
             ariaLabel="Favourite stations"
+            contentFill="heroTint"
+            desktopContentVerticalAlign="center"
+            desktopPanelSide="right"
             titleHeadingLevel={2}
           />
         </div>
@@ -274,6 +299,8 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={HOME_STATIC_EASY_VISIT_TRACKING}
             ariaLabel="Easy visit tracking"
+            desktopContentVerticalAlign="center"
+            desktopPanelSide="right"
             titleHeadingLevel={2}
           />
         </div>
@@ -292,6 +319,7 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={homePrimarySlide}
             ariaLabel="Download Rail Statistics"
+            contentFill="heroTint"
             textStyle="splash"
             desktopContentVerticalAlign="center"
             titleHeadingLevel={2}
