@@ -36,6 +36,19 @@
     width: 100%;
 }
 
+/* Desktop: keep opening/closing splash heroes aligned with other hero band heights. */
+@media (min-width: 1200px) {
+    .home-page__top-static-hero .rs-static-hero.rs-static-hero--text-splash,
+    .home-page__hero-row .rs-static-hero.rs-static-hero--text-splash {
+        min-height: 600px;
+    }
+
+    .home-page__top-static-hero .rs-static-hero.rs-static-hero--text-splash .rs-static-hero__content,
+    .home-page__hero-row .rs-static-hero.rs-static-hero--text-splash .rs-static-hero__content {
+        min-height: 600px;
+    }
+}
+
 /* Hero Section */
 .hero {
     text-align: center;

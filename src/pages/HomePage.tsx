@@ -21,117 +21,175 @@ function detectPlatform(): Platform {
 const HOME_PRIMARY_SUBTITLE =
   "Start building a map of where you've been, one station at a time."
 
-/** First carousel below the fold: three slides. */
-const HOME_CAROUSEL_THREE_SLIDES: CarouselHeroSlide[] = [
+const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
   {
-    title: 'Track stations in one tap',
+    title: 'A live station database, ready when you are',
     body: (
       <>
-        <p>Search and filter thousands of National Rail stations from a fast list or an interactive map.</p>
-        <p>Mark visited, planned, or favourite in a single action—each change is date-stamped automatically.</p>
+      <p>
+        Start ticking off stations straight away with a live database built for rail enthusiasts.
+        </p>
+        <p>
+        Whether you are just starting out or already have a long travel history, Rail Statistics is ready to grow with your journeys.
+      </p>
       </>
     )
   },
   {
-    title: 'See every visit on the map',
+    title: 'Bring your existing station list with you',
     body: (
       <>
-        <p>Pan and zoom across Great Britain with stations plotted where you expect them.</p>
-        <p>Open rich detail for any station without losing your place on the map.</p>
+      <p>
+        Already using your own file to keep track of visited stations?
+        </p>
+        <p>
+        You can migrate it to work with the Rail
+        Statistics database, making it easier to continue from where you left off.
+      </p>
       </>
-    ),
-    ctas: [{ label: 'Download on iOS', href: IOS_APP_URL, target: '_blank' }]
+    )
   },
   {
-    title: 'Upgrade when you need more',
+    title: 'Stay updated when new stations open',
     body: (
       <>
-        <p>Start free with core logging tools, then move to First Class for deeper map workflows and batch updates.</p>
-        <p>One subscription covers your signed-in devices; your data stays tied to your account.</p>
+      <p>
+        Get notifications when new stations open, so there is no need to keep searching for the latest station details yourself.
+        </p>
+        <p>
+        Rail Statistics helps you stay current as the network changes.
+      </p>
       </>
-    ),
-    ctas: [{ label: 'Get the Android app', href: ANDROID_APP_URL, target: '_blank' }]
+    )
+  },
+  {
+    title: 'See your progress on the map',
+    body: (
+      <>
+      <p>
+        View your station progress on the map and get a clearer picture of how far your travels have taken you.
+        </p>
+        <p>
+        It is a simple and visual way to explore your journey history.
+      </p>
+      </>
+    )
   }
 ]
 
-const HOME_STATIC_STATIONS: CarouselHeroSlide = {
-  title: 'A living station database',
+const HOME_STATIC_STATION_DETAIL: CarouselHeroSlide = {
+  title: 'Dive deeper with detailed station pages',
   body: (
     <>
-      <p>
-        CRS codes, coordinates, TOC, fare zones, and London borough fields are kept current in the cloud—when the
-        network changes, your app and this website update together.
+    <p>
+      Explore a wide range of station details,
+      including yearly station usage figures from the Office of Rail and Road.
       </p>
-      <p>Browse the same authoritative list on the web when you are at a desk, and pick it up in the app on the move.</p>
-    </>
-  ),
-  ctas: [{ label: 'Browse stations', href: '/stations', target: '_self' }]
-}
-
-const HOME_STATIC_USAGE: CarouselHeroSlide = {
-  title: 'Passenger usage you can trust',
-  body: (
-    <>
-      <p>Annual entries and totals for stations go back to 1998, with a consistent methodology year on year.</p>
-      <p>Use the figures to plan trips, compare hubs, or settle curiosity about how busy a line has become.</p>
+      <p>
+      When new data is released, Rail Statistics is updated
+      so you can keep exploring with the latest information.
+    </p>
     </>
   )
 }
 
-/** Second carousel: four slides. */
-const HOME_CAROUSEL_FOUR_SLIDES: CarouselHeroSlide[] = [
-  {
-    title: 'List and map, same account',
-    body: (
-      <p>
-        Switch between dense tables and a map canvas whenever the task suits—filters and sort orders follow you between
-        views on web and mobile.
+const HOME_STATIC_FAVOURITES: CarouselHeroSlide = {
+  title: 'Keep track of the stations you love',
+  body: (
+    <>
+    <p>
+      Found a station that stands out to you? Now you can mark it as a favourite to easily find it later. 
       </p>
-    )
-  },
-  {
-    title: 'Visits that remember the day',
-    body: (
       <p>
-        Every status change records when it happened so you can reconstruct a trip months later or export a clear
-        history for yourself.
-      </p>
-    )
-  },
+      This is a great way to build your own shortlist of memorable places across the network.
+    </p>
+    </>
+  )
+}
+
+const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
   {
-    title: 'Figures for planners and bashers',
-    body: (
-      <p>
-        Compare stations by usage band, spot fast-growing hubs, and notice when new platforms open—all without leaving
-        Rail Statistics.
-      </p>
-    )
-  },
-  {
-    title: 'Ready when you are',
+    title: 'Search your way',
     body: (
       <>
-        <p>Install on iPhone, iPad, or Android, or stay in the browser—pick the surface that fits the moment.</p>
-        <p>Sign in once; pending reviews and edits line up the same wherever you work.</p>
+        <p>
+        Find stations in list view or on the map by station name,
+        National Rail CRS code, or TIPLOC code.
+        </p>
+        <p>
+        Whether you search casually or know exactly what you are looking for, Rail Statistics helps you get there faster.
+      </p>
+    </>
+    )
+  },
+  {
+    title: 'Filter stations with more control',
+    body: (
+      <>
+        <p>
+        Use advanced filters to browse stations by country, county, and operator.
+        </p>
+        <p>
+        You can also narrow down stations within Greater London
+        by all 33 London boroughs for more detailed exploration.
+        </p>
       </>
-    ),
-    ctas: [{ label: 'Download now', href: IOS_APP_URL, target: '_blank' }]
+    )
   }
 ]
 
-const HOME_STATIC_WEB: CarouselHeroSlide = {
-  title: 'This website mirrors the app',
+const HOME_STATIC_EASY_VISIT_TRACKING: CarouselHeroSlide = {
+  title: 'A simple way to remember when you visited',
   body: (
     <>
       <p>
-        Manage stations, review pending contributions, and read the same legal and policy pages you see in product—all
-        from a responsive layout tuned for keyboard and large screens.
+        When you mark a station as visited,
+        Rail Statistics automatically adds the current date by default.
       </p>
-      <p>Heavy editing workflows stay here; quick logging stays in your pocket.</p>
+      <p>
+        That makes it easy to keep track of when each visit happened
+        as your journey history grows.
+      </p>
     </>
-  ),
-  ctas: [{ label: 'Log in', href: '/log-in', target: '_self' }]
+  )
 }
+
+const HOME_CAROUSEL_SUBSCRIPTION_SLIDES: CarouselHeroSlide[] = [
+  {
+    title: 'Enjoy an ad-free experience',
+    body: (
+      <>
+        <p>
+          Included with Standard Premium and First Class,
+          an ad-free experience lets you focus fully on tracking your
+          journeys without distractions.
+        </p>
+      </>
+    )
+  },
+  {
+    title: 'Unlock home-screen widgets',
+    body: (
+      <>
+        <p>
+          Included with Standard Premium and First Class,
+          home-screen widgets make it easy to keep your station visit
+          progress visible at a glance every day.
+        </p>
+      </>
+    )
+  },
+  {
+    title: 'Be first to try ticket tracking in beta',
+    body: (
+      <>
+        <p>
+          Exclusive to First Class, be the first to try Ticket Tracking in beta when it launches in beta in summer 2026.
+        </p>
+      </>
+    )
+  }
+]
 
 const HomePage: React.FC = () => {
   const [platform, setPlatform] = useState<Platform>('desktop')
@@ -178,8 +236,8 @@ const HomePage: React.FC = () => {
 
         <div className="home-page__hero-row">
           <CarouselHero
-            slides={HOME_CAROUSEL_THREE_SLIDES}
-            ariaLabel="Rail Statistics highlights"
+            slides={HOME_CAROUSEL_TOP_FEATURES_SLIDES}
+            ariaLabel="Top features"
             titleHeadingLevel={2}
             pauseOnHover={false}
             pauseOnFocusWithin={false}
@@ -187,17 +245,25 @@ const HomePage: React.FC = () => {
         </div>
 
         <div className="home-page__hero-row">
-          <StaticHero slide={HOME_STATIC_STATIONS} ariaLabel="Station database" titleHeadingLevel={2} />
+          <StaticHero
+            slide={HOME_STATIC_STATION_DETAIL}
+            ariaLabel="Detailed station pages"
+            titleHeadingLevel={2}
+          />
         </div>
 
         <div className="home-page__hero-row">
-          <StaticHero slide={HOME_STATIC_USAGE} ariaLabel="Passenger usage data" titleHeadingLevel={2} />
+          <StaticHero
+            slide={HOME_STATIC_FAVOURITES}
+            ariaLabel="Favourite stations"
+            titleHeadingLevel={2}
+          />
         </div>
 
         <div className="home-page__hero-row">
           <CarouselHero
-            slides={HOME_CAROUSEL_FOUR_SLIDES}
-            ariaLabel="Product details"
+            slides={HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES}
+            ariaLabel="Search and filtering options"
             titleHeadingLevel={2}
             pauseOnHover={false}
             pauseOnFocusWithin={false}
@@ -205,7 +271,31 @@ const HomePage: React.FC = () => {
         </div>
 
         <div className="home-page__hero-row">
-          <StaticHero slide={HOME_STATIC_WEB} ariaLabel="Website and account" titleHeadingLevel={2} />
+          <StaticHero
+            slide={HOME_STATIC_EASY_VISIT_TRACKING}
+            ariaLabel="Easy visit tracking"
+            titleHeadingLevel={2}
+          />
+        </div>
+
+        <div className="home-page__hero-row">
+          <CarouselHero
+            slides={HOME_CAROUSEL_SUBSCRIPTION_SLIDES}
+            ariaLabel="Subscription features"
+            titleHeadingLevel={2}
+            pauseOnHover={false}
+            pauseOnFocusWithin={false}
+          />
+        </div>
+
+        <div className="home-page__hero-row">
+          <StaticHero
+            slide={homePrimarySlide}
+            ariaLabel="Download Rail Statistics"
+            textStyle="splash"
+            desktopContentVerticalAlign="center"
+            titleHeadingLevel={2}
+          />
         </div>
       </div>
     </div>
