@@ -1,6 +1,9 @@
 import type { MouseEvent, ReactNode } from 'react'
 import type { ButtonColorVariant } from '../Button'
-import type { HeroImageStackSources } from './HeroImageStack'
+import type {
+  HeroImageStackSources,
+  HeroMobileTabletUncroppedSettings
+} from './HeroImageStack'
 
 /** Per-slide art: dark/light × desktop-tablet / mobile (same shape as `HeroImageStack`). */
 export type CarouselHeroSlideImageSources = HeroImageStackSources
@@ -47,6 +50,8 @@ export interface CarouselHeroSlide {
   mobileTabletMediaMode?: HeroMediaCropMode
   /** Optional max scale cap for mobile/tablet uncropped mode. */
   mobileTabletUncroppedMaxScale?: number
+  /** Optional fine-grained uncropped tuning for this slide. */
+  mobileTabletUncroppedSettings?: HeroMobileTabletUncroppedSettings
 }
 
 export function mergeCarouselHeroSlideSources(

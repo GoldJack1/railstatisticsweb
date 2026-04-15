@@ -2,7 +2,10 @@
  * Single-slide hero: same full-bleed layout and image stack as `CarouselHero`, without strip, autoplay, or controls.
  */
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import HeroImageStack, { type HeroImageStackSources } from './HeroImageStack'
+import HeroImageStack, {
+  type HeroImageStackSources,
+  type HeroMobileTabletUncroppedSettings
+} from './HeroImageStack'
 import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './heroImageConstants'
 import {
   HeroSlideCtaRow,
@@ -80,6 +83,8 @@ export interface StaticHeroProps {
   mobileTabletMediaMode?: HeroMediaCropMode
   /** Optional default max scale cap for mobile/tablet uncropped media. */
   mobileTabletUncroppedMaxScale?: number
+  /** Optional default uncropped tuning for mobile/tablet media. */
+  mobileTabletUncroppedSettings?: HeroMobileTabletUncroppedSettings
 }
 
 const StaticHero: React.FC<StaticHeroProps> = ({
@@ -95,7 +100,8 @@ const StaticHero: React.FC<StaticHeroProps> = ({
   desktopPanelSide = 'left',
   mobilePanelPosition = 'bottom',
   mobileTabletMediaMode = 'cropped',
-  mobileTabletUncroppedMaxScale
+  mobileTabletUncroppedMaxScale,
+  mobileTabletUncroppedSettings
 }) => {
   const staticSectionRef = useRef<HTMLElement | null>(null)
 
@@ -250,9 +256,13 @@ const StaticHero: React.FC<StaticHeroProps> = ({
             loading={imageLoading}
             sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
             videoSources={slide.videoSources}
+            videoLoop={Boolean(slide.videoSources)}
             mobileTabletMediaMode={slide.mobileTabletMediaMode ?? mobileTabletMediaMode}
             mobileTabletUncroppedMaxScale={
               slide.mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
+            }
+            mobileTabletUncroppedSettings={
+              slide.mobileTabletUncroppedSettings ?? mobileTabletUncroppedSettings
             }
             alt={slide.imageAlt ?? ''}
           />

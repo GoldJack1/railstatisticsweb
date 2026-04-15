@@ -73,6 +73,14 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
       dark: '/media/home/hero2/slide3/dark.mp4'
     },
     mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mediaWidthPercent: 80,
+      imageTopPercent: 22,
+      videoTopPercent: 22,
+      tabletTopPercent: 26
+    },
     autoPlayMs: 13_000
   },
   {
@@ -92,6 +100,14 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
       dark: '/media/home/hero2/slide4/dark.mp4'
     },
     mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mediaWidthPercent: 74,
+      imageTopPercent: 18,
+      videoTopPercent: 20,
+      tabletTopPercent: 22
+    },
     autoPlayMs: 15_000
   }
 ]
@@ -109,7 +125,20 @@ const HOME_STATIC_STATION_DETAIL: CarouselHeroSlide = {
       so you can keep exploring with the latest information.
     </p>
     </>
-  )
+  ),
+  videoSources: {
+    light: '/media/home/hero3/slide1/light.mp4',
+    dark: '/media/home/hero3/slide1/dark.mp4'
+  },
+  mobileTabletMediaMode: 'uncropped',
+  mobileTabletUncroppedSettings: {
+    scaleSpeed: 3.5,
+    maxScale: 1.9,
+    mediaWidthPercent: 80,
+    imageTopPercent: 22,
+    videoTopPercent: 22,
+    tabletTopPercent: 26
+  }
 }
 
 const HOME_STATIC_FAVOURITES: CarouselHeroSlide = {
@@ -241,6 +270,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="container">
       <div className="main">
+          {/* Hero 1: Primary download splash */}
         <div className="home-page__top-static-hero">
           <StaticHero
             slide={homePrimarySlide}
@@ -254,6 +284,7 @@ const HomePage: React.FC = () => {
 
         <HomeDownloadPlatformModal open={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} />
 
+        {/* Hero 2: Top features carousel */}
         <div className="home-page__hero-row">
           <CarouselHero
             slides={HOME_CAROUSEL_TOP_FEATURES_SLIDES}
@@ -264,6 +295,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 3: Detailed station pages */}
         <div className="home-page__hero-row">
           <StaticHero
             slide={HOME_STATIC_STATION_DETAIL}
@@ -274,6 +306,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 4: Favourite stations */}
         <div className="home-page__hero-row">
           <StaticHero
             slide={HOME_STATIC_FAVOURITES}
@@ -285,6 +318,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 5: Search and filtering carousel */}
         <div className="home-page__hero-row">
           <CarouselHero
             slides={HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES}
@@ -295,6 +329,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 6: Easy visit tracking */}
         <div className="home-page__hero-row">
           <StaticHero
             slide={HOME_STATIC_EASY_VISIT_TRACKING}
@@ -305,6 +340,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 7: Subscription features carousel */}
         <div className="home-page__hero-row">
           <CarouselHero
             slides={HOME_CAROUSEL_SUBSCRIPTION_SLIDES}
@@ -315,6 +351,7 @@ const HomePage: React.FC = () => {
           />
         </div>
 
+        {/* Hero 8: Closing download splash */}
         <div className="home-page__hero-row">
           <StaticHero
             slide={homePrimarySlide}

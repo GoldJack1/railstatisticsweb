@@ -5,7 +5,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Button from '../Button'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
-import HeroImageStack, { type HeroImageStackSources } from './HeroImageStack'
+import HeroImageStack, {
+  type HeroImageStackSources,
+  type HeroMobileTabletUncroppedSettings
+} from './HeroImageStack'
 import { DEFAULT_HERO_STACK_IMAGE_SOURCES } from './heroImageConstants'
 import {
   HeroSlideCtaRow,
@@ -107,6 +110,8 @@ export interface CarouselHeroProps {
   mobileTabletMediaMode?: HeroMediaCropMode
   /** Optional default max scale cap for mobile/tablet uncropped slides. */
   mobileTabletUncroppedMaxScale?: number
+  /** Optional default uncropped tuning for mobile/tablet slides. */
+  mobileTabletUncroppedSettings?: HeroMobileTabletUncroppedSettings
 }
 
 const ChevronLeft: React.FC = () => (
@@ -161,7 +166,8 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
   desktopPanelSide = 'left',
   mobilePanelPosition = 'bottom',
   mobileTabletMediaMode = 'cropped',
-  mobileTabletUncroppedMaxScale
+  mobileTabletUncroppedMaxScale,
+  mobileTabletUncroppedSettings
 }) => {
   const slideCount = slides.length
   const [index, setIndex] = useState(0)
@@ -641,8 +647,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 mobileTabletUncroppedMaxScale={
                   slide.mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
                 }
+                mobileTabletUncroppedSettings={
+                  slide.mobileTabletUncroppedSettings ?? mobileTabletUncroppedSettings
+                }
                 isActive={i === safeIndex}
-                videoLoop={autoplayUserPaused}
+                videoLoop={Boolean(slide.videoSources)}
                 alt={slide.imageAlt ?? ''}
               />
             </div>
@@ -658,8 +667,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                 mobileTabletUncroppedMaxScale={
                   slides[0].mobileTabletUncroppedMaxScale ?? mobileTabletUncroppedMaxScale
                 }
+                mobileTabletUncroppedSettings={
+                  slides[0].mobileTabletUncroppedSettings ?? mobileTabletUncroppedSettings
+                }
                 isActive={safeIndex === 0}
-                videoLoop={autoplayUserPaused}
+                videoLoop={Boolean(slides[0].videoSources)}
                 alt={slides[0].imageAlt ?? ''}
               />
             </div>

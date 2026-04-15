@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   HERO_IMAGE_DARK_DESKTOP_TABLET,
   HERO_IMAGE_DARK_MOBILE,
@@ -17,6 +17,21 @@ export interface HeroImageStackSources {
   lightMobile: string
 }
 
+export interface HeroMobileTabletUncroppedSettings {
+  /** Multiplies mobile/tablet uncropped scale response speed. */
+  scaleSpeed?: number
+  /** Caps mobile/tablet uncropped scale. */
+  maxScale?: number
+  /** Media width while uncropped on mobile/tablet. */
+  mediaWidthPercent?: number
+  /** Top offset for uncropped images on mobile/tablet. */
+  imageTopPercent?: number
+  /** Top offset for uncropped videos on mobile/tablet. */
+  videoTopPercent?: number
+  /** Shared top offset on tablet-sized uncropped viewports. */
+  tabletTopPercent?: number
+}
+
 export interface HeroImageStackProps {
   variant: HeroImageStackVariant
   /** `eager` for above-the-fold primary hero; `lazy` for lower sections. */
@@ -31,6 +46,8 @@ export interface HeroImageStackProps {
   }
   /** Mobile/tablet media framing mode. */
   mobileTabletMediaMode?: 'cropped' | 'uncropped'
+  /** Optional uncropped tuning for this specific usage. */
+  mobileTabletUncroppedSettings?: HeroMobileTabletUncroppedSettings
   /** Optional max scale cap for mobile/tablet uncropped mode. */
   mobileTabletUncroppedMaxScale?: number
   /** Active carousel cell should be true so videos only play when visible. */
@@ -54,6 +71,7 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
   sources,
   videoSources,
   mobileTabletMediaMode = 'cropped',
+  mobileTabletUncroppedSettings,
   mobileTabletUncroppedMaxScale,
   isActive = true,
   videoLoop = false,
@@ -64,8 +82,29 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
   const lightDesktopTablet = sources?.lightDesktopTablet ?? HERO_IMAGE_LIGHT_DESKTOP_TABLET
   const lightMobile = sources?.lightMobile ?? HERO_IMAGE_LIGHT_MOBILE
   const decorative = alt.trim() === ''
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const darkVideoRef = useRef<HTMLVideoElement | null>(null)
   const lightVideoRef = useRef<HTMLVideoElement | null>(null)
+  const [isInViewport, setIsInViewport] = useState(false)
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setIsInViewport(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting)
+      },
+      { threshold: 0.2 }
+    )
+
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!videoSources) return
@@ -75,6 +114,10 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
       if (!isActive) {
         el.pause()
         el.currentTime = 0
+        return
+      }
+      if (!isInViewport) {
+        el.pause()
         return
       }
       if (el.ended) {
@@ -87,10 +130,11 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
 
     syncVideo(darkVideoRef.current)
     syncVideo(lightVideoRef.current)
-  }, [isActive, videoSources])
+  }, [isActive, isInViewport, videoSources])
 
   return (
     <div
+      ref={rootRef}
       className={[
         'rs-home-hero-image-stack',
         VARIANT_MODIFIER[variant],
@@ -101,13 +145,42 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
         .filter(Boolean)
         .join(' ')}
       style={
-        mobileTabletUncroppedMaxScale != null
-          ? ({
-              ['--hero-image-mobile-uncropped-max-scale' as string]: String(
-                mobileTabletUncroppedMaxScale
-              )
-            } as React.CSSProperties)
-          : undefined
+        ({
+          ...(mobileTabletUncroppedSettings?.scaleSpeed != null
+            ? {
+                ['--hero-image-mobile-uncropped-scale-speed' as string]: String(
+                  mobileTabletUncroppedSettings.scaleSpeed
+                )
+              }
+            : {}),
+          ...((mobileTabletUncroppedSettings?.maxScale ?? mobileTabletUncroppedMaxScale) != null
+            ? {
+                ['--hero-image-mobile-uncropped-max-scale' as string]: String(
+                  mobileTabletUncroppedSettings?.maxScale ?? mobileTabletUncroppedMaxScale
+                )
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.mediaWidthPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-media-width' as string]: `${mobileTabletUncroppedSettings.mediaWidthPercent}%`
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.imageTopPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-image-top' as string]: `${mobileTabletUncroppedSettings.imageTopPercent}%`
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.videoTopPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-video-top' as string]: `${mobileTabletUncroppedSettings.videoTopPercent}%`
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.tabletTopPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-tablet-top' as string]: `${mobileTabletUncroppedSettings.tabletTopPercent}%`
+              }
+            : {})
+        } as React.CSSProperties)
       }
       aria-hidden={decorative ? true : undefined}
     >
