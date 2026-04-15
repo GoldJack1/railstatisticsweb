@@ -27,6 +27,11 @@
     .home-page__top-static-hero .rs-static-hero[data-static-hero-cta-band='2'] {
         min-height: calc(912px - 150px);
     }
+
+    .home-page__hero-favourites-mobile-image-bottom .rs-home-hero-image-stack__media {
+        top: auto;
+        bottom: 0;
+    }
 }
 
 /* HomePage: full-bleed hero rows below the primary band (carousel or static). */

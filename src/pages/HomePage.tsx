@@ -78,7 +78,7 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
       maxScale: 1.9,
       mediaWidthPercent: 80,
       imageTopPercent: 22,
-      videoTopPercent: 22,
+      videoTopPercent: 20,
       tabletTopPercent: 26
     },
     autoPlayMs: 13_000
@@ -103,10 +103,10 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
     mobileTabletUncroppedSettings: {
       scaleSpeed: 3.5,
       maxScale: 1.9,
-      mediaWidthPercent: 74,
-      imageTopPercent: 18,
-      videoTopPercent: 20,
-      tabletTopPercent: 22
+      mediaWidthPercent: 80,
+      imageTopPercent: 22,
+      videoTopPercent: 22,
+      tabletTopPercent: 26
     },
     autoPlayMs: 15_000
   }
@@ -136,7 +136,7 @@ const HOME_STATIC_STATION_DETAIL: CarouselHeroSlide = {
     maxScale: 1.9,
     mediaWidthPercent: 80,
     imageTopPercent: 22,
-    videoTopPercent: 22,
+    videoTopPercent: 23,
     tabletTopPercent: 26
   }
 }
@@ -168,7 +168,21 @@ const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
         Whether you search casually or know exactly what you are looking for, Rail Statistics helps you get there faster.
       </p>
     </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero5/slide1/light.mp4',
+      dark: '/media/home/hero5/slide1/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mediaWidthPercent: 80,
+      imageTopPercent: 22,
+      videoTopPercent: 22,
+      tabletTopPercent: 26
+    },
+    autoPlayMs: 17_000
   },
   {
     title: 'Filter stations with more control',
@@ -182,7 +196,21 @@ const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
         by all 33 London boroughs for more detailed exploration.
         </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero5/slide2/light.mp4',
+      dark: '/media/home/hero5/slide2/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mediaWidthPercent: 80,
+      imageTopPercent: 22,
+      videoTopPercent: 22,
+      tabletTopPercent: 26
+    },
+    autoPlayMs: 44_000
   }
 ]
 
@@ -311,9 +339,11 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={HOME_STATIC_FAVOURITES}
             ariaLabel="Favourite stations"
+            className="home-page__hero-favourites-mobile-image-bottom"
             contentFill="heroTint"
             desktopContentVerticalAlign="center"
             desktopPanelSide="right"
+            mobilePanelPosition="top"
             titleHeadingLevel={2}
           />
         </div>
