@@ -40,6 +40,8 @@ export interface HeroImageStackProps {
   variant: HeroImageStackVariant
   /** `eager` for above-the-fold primary hero; `lazy` for lower sections. */
   loading?: 'eager' | 'lazy'
+  /** Video preload strategy; defaults to `auto` for eager, `metadata` for lazy. */
+  videoPreload?: 'none' | 'metadata' | 'auto'
   /** When set, replaces built-in paths (e.g. merged per-slide sources). */
   sources?: HeroImageStackSources
   /** Optional themed videos. When present, videos render instead of image sources. */
@@ -49,6 +51,8 @@ export interface HeroImageStackProps {
     darkMobileTablet?: string
     lightMobileTablet?: string
   }
+  /** Prefer lower-quality/mobile-tablet video sources when available. */
+  videoQuality?: 'standard' | 'low'
   /** Mobile/tablet media framing mode. */
   mobileTabletMediaMode?: 'cropped' | 'uncropped'
   /** Optional uncropped tuning for this specific usage. */
@@ -73,6 +77,7 @@ const VARIANT_MODIFIER: Record<HeroImageStackVariant, string> = {
 const HeroImageStack: React.FC<HeroImageStackProps> = ({
   variant,
   loading = 'eager',
+  videoPreload,
   sources,
   videoSources,
   mobileTabletMediaMode = 'cropped',
@@ -80,6 +85,7 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
   mobileTabletUncroppedMaxScale,
   isActive = true,
   videoLoop = false,
+  videoQuality = 'low',
   alt = ''
 }) => {
   const darkDesktopTablet = sources?.darkDesktopTablet ?? HERO_IMAGE_DARK_DESKTOP_TABLET
@@ -87,11 +93,16 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
   const lightDesktopTablet = sources?.lightDesktopTablet ?? HERO_IMAGE_LIGHT_DESKTOP_TABLET
   const lightMobile = sources?.lightMobile ?? HERO_IMAGE_LIGHT_MOBILE
   const decorative = alt.trim() === ''
+  const resolvedVideoPreload = videoPreload ?? (loading === 'eager' ? 'auto' : 'metadata')
   const rootRef = useRef<HTMLDivElement | null>(null)
   const darkVideoRef = useRef<HTMLVideoElement | null>(null)
   const lightVideoRef = useRef<HTMLVideoElement | null>(null)
   const [isInViewport, setIsInViewport] = useState(false)
   const [isMobileTabletViewport, setIsMobileTabletViewport] = useState(false)
+  const [activeTheme, setActiveTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document === 'undefined') return 'light'
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+  })
 
   useEffect(() => {
     const root = rootRef.current
@@ -127,10 +138,34 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
     return () => mq.removeListener(onChange)
   }, [])
 
-  const darkVideoSrc =
-    isMobileTabletViewport && videoSources?.darkMobileTablet ? videoSources.darkMobileTablet : videoSources?.dark
-  const lightVideoSrc =
-    isMobileTabletViewport && videoSources?.lightMobileTablet ? videoSources.lightMobileTablet : videoSources?.light
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+    const root = document.documentElement
+    const syncTheme = () => {
+      setActiveTheme(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light')
+    }
+    syncTheme()
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          syncTheme()
+          break
+        }
+      }
+    })
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const preferLowQuality = videoQuality === 'low'
+  const darkVideoSrc = isMobileTabletViewport && videoSources?.darkMobileTablet
+    ? videoSources.darkMobileTablet
+    : videoSources?.dark
+  const lightVideoSrc = isMobileTabletViewport && videoSources?.lightMobileTablet
+    ? videoSources.lightMobileTablet
+    : videoSources?.light
+  const activeDarkVideoSrc = activeTheme === 'dark' ? darkVideoSrc : undefined
+  const activeLightVideoSrc = activeTheme === 'light' ? lightVideoSrc : undefined
 
   useEffect(() => {
     if (!videoSources) return
@@ -225,27 +260,27 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
           <>
             <div className="rs-home-hero-image-stack__picture rs-home-hero-image-stack__picture--dark">
               <video
-                key={darkVideoSrc}
+                key={activeDarkVideoSrc ?? 'dark-video-disabled'}
                 ref={darkVideoRef}
                 className="rs-home-hero-image-stack__media"
-                src={darkVideoSrc}
+                src={activeDarkVideoSrc}
                 muted
                 playsInline
                 loop={videoLoop}
-                preload="metadata"
+                preload={preferLowQuality && isMobileTabletViewport ? 'metadata' : resolvedVideoPreload}
                 aria-hidden={decorative ? true : undefined}
               />
             </div>
             <div className="rs-home-hero-image-stack__picture rs-home-hero-image-stack__picture--light">
               <video
-                key={lightVideoSrc}
+                key={activeLightVideoSrc ?? 'light-video-disabled'}
                 ref={lightVideoRef}
                 className="rs-home-hero-image-stack__media"
-                src={lightVideoSrc}
+                src={activeLightVideoSrc}
                 muted
                 playsInline
                 loop={videoLoop}
-                preload="metadata"
+                preload={preferLowQuality && isMobileTabletViewport ? 'metadata' : resolvedVideoPreload}
                 aria-hidden={decorative ? true : undefined}
               />
             </div>

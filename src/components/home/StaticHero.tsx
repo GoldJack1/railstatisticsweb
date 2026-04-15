@@ -52,7 +52,7 @@ export interface StaticHeroProps {
   /** Defaults merged into `slide.imageSources` (partials override). */
   defaultImageSources?: HeroImageStackSources
   /**
-   * Hero image `loading` hint. Use `eager` for the primary above-the-fold hero; `lazy` for lower sections (default).
+   * Hero image `loading` hint. Defaults to `eager`.
    */
   imageLoading?: 'eager' | 'lazy'
   className?: string
@@ -90,7 +90,7 @@ export interface StaticHeroProps {
 const StaticHero: React.FC<StaticHeroProps> = ({
   slide,
   defaultImageSources = DEFAULT_HERO_STACK_IMAGE_SOURCES,
-  imageLoading = 'lazy',
+  imageLoading = 'eager',
   className = '',
   ariaLabel = 'Featured',
   contentFill = 'bgSecondary',

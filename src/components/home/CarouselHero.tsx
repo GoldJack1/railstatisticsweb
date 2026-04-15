@@ -640,7 +640,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
             <div key={i} className="rs-carousel-hero-image-strip__cell">
               <HeroImageStack
                 variant="carousel"
-                loading="lazy"
+                loading="eager"
                 sources={mergeCarouselHeroSlideSources(slide, defaultImageSources)}
                 videoSources={slide.videoSources}
                 mobileTabletMediaMode={slide.mobileTabletMediaMode ?? mobileTabletMediaMode}
@@ -660,7 +660,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
             <div key="strip-clone-0" className="rs-carousel-hero-image-strip__cell">
               <HeroImageStack
                 variant="carousel"
-                loading="lazy"
+                loading="eager"
                 sources={mergeCarouselHeroSlideSources(slides[0], defaultImageSources)}
                 videoSources={slides[0].videoSources}
                 mobileTabletMediaMode={slides[0].mobileTabletMediaMode ?? mobileTabletMediaMode}
