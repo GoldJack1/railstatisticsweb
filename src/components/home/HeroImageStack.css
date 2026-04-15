@@ -80,7 +80,10 @@
    */
   .rs-home-hero-image-stack--mobile-tablet-uncropped .rs-home-hero-image-stack__media {
     left: 50%;
-    width: var(--hero-image-mobile-uncropped-media-width, 72.5%);
+    width: var(
+      --hero-image-mobile-uncropped-media-width-mobile,
+      var(--hero-image-mobile-uncropped-media-width, 72.5%)
+    );
     height: 100%;
     object-fit: contain;
     transform: translate(
@@ -122,6 +125,16 @@
 
 /* Uncropped: widths > 420px and < 1024px (421px–1023px; typical tablet / large phone). */
 @media (min-width: 421px) and (max-width: 1023px) {
+  .rs-home-hero-image-stack--mobile-tablet-uncropped .rs-home-hero-image-stack__media {
+    width: var(
+      --hero-image-mobile-uncropped-media-width-tablet,
+      var(
+        --hero-image-mobile-uncropped-media-width-mobile,
+        var(--hero-image-mobile-uncropped-media-width, 72.5%)
+      )
+    );
+  }
+
   .rs-home-hero-image-stack--mobile-tablet-uncropped
     picture.rs-home-hero-image-stack__picture
     .rs-home-hero-image-stack__media,

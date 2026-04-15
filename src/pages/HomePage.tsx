@@ -76,10 +76,11 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
     mobileTabletUncroppedSettings: {
       scaleSpeed: 3.5,
       maxScale: 1.9,
-      mediaWidthPercent: 80,
-      imageTopPercent: 22,
-      videoTopPercent: 20,
-      tabletTopPercent: 26
+      mobileMediaWidthPercent: 80,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 21,
+      tabletTopPercent: 22
     },
     autoPlayMs: 13_000
   },
@@ -103,10 +104,11 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
     mobileTabletUncroppedSettings: {
       scaleSpeed: 3.5,
       maxScale: 1.9,
-      mediaWidthPercent: 80,
-      imageTopPercent: 22,
-      videoTopPercent: 22,
-      tabletTopPercent: 26
+      mobileMediaWidthPercent: 80,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 21,
+      tabletTopPercent: 22
     },
     autoPlayMs: 15_000
   }
@@ -134,10 +136,11 @@ const HOME_STATIC_STATION_DETAIL: CarouselHeroSlide = {
   mobileTabletUncroppedSettings: {
     scaleSpeed: 3.5,
     maxScale: 1.9,
-    mediaWidthPercent: 80,
-    imageTopPercent: 22,
+    mobileMediaWidthPercent: 85,
+    tabletMediaWidthPercent: 80,
+    imageTopPercent: 20,
     videoTopPercent: 23,
-    tabletTopPercent: 26
+    tabletTopPercent: 25
   }
 }
 
@@ -177,10 +180,11 @@ const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
     mobileTabletUncroppedSettings: {
       scaleSpeed: 3.5,
       maxScale: 1.9,
-      mediaWidthPercent: 80,
-      imageTopPercent: 22,
-      videoTopPercent: 22,
-      tabletTopPercent: 26
+      mobileMediaWidthPercent: 85,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 23,
+      tabletTopPercent: 22
     },
     autoPlayMs: 17_000
   },
@@ -205,10 +209,11 @@ const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
     mobileTabletUncroppedSettings: {
       scaleSpeed: 3.5,
       maxScale: 1.9,
-      mediaWidthPercent: 80,
-      imageTopPercent: 22,
-      videoTopPercent: 22,
-      tabletTopPercent: 26
+      mobileMediaWidthPercent: 85,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 23,
+      tabletTopPercent: 22
     },
     autoPlayMs: 44_000
   }
@@ -241,7 +246,22 @@ const HOME_CAROUSEL_SUBSCRIPTION_SLIDES: CarouselHeroSlide[] = [
           journeys without distractions.
         </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero7/slide1/light.mp4',
+      dark: '/media/home/hero7/slide1/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mobileMediaWidthPercent: 85,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 22,
+      tabletTopPercent: 23
+    },
+    autoPlayMs: 15_000
   },
   {
     title: 'Unlock home-screen widgets',
@@ -253,7 +273,22 @@ const HOME_CAROUSEL_SUBSCRIPTION_SLIDES: CarouselHeroSlide[] = [
           progress visible at a glance every day.
         </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero7/slide2/light.mp4',
+      dark: '/media/home/hero7/slide2/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mobileMediaWidthPercent: 85,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 22,
+      tabletTopPercent: 23
+    },
+    autoPlayMs: 15_000
   },
   {
     title: 'Be first to try ticket tracking in beta',
@@ -263,7 +298,22 @@ const HOME_CAROUSEL_SUBSCRIPTION_SLIDES: CarouselHeroSlide[] = [
           Exclusive to First Class, be the first to try Ticket Tracking in beta when it launches in beta in summer 2026.
         </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero7/slide3/light.mp4',
+      dark: '/media/home/hero7/slide3/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mobileMediaWidthPercent: 85,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 22,
+      tabletTopPercent: 23
+    },
+    autoPlayMs: 15_000
   }
 ]
 

@@ -22,8 +22,12 @@ export interface HeroMobileTabletUncroppedSettings {
   scaleSpeed?: number
   /** Caps mobile/tablet uncropped scale. */
   maxScale?: number
-  /** Media width while uncropped on mobile/tablet. */
+  /** Shared media width while uncropped on mobile/tablet (fallback). */
   mediaWidthPercent?: number
+  /** Mobile-only media width while uncropped (<=420px). */
+  mobileMediaWidthPercent?: number
+  /** Tablet-only media width while uncropped (421px-1023px). */
+  tabletMediaWidthPercent?: number
   /** Top offset for uncropped images on mobile/tablet. */
   imageTopPercent?: number
   /** Top offset for uncropped videos on mobile/tablet. */
@@ -163,6 +167,16 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
           ...(mobileTabletUncroppedSettings?.mediaWidthPercent != null
             ? {
                 ['--hero-image-mobile-uncropped-media-width' as string]: `${mobileTabletUncroppedSettings.mediaWidthPercent}%`
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.mobileMediaWidthPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-media-width-mobile' as string]: `${mobileTabletUncroppedSettings.mobileMediaWidthPercent}%`
+              }
+            : {}),
+          ...(mobileTabletUncroppedSettings?.tabletMediaWidthPercent != null
+            ? {
+                ['--hero-image-mobile-uncropped-media-width-tablet' as string]: `${mobileTabletUncroppedSettings.tabletMediaWidthPercent}%`
               }
             : {}),
           ...(mobileTabletUncroppedSettings?.imageTopPercent != null
