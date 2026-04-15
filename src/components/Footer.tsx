@@ -13,11 +13,14 @@ const Footer: React.FC = () => {
       <div className="site-footer-inner">
         <p>&copy; {new Date().getFullYear()} Rail Statistics</p>
         <div className="site-footer-links">
+          <Link to="/home" className="site-footer-link">
+            Home
+          </Link>
+          <Link to="/migration" className="site-footer-link">
+            Migration
+          </Link>
           {user && (
             <>
-              <Link to="/migration" className="site-footer-link">
-                Migration
-              </Link>
               <Link to="/stations" className="site-footer-link">
                 Stations
               </Link>

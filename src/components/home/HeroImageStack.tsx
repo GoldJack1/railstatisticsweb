@@ -47,6 +47,7 @@ export interface HeroImageStackProps {
     dark: string
     light: string
     darkMobileTablet?: string
+    lightMobileTablet?: string
   }
   /** Mobile/tablet media framing mode. */
   mobileTabletMediaMode?: 'cropped' | 'uncropped'
@@ -90,6 +91,7 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
   const darkVideoRef = useRef<HTMLVideoElement | null>(null)
   const lightVideoRef = useRef<HTMLVideoElement | null>(null)
   const [isInViewport, setIsInViewport] = useState(false)
+  const [isMobileTabletViewport, setIsMobileTabletViewport] = useState(false)
 
   useEffect(() => {
     const root = rootRef.current
@@ -109,6 +111,26 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
     observer.observe(root)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+    const mq = window.matchMedia('(max-width: 1199px)')
+    const onChange = () => setIsMobileTabletViewport(mq.matches)
+    onChange()
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    }
+    mq.addListener(onChange)
+    return () => mq.removeListener(onChange)
+  }, [])
+
+  const darkVideoSrc =
+    isMobileTabletViewport && videoSources?.darkMobileTablet ? videoSources.darkMobileTablet : videoSources?.dark
+  const lightVideoSrc =
+    isMobileTabletViewport && videoSources?.lightMobileTablet ? videoSources.lightMobileTablet : videoSources?.light
 
   useEffect(() => {
     if (!videoSources) return
@@ -203,32 +225,29 @@ const HeroImageStack: React.FC<HeroImageStackProps> = ({
           <>
             <div className="rs-home-hero-image-stack__picture rs-home-hero-image-stack__picture--dark">
               <video
+                key={darkVideoSrc}
                 ref={darkVideoRef}
                 className="rs-home-hero-image-stack__media"
+                src={darkVideoSrc}
                 muted
                 playsInline
                 loop={videoLoop}
                 preload="metadata"
                 aria-hidden={decorative ? true : undefined}
-              >
-                {videoSources.darkMobileTablet ? (
-                  <source media="(max-width: 1199px)" src={videoSources.darkMobileTablet} />
-                ) : null}
-                <source src={videoSources.dark} />
-              </video>
+              />
             </div>
             <div className="rs-home-hero-image-stack__picture rs-home-hero-image-stack__picture--light">
               <video
+                key={lightVideoSrc}
                 ref={lightVideoRef}
                 className="rs-home-hero-image-stack__media"
+                src={lightVideoSrc}
                 muted
                 playsInline
                 loop={videoLoop}
                 preload="metadata"
                 aria-hidden={decorative ? true : undefined}
-              >
-                <source src={videoSources.light} />
-              </video>
+              />
             </div>
           </>
         ) : (

@@ -31,6 +31,13 @@ const HOME_PRIMARY_HERO8_VIDEO_SOURCES = {
   dark: '/media/home/hero8/slide1/dark.mp4'
 } as const
 
+const HOME_PRIMARY_HERO9_VIDEO_SOURCES = {
+  light: '/media/home/hero9/slide 1/desktop/desktoplight.mp4',
+  dark: '/media/home/hero9/slide 1/desktop/desktopdark.mp4',
+  lightMobileTablet: '/media/home/hero9/slide 1/tablet-mobile/mobile-tabletlight.mp4',
+  darkMobileTablet: '/media/home/hero9/slide 1/tablet-mobile/mobile-tabletdark.mp4'
+} as const
+
 const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
   {
     title: 'A live station database, ready when you are',
@@ -416,6 +423,28 @@ const HomePage: React.FC = () => {
     [onDownloadCta]
   )
 
+  const homePrimaryHero9Slide = useMemo(
+    (): CarouselHeroSlide => ({
+      title: 'Have a spreadsheet file already?',
+      body: (
+        <p>If you have a spreadsheet file already, click migrate below to get started on migrating your file to Rail Statistics!</p>
+      ),
+      ctas: [{ label: 'Migrate', href: '/migration', target: '_self' }],
+      videoSources: HOME_PRIMARY_HERO9_VIDEO_SOURCES,
+      mobileTabletMediaMode: 'uncropped',
+      mobileTabletUncroppedSettings: {
+        scaleSpeed: 3.5,
+        maxScale: 1.9,
+        mobileMediaWidthPercent: 95,
+        tabletMediaWidthPercent: 95,
+        imageTopPercent: 20,
+        videoTopPercent: 24,
+        tabletTopPercent: 27
+      }
+    }),
+    []
+  )
+
   return (
     <div className="container">
       <div className="main">
@@ -507,6 +536,18 @@ const HomePage: React.FC = () => {
           <StaticHero
             slide={homePrimaryHero8Slide}
             ariaLabel="Download Rail Statistics"
+            contentFill="heroTint"
+            textStyle="splash"
+            desktopContentVerticalAlign="center"
+            titleHeadingLevel={2}
+          />
+        </div>
+
+        {/* Hero 9: Migrate your file */}
+        <div className="home-page__hero-row">
+          <StaticHero
+            slide={homePrimaryHero9Slide}
+            ariaLabel="Migrate your file to Rail Statistics"
             contentFill="heroTint"
             textStyle="splash"
             desktopContentVerticalAlign="center"

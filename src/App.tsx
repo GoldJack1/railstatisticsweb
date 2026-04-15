@@ -80,7 +80,7 @@ const App: React.FC = () => {
                 }
               >
                 <Routes>
-                  <Route path="/" element={<MigrationPage />} />
+                  <Route path="/" element={<HomePage />} />
                   <Route path="/home" element={<HomePage />} />
                   <Route path="/log-in" element={<LoginPage />} />
                   <Route path="/stations" element={<ProtectedRoute><StationsPageRefactored /></ProtectedRoute>} />

@@ -45,6 +45,7 @@ export interface CarouselHeroSlide {
     dark: string
     light: string
     darkMobileTablet?: string
+    lightMobileTablet?: string
   }
   /** Mobile/tablet media framing for this slide only (defaults to hero-level setting). */
   mobileTabletMediaMode?: HeroMediaCropMode
