@@ -21,11 +21,14 @@ function detectPlatform(): Platform {
 const HOME_PRIMARY_SUBTITLE =
   "Start building a map of where you've been, one station at a time."
 
-const HOME_PRIMARY_HERO_IMAGE_SOURCES = {
-  darkDesktopTablet: '/media/home/hero1/slide1/hometophero-desktop-tablet-dark.png',
-  darkMobile: '/media/home/hero1/slide1/hometophero-mobile-dark.png',
-  lightDesktopTablet: '/media/home/hero1/slide1/hometophero-desktop-tablet-light.png',
-  lightMobile: '/media/home/hero1/slide1/hometophero-mobile-light.png'
+const HOME_PRIMARY_HERO1_VIDEO_SOURCES = {
+  light: '/media/home/hero1/slide1/light.mp4',
+  dark: '/media/home/hero1/slide1/dark.mp4'
+} as const
+
+const HOME_PRIMARY_HERO8_VIDEO_SOURCES = {
+  light: '/media/home/hero8/slide1/light.mp4',
+  dark: '/media/home/hero8/slide1/dark.mp4'
 } as const
 
 const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
@@ -185,7 +188,21 @@ const HOME_STATIC_FAVOURITES: CarouselHeroSlide = {
       This is a great way to build your own shortlist of memorable places across the network.
     </p>
     </>
-  )
+  ),
+  videoSources: {
+    light: '/media/home/hero4/slide1/light.mp4',
+    dark: '/media/home/hero4/slide1/dark.mp4'
+  },
+  mobileTabletMediaMode: 'uncropped',
+  mobileTabletUncroppedSettings: {
+    scaleSpeed: 3.5,
+    maxScale: 1.9,
+    mobileMediaWidthPercent: 95,
+    tabletMediaWidthPercent: 80,
+    imageTopPercent: 22,
+    videoTopPercent: 26,
+    tabletTopPercent: 25
+  }
 }
 
 const HOME_CAROUSEL_SEARCH_AND_FILTER_SLIDES: CarouselHeroSlide[] = [
@@ -379,12 +396,22 @@ const HomePage: React.FC = () => {
     }
   }, [platform])
 
-  const homePrimarySlide = useMemo(
+  const homePrimaryHero1Slide = useMemo(
     (): CarouselHeroSlide => ({
       title: 'The Ultimate Station Bashing App is Here!',
       body: <p>{preventSingleWordWidow(HOME_PRIMARY_SUBTITLE)}</p>,
       ctas: [{ label: 'Download Now', onClick: onDownloadCta }],
-      imageSources: HOME_PRIMARY_HERO_IMAGE_SOURCES
+      videoSources: HOME_PRIMARY_HERO1_VIDEO_SOURCES
+    }),
+    [onDownloadCta]
+  )
+
+  const homePrimaryHero8Slide = useMemo(
+    (): CarouselHeroSlide => ({
+      title: 'The Ultimate Station Bashing App is Here!',
+      body: <p>{preventSingleWordWidow(HOME_PRIMARY_SUBTITLE)}</p>,
+      ctas: [{ label: 'Download Now', onClick: onDownloadCta }],
+      videoSources: HOME_PRIMARY_HERO8_VIDEO_SOURCES
     }),
     [onDownloadCta]
   )
@@ -395,7 +422,7 @@ const HomePage: React.FC = () => {
           {/* Hero 1: Primary download splash */}
         <div className="home-page__top-static-hero">
           <StaticHero
-            slide={homePrimarySlide}
+            slide={homePrimaryHero1Slide}
             ariaLabel="Download Rail Statistics"
             textStyle="splash"
             desktopContentVerticalAlign="center"
@@ -437,7 +464,7 @@ const HomePage: React.FC = () => {
             contentFill="heroTint"
             desktopContentVerticalAlign="center"
             desktopPanelSide="right"
-            mobilePanelPosition="top"
+            mobilePanelPosition="bottom"
             titleHeadingLevel={2}
           />
         </div>
@@ -478,7 +505,7 @@ const HomePage: React.FC = () => {
         {/* Hero 8: Closing download splash */}
         <div className="home-page__hero-row">
           <StaticHero
-            slide={homePrimarySlide}
+            slide={homePrimaryHero8Slide}
             ariaLabel="Download Rail Statistics"
             contentFill="heroTint"
             textStyle="splash"
