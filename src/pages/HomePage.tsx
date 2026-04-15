@@ -40,7 +40,22 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
         Whether you are just starting out or already have a long travel history, Rail Statistics is ready to grow with your journeys.
       </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero2/slide1/light.mp4',
+      dark: '/media/home/hero2/slide1/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mobileMediaWidthPercent: 80,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 21,
+      tabletTopPercent: 22
+    },
+    autoPlayMs: 18_000
   },
   {
     title: 'Bring your existing station list with you',
@@ -54,7 +69,22 @@ const HOME_CAROUSEL_TOP_FEATURES_SLIDES: CarouselHeroSlide[] = [
         Statistics database, making it easier to continue from where you left off.
       </p>
       </>
-    )
+    ),
+    videoSources: {
+      light: '/media/home/hero2/slide2/light.mp4',
+      dark: '/media/home/hero2/slide2/dark.mp4'
+    },
+    mobileTabletMediaMode: 'uncropped',
+    mobileTabletUncroppedSettings: {
+      scaleSpeed: 3.5,
+      maxScale: 1.9,
+      mobileMediaWidthPercent: 80,
+      tabletMediaWidthPercent: 70,
+      imageTopPercent: 20,
+      videoTopPercent: 21,
+      tabletTopPercent: 22
+    },
+    autoPlayMs: 18_000
   },
   {
     title: 'Stay updated when new stations open',
@@ -232,7 +262,21 @@ const HOME_STATIC_EASY_VISIT_TRACKING: CarouselHeroSlide = {
         as your journey history grows.
       </p>
     </>
-  )
+  ),
+  videoSources: {
+    light: '/media/home/hero6/slide1/light.mp4',
+    dark: '/media/home/hero6/slide1/dark.mp4'
+  },
+  mobileTabletMediaMode: 'uncropped',
+  mobileTabletUncroppedSettings: {
+    scaleSpeed: 3.5,
+    maxScale: 1.9,
+    mobileMediaWidthPercent: 85,
+    tabletMediaWidthPercent: 70,
+    imageTopPercent: 20,
+    videoTopPercent: 23,
+    tabletTopPercent: 25
+  }
 }
 
 const HOME_CAROUSEL_SUBSCRIPTION_SLIDES: CarouselHeroSlide[] = [
