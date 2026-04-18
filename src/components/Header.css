@@ -35,7 +35,7 @@
     }
 }
 
-/* Universal Header — logo + theme only (site nav & auth live in the footer) */
+/* Universal Header — logo + main nav (footer mirrors the same links) */
 .universal-header {
     /* Opaque fill so status-bar region isn’t only backdrop-filter (Safari can look washed out there) */
     background: var(--bg-primary);
@@ -73,6 +73,13 @@
     }
 }
 
+.header-inner {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
 .header-container {
     width: 100%;
     max-width: none;
@@ -89,6 +96,34 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.logo--mobile {
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+    flex: 1;
+}
+
+.logo-link--mobile-title {
+    display: block;
+    min-width: 0;
+    flex: 1;
+    text-decoration: none;
+    color: inherit;
+}
+
+.header-page-title {
+    font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-variation-settings: 'CRSV' 1, 'wght' 600;
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+    line-height: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .header-right {
@@ -96,6 +131,144 @@
     align-items: center;
     justify-content: flex-end;
     gap: var(--space-sm);
+    min-width: 0;
+}
+
+/* Visible at all breakpoints: single row; narrow viewports scroll horizontally */
+.header-nav {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.header-nav-links {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: var(--space-md);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.header-nav-links::-webkit-scrollbar {
+    height: 0;
+}
+
+.header-nav-link {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: 400;
+    font-variation-settings: 'CRSV' 1, 'wght' 400;
+    font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.header-nav-link:hover {
+    color: var(--accent-bright);
+}
+
+/* Current route: primary text (black in light theme, white in dark) */
+.header-nav-link--active,
+.header-nav-link--active:hover {
+    color: var(--text-primary);
+}
+
+.header-menu-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-sm);
+    margin: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    line-height: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.header-menu-toggle:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+.header-menu-toggle__bars {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.header-menu-toggle__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 1px;
+    background-color: currentColor;
+    transform-origin: center;
+    transition:
+        transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease;
+}
+
+.header-menu-toggle__bar:nth-child(1) {
+    top: 0;
+}
+
+.header-menu-toggle__bar:nth-child(2) {
+    top: 6px;
+}
+
+.header-menu-toggle__bar:nth-child(3) {
+    top: 12px;
+}
+
+.header-menu-toggle[aria-expanded='true'] .header-menu-toggle__bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+
+.header-menu-toggle[aria-expanded='true'] .header-menu-toggle__bar:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.header-menu-toggle[aria-expanded='true'] .header-menu-toggle__bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .header-menu-toggle__bar {
+        transition-duration: 0.01ms;
+    }
+}
+
+.header-mobile-panel {
+    display: none;
+}
+
+.header-mobile-panel-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.header-mobile-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.header-nav--mobile .header-nav-link {
+    display: block;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+}
+
+.header-nav--mobile .header-nav-link:hover {
+    background: var(--bg-secondary);
 }
 
 .logo-link {
@@ -133,6 +306,14 @@
 
 .logo:hover {
     color: var(--text-secondary);
+}
+
+/*
+ * Mobile title row shares .logo — must override .logo { display: flex } so the block stays
+ * hidden above the phone breakpoint (later .logo wins over a lone .logo--mobile rule).
+ */
+.logo.logo--mobile {
+    display: none;
 }
 
 /* Station collection toggle (Production / Sandbox) — used elsewhere if needed */
@@ -178,6 +359,10 @@
         font-size: var(--text-lg);
         min-height: 44px;
     }
+
+    .header-nav-links {
+        gap: var(--space-sm);
+    }
 }
 
 @media (max-width: 639px) {
@@ -191,8 +376,49 @@
         min-height: 40px;
     }
 
-    /* Phone: hide the logo mark only; keep “Rail Statistics” as the home link */
-    .logo-mark {
+    .header-nav-links {
+        gap: var(--space-sm);
+    }
+
+    /* Narrow: page title + hamburger; inline nav hidden */
+    .logo-link--full {
         display: none;
+    }
+
+    .logo.logo--mobile {
+        display: flex;
+    }
+
+    .header-nav--desktop {
+        display: none;
+    }
+
+    .header-menu-toggle {
+        display: inline-flex;
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .header-mobile-panel {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.22s ease;
+    }
+
+    .universal-header--menu-open .header-mobile-panel {
+        grid-template-rows: 1fr;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .header-mobile-panel-inner {
+        min-height: 0;
+    }
+
+    .header-nav--mobile {
+        padding: var(--space-xs) 0 var(--space-sm);
+    }
+
+    .header-mobile-nav-list li + li {
+        margin-top: 2px;
     }
 }

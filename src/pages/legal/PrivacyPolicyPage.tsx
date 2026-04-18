@@ -31,7 +31,7 @@ const PrivacyPolicyPage: React.FC = () => {
                 ← Back to home
               </Button>
             </div>
-            <nav className="privacy-tabs" aria-label="Privacy policy sections">
+            <nav className="privacy-tabs" aria-label="Privacy Policy sections">
               {sections.map((section) => (
                 <a key={section.id} href={`#${section.id}`} className="privacy-tab">
                   {section.label}

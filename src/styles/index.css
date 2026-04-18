@@ -249,6 +249,11 @@ button, a, input, select, textarea, [role="button"] {
     min-width: unset;
 }
 
+.universal-header a.header-nav-link {
+    min-height: unset;
+    min-width: unset;
+}
+
 /* App Layout */
 #root {
     width: 100%;
