@@ -102,6 +102,10 @@ service cloud.firestore {
         && resource.data.createdByUid == request.auth.uid;
     }
 
+    match /inAppMessages/{messageId} {
+      allow read, create, update, delete: if isSignedIn();
+    }
+
     // Every other collection/subcollection: public read; no client writes unless you add a match above.
     match /{document=**} {
       allow read: if true;

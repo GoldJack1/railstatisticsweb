@@ -23,6 +23,7 @@ function getHeaderPageTitle(pathname: string): string {
   if (pathname.startsWith('/design-system/icons')) return 'Icons'
   if (pathname.startsWith('/design-system/heros')) return 'Heros'
   if (pathname.startsWith('/design-system')) return 'Design system'
+  if (pathname.startsWith('/admin/messages')) return 'Messages'
   return 'Rail Statistics'
 }
 
@@ -38,6 +39,7 @@ const Header: React.FC = () => {
   const isHomeActive = pathname === '/' || pathname === '/home'
   const isMigrationActive = pathname === '/migration'
   const isStationsActive = pathname.startsWith('/stations')
+  const isMessagesActive = pathname.startsWith('/admin/messages')
 
   const navClass = (active: boolean) =>
     `header-nav-link${active ? ' header-nav-link--active' : ''}`
@@ -48,6 +50,7 @@ const Header: React.FC = () => {
     { to: '/home' as const, label: 'Home', active: isHomeActive, show: true },
     { to: '/migration' as const, label: 'Migration', active: isMigrationActive, show: true },
     { to: '/stations' as const, label: 'Stations', active: isStationsActive, show: Boolean(user) },
+    { to: '/admin/messages' as const, label: 'Messages', active: isMessagesActive, show: Boolean(user) },
   ].filter((item) => item.show)
 
   useEffect(() => {
