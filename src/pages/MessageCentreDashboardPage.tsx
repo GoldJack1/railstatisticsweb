@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
 import type { InAppMessage, MessageStatus } from '../types/messages'
 import {
   archiveInAppMessage,
@@ -132,9 +132,9 @@ const MessageCentreDashboardPage: React.FC = () => {
             <option value="published">Published</option>
             <option value="archived">Archived</option>
           </select>
-          <Button variant="wide" width="fill" instantAction onClick={() => navigate('/admin/messages/new')}>
+          <BUTWideButton width="fill" instantAction onClick={() => navigate('/admin/messages/new')}>
             New message
-          </Button>
+          </BUTWideButton>
         </div>
         <div className="message-centre-list-items">
           {rows.map((row) => (
@@ -143,11 +143,10 @@ const MessageCentreDashboardPage: React.FC = () => {
               <span>{row.preview || row.body.slice(0, 80)}</span>
               <em>{row.status}</em>
               <div className="message-row-actions">
-                <Button variant="wide" width="hug" instantAction disabled={isBusy} onClick={() => navigate(`/admin/messages/${row.id}`)}>
+                <BUTWideButton width="hug" instantAction disabled={isBusy} onClick={() => navigate(`/admin/messages/${row.id}`)}>
                   Edit
-                </Button>
-                <Button
-                  variant="wide"
+                </BUTWideButton>
+                <BUTWideButton
                   width="hug"
                   colorVariant="green-action"
                   instantAction
@@ -155,9 +154,8 @@ const MessageCentreDashboardPage: React.FC = () => {
                   onClick={() => void publishRowQuick(row)}
                 >
                   Publish
-                </Button>
-                <Button
-                  variant="wide"
+                </BUTWideButton>
+                <BUTWideButton
                   width="hug"
                   colorVariant="red-action"
                   instantAction
@@ -165,9 +163,8 @@ const MessageCentreDashboardPage: React.FC = () => {
                   onClick={() => void archiveRowQuick(row)}
                 >
                   Archive
-                </Button>
-                <Button
-                  variant="wide"
+                </BUTWideButton>
+                <BUTWideButton
                   width="hug"
                   colorVariant="red-action"
                   instantAction
@@ -175,7 +172,7 @@ const MessageCentreDashboardPage: React.FC = () => {
                   onClick={() => void deleteRowQuick(row)}
                 >
                   Delete
-                </Button>
+                </BUTWideButton>
               </div>
             </div>
           ))}

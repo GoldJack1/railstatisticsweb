@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import type { SandboxStationDoc, Station, YearlyPassengers } from '../../types'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
-import Button from '../Button'
+import Button from '../BUTMappedButton'
 import LocationMapPicker from './LocationMapPicker'
 import type { StationDetailsTab } from './StationDetailsView'
 import { createPortal } from 'react-dom'

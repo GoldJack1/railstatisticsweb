@@ -4,7 +4,7 @@ import { useStations } from '../hooks/useStations'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import NewStationForm from '../components/stationDetails/NewStationForm'
 import type { StationDetailsTab } from '../components/stationDetails/StationDetailsView'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
 import '../components/StationModal.css'
 import '../components/StationEditModal.css'
 import './StationDetailsPage.css'
@@ -99,9 +99,8 @@ const NewStationPage: React.FC = () => {
         <div className="station-details-layout">
           <aside className="station-details-sidebar">
             <div className="station-details-sidebar-actions">
-              <Button
+              <BUTWideButton
                 type="button"
-                variant="wide"
                 width="hug"
                 onClick={() => {
                   if (formIsDirty && !window.confirm('Are you sure you want to go back? All data will not be saved.')) return
@@ -109,7 +108,7 @@ const NewStationPage: React.FC = () => {
                 }}
               >
                 Back
-              </Button>
+              </BUTWideButton>
             </div>
             <div className="station-details-sidebar-secondary-actions">
               <div id="station-details-sidebar-actions" />

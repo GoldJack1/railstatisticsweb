@@ -203,13 +203,13 @@
 }
 
 /* Unselected tabs should read as plain text rows (no button surface). */
-.station-details-tab.rs-button--active {
+.station-details-tab.rs-button--pressed {
   background: transparent !important;
   box-shadow: none !important;
   color: var(--text-secondary);
 }
 
-.station-details-tab.rs-button--active .rs-button__inner-shadow {
+.station-details-tab.rs-button--pressed .rs-button__inner-shadow {
   box-shadow: none !important;
 }
 

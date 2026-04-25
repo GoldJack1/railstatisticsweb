@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Station } from '../../types'
-import Button from '../../components/Button'
-import ButtonBar from '../../components/ButtonBar'
+import Button from '../../components/BUTMappedButton'
+import ButtonBar from '../../components/BUTMappedButtonBar'
 import NavigationButton from '../../components/NavigationButton'
 import NavLink from '../../components/NavLink'
-import VisitButton from '../../components/VisitButton'
+import VisitButton from '../../components/BUTMappedVisitButton'
 import StationModal from '../../components/StationModal'
 import StationEditModal from '../../components/StationEditModal'
 import NewStationModal from '../../components/NewStationModal'
@@ -23,9 +23,9 @@ const COMPONENT_GROUPS = [
     title: 'Navigation and Actions',
     items: [
       { name: 'NavigationButton', file: 'src/components/NavigationButton.tsx', usage: 'Route-based button nav' },
-      { name: 'Button', file: 'src/components/Button.tsx', usage: 'Core button variants and states' },
-      { name: 'ButtonBar', file: 'src/components/ButtonBar.tsx', usage: 'Grouped segmented actions' },
-      { name: 'VisitButton', file: 'src/components/VisitButton.tsx', usage: 'Visited/not-visited status control' },
+      { name: 'BUTMappedButton', file: 'src/components/BUTMappedButton.tsx', usage: 'Maps legacy props onto BUT* wrappers' },
+      { name: 'BUTMappedButtonBar', file: 'src/components/BUTMappedButtonBar.tsx', usage: 'Routes grouped actions to BUT bar wrappers' },
+      { name: 'BUTMappedVisitButton', file: 'src/components/BUTMappedVisitButton.tsx', usage: 'Visited/not-visited status control' },
     ],
   },
   {
@@ -69,9 +69,9 @@ const ComponentsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-components">
-        <Link to="/design-system" className="ds-components__back-link">
+        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </Link>
+        </NavigationButton>
         <header className="ds-components__header">
           <h1>Design System Components</h1>
           <p>Catalogue of high-level components and where they are used in the product.</p>

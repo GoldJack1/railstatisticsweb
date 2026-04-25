@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../../components/Button'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/PrivacyPolicy.css'
 
 const PrivacyPolicyPage: React.FC = () => {
@@ -27,9 +27,9 @@ const PrivacyPolicyPage: React.FC = () => {
         <div className="privacy-layout">
           <aside className="privacy-sidebar">
             <div className="privacy-sidebar-actions">
-              <Button variant="wide" width="hug" onClick={() => navigate('/')}>
+              <BUTWideButton width="hug" onClick={() => navigate('/')}>
                 ← Back to home
-              </Button>
+              </BUTWideButton>
             </div>
             <nav className="privacy-tabs" aria-label="Privacy Policy sections">
               {sections.map((section) => (

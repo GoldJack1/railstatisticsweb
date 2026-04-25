@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button, { ButtonProps } from './Button'
+import BUTMappedButton from './BUTMappedButton'
+import type { ButtonProps } from './BUTBaseButton'
 
 export interface NavigationButtonProps extends Omit<ButtonProps, 'onClick' | 'state'> {
   to: string
@@ -40,7 +41,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
   }
 
   return (
-    <Button
+    <BUTMappedButton
       {...buttonProps}
       onClick={handleClick}
       pressed={isNavigating || isActive}

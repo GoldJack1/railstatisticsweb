@@ -5,17 +5,6 @@
   gap: var(--space-3xl);
 }
 
-.ds-colours__back-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  width: fit-content;
-  font-size: var(--text-sm);
-}
-
-.ds-colours__back-link:hover {
-  text-decoration: underline;
-}
-
 .ds-colours__header h1 {
   font-size: var(--text-4xl);
   color: var(--text-primary);

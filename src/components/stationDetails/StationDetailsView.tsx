@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Station, SandboxStationDoc } from '../../types'
 import { formatFareZoneDisplay } from '../../utils/formatFareZone'
-import Button from '../Button'
+import Button from '../BUTMappedButton'
 import StationLocationMapView from './StationLocationMapView'
 
 const formatValue = (v: unknown): string => {

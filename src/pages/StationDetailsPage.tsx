@@ -6,7 +6,8 @@ import { fetchStationDocumentById } from '../services/firebase'
 import { buildStationPath, parseStationPath } from '../utils/stationAreaSlug'
 import StationDetailsView, { type StationDetailsTab } from '../components/stationDetails/StationDetailsView'
 import StationDetailsEditForm from '../components/stationDetails/StationDetailsEditForm'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
+import BUTCircleButton from '../components/BUTCircleButton'
 import '../components/StationModal.css'
 import '../components/StationEditModal.css'
 import './StationDetailsPage.css'
@@ -130,9 +131,9 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
         <div className="error-state">
           <h3>Station not found</h3>
           <p>We couldn’t find that station in the current data source.</p>
-          <Button type="button" variant="wide" width="hug" onClick={() => navigate('/stations')}>
+          <BUTWideButton type="button" width="hug" onClick={() => navigate('/stations')}>
             Back to stations
-          </Button>
+          </BUTWideButton>
         </div>
       </div>
     )
@@ -160,9 +161,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
         <div className="station-details-layout">
           <aside className="station-details-sidebar">
             <div className="station-details-sidebar-actions">
-              <Button
+              <BUTWideButton
                 type="button"
-                variant="wide"
                 width="hug"
                 onClick={() => {
                   if (mode === 'edit' && editFormHasUnsavedChanges && !window.confirm('Are you sure you want to go back? All data will not be saved.')) return
@@ -170,12 +170,11 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 }}
               >
                 Back
-              </Button>
+              </BUTWideButton>
               <div className="station-details-sidebar-actions-spacer" aria-hidden="true" />
               {mode === 'view' ? (
-                <Button
+                <BUTCircleButton
                   type="button"
-                  variant="circle"
                   ariaLabel="Edit station"
                   onClick={() => navigate(`/stations/${buildStationPath(station)}/edit`)}
                   icon={
@@ -186,9 +185,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                   }
                 />
               ) : (
-                <Button
+                <BUTCircleButton
                   type="button"
-                  variant="circle"
                   ariaLabel="View station"
                   onClick={() => navigate(`/stations/${buildStationPath(station)}`)}
                   icon={
@@ -205,90 +203,76 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
             </div>
 
             <nav className="station-details-tabs" aria-label="Station sections">
-              <Button
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'details'}
+                state={activeTab === 'details' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('details')}
               >
                 Details
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'additional'}
+                state={activeTab === 'additional' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('additional')}
               >
                 Additional details
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'service'}
+                state={activeTab === 'service' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('service')}
               >
                 Service & Connections
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'location'}
+                state={activeTab === 'location' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('location')}
               >
                 Location
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'usage'}
+                state={activeTab === 'usage' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('usage')}
               >
                 Usage
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'stepFree'}
+                state={activeTab === 'stepFree' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('stepFree')}
               >
                 Step-free & Lift access
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
-                shape="rounded"
                 width="hug"
                 colorVariant="accent"
                 className="station-details-tab"
-                pressed={activeTab === 'facilities'}
+                state={activeTab === 'facilities' ? 'active' : 'pressed'}
                 onClick={() => setActiveTab('facilities')}
               >
                 Facilities
-              </Button>
+              </BUTWideButton>
             </nav>
           </aside>
 

@@ -11,10 +11,17 @@ interface ProtectedRouteProps {
 
 type ProfileCheck = 'idle' | 'checking' | 'ok' | 'need-email-verify' | 'need-totp-enroll'
 
+const isLocalDevLoginBypassEnabled =
+  import.meta.env.DEV && import.meta.env.VITE_LOCAL_DEV_LOGIN_BYPASS === 'true'
+
 /**
  * Requires a signed-in user with verified email and TOTP (authenticator) MFA enrolled.
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  if (isLocalDevLoginBypassEnabled) {
+    return <>{children}</>
+  }
+
   const { user, loading } = useAuth()
   const location = useLocation()
   const [profileCheck, setProfileCheck] = useState<ProfileCheck>('idle')

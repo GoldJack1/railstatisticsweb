@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
-import Button from './Button'
-import VisitButton from './VisitButton'
+import Button from './BUTMappedButton'
+import VisitButton from './BUTMappedVisitButton'
 import './StationCardActionBar.css'
 
 interface StationCardActionBarProps {

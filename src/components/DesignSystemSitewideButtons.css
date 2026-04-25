@@ -1,0 +1,237 @@
+.ds-sitewide-buttons {
+  padding: var(--space-4xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+}
+
+.ds-sitewide-buttons__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-sitewide-buttons__header h1 {
+  font-size: var(--text-4xl);
+  color: var(--text-primary);
+}
+
+.ds-sitewide-buttons__header p {
+  color: var(--text-secondary);
+}
+
+.ds-sitewide-buttons__meta {
+  font-size: var(--text-sm);
+}
+
+.ds-sitewide-buttons__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+}
+
+.ds-sitewide-buttons__summary-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-sitewide-buttons__summary-card h2 {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ds-sitewide-buttons__summary-card strong {
+  font-size: var(--text-2xl);
+  color: var(--text-primary);
+}
+
+.ds-sitewide-buttons__group {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ds-sitewide-buttons__examples-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.ds-sitewide-buttons__example-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-sitewide-buttons__example-card h3 {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.ds-sitewide-buttons__example-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.ds-sitewide-buttons__text-link,
+.ds-sitewide-buttons__text-button {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.ds-sitewide-buttons__text-link:hover,
+.ds-sitewide-buttons__text-button:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.ds-sitewide-buttons__text-button {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ds-sitewide-buttons__example-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-sitewide-buttons__input,
+.ds-sitewide-buttons__textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: var(--space-sm);
+  font-size: var(--text-sm);
+}
+
+.ds-sitewide-buttons__textarea {
+  resize: vertical;
+}
+
+.ds-sitewide-buttons__group-header h2 {
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+}
+
+.ds-sitewide-buttons__group-header p {
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.ds-sitewide-buttons__table-wrap {
+  overflow-x: auto;
+}
+
+.ds-sitewide-buttons__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.ds-sitewide-buttons__table th,
+.ds-sitewide-buttons__table td {
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  vertical-align: top;
+}
+
+.ds-sitewide-buttons__table th {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ds-sitewide-buttons__table td {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.ds-sitewide-buttons__item-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ds-sitewide-buttons__item-example {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.ds-sitewide-buttons__example-inline-row {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ds-sitewide-buttons__example-inline-row--header .header-nav-links,
+.ds-sitewide-buttons__example-row .header-nav-links {
+  max-width: 100%;
+  padding: 4px 0;
+}
+
+.ds-sitewide-buttons__variant-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.ds-sitewide-buttons__variant-label {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.ds-sitewide-buttons__native-example {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: var(--text-xs);
+}
+
+.ds-sitewide-buttons__file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-sitewide-buttons__empty {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .ds-sitewide-buttons {
+    padding: var(--space-3xl) 0;
+  }
+
+  .ds-sitewide-buttons__header h1 {
+    font-size: var(--text-3xl);
+  }
+}
+

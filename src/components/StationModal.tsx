@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import type { Station, SandboxStationDoc } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import { fetchStationDocumentById } from '../services/firebase'
-import Button from './Button'
+import Button from './BUTMappedButton'
 import StationDetailsView from './stationDetails/StationDetailsView'
 import './StationModal.css'
 

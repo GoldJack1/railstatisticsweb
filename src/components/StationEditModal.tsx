@@ -2,7 +2,7 @@ import React from 'react'
 import type { Station } from '../types'
 import './StationModal.css'
 import './StationEditModal.css'
-import Button from './Button'
+import Button from './BUTMappedButton'
 import StationDetailsEditForm from './stationDetails/StationDetailsEditForm'
 
 interface StationEditModalProps {

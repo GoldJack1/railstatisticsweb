@@ -1,8 +1,8 @@
 import React, { type MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
+import NavigationButton from '../../components/NavigationButton'
 import CarouselHero from '../../components/home/CarouselHero'
 import StaticHero from '../../components/home/StaticHero'
-import type { ButtonColorVariant } from '../../components/Button'
+import type { ButtonColorVariant } from '../../components/BUTBaseButton'
 import type { CarouselHeroSlide } from '../../components/home/heroCarouselSlideModel'
 import '../../components/DesignSystemHeros.css'
 
@@ -145,9 +145,9 @@ const HerosPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-heros">
-        <Link to="/design-system" className="ds-heros__back-link">
+        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </Link>
+        </NavigationButton>
 
         <header className="ds-heros__header">
           <h1>Heroes</h1>

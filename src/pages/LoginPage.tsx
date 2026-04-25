@@ -20,7 +20,8 @@ import {
   TOTP_ISSUER_NAME,
   userMustEnrollTotpMfaOnFirebase
 } from '../services/firebaseTotpMfa'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
+import BUTOperatorChip from '../components/BUTOperatorChip'
 import { MFA_AUTOFILL, MFA_OTP_INPUT_NAME } from '../constants/mfaAutofill'
 import '../components/LogIn.css'
 
@@ -389,9 +390,9 @@ const LoginPage: React.FC = () => {
                   {error}
                 </p>
               )}
-              <Button type="submit" variant="wide" width="fill" className="login-submit" disabled={submitting}>
+              <BUTWideButton type="submit" width="fill" className="login-submit" disabled={submitting}>
                 {submitting ? 'Please wait…' : 'Continue'}
-              </Button>
+              </BUTWideButton>
             </form>
           </>
         )}
@@ -446,9 +447,8 @@ const LoginPage: React.FC = () => {
               disabled={submitting}
             />
             <div className="login-phone-verify-actions">
-              <Button
+              <BUTOperatorChip
                 type="button"
-                variant="chip"
                 width="hug"
                 onClick={() => {
                   mfaResolverRef.current = null
@@ -459,10 +459,10 @@ const LoginPage: React.FC = () => {
                 disabled={submitting}
               >
                 Back
-              </Button>
-              <Button type="submit" variant="wide" width="fill" className="login-submit" disabled={submitting}>
+              </BUTOperatorChip>
+              <BUTWideButton type="submit" width="fill" className="login-submit" disabled={submitting}>
                 {submitting ? 'Verifying…' : 'Verify and sign in'}
-              </Button>
+              </BUTWideButton>
             </div>
           </form>
         )}
@@ -528,15 +528,14 @@ const LoginPage: React.FC = () => {
                     placeholder="123456"
                     disabled={submitting}
                   />
-                  <Button
+                  <BUTWideButton
                     type="submit"
-                    variant="wide"
                     width="fill"
                     className="login-submit"
                     disabled={submitting || totpEnrollLoading}
                   >
                     {submitting ? 'Saving…' : 'Verify and continue'}
-                  </Button>
+                  </BUTWideButton>
                 </form>
               </>
             )}
@@ -555,19 +554,18 @@ const LoginPage: React.FC = () => {
               You must verify your email before continuing.
             </p>
             <div className="login-phone-verify-actions">
-              <Button type="button" variant="wide" width="fill" disabled={submitting} onClick={() => void handleResendVerification()}>
+              <BUTWideButton type="button" width="fill" disabled={submitting} onClick={() => void handleResendVerification()}>
                 Resend email
-              </Button>
-              <Button
+              </BUTWideButton>
+              <BUTWideButton
                 type="button"
-                variant="wide"
                 width="fill"
                 className="login-submit"
                 disabled={submitting}
                 onClick={() => void handleReloadAfterVerify()}
               >
                 I’ve verified — continue
-              </Button>
+              </BUTWideButton>
             </div>
           </div>
         )}

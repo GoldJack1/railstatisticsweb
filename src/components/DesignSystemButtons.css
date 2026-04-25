@@ -5,17 +5,6 @@
   gap: var(--space-3xl);
 }
 
-.ds-buttons__back-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  width: fit-content;
-  font-size: var(--text-sm);
-}
-
-.ds-buttons__back-link:hover {
-  text-decoration: underline;
-}
-
 .ds-buttons__header h1 {
   font-size: var(--text-4xl);
   color: var(--text-primary);
@@ -128,6 +117,12 @@
   color: var(--text-primary);
 }
 
+.ds-buttons__name-preview {
+  margin-top: -0.25rem;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
 .ds-buttons__meta {
   color: var(--text-secondary);
   font-size: var(--text-sm);
@@ -195,4 +190,5 @@
   .ds-buttons__card--full {
     grid-column: auto;
   }
+
 }

@@ -3,7 +3,7 @@
  * light/dark + mobile/desktop art via `CarouselHeroSlide.imageSources` (merged with `defaultImageSources`).
  */
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import Button from '../Button'
+import Button from '../BUTMappedButton'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import HeroImageStack, {
   type HeroImageStackSources,

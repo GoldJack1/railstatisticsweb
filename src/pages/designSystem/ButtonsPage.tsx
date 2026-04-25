@@ -1,8 +1,23 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import Button from '../../components/Button'
-import ButtonBar from '../../components/ButtonBar'
-import VisitButton from '../../components/VisitButton'
+import Button from '../../components/BUTMappedButton'
+import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
+import BUTTabButton from '../../components/BUTTabButton'
+import BUTOperatorChip from '../../components/BUTOperatorChip'
+import BUTLeftIconWideButton from '../../components/BUTLeftIconWideButton'
+import BUTRightIconWideButton from '../../components/BUTRightIconWideButton'
+import BUTCircleButton from '../../components/BUTCircleButton'
+import BUTSquareButton from '../../components/BUTSquareButton'
+import BUTTextNumberCircleButton from '../../components/BUTTextNumberCircleButton'
+import BUTTextNumberSquareButton from '../../components/BUTTextNumberSquareButton'
+import BUTLeftRoundedWideButton from '../../components/BUTLeftRoundedWideButton'
+import BUTRightRoundedWideButton from '../../components/BUTRightRoundedWideButton'
+import BUTTopRoundedWideButton from '../../components/BUTTopRoundedWideButton'
+import BUTBottomRoundedWideButton from '../../components/BUTBottomRoundedWideButton'
+import BUTSquaredWideButton from '../../components/BUTSquaredWideButton'
+import BUTTwoButtonBar from '../../components/BUTTwoButtonBar'
+import BUTThreeButtonBar from '../../components/BUTThreeButtonBar'
+import BUTVisitStatusButton from '../../components/BUTVisitStatusButton'
 import '../../components/DesignSystemButtons.css'
 
 const PlusIcon = () => (
@@ -23,8 +38,7 @@ type ColorVariant = 'primary' | 'secondary' | 'accent' | 'green-action' | 'red-a
 
 const COLOR_VARIANTS: ColorVariant[] = ['primary', 'secondary', 'accent', 'green-action', 'red-action']
 const SHARED_VARIANTS: Array<'wide' | 'tab' | 'chip'> = ['wide', 'tab', 'chip']
-const SHAPES: Array<'rounded' | 'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-rounded' | 'squared'> = [
-  'rounded',
+const SHAPES: Array<'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-rounded' | 'squared'> = [
   'left-rounded',
   'right-rounded',
   'top-rounded',
@@ -260,12 +274,37 @@ const ButtonsPage: React.FC = () => {
     }, 250)
   }
 
+  const getVariantComponent = (variant: 'wide' | 'tab' | 'chip') => {
+    if (variant === 'wide') return BUTWideButton
+    if (variant === 'tab') return BUTTabButton
+    return BUTOperatorChip
+  }
+  const getVariantComponentName = (variant: 'wide' | 'tab' | 'chip') => {
+    if (variant === 'wide') return 'BUTWideButton'
+    if (variant === 'tab') return 'BUTTabButton'
+    return 'BUTOperatorChip'
+  }
+  const getShapeComponent = (shape: 'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-rounded' | 'squared') => {
+    if (shape === 'left-rounded') return BUTLeftRoundedWideButton
+    if (shape === 'right-rounded') return BUTRightRoundedWideButton
+    if (shape === 'top-rounded') return BUTTopRoundedWideButton
+    if (shape === 'bottom-rounded') return BUTBottomRoundedWideButton
+    return BUTSquaredWideButton
+  }
+  const getShapeComponentName = (shape: 'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-rounded' | 'squared') => {
+    if (shape === 'left-rounded') return 'BUTLeftRoundedWideButton'
+    if (shape === 'right-rounded') return 'BUTRightRoundedWideButton'
+    if (shape === 'top-rounded') return 'BUTTopRoundedWideButton'
+    if (shape === 'bottom-rounded') return 'BUTBottomRoundedWideButton'
+    return 'BUTSquaredWideButton'
+  }
+
   return (
     <div className="container">
       <div className="ds-buttons">
-        <Link to="/design-system" className="ds-buttons__back-link">
+        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </Link>
+        </NavigationButton>
         <header className="ds-buttons__header">
           <h1>Buttons</h1>
           <p>Clean reference for button states and one focused interactive demo section.</p>
@@ -327,88 +366,129 @@ const ButtonsPage: React.FC = () => {
           <div className="ds-buttons__controls-grid">
             {SHARED_VARIANTS.map((variant) => (
               <article key={variant} className="ds-buttons__card">
-                <h3>{variant}</h3>
+                <h3>{getVariantComponentName(variant)}</h3>
+                <p className="ds-buttons__name-preview">File name: {getVariantComponentName(variant)}</p>
                 <div className="ds-buttons__state-stack">
                   {COLOR_VARIANTS.map((colorVariant) => (
                     <div key={`${variant}-${colorVariant}`} className="ds-buttons__state-row">
-                      <span className="ds-buttons__variant-label">{colorVariant}</span>
-                      <Button
-                        variant={variant}
-                        width="hug"
-                        colorVariant={colorVariant}
-                        pressed={Boolean(clickedButtons[`interactive-${variant}-${colorVariant}`])}
-                        onClick={() => handlePressPreview(`interactive-${variant}-${colorVariant}`)}
-                      >
-                        Active
-                      </Button>
-                      <Button variant={variant} width="hug" colorVariant={colorVariant} pressed>
-                        Pressed
-                      </Button>
-                      <Button variant={variant} width="hug" colorVariant={colorVariant} disabled>
-                        Disabled
-                      </Button>
+                      {(() => {
+                        const VariantButton = getVariantComponent(variant)
+                        return (
+                          <>
+                            <span className="ds-buttons__variant-label">{colorVariant}</span>
+                            <VariantButton
+                              width="hug"
+                              colorVariant={colorVariant}
+                              pressed={Boolean(clickedButtons[`interactive-${variant}-${colorVariant}`])}
+                              onClick={() => handlePressPreview(`interactive-${variant}-${colorVariant}`)}
+                            >
+                              Active
+                            </VariantButton>
+                            <VariantButton width="hug" colorVariant={colorVariant} pressed>
+                              Pressed
+                            </VariantButton>
+                            <VariantButton width="hug" colorVariant={colorVariant} disabled>
+                              Disabled
+                            </VariantButton>
+                          </>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>
               </article>
             ))}
-            <article className="ds-buttons__card ds-buttons__card--span-2">
-              <h3>wide with icons (left + right)</h3>
+            <article className="ds-buttons__card">
+              <h3>BUTLeftIconWideButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTLeftIconWideButton</p>
               <div className="ds-buttons__state-stack">
                 {COLOR_VARIANTS.map((colorVariant) => (
                   <div key={`wide-icons-${colorVariant}`} className="ds-buttons__state-row">
                     <span className="ds-buttons__variant-label">{colorVariant}</span>
-                    <Button
-                      variant="wide"
+                    <BUTLeftIconWideButton
                       width="hug"
                       colorVariant={colorVariant}
                       icon={<PlusIcon />}
-                      iconPosition="left"
                       pressed={Boolean(clickedButtons[`interactive-wide-left-${colorVariant}`])}
                       onClick={() => handlePressPreview(`interactive-wide-left-${colorVariant}`)}
                     >
                       Add Station
-                    </Button>
-                    <Button
-                      variant="wide"
-                      width="hug"
-                      colorVariant={colorVariant}
-                      icon={<SearchIcon />}
-                      iconPosition="right"
-                      pressed={Boolean(clickedButtons[`interactive-wide-right-${colorVariant}`])}
-                      onClick={() => handlePressPreview(`interactive-wide-right-${colorVariant}`)}
-                    >
-                      Search
-                    </Button>
+                    </BUTLeftIconWideButton>
                   </div>
                 ))}
               </div>
             </article>
-            <article className="ds-buttons__card ds-buttons__card--span-2">
-              <h3>circle + square</h3>
+            <article className="ds-buttons__card">
+              <h3>BUTRightIconWideButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTRightIconWideButton</p>
+              <div className="ds-buttons__state-stack">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`wide-right-icons-${colorVariant}`} className="ds-buttons__state-row">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTRightIconWideButton
+                      width="hug"
+                      colorVariant={colorVariant}
+                      icon={<SearchIcon />}
+                      pressed={Boolean(clickedButtons[`interactive-wide-right-${colorVariant}`])}
+                      onClick={() => handlePressPreview(`interactive-wide-right-${colorVariant}`)}
+                    >
+                      Search
+                    </BUTRightIconWideButton>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="ds-buttons__card">
+              <h3>BUTCircleButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTCircleButton</p>
               <div className="ds-buttons__state-stack">
                 {COLOR_VARIANTS.map((colorVariant) => (
                   <div key={`icons-${colorVariant}`} className="ds-buttons__state-row">
                     <span className="ds-buttons__variant-label">{colorVariant}</span>
-                    <Button
-                      variant="circle"
+                    <BUTCircleButton
                       colorVariant={colorVariant}
                       icon={<PlusIcon />}
                       ariaLabel="Active"
                       pressed={Boolean(clickedButtons[`interactive-circle-${colorVariant}`])}
                       onClick={() => handlePressPreview(`interactive-circle-${colorVariant}`)}
                     />
-                    <Button
-                      variant="square"
-                      shape="squared"
+                    <BUTCircleButton
+                      colorVariant={colorVariant}
+                      icon={<PlusIcon />}
+                      ariaLabel="Pressed"
+                      pressed
+                    />
+                    <BUTCircleButton
+                      colorVariant={colorVariant}
+                      icon={<PlusIcon />}
+                      ariaLabel="Disabled"
+                      disabled
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="ds-buttons__card">
+              <h3>BUTSquareButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTSquareButton</p>
+              <div className="ds-buttons__state-stack">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`square-icons-${colorVariant}`} className="ds-buttons__state-row">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTSquareButton
+                      colorVariant={colorVariant}
+                      icon={<SearchIcon />}
+                      ariaLabel="Active"
+                      pressed={Boolean(clickedButtons[`interactive-square-${colorVariant}`])}
+                      onClick={() => handlePressPreview(`interactive-square-${colorVariant}`)}
+                    />
+                    <BUTSquareButton
                       colorVariant={colorVariant}
                       icon={<SearchIcon />}
                       ariaLabel="Pressed"
                       pressed
                     />
-                    <Button
-                      variant="square"
-                      shape="squared"
+                    <BUTSquareButton
                       colorVariant={colorVariant}
                       icon={<SearchIcon />}
                       ariaLabel="Disabled"
@@ -418,48 +498,140 @@ const ButtonsPage: React.FC = () => {
                 ))}
               </div>
             </article>
+            <article className="ds-buttons__card">
+              <h3>BUTTextNumberCircleButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTTextNumberCircleButton</p>
+              <div className="ds-buttons__state-row">
+                <span className="ds-buttons__variant-label">Examples</span>
+                <BUTTextNumberCircleButton text="A" colorVariant="primary" ariaLabel="A" />
+                <BUTTextNumberCircleButton text="AA" colorVariant="primary" ariaLabel="AA" />
+                <BUTTextNumberCircleButton text="1" colorVariant="primary" ariaLabel="1" />
+                <BUTTextNumberCircleButton text="12" colorVariant="primary" ariaLabel="12" />
+              </div>
+              <div className="ds-buttons__state-stack">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`text-number-circle-${colorVariant}`} className="ds-buttons__state-row">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTTextNumberCircleButton
+                      text="AA"
+                      colorVariant={colorVariant}
+                      ariaLabel="Active"
+                      pressed={Boolean(clickedButtons[`interactive-text-number-circle-${colorVariant}`])}
+                      onClick={() => handlePressPreview(`interactive-text-number-circle-${colorVariant}`)}
+                    />
+                    <BUTTextNumberCircleButton
+                      text="AA"
+                      colorVariant={colorVariant}
+                      ariaLabel="Pressed"
+                      pressed
+                    />
+                    <BUTTextNumberCircleButton
+                      text="AA"
+                      colorVariant={colorVariant}
+                      ariaLabel="Disabled"
+                      disabled
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="ds-buttons__card">
+              <h3>BUTTextNumberSquareButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTTextNumberSquareButton</p>
+              <div className="ds-buttons__state-row">
+                <span className="ds-buttons__variant-label">Examples</span>
+                <BUTTextNumberSquareButton text="A" colorVariant="primary" ariaLabel="A" />
+                <BUTTextNumberSquareButton text="AA" colorVariant="primary" ariaLabel="AA" />
+                <BUTTextNumberSquareButton text="1" colorVariant="primary" ariaLabel="1" />
+                <BUTTextNumberSquareButton text="12" colorVariant="primary" ariaLabel="12" />
+              </div>
+              <div className="ds-buttons__state-stack">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`text-number-square-${colorVariant}`} className="ds-buttons__state-row">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTTextNumberSquareButton
+                      text="12"
+                      colorVariant={colorVariant}
+                      ariaLabel="Active"
+                      pressed={Boolean(clickedButtons[`interactive-text-number-square-${colorVariant}`])}
+                      onClick={() => handlePressPreview(`interactive-text-number-square-${colorVariant}`)}
+                    />
+                    <BUTTextNumberSquareButton
+                      text="12"
+                      colorVariant={colorVariant}
+                      ariaLabel="Pressed"
+                      pressed
+                    />
+                    <BUTTextNumberSquareButton
+                      text="12"
+                      colorVariant={colorVariant}
+                      ariaLabel="Disabled"
+                      disabled
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
             {SHAPES.map((shape) => (
               <article key={shape} className="ds-buttons__card">
-                <h3>{shape}</h3>
+                <h3>{getShapeComponentName(shape)}</h3>
+                <p className="ds-buttons__name-preview">File name: {getShapeComponentName(shape)}</p>
                 <div className="ds-buttons__state-stack">
                   {COLOR_VARIANTS.map((colorVariant) => (
                     <div key={`${shape}-${colorVariant}`} className="ds-buttons__state-row">
-                      <span className="ds-buttons__variant-label">{colorVariant}</span>
-                      <Button
-                        variant="wide"
-                        width="hug"
-                        shape={shape}
-                        colorVariant={colorVariant}
-                        pressed={Boolean(clickedButtons[`interactive-shape-${shape}-${colorVariant}`])}
-                        onClick={() => handlePressPreview(`interactive-shape-${shape}-${colorVariant}`)}
-                      >
-                        Active
-                      </Button>
-                      <Button variant="wide" width="hug" shape={shape} colorVariant={colorVariant} pressed>
-                        Pressed
-                      </Button>
-                      <Button variant="wide" width="hug" shape={shape} colorVariant={colorVariant} disabled>
-                        Disabled
-                      </Button>
+                      {(() => {
+                        const ShapeButton = getShapeComponent(shape)
+                        return (
+                          <>
+                            <span className="ds-buttons__variant-label">{colorVariant}</span>
+                            <ShapeButton
+                              width="hug"
+                              colorVariant={colorVariant}
+                              pressed={Boolean(clickedButtons[`interactive-shape-${shape}-${colorVariant}`])}
+                              onClick={() => handlePressPreview(`interactive-shape-${shape}-${colorVariant}`)}
+                            >
+                              Active
+                            </ShapeButton>
+                            <ShapeButton width="hug" colorVariant={colorVariant} pressed>
+                              Pressed
+                            </ShapeButton>
+                            <ShapeButton width="hug" colorVariant={colorVariant} disabled>
+                              Disabled
+                            </ShapeButton>
+                          </>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>
               </article>
             ))}
-            <article className="ds-buttons__card ds-buttons__card--full">
-              <h3>ButtonBar (2 / 3 Buttons) + Visit Button</h3>
+            <article className="ds-buttons__card">
+              <h3>BUTTwoButtonBar</h3>
+              <p className="ds-buttons__name-preview">File name: BUTTwoButtonBar</p>
               <div className="ds-buttons__visit-states">
                 {COLOR_VARIANTS.map((colorVariant) => (
-                  <div key={`bar-${colorVariant}`} className="ds-buttons__state-stack">
+                  <div key={`bar-two-${colorVariant}`} className="ds-buttons__state-stack">
                     <span className="ds-buttons__variant-label">{colorVariant}</span>
-                    <ButtonBar
+                    <BUTTwoButtonBar
                       colorVariant={colorVariant}
                       buttons={[
                         { label: 'List', value: 'list' },
                         { label: 'Map', value: 'map' },
                       ]}
                     />
-                    <ButtonBar
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="ds-buttons__card">
+              <h3>BUTThreeButtonBar</h3>
+              <p className="ds-buttons__name-preview">File name: BUTThreeButtonBar</p>
+              <div className="ds-buttons__visit-states">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`bar-three-${colorVariant}`} className="ds-buttons__state-stack">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTThreeButtonBar
                       colorVariant={colorVariant}
                       buttons={[
                         { label: 'Current', value: 'current' },
@@ -472,9 +644,15 @@ const ButtonsPage: React.FC = () => {
                   </div>
                 ))}
                 <p className="ds-buttons__meta">Primary 3-button selected index: {controlledIndex === null ? 'none' : controlledIndex}</p>
-                <VisitButton visited={visited} onToggle={() => setVisited((prev) => !prev)} />
-                <VisitButton visited date="2026-03-16" />
-                <VisitButton visited={false} />
+              </div>
+            </article>
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>BUTVisitStatusButton</h3>
+              <p className="ds-buttons__name-preview">File name: BUTVisitStatusButton</p>
+              <div className="ds-buttons__visit-states">
+                <BUTVisitStatusButton visited={visited} onToggle={() => setVisited((prev) => !prev)} />
+                <BUTVisitStatusButton visited date="2026-03-16" />
+                <BUTVisitStatusButton visited={false} />
               </div>
             </article>
           </div>

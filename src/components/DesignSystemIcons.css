@@ -5,17 +5,6 @@
   gap: var(--space-2xl);
 }
 
-.ds-icons__back-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  width: fit-content;
-  font-size: var(--text-sm);
-}
-
-.ds-icons__back-link:hover {
-  text-decoration: underline;
-}
-
 .ds-icons__header {
   margin-top: var(--space-md);
   margin-bottom: var(--space-lg);

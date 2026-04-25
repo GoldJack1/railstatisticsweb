@@ -1,6 +1,7 @@
 import React, { useEffect, useId } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import BUTHeaderLink from './BUTHeaderLink'
 import './Header.css'
 
 /** Title shown next to the logo on narrow viewports (main nav items stay in the hamburger). */
@@ -22,6 +23,7 @@ function getHeaderPageTitle(pathname: string): string {
   if (pathname.startsWith('/design-system/components')) return 'Components'
   if (pathname.startsWith('/design-system/icons')) return 'Icons'
   if (pathname.startsWith('/design-system/heros')) return 'Heros'
+  if (pathname.startsWith('/design-system/sitewide-buttons')) return 'Sitewide audit'
   if (pathname.startsWith('/design-system')) return 'Design system'
   if (pathname.startsWith('/admin/messages')) return 'Messages'
   return 'Rail Statistics'
@@ -40,9 +42,6 @@ const Header: React.FC = () => {
   const isMigrationActive = pathname === '/migration'
   const isStationsActive = pathname.startsWith('/stations')
   const isMessagesActive = pathname.startsWith('/admin/messages')
-
-  const navClass = (active: boolean) =>
-    `header-nav-link${active ? ' header-nav-link--active' : ''}`
 
   const pageTitle = getHeaderPageTitle(pathname)
 
@@ -67,6 +66,11 @@ const Header: React.FC = () => {
   }, [mobileMenuOpen])
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
+  const handleMenuToggleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    setMobileMenuOpen((open) => !open)
+  }
 
   return (
     <header className={`universal-header${mobileMenuOpen ? ' universal-header--menu-open' : ''}`}>
@@ -82,15 +86,6 @@ const Header: React.FC = () => {
           <div className="header-left">
             <Link to="/" replace={logoNavReplace} className="logo-link logo-link--full" aria-label="Rail Statistics home">
               <div className="logo">
-                <img
-                  src={`${import.meta.env.BASE_URL}favicon.svg`}
-                  alt=""
-                  className="logo-mark"
-                  width={24}
-                  height={24}
-                  decoding="async"
-                  aria-hidden
-                />
                 <span className="logo-text">Rail Statistics</span>
               </div>
             </Link>
@@ -110,31 +105,31 @@ const Header: React.FC = () => {
             <nav className="header-nav header-nav--desktop" aria-label="Main">
               <div className="header-nav-links">
                 {navItems.map(({ to, label, active }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className={navClass(active)}
-                    aria-current={active ? 'page' : undefined}
-                  >
+                  <BUTHeaderLink key={to} to={to} active={active}>
                     {label}
-                  </Link>
+                  </BUTHeaderLink>
                 ))}
               </div>
             </nav>
-            <button
-              type="button"
+            <a
+              href="#"
+              role="button"
               className="header-menu-toggle"
               aria-expanded={mobileMenuOpen}
               aria-controls={mobileNavId}
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              onClick={() => setMobileMenuOpen((o) => !o)}
+              onClick={(event) => {
+                event.preventDefault()
+                setMobileMenuOpen((open) => !open)
+              }}
+              onKeyDown={handleMenuToggleKeyDown}
             >
               <span className="header-menu-toggle__bars" aria-hidden>
                 <span className="header-menu-toggle__bar" />
                 <span className="header-menu-toggle__bar" />
                 <span className="header-menu-toggle__bar" />
               </span>
-            </button>
+            </a>
           </div>
         </div>
 
@@ -148,14 +143,9 @@ const Header: React.FC = () => {
               <ul className="header-mobile-nav-list">
                 {navItems.map(({ to, label, active }) => (
                   <li key={to}>
-                    <Link
-                      to={to}
-                      className={navClass(active)}
-                      aria-current={active ? 'page' : undefined}
-                      onClick={closeMobileMenu}
-                    >
+                    <BUTHeaderLink to={to} active={active} onClick={closeMobileMenu}>
                       {label}
-                    </Link>
+                    </BUTHeaderLink>
                   </li>
                 ))}
               </ul>

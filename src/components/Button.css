@@ -213,6 +213,16 @@ a.rs-button {
   min-width: auto;
 }
 
+/* Utility: compact text-size wide button (used for back links). */
+.rs-button--text-size {
+  font-size: var(--text-sm);
+  min-height: 35px;
+  padding: 8px 14px;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+}
+
 /* Circle Button Variant */
 .rs-button--circle {
   width: 40px !important;
@@ -337,6 +347,19 @@ a.rs-button {
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
   }
+
+  /* Ensure square buttons keep fixed size on mobile */
+  .rs-button--square {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex-basis: 40px !important;
+  }
 }
 
 @media (max-width: 639px) {
@@ -369,6 +392,19 @@ a.rs-button {
     max-height: 40px !important;
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
+  }
+
+  /* Ensure square buttons keep fixed size on small mobile */
+  .rs-button--square {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex-basis: 40px !important;
   }
 }
 

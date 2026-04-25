@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import Button from '../Button'
+import Button from '../BUTMappedButton'
 import './HomeDownloadPlatformModal.css'
 
 const IOS_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'

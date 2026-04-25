@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react'
-import type { ButtonColorVariant } from '../Button'
+import type { ButtonColorVariant } from '../BUTBaseButton'
 import type {
   HeroImageStackSources,
   HeroMobileTabletUncroppedSettings

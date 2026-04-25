@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
 import type { InAppMessageDraftInput, MessageContentBlock } from '../types/messages'
 import {
   archiveInAppMessage,
@@ -210,12 +210,12 @@ const MessageCentreAdminPage: React.FC = () => {
             {notice && <p className="message-centre-status__notice">{notice}</p>}
           </div>
           <div className="message-centre-inline-actions">
-            <Button variant="wide" width="hug" instantAction onClick={() => navigate('/admin/messages')}>
+            <BUTWideButton width="hug" instantAction onClick={() => navigate('/admin/messages')}>
               Back to dashboard
-            </Button>
-            <Button variant="wide" width="hug" instantAction onClick={resetComposer}>
+            </BUTWideButton>
+            <BUTWideButton width="hug" instantAction onClick={resetComposer}>
               New message
-            </Button>
+            </BUTWideButton>
           </div>
 
           <div className="message-centre-form-grid">
@@ -261,17 +261,17 @@ const MessageCentreAdminPage: React.FC = () => {
             <div className="message-centre-blocks-header">
               <h2>Content blocks</h2>
               <div className="message-centre-inline-actions">
-                <Button variant="wide" width="hug" instantAction onClick={addTextBlock}>Add text block</Button>
-                <Button variant="wide" width="hug" instantAction onClick={addImageBlock}>Add image block</Button>
+                <BUTWideButton width="hug" instantAction onClick={addTextBlock}>Add text block</BUTWideButton>
+                <BUTWideButton width="hug" instantAction onClick={addImageBlock}>Add image block</BUTWideButton>
               </div>
             </div>
             {(draft.contentBlocks ?? []).map((block, index) => (
               <div className="message-centre-block-card" key={`${block.type}-${index}`}>
                 <div className="message-centre-block-card__head">
                   <strong>{block.type === 'text' ? 'Text block' : 'Image block'}</strong>
-                  <Button variant="wide" width="hug" colorVariant="red-action" instantAction onClick={() => removeBlock(index)}>
+                  <BUTWideButton width="hug" colorVariant="red-action" instantAction onClick={() => removeBlock(index)}>
                     Remove
-                  </Button>
+                  </BUTWideButton>
                 </div>
                 {block.type === 'text' ? (
                   <textarea
@@ -312,11 +312,10 @@ const MessageCentreAdminPage: React.FC = () => {
           </div>
 
           <div className="message-centre-actions">
-            <Button variant="wide" width="hug" instantAction disabled={isBusy} onClick={() => void saveDraft()}>
+            <BUTWideButton width="hug" instantAction disabled={isBusy} onClick={() => void saveDraft()}>
               Save draft
-            </Button>
-            <Button
-              variant="wide"
+            </BUTWideButton>
+            <BUTWideButton
               width="hug"
               colorVariant="green-action"
               instantAction
@@ -324,9 +323,8 @@ const MessageCentreAdminPage: React.FC = () => {
               onClick={() => void publish()}
             >
               Publish now
-            </Button>
-            <Button
-              variant="wide"
+            </BUTWideButton>
+            <BUTWideButton
               width="hug"
               colorVariant="red-action"
               instantAction
@@ -334,7 +332,7 @@ const MessageCentreAdminPage: React.FC = () => {
               onClick={() => void archive()}
             >
               Archive
-            </Button>
+            </BUTWideButton>
           </div>
         </section>
 

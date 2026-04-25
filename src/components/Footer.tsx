@@ -1,7 +1,7 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../hooks/useTheme'
+import BUTFooterLink from './BUTFooterLink'
 import './Footer.css'
 
 const Footer: React.FC = () => {
@@ -13,35 +13,35 @@ const Footer: React.FC = () => {
       <div className="site-footer-inner">
         <p>&copy; {new Date().getFullYear()} Rail Statistics</p>
         <div className="site-footer-links">
-          <Link to="/home" className="site-footer-link">
+          <BUTFooterLink to="/home">
             Home
-          </Link>
-          <Link to="/migration" className="site-footer-link">
+          </BUTFooterLink>
+          <BUTFooterLink to="/migration">
             Migration
-          </Link>
+          </BUTFooterLink>
           {user && (
             <>
-              <Link to="/stations" className="site-footer-link">
+              <BUTFooterLink to="/stations">
                 Stations
-              </Link>
+              </BUTFooterLink>
             </>
           )}
-          <Link to="/privacy" className="site-footer-link">
+          <BUTFooterLink to="/privacy">
             Privacy Policy
-          </Link>
-          <Link to="/eula" className="site-footer-link">
+          </BUTFooterLink>
+          <BUTFooterLink to="/eula">
             EULA
-          </Link>
+          </BUTFooterLink>
           {user ? (
-            <button type="button" className="site-footer-link site-footer-logout" onClick={() => logout()}>
+            <BUTFooterLink onActivate={logout} className="site-footer-logout">
               Log out
-            </button>
+            </BUTFooterLink>
           ) : (
-            <Link to="/log-in" className="site-footer-link">
+            <BUTFooterLink to="/log-in">
               Log in
-            </Link>
+            </BUTFooterLink>
           )}
-          <button type="button" className="site-footer-link site-footer-theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+          <BUTFooterLink onActivate={toggleTheme} className="site-footer-theme-toggle" ariaLabel="Toggle theme">
             {theme === 'dark' ? (
               <svg className="site-footer-theme-toggle__icon site-footer-theme-toggle__icon--sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="5" />
@@ -59,7 +59,7 @@ const Footer: React.FC = () => {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
-          </button>
+          </BUTFooterLink>
         </div>
       </div>
     </footer>

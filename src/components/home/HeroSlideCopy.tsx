@@ -1,5 +1,5 @@
 import React, { type Ref } from 'react'
-import Button from '../Button'
+import Button from '../BUTMappedButton'
 import type { CarouselHeroSlide, CarouselHeroSlideCta } from './heroCarouselSlideModel'
 
 export type HeroSlideCopyNamespace = 'carousel' | 'static'

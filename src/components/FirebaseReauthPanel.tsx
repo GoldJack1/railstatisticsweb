@@ -10,7 +10,7 @@ import {
 } from 'firebase/auth'
 import { initializeFirebase, getFirebaseAuth } from '../services/firebase'
 import { getTotpMfaHints, isMultiFactorAuthRequiredError, mapTotpMfaError } from '../services/firebaseTotpMfa'
-import Button from './Button'
+import Button from './BUTMappedButton'
 import { MFA_AUTOFILL, MFA_OTP_INPUT_NAME } from '../constants/mfaAutofill'
 import './PasswordReauthModal.css'
 

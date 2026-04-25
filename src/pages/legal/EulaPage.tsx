@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../../components/Button'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/Eula.css'
 
 const EulaPage: React.FC = () => {
@@ -36,9 +36,9 @@ const EulaPage: React.FC = () => {
         <div className="eula-layout">
           <aside className="eula-sidebar">
             <div className="eula-sidebar-actions">
-              <Button variant="wide" width="hug" onClick={() => navigate('/')}>
+              <BUTWideButton width="hug" onClick={() => navigate('/')}>
                 ← Back to home
-              </Button>
+              </BUTWideButton>
             </div>
             <nav className="eula-tabs" aria-label="EULA sections">
               {sections.map((section) => (

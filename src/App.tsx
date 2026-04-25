@@ -18,6 +18,7 @@ import LayoutPage from './pages/designSystem/LayoutPage'
 import ComponentsPage from './pages/designSystem/ComponentsPage'
 import IconsPage from './pages/designSystem/IconsPage'
 import HerosPage from './pages/designSystem/HerosPage'
+import SitewideButtonsPage from './pages/designSystem/SitewideButtonsPage'
 import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage'
 import EulaPage from './pages/legal/EulaPage'
 import MessageCentreAdminPage from './pages/MessageCentreAdminPage'
@@ -44,6 +45,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/design-system/components': 'Design System Components | Rail Statistics',
   '/design-system/icons': 'Design System Icons | Rail Statistics',
   '/design-system/heros': 'Design System Heroes | Rail Statistics',
+  '/design-system/sitewide-buttons': 'Sitewide Buttons Audit | Rail Statistics',
   '/admin/messages': 'Message Centre Admin | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
@@ -83,6 +85,7 @@ const App: React.FC = () => {
                 <Route path="/design-system/components" element={<ProtectedRoute><ComponentsPage /></ProtectedRoute>} />
                 <Route path="/design-system/icons" element={<ProtectedRoute><IconsPage /></ProtectedRoute>} />
                 <Route path="/design-system/heros" element={<ProtectedRoute><HerosPage /></ProtectedRoute>} />
+                <Route path="/design-system/sitewide-buttons" element={<ProtectedRoute><SitewideButtonsPage /></ProtectedRoute>} />
                 <Route path="/admin/messages" element={<ProtectedRoute><MessageCentreDashboardPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/new" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/:messageId" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />

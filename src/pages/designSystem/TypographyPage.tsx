@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import NavigationButton from '../../components/NavigationButton'
 import '../../components/DesignSystemTypography.css'
 
 const SCALE_TOKENS = [
@@ -20,9 +20,9 @@ const TypographyPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-typography">
-        <Link to="/design-system" className="ds-typography__back-link">
+        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </Link>
+        </NavigationButton>
         <header className="ds-typography__header">
           <h1>Design System Typography</h1>
           <p>

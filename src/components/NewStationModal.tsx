@@ -1,7 +1,7 @@
 import React from 'react'
 import './StationModal.css'
 import './StationEditModal.css'
-import Button from './Button'
+import Button from './BUTMappedButton'
 import NewStationForm from './stationDetails/NewStationForm'
 
 interface NewStationModalProps {

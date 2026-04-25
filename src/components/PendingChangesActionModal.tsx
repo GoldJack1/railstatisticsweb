@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { User } from 'firebase/auth'
-import Button from './Button'
+import Button from './BUTMappedButton'
 import FirebaseReauthPanel from './FirebaseReauthPanel'
 import type { PendingChangeEntry } from '../contexts/PendingStationChangesContext'
 import type { ServerScheduledJobDetail } from '../contexts/ScheduledServerJobFirestoreSync'

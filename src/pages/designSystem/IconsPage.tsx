@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import NavigationButton from '../../components/NavigationButton'
 import '../../components/DesignSystemIcons.css'
 
 const ICONS = [
@@ -237,9 +237,9 @@ const IconsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-icons">
-        <Link to="/design-system" className="ds-icons__back-link">
+        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </Link>
+        </NavigationButton>
         <header className="ds-icons__header">
           <h1>Icons</h1>
           <p>All inline SVG icons currently used across Rail Statistics.</p>

@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
-import Button from '../components/Button'
+import BUTWideButton from '../components/BUTWideButton'
 import PendingChangesReviewPanel, {
   type PendingReviewPageTab
 } from '../components/PendingChangesReviewPanel'
@@ -57,9 +57,9 @@ const ReviewPendingChangesPage: React.FC = () => {
         <div className="review-pending-page__state review-pending-page__state--error">
           <p>{error}</p>
           <p className="review-pending-page__collection-note">Data source: {collectionLabel}</p>
-          <Button variant="wide" width="hug" onClick={() => void refetch()}>
+          <BUTWideButton width="hug" onClick={() => void refetch()}>
             Try again
-          </Button>
+          </BUTWideButton>
         </div>
       </div>
     )
@@ -103,38 +103,35 @@ const ReviewPendingChangesPage: React.FC = () => {
                 aria-label="Review navigation and publish actions"
               >
                 <div className="review-pending-page__action-bar-back">
-                  <Button
+                  <BUTWideButton
                     type="button"
-                    variant="wide"
                     width="hug"
                     instantAction
                     onClick={goBackToPreviousPage}
                   >
                     Back
-                  </Button>
+                  </BUTWideButton>
                 </div>
                 {reviewTab === 'pending' && (
                   <div className="review-pending-page__action-bar-end" role="group" aria-label="Publish and schedule">
-                    <Button
+                    <BUTWideButton
                       type="button"
-                      variant="wide"
                       width="hug"
                       instantAction
                       onClick={api.openPublishModal}
                       disabled={api.publishDisabled}
                     >
                       Publish now
-                    </Button>
-                    <Button
+                    </BUTWideButton>
+                    <BUTWideButton
                       type="button"
-                      variant="wide"
                       width="hug"
                       instantAction
                       onClick={api.openScheduleModal}
                       disabled={api.scheduleDisabled}
                     >
                       Schedule
-                    </Button>
+                    </BUTWideButton>
                   </div>
                 )}
               </div>

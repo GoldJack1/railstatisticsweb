@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import Button from '../components/Button'
-import ButtonBar from '../components/ButtonBar'
+import Button from '../components/BUTMappedButton'
+import ButtonBar from '../components/BUTMappedButtonBar'
 import '../components/ButtonDemo.css'
 
 const ButtonDemoPage: React.FC = () => {

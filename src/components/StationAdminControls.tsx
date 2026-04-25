@@ -1,6 +1,6 @@
 import React from 'react'
-import ButtonBar from './ButtonBar'
-import Button from './Button'
+import ButtonBar from './BUTMappedButtonBar'
+import Button from './BUTMappedButton'
 import type { StationCollectionId } from '../services/firebase'
 import './StationAdminControls.css'
 

@@ -1,7 +1,7 @@
 import React from 'react'
 import './VisitButton.css'
 
-export interface VisitButtonProps {
+export interface BUTBaseVisitStatusButtonProps {
   visited: boolean
   date?: string
   onToggle?: () => void
@@ -9,7 +9,7 @@ export interface VisitButtonProps {
   className?: string
 }
 
-const VisitButton: React.FC<VisitButtonProps> = ({
+const BUTBaseVisitStatusButton: React.FC<BUTBaseVisitStatusButtonProps> = ({
   visited,
   date,
   onToggle,
@@ -23,22 +23,14 @@ const VisitButton: React.FC<VisitButtonProps> = ({
     className
   ].filter(Boolean).join(' ')
 
-  const displayText = visited 
-    ? (date ? `Visited on ${date}` : 'Visited')
-    : 'Not Visited'
+  const displayText = visited ? (date ? `Visited on ${date}` : 'Visited') : 'Not Visited'
 
   return (
-    <button
-      className={buttonClasses}
-      onClick={onToggle}
-      disabled={disabled}
-      aria-label={displayText}
-    >
+    <button className={buttonClasses} onClick={onToggle} disabled={disabled} aria-label={displayText}>
       <span className="rs-visit-button__text">{displayText}</span>
       <div className="rs-visit-button__inner-shadow" aria-hidden="true" />
     </button>
   )
 }
 
-export default VisitButton
-
+export default BUTBaseVisitStatusButton

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import Button from '../../components/Button'
+import Button from '../../components/BUTMappedButton'
 import '../../components/DesignSystemHome.css'
 
 const SECTIONS = [
@@ -38,6 +38,11 @@ const SECTIONS = [
     title: 'Heroes',
     description: 'Static and carousel heroes: type scale, panel fill, CTAs, button colours, and carousel chrome.',
     to: '/design-system/heros',
+  },
+  {
+    title: 'Sitewide Buttons Audit',
+    description: 'Auto-generated inventory of buttons, link controls, card actions, and text inputs.',
+    to: '/design-system/sitewide-buttons',
   },
 ]
 

@@ -2,12 +2,13 @@ import React, { useState, useMemo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
-import Button from '../components/Button'
+import type { Station } from '../types'
+import BUTWideButton from '../components/BUTWideButton'
+import BUTCircleButton from '../components/BUTCircleButton'
 import StationCard from '../components/StationCard'
 import StationAdminControls from '../components/StationAdminControls'
 import { formatStationLocationDisplay } from '../utils/formatStationLocation'
 import { useStationCollection } from '../contexts/StationCollectionContext'
-import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import { pathnameForReviewPendingSource } from '../utils/reviewPendingNavigation'
 import './StationsPage.css'
@@ -32,12 +33,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   const [currentPage, setCurrentPage] = useState(1)
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
   const { collectionId, setCollectionId } = useStationCollection()
-  const { pendingChanges, trackedScheduledJobId, serverScheduledJobDetail } = usePendingStationChanges()
-
-  const scheduledRunIds = useMemo(
-    () => new Set(serverScheduledJobDetail?.stationIds ?? []),
-    [serverScheduledJobDetail?.stationIds]
-  )
+  const { pendingChanges } = usePendingStationChanges()
 
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
@@ -152,9 +148,9 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
           </svg>
           <h2>Failed to load stations</h2>
           <p>{error}</p>
-          <Button onClick={() => refetch()} variant="wide" width="hug">
+          <BUTWideButton onClick={() => refetch()} width="hug">
             Try Again
-          </Button>
+          </BUTWideButton>
         </div>
       </div>
     )
@@ -213,9 +209,8 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                 autoComplete="off"
               />
               {hasActiveFilters && (
-                <Button
+                <BUTCircleButton
                   type="button"
-                  variant="circle"
                   className="clear-search-button"
                   ariaLabel="Clear all filters"
                   onClick={clearFilters}
@@ -347,9 +342,8 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
           {totalPages > 1 && (
             <div className="stations-pagination">
               <div className="pagination-controls">
-                <Button
+                <BUTWideButton
                   type="button"
-                  variant="wide"
                   width="hug"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -360,7 +354,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                   }
                 >
                   Previous
-                </Button>
+                </BUTWideButton>
               </div>
               
               <div className="pagination-info">
@@ -368,9 +362,8 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
               </div>
               
               <div className="pagination-controls">
-                <Button
+                <BUTWideButton
                   type="button"
-                  variant="wide"
                   width="hug"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
@@ -381,7 +374,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                   }
                 >
                   Next
-                </Button>
+                </BUTWideButton>
               </div>
             </div>
           )}

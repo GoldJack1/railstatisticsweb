@@ -19,7 +19,7 @@ import type {
   StationMatch,
   MigrationCorrectionLogEntry
 } from '../types/migration'
-import Button from '../components/Button'
+import Button from '../components/BUTMappedButton'
 import '../components/Migration.css'
 import '../components/StationModal.css'
 import '../pages/StationDetailsPage.css'
