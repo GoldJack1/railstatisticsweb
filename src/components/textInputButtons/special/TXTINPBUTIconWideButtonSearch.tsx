@@ -1,0 +1,36 @@
+import { forwardRef, useCallback } from 'react'
+import TXTINPBUTBaseButton, {
+  type TXTINPBUTBaseButtonHandle,
+  type TXTINPBUTBaseButtonProps,
+} from '../base/TXTINPBUTBaseButton/TXTINPBUTBaseButton'
+
+export type TXTINPBUTIconWideButtonSearchProps = Omit<TXTINPBUTBaseButtonProps, 'shape' | 'prefixType' | 'label' | 'currencySymbol' | 'numeric'> & {
+  searchQuery?: string
+  /** Convenience hook fired on every keystroke (mirrors Android's local broadcast). */
+  onQueryChange?: (query: string) => void
+}
+
+const TXTINPBUTIconWideButtonSearch = forwardRef<TXTINPBUTBaseButtonHandle, TXTINPBUTIconWideButtonSearchProps>(
+  ({ searchQuery, value, onQueryChange, onChange, placeholder = 'Search', ...props }, ref) => {
+    const handleChange = useCallback((next: string) => {
+      onChange?.(next)
+      onQueryChange?.(next)
+    }, [onChange, onQueryChange])
+
+    return (
+      <TXTINPBUTBaseButton
+        ref={ref}
+        {...props}
+        shape="rounded"
+        prefixType="icon"
+        placeholder={placeholder}
+        value={searchQuery ?? value}
+        onChange={handleChange}
+      />
+    )
+  },
+)
+
+TXTINPBUTIconWideButtonSearch.displayName = 'TXTINPBUTIconWideButtonSearch'
+
+export default TXTINPBUTIconWideButtonSearch

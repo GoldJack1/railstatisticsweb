@@ -162,6 +162,25 @@
   gap: var(--space-md);
 }
 
+.ds-buttons__state-row--inputs {
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.ds-buttons__state-row--inputs > .ds-buttons__txtinp-slot {
+  flex: 1 1 220px;
+  min-width: 200px;
+  max-width: 260px;
+}
+
+@media (max-width: 1023px) {
+  .ds-buttons__state-row--inputs > .ds-buttons__txtinp-slot {
+    flex-basis: 200px;
+    min-width: 180px;
+    max-width: 240px;
+  }
+}
+
 @media (max-width: 1023px) {
   .ds-buttons {
     padding: var(--space-3xl) 0;

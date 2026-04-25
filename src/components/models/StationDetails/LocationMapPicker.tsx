@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useTheme } from '../../hooks/useTheme'
-import { getTileLayersConfig } from '../../utils/mapTiles'
-import { useOsmBackendProxy } from '../../utils/osmBackendProxy'
+import { useTheme } from '../../../hooks/useTheme'
+import { getTileLayersConfig } from '../../../utils/mapTiles'
+import { useOsmBackendProxy } from '../../../utils/osmBackendProxy'
+import TXTINPIconWideButtonSearch from '../../textInputs/special/TXTINPIconWideButtonSearch'
 
 // Same as view: precise circle marker (draggable in edit mode)
 const CIRCLE_ICON = L.divIcon({
@@ -71,6 +72,13 @@ export function LocationMapPicker({
   const [searching, setSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const SearchIcon = (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="7" cy="7" r="4" />
+      <line x1="11" y1="11" x2="13" y2="13" />
+    </svg>
+  )
 
   const hasValidCoords = isValidCoord(latitude, longitude)
   const center: L.LatLngTuple = hasValidCoords ? [latitude, longitude] : DEFAULT_CENTER
@@ -188,14 +196,16 @@ export function LocationMapPicker({
         <label className="edit-label" htmlFor="location-search-place">
           Search for a place
         </label>
-        <input
-          id="location-search-place"
+        <TXTINPIconWideButtonSearch
+          inputId="location-search-place"
           name="location-place-search"
-          type="text"
-          className="edit-input location-map-picker-input"
+          icon={SearchIcon}
+          colorVariant="secondary"
+          className="location-map-picker-input-shell"
+          inputClassName="location-map-picker-input"
           placeholder="e.g. London King's Cross"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={setSearchQuery}
           onFocus={() => searchQuery.trim() && setShowResults(true)}
           onBlur={() => setTimeout(() => setShowResults(false), 200)}
           autoComplete="off"

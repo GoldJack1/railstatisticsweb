@@ -12,6 +12,7 @@ import {
 } from '../../services/messageCentre'
 import { normalizeMessageDraftInput } from '../../types/messages'
 import './MessageCentreAdminPage.css'
+import TXTINPWideButton from '../../components/textInputs/plain/TXTINPWideButton'
 
 const EMPTY_DRAFT: InAppMessageDraftInput = {
   title: '',
@@ -221,23 +222,26 @@ const MessageCentreAdminPage: React.FC = () => {
           <div className="message-centre-form-grid">
             <label>
               Title
-              <input
-                type="text"
+              <TXTINPWideButton
                 value={draft.title ?? ''}
-                onChange={(event) => updateDraft({ title: event.target.value })}
+                onInputChange={(event) => updateDraft({ title: event.target.value })}
+              
+                colorVariant="secondary"
               />
             </label>
             <label>
               Preview
-              <input
-                type="text"
+              <TXTINPWideButton
                 value={draft.preview ?? ''}
-                onChange={(event) => updateDraft({ preview: event.target.value })}
+                onInputChange={(event) => updateDraft({ preview: event.target.value })}
+              
+                colorVariant="secondary"
               />
             </label>
             <label className="message-centre-form-grid__full">
               Body
               <textarea
+                className="message-centre-squared-textarea rs-button--color-secondary"
                 rows={6}
                 value={draft.body ?? ''}
                 onChange={(event) => updateDraft({ body: event.target.value })}
@@ -245,10 +249,10 @@ const MessageCentreAdminPage: React.FC = () => {
             </label>
             <label className="message-centre-form-grid__full">
               Top image URL
-              <input
-                type="url"
+              <TXTINPWideButton
                 value={draft.topImageUrl ?? ''}
-                onChange={(event) => updateDraft({ topImageUrl: event.target.value })}
+                onInputChange={(event) => updateDraft({ topImageUrl: event.target.value })}
+                colorVariant="secondary"
               />
             </label>
             <label className="message-centre-upload-label">
@@ -275,28 +279,30 @@ const MessageCentreAdminPage: React.FC = () => {
                 </div>
                 {block.type === 'text' ? (
                   <textarea
+                    className="message-centre-squared-textarea rs-button--color-secondary"
                     rows={4}
                     value={block.text}
                     onChange={(event) => upsertBlock(index, { type: 'text', text: event.target.value })}
                   />
                 ) : (
                   <>
-                    <input
-                      type="url"
+                    <TXTINPWideButton
                       value={block.imageUrl}
                       placeholder="Image URL"
-                      onChange={(event) =>
+                      onInputChange={(event) =>
                         upsertBlock(index, { type: 'image', imageUrl: event.target.value, caption: block.caption })
                       }
+                      colorVariant="secondary"
                     />
-                    <input
-                      type="text"
+                    <TXTINPWideButton
                       value={block.caption ?? ''}
                       placeholder="Caption (optional)"
-                      onChange={(event) =>
+                      onInputChange={(event) =>
                         upsertBlock(index, { type: 'image', imageUrl: block.imageUrl, caption: event.target.value })
                       }
-                    />
+                    
+                colorVariant="secondary"
+              />
                     <label className="message-centre-upload-label">
                       Upload image
                       <input

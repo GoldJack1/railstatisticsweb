@@ -24,6 +24,52 @@ import BUTSquaredWideButton from '../../../components/buttons/wide/BUTSquaredWid
 import BUTTwoButtonBar from '../../../components/buttons/other/BUTTwoButtonBar'
 import BUTThreeButtonBar from '../../../components/buttons/other/BUTThreeButtonBar'
 import BUTVisitStatusButton from '../../../components/buttons/other/BUTVisitStatusButton'
+import TXTINPBUTWideButton from '../../../components/textInputButtons/plain/TXTINPBUTWideButton'
+import TXTINPBUTLeftRoundedButton from '../../../components/textInputButtons/plain/TXTINPBUTLeftRoundedButton'
+import TXTINPBUTSquaredButton from '../../../components/textInputButtons/plain/TXTINPBUTSquaredButton'
+import TXTINPSquared from '../../../components/textInputs/plain/TXTINPSquared'
+import TXTINPBUTRightRoundedButton from '../../../components/textInputButtons/plain/TXTINPBUTRightRoundedButton'
+import TXTINPBUTTopRoundedButton from '../../../components/textInputButtons/plain/TXTINPBUTTopRoundedButton'
+import TXTINPBUTBottomRoundedButton from '../../../components/textInputButtons/plain/TXTINPBUTBottomRoundedButton'
+import TXTINPWideButton from '../../../components/textInputs/plain/TXTINPWideButton'
+import TXTINPLeftRoundedButton from '../../../components/textInputs/plain/TXTINPLeftRoundedButton'
+import TXTINPSquaredButton from '../../../components/textInputs/plain/TXTINPSquaredButton'
+import TXTINPRightRoundedButton from '../../../components/textInputs/plain/TXTINPRightRoundedButton'
+import TXTINPTopRoundedButton from '../../../components/textInputs/plain/TXTINPTopRoundedButton'
+import TXTINPBottomRoundedButton from '../../../components/textInputs/plain/TXTINPBottomRoundedButton'
+import TXTINPBUTIconWideButton from '../../../components/textInputButtons/icon/TXTINPBUTIconWideButton'
+import TXTINPBUTIconLeftRoundedButton from '../../../components/textInputButtons/icon/TXTINPBUTIconLeftRoundedButton'
+import TXTINPBUTIconSquaredButton from '../../../components/textInputButtons/icon/TXTINPBUTIconSquaredButton'
+import TXTINPBUTIconRightRoundedButton from '../../../components/textInputButtons/icon/TXTINPBUTIconRightRoundedButton'
+import TXTINPBUTIconTopRoundedButton from '../../../components/textInputButtons/icon/TXTINPBUTIconTopRoundedButton'
+import TXTINPBUTIconBottomRoundedButton from '../../../components/textInputButtons/icon/TXTINPBUTIconBottomRoundedButton'
+import TXTINPIconWideButton from '../../../components/textInputs/icon/TXTINPIconWideButton'
+import TXTINPIconLeftRoundedButton from '../../../components/textInputs/icon/TXTINPIconLeftRoundedButton'
+import TXTINPIconSquaredButton from '../../../components/textInputs/icon/TXTINPIconSquaredButton'
+import TXTINPIconRightRoundedButton from '../../../components/textInputs/icon/TXTINPIconRightRoundedButton'
+import TXTINPIconTopRoundedButton from '../../../components/textInputs/icon/TXTINPIconTopRoundedButton'
+import TXTINPIconBottomRoundedButton from '../../../components/textInputs/icon/TXTINPIconBottomRoundedButton'
+import TXTINPBUTLabelWideButton from '../../../components/textInputButtons/label/TXTINPBUTLabelWideButton'
+import TXTINPBUTLabelLeftRoundedButton from '../../../components/textInputButtons/label/TXTINPBUTLabelLeftRoundedButton'
+import TXTINPBUTLabelSquaredButton from '../../../components/textInputButtons/label/TXTINPBUTLabelSquaredButton'
+import TXTINPBUTLabelRightRoundedButton from '../../../components/textInputButtons/label/TXTINPBUTLabelRightRoundedButton'
+import TXTINPBUTLabelTopRoundedButton from '../../../components/textInputButtons/label/TXTINPBUTLabelTopRoundedButton'
+import TXTINPBUTLabelBottomRoundedButton from '../../../components/textInputButtons/label/TXTINPBUTLabelBottomRoundedButton'
+import TXTINPLabelWideButton from '../../../components/textInputs/label/TXTINPLabelWideButton'
+import TXTINPLabelLeftRoundedButton from '../../../components/textInputs/label/TXTINPLabelLeftRoundedButton'
+import TXTINPLabelSquaredButton from '../../../components/textInputs/label/TXTINPLabelSquaredButton'
+import TXTINPLabelRightRoundedButton from '../../../components/textInputs/label/TXTINPLabelRightRoundedButton'
+import TXTINPLabelTopRoundedButton from '../../../components/textInputs/label/TXTINPLabelTopRoundedButton'
+import TXTINPLabelBottomRoundedButton from '../../../components/textInputs/label/TXTINPLabelBottomRoundedButton'
+import TXTINPBUTWideButtonPrice from '../../../components/textInputButtons/special/TXTINPBUTWideButtonPrice'
+import TXTINPBUTLabelWideButtonPrice from '../../../components/textInputButtons/special/TXTINPBUTLabelWideButtonPrice'
+import TXTINPBUTIconWideButtonSearch from '../../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
+import TXTINPBUTWideIconLabelBar from '../../../components/textInputButtons/special/TXTINPBUTWideIconLabelBar'
+import TXTINPWideButtonPrice from '../../../components/textInputs/special/TXTINPWideButtonPrice'
+import TXTINPLabelWideButtonPrice from '../../../components/textInputs/special/TXTINPLabelWideButtonPrice'
+import TXTINPIconWideButtonSearch from '../../../components/textInputs/special/TXTINPIconWideButtonSearch'
+import TXTINPWideIconLabelBar from '../../../components/textInputs/special/TXTINPWideIconLabelBar'
+import type { TXTINPBUTBaseButtonProps } from '../../../components/textInputButtons/base/TXTINPBUTBaseButton/TXTINPBUTBaseButton'
 import './ButtonsPage.css'
 
 const PlusIcon = () => (
@@ -50,6 +96,89 @@ const SHAPES: Array<'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-r
   'top-rounded',
   'bottom-rounded',
   'squared',
+]
+
+// Loose component type so we can iterate plain/icon/label/special wrappers in
+// a single map without per-wrapper prop-type narrowing on the showcase page.
+type TxtInpComponent = React.ComponentType<TXTINPBUTBaseButtonProps & Record<string, unknown>>
+
+interface TxtInpEntry {
+  name: string
+  Component: TxtInpComponent
+  /** Extra props applied to every preview cell (icon, label, etc.). */
+  extraProps?: Record<string, unknown>
+}
+
+const asTxtInp = (component: unknown): TxtInpComponent => component as TxtInpComponent
+
+const PLAIN_TXTINP_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPBUTWideButton', Component: asTxtInp(TXTINPBUTWideButton) },
+  { name: 'TXTINPBUTLeftRoundedButton', Component: asTxtInp(TXTINPBUTLeftRoundedButton) },
+  { name: 'TXTINPBUTSquaredButton', Component: asTxtInp(TXTINPBUTSquaredButton) },
+  { name: 'TXTINPSquared', Component: asTxtInp(TXTINPSquared) },
+  { name: 'TXTINPBUTRightRoundedButton', Component: asTxtInp(TXTINPBUTRightRoundedButton) },
+  { name: 'TXTINPBUTTopRoundedButton', Component: asTxtInp(TXTINPBUTTopRoundedButton) },
+  { name: 'TXTINPBUTBottomRoundedButton', Component: asTxtInp(TXTINPBUTBottomRoundedButton) },
+]
+
+const ICON_TXTINP_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPBUTIconWideButton', Component: asTxtInp(TXTINPBUTIconWideButton) },
+  { name: 'TXTINPBUTIconLeftRoundedButton', Component: asTxtInp(TXTINPBUTIconLeftRoundedButton) },
+  { name: 'TXTINPBUTIconSquaredButton', Component: asTxtInp(TXTINPBUTIconSquaredButton) },
+  { name: 'TXTINPBUTIconRightRoundedButton', Component: asTxtInp(TXTINPBUTIconRightRoundedButton) },
+  { name: 'TXTINPBUTIconTopRoundedButton', Component: asTxtInp(TXTINPBUTIconTopRoundedButton) },
+  { name: 'TXTINPBUTIconBottomRoundedButton', Component: asTxtInp(TXTINPBUTIconBottomRoundedButton) },
+]
+
+const LABEL_TXTINP_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPBUTLabelWideButton', Component: asTxtInp(TXTINPBUTLabelWideButton), extraProps: { label: 'Name:' } },
+  { name: 'TXTINPBUTLabelLeftRoundedButton', Component: asTxtInp(TXTINPBUTLabelLeftRoundedButton), extraProps: { label: 'CRS:' } },
+  { name: 'TXTINPBUTLabelSquaredButton', Component: asTxtInp(TXTINPBUTLabelSquaredButton), extraProps: { label: 'TIPLOC:' } },
+  { name: 'TXTINPBUTLabelRightRoundedButton', Component: asTxtInp(TXTINPBUTLabelRightRoundedButton), extraProps: { label: 'Code:' } },
+  { name: 'TXTINPBUTLabelTopRoundedButton', Component: asTxtInp(TXTINPBUTLabelTopRoundedButton), extraProps: { label: 'Operator:' } },
+  { name: 'TXTINPBUTLabelBottomRoundedButton', Component: asTxtInp(TXTINPBUTLabelBottomRoundedButton), extraProps: { label: 'Notes:' } },
+]
+
+const SPECIAL_TXTINP_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPBUTWideButtonPrice', Component: asTxtInp(TXTINPBUTWideButtonPrice) },
+  { name: 'TXTINPBUTLabelWideButtonPrice', Component: asTxtInp(TXTINPBUTLabelWideButtonPrice), extraProps: { label: 'Fare' } },
+  { name: 'TXTINPBUTIconWideButtonSearch', Component: asTxtInp(TXTINPBUTIconWideButtonSearch) },
+  { name: 'TXTINPBUTWideIconLabelBar', Component: asTxtInp(TXTINPBUTWideIconLabelBar), extraProps: { labelPrefix: 'Name:', forceUppercase: true } },
+]
+
+const PLAIN_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPWideButton', Component: asTxtInp(TXTINPWideButton) },
+  { name: 'TXTINPLeftRoundedButton', Component: asTxtInp(TXTINPLeftRoundedButton) },
+  { name: 'TXTINPSquaredButton', Component: asTxtInp(TXTINPSquaredButton) },
+  { name: 'TXTINPSquared', Component: asTxtInp(TXTINPSquared) },
+  { name: 'TXTINPRightRoundedButton', Component: asTxtInp(TXTINPRightRoundedButton) },
+  { name: 'TXTINPTopRoundedButton', Component: asTxtInp(TXTINPTopRoundedButton) },
+  { name: 'TXTINPBottomRoundedButton', Component: asTxtInp(TXTINPBottomRoundedButton) },
+]
+
+const ICON_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPIconWideButton', Component: asTxtInp(TXTINPIconWideButton) },
+  { name: 'TXTINPIconLeftRoundedButton', Component: asTxtInp(TXTINPIconLeftRoundedButton) },
+  { name: 'TXTINPIconSquaredButton', Component: asTxtInp(TXTINPIconSquaredButton) },
+  { name: 'TXTINPIconRightRoundedButton', Component: asTxtInp(TXTINPIconRightRoundedButton) },
+  { name: 'TXTINPIconTopRoundedButton', Component: asTxtInp(TXTINPIconTopRoundedButton) },
+  { name: 'TXTINPIconBottomRoundedButton', Component: asTxtInp(TXTINPIconBottomRoundedButton) },
+]
+
+const LABEL_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPLabelWideButton', Component: asTxtInp(TXTINPLabelWideButton), extraProps: { label: 'Name:' } },
+  { name: 'TXTINPLabelLeftRoundedButton', Component: asTxtInp(TXTINPLabelLeftRoundedButton), extraProps: { label: 'CRS:' } },
+  { name: 'TXTINPLabelSquaredButton', Component: asTxtInp(TXTINPLabelSquaredButton), extraProps: { label: 'TIPLOC:' } },
+  { name: 'TXTINPLabelRightRoundedButton', Component: asTxtInp(TXTINPLabelRightRoundedButton), extraProps: { label: 'Code:' } },
+  { name: 'TXTINPLabelTopRoundedButton', Component: asTxtInp(TXTINPLabelTopRoundedButton), extraProps: { label: 'Operator:' } },
+  { name: 'TXTINPLabelBottomRoundedButton', Component: asTxtInp(TXTINPLabelBottomRoundedButton), extraProps: { label: 'Notes:' } },
+]
+
+const SPECIAL_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
+  { name: 'TXTINPWideButtonPrice', Component: asTxtInp(TXTINPWideButtonPrice) },
+  { name: 'TXTINPLabelWideButtonPrice', Component: asTxtInp(TXTINPLabelWideButtonPrice), extraProps: { label: 'Fare' } },
+  { name: 'TXTINPIconWideButtonSearch', Component: asTxtInp(TXTINPIconWideButtonSearch) },
+  { name: 'TXTINPWideIconLabelBar', Component: asTxtInp(TXTINPWideIconLabelBar), extraProps: { labelPrefix: 'Name:', forceUppercase: true } },
 ]
 
 const ButtonsPage: React.FC = () => {
@@ -88,6 +217,63 @@ const ButtonsPage: React.FC = () => {
     if (shape === 'bottom-rounded') return 'BUTBottomRoundedWideButton'
     return 'BUTSquaredWideButton'
   }
+
+  const renderTxtInpSection = (
+    title: string,
+    description: string,
+    entries: TxtInpEntry[],
+    keyPrefix: string,
+    sectionExtraProps?: Record<string, unknown>,
+  ) => (
+    <section className="ds-buttons__section">
+      <h2>{title}</h2>
+      <p>{description}</p>
+      <div className="ds-buttons__controls-grid">
+        {entries.map(({ name, Component, extraProps }) => {
+          const mergedExtraProps = { ...sectionExtraProps, ...extraProps }
+          return (
+            <article key={`${keyPrefix}-${name}`} className="ds-buttons__card">
+              <h3>{name}</h3>
+              <p className="ds-buttons__name-preview">File name: {name}</p>
+              <div className="ds-buttons__state-stack">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div
+                    key={`${keyPrefix}-${name}-${colorVariant}`}
+                    className="ds-buttons__state-row ds-buttons__state-row--inputs"
+                  >
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <div className="ds-buttons__txtinp-slot">
+                      <Component
+                        {...mergedExtraProps}
+                        colorVariant={colorVariant}
+                        placeholder="Active"
+                      />
+                    </div>
+                    <div className="ds-buttons__txtinp-slot">
+                      <Component
+                        {...mergedExtraProps}
+                        colorVariant={colorVariant}
+                        defaultValue="Focused"
+                        forceFocusedAppearance
+                      />
+                    </div>
+                    <div className="ds-buttons__txtinp-slot">
+                      <Component
+                        {...mergedExtraProps}
+                        colorVariant={colorVariant}
+                        placeholder="Disabled"
+                        disabled
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
 
   return (
     <div className="container">
@@ -447,6 +633,15 @@ const ButtonsPage: React.FC = () => {
             </article>
           </div>
         </section>
+
+        {renderTxtInpSection('Plain Text Inputs', 'Active, focused (flattened) and disabled states for the plain TXTINPBUT* family.', PLAIN_TXTINP_ENTRIES, 'plain')}
+        {renderTxtInpSection('Icon Text Inputs', 'Icon-prefixed TXTINPBUT* variants \u2014 the leading icon mirrors the BUT* icon slot.', ICON_TXTINP_ENTRIES, 'icon', { icon: <SearchIcon /> })}
+        {renderTxtInpSection('Label Text Inputs', 'Static label-prefixed TXTINPBUT* variants for key/value rows.', LABEL_TXTINP_ENTRIES, 'label')}
+        {renderTxtInpSection('Special Text Inputs', 'Price (numeric + currency), Search (query API) and the icon\u2192label switcher bar.', SPECIAL_TXTINP_ENTRIES, 'special', { icon: <SearchIcon /> })}
+        {renderTxtInpSection('Plain Text Inputs (TXTINP)', 'Alias TXTINP* variants matching TXTINPBUT plain behaviors.', PLAIN_TXTINP_ALIAS_ENTRIES, 'txtinp-plain')}
+        {renderTxtInpSection('Icon Text Inputs (TXTINP)', 'Alias TXTINP icon variants matching TXTINPBUT icon behaviors.', ICON_TXTINP_ALIAS_ENTRIES, 'txtinp-icon', { icon: <SearchIcon /> })}
+        {renderTxtInpSection('Label Text Inputs (TXTINP)', 'Alias TXTINP label variants for key/value style rows.', LABEL_TXTINP_ALIAS_ENTRIES, 'txtinp-label')}
+        {renderTxtInpSection('Special Text Inputs (TXTINP)', 'Alias TXTINP special variants (price, search, icon/label bar).', SPECIAL_TXTINP_ALIAS_ENTRIES, 'txtinp-special', { icon: <SearchIcon /> })}
 
       </div>
     </div>

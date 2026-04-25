@@ -65,11 +65,11 @@
   gap: 0.5rem;
 }
 
-.message-centre-list-controls input,
+.message-centre-list-controls input:not(.rs-input__field),
 .message-centre-list-controls select,
-.message-centre-form-grid input,
+.message-centre-form-grid input:not(.rs-input__field),
 .message-centre-form-grid textarea,
-.message-centre-block-card input,
+.message-centre-block-card input:not(.rs-input__field),
 .message-centre-block-card textarea {
   width: 100%;
   border-radius: 8px;
@@ -77,6 +77,31 @@
   background: var(--bg-primary);
   color: var(--text-primary);
   padding: 0.6rem 0.75rem;
+}
+
+.message-centre-search-input-shell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Body + text blocks: squared TXTINP-like textarea that can grow in height. */
+.message-centre-squared-textarea {
+  border-radius: 0 !important;
+  border: 1px solid var(--button-bg-active) !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  box-shadow: inset 0 0 4.5px var(--button-bg-active) !important;
+  resize: vertical;
+  min-height: 6.5rem;
+  line-height: 1.35;
+}
+
+.message-centre-squared-textarea:focus {
+  outline: none;
+  background: color-mix(in srgb, var(--button-bg-inactive) 20%, transparent) !important;
+  box-shadow: inset 0 0 4.5px var(--button-bg-inactive) !important;
 }
 
 .message-centre-list-items {
@@ -126,6 +151,11 @@
 .message-centre-status {
   min-height: 1.5rem;
   margin-bottom: 0.75rem;
+}
+
+.message-centre-status:empty {
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .message-centre-status__error {
@@ -183,6 +213,10 @@
 .message-centre-inline-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.message-centre-composer-panel > .message-centre-inline-actions {
+  margin-bottom: 0.5rem;
 }
 
 .message-centre-block-card {

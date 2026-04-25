@@ -161,6 +161,32 @@
   margin-top: var(--space-sm);
 }
 
+.login-phone-verify-actions--inline {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding-top: 25px;
+}
+
+.login-phone-verify-actions--inline .login-submit {
+  flex: 1 1 auto;
+  min-height: 40px;
+}
+
+.login-auth-back-button {
+  min-width: 56px;
+  padding-left: 14px;
+  padding-right: 14px;
+  min-height: 40px;
+  margin-right: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+.login-auth-back-button .rs-button__icon {
+  margin: 0 auto;
+}
+
 .login-social {
   display: flex;
   flex-direction: column;
@@ -235,14 +261,31 @@
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   min-width: 0;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .login-label {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.login-label--totp-signin {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.login-label--credentials {
+  display: block;
+  margin-bottom: 8px;
 }
 
 .login-input {

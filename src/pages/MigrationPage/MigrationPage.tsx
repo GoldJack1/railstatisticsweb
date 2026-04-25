@@ -25,6 +25,7 @@ import './MigrationPage.css'
 import '../../components/models/StationModal/StationModal.css'
 import '../StationDetailsPage/StationDetailsPage.css'
 import { formatStationLocationDisplay, isGreaterLondonCounty } from '../../utils/formatStationLocation'
+import TXTINPIconWideButtonSearch from '../../components/textInputs/special/TXTINPIconWideButtonSearch'
 
 /** Row card tint: no DB match (red) vs auto match not yet confirmed with Correct (amber). */
 function rankMatchHighlightClass(match: StationMatch): string {
@@ -1425,22 +1426,29 @@ const MigrationPage: React.FC = () => {
                         Search
                       </label>
                       <div className="migration-station-search-input-row">
-                        <input
+                        <TXTINPIconWideButtonSearch
                           id="migration-search-field-page"
-                          type="text"
+                          icon={
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <circle cx="7" cy="7" r="4" />
+                              <line x1="11" y1="11" x2="13" y2="13" />
+                            </svg>
+                          }
                           placeholder="Try a name, code, or place…"
                           value={state.searchQuery}
-                          onChange={(e) => handleMigrationSearchInputChange(e.target.value)}
+                          onInputChange={(e) => handleMigrationSearchInputChange(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault()
                               handleSearchStations(state.searchQuery)
                             }
                           }}
-                          className="migration-station-search-field"
+                          className="migration-station-search-input-shell"
                           autoFocus
                           autoComplete="off"
                           spellCheck={false}
+                          colorVariant="secondary"
+                          showClear={false}
                         />
                       </div>
                     </div>

@@ -12,6 +12,7 @@ import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
 import './StationsPageRefactored.css'
+import TXTINPIconWideButtonSearch from '../../components/textInputs/special/TXTINPIconWideButtonSearch'
 
 interface StationsPageProps {
   initialMode?: 'view' | 'edit'
@@ -194,19 +195,22 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
           <div className="sidebar-section">
             <h2 className="sidebar-section-title">Search</h2>
             <div className="search-container">
-              <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
+              <TXTINPIconWideButtonSearch
                 id="stations-search"
                 name="station-search"
-                type="text"
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="7" cy="7" r="4" />
+                    <line x1="11" y1="11" x2="13" y2="13" />
+                  </svg>
+                }
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
+                onInputChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input-shell"
                 placeholder="Search stations..."
                 autoComplete="off"
+                colorVariant="secondary"
+                showClear={false}
               />
               {hasActiveFilters && (
                 <BUTCircleButton

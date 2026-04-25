@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BUTWideButton } from '../../../components/buttons'
 import BUTLink from '../../../components/buttons/other/BUTLink'
@@ -25,6 +25,34 @@ const EulaPage: React.FC = () => {
     { id: 'section-16', label: '16. Applicable Law' },
     { id: 'section-17', label: '17. Miscellaneous' },
   ]
+  const [activeSectionId, setActiveSectionId] = useState<string>(() => {
+    if (typeof window === 'undefined') return sections[0].id
+    const hashId = window.location.hash.replace('#', '')
+    return sections.some((section) => section.id === hashId) ? hashId : sections[0].id
+  })
+
+  useEffect(() => {
+    const syncActiveSectionFromHash = () => {
+      const hashId = window.location.hash.replace('#', '')
+      if (sections.some((section) => section.id === hashId)) {
+        setActiveSectionId(hashId)
+      }
+    }
+
+    window.addEventListener('hashchange', syncActiveSectionFromHash)
+    syncActiveSectionFromHash()
+
+    return () => {
+      window.removeEventListener('hashchange', syncActiveSectionFromHash)
+    }
+  }, [sections])
+
+  const handleSelectSection = (sectionId: string) => {
+    setActiveSectionId(sectionId)
+    if (typeof window !== 'undefined') {
+      window.location.hash = sectionId
+    }
+  }
 
   return (
     <div className="container">
@@ -43,9 +71,17 @@ const EulaPage: React.FC = () => {
             </div>
             <nav className="eula-tabs" aria-label="EULA sections">
               {sections.map((section) => (
-                <BUTLink key={section.id} href={`#${section.id}`} className="eula-tab">
+                <BUTWideButton
+                  key={section.id}
+                  type="button"
+                  width="fill"
+                  colorVariant="accent"
+                  state={activeSectionId === section.id ? 'active' : 'pressed'}
+                  className="eula-tab"
+                  onClick={() => handleSelectSection(section.id)}
+                >
                   {section.label}
-                </BUTLink>
+                </BUTWideButton>
               ))}
             </nav>
           </aside>

@@ -23,39 +23,59 @@
 }
 
 .privacy-sidebar {
-  width: 300px;
+  width: 260px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .privacy-sidebar-actions {
   display: flex;
+  margin-bottom: var(--space-xs);
 }
 
 .privacy-tabs {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
   position: sticky;
   top: calc(5rem + env(safe-area-inset-top, 0px));
 }
 
 .privacy-tab {
-  text-decoration: none;
+  width: 100%;
+  justify-content: flex-start;
+  align-items: flex-start;
   text-align: left;
-  border: none;
-  background: transparent;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+  height: auto;
 }
 
-.privacy-tab:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+.privacy-tab .rs-button__text {
+  white-space: normal;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.privacy-tab.rs-button--pressed {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+}
+
+.privacy-tab.rs-button--pressed .rs-button__inner-shadow {
+  box-shadow: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .privacy-tab.rs-button--pressed:not(:disabled):hover {
+    background-color: var(--button-bg-inactive) !important;
+    color: var(--button-text-inactive) !important;
+  }
+
+  .privacy-tab.rs-button--pressed:not(:disabled):hover .rs-button__inner-shadow {
+    box-shadow: var(--button-inner-shadow-pressed) !important;
+  }
 }
 
 .privacy-content {
@@ -166,8 +186,6 @@
 
   .privacy-tab {
     flex: 0 0 auto;
-    white-space: nowrap;
-    border: 1px solid var(--border-color);
-    background: var(--bg-primary);
+    width: auto;
   }
 }

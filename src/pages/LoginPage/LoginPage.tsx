@@ -23,6 +23,7 @@ import {
 import { BUTWideButton } from '../../components/buttons'
 import { MFA_AUTOFILL, MFA_OTP_INPUT_NAME } from '../../constants/mfaAutofill'
 import './LoginPage.css'
+import TXTINPWideButton from '../../components/textInputs/plain/TXTINPWideButton'
 
 type LoginStep = 'credentials' | 'verify-email' | 'checking-session' | 'totp-signin' | 'totp-enroll'
 
@@ -357,40 +358,50 @@ const LoginPage: React.FC = () => {
         {showCredentials && (
           <>
             <form onSubmit={handleCredentialsSubmit} className="login-form">
-              <label htmlFor="login-email" className="login-label">
-                Email
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="login-input"
-                placeholder="you@example.com"
-                autoComplete="email"
-                required
-              />
-              <label htmlFor="login-password" className="login-label">
-                Password
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="login-input"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-                minLength={6}
-              />
+              <div className="login-field">
+                <label htmlFor="login-email" className="login-label login-label--credentials">
+                  Email
+                </label>
+                <TXTINPWideButton
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onInputChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                  colorVariant="secondary"
+                />
+              </div>
+              <div className="login-field">
+                <label htmlFor="login-password" className="login-label login-label--credentials">
+                  Password
+                </label>
+                <TXTINPWideButton
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onInputChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                  minLength={6}
+                  colorVariant="secondary"
+                />
+              </div>
               {error && (
                 <p className="login-error" role="alert">
                   {error}
                 </p>
               )}
-              <BUTWideButton type="submit" width="fill" className="login-submit" disabled={submitting}>
-                {submitting ? 'Please wait…' : 'Continue'}
+              <BUTWideButton
+                type="submit"
+                width="fill"
+                className="login-submit"
+                colorVariant="accent"
+                disabled={submitting || email.trim().length === 0 || password.length === 0}
+              >
+                {submitting ? 'Please wait…' : 'Log in'}
               </BUTWideButton>
             </form>
           </>
@@ -424,13 +435,12 @@ const LoginPage: React.FC = () => {
               tabIndex={-1}
               aria-hidden="true"
             />
-            <label htmlFor="login-totp-signin" className="login-label">
+            <label htmlFor="login-totp-signin" className="login-label login-label--totp-signin">
               6-digit code
             </label>
-            <input
+            <TXTINPWideButton
               id="login-totp-signin"
               name={MFA_OTP_INPUT_NAME}
-              type="text"
               inputMode="numeric"
               autoComplete={MFA_AUTOFILL.signInOtp}
               pattern="[0-9]*"
@@ -440,15 +450,26 @@ const LoginPage: React.FC = () => {
               enterKeyHint="done"
               maxLength={8}
               value={totpSignInCode}
-              onChange={(e) => setTotpSignInCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-              className="login-input"
+              onInputChange={(e) => setTotpSignInCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
               placeholder="123456"
               disabled={submitting}
-            />
-            <div className="login-phone-verify-actions">
+            
+                colorVariant="secondary"
+              />
+            <div className="login-phone-verify-actions login-phone-verify-actions--inline">
               <BUTWideButton
                 type="button"
+                ariaLabel="Back to login details"
                 width="hug"
+                shape="left-rounded"
+                iconPosition="left"
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M10 3 5 8l5 5" />
+                  </svg>
+                }
+                colorVariant="primary"
+                className="login-auth-back-button"
                 onClick={() => {
                   mfaResolverRef.current = null
                   setTotpSignInCode('')
@@ -456,11 +477,16 @@ const LoginPage: React.FC = () => {
                   setError(null)
                 }}
                 disabled={submitting}
+              />
+              <BUTWideButton
+                type="submit"
+                width="fill"
+                shape="right-rounded"
+                className="login-submit"
+                colorVariant="accent"
+                disabled={submitting || !/^\d{6}$/.test(totpSignInCode.trim())}
               >
-                Back
-              </BUTWideButton>
-              <BUTWideButton type="submit" width="fill" className="login-submit" disabled={submitting}>
-                {submitting ? 'Verifying…' : 'Verify and sign in'}
+                {submitting ? 'Verifying…' : 'Verify code & Log in'}
               </BUTWideButton>
             </div>
           </form>
@@ -509,10 +535,9 @@ const LoginPage: React.FC = () => {
                   <label htmlFor="login-totp-enroll" className="login-label">
                     Enter code from the app
                   </label>
-                  <input
+                  <TXTINPWideButton
                     id="login-totp-enroll"
                     name={MFA_OTP_INPUT_NAME}
-                    type="text"
                     inputMode="numeric"
                     autoComplete={MFA_AUTOFILL.enrollOtp}
                     pattern="[0-9]*"
@@ -522,11 +547,12 @@ const LoginPage: React.FC = () => {
                     enterKeyHint="done"
                     maxLength={8}
                     value={totpEnrollCode}
-                    onChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    className="login-input"
+                    onInputChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
                     placeholder="123456"
                     disabled={submitting}
-                  />
+                  
+                colorVariant="secondary"
+              />
                   <BUTWideButton
                     type="submit"
                     width="fill"

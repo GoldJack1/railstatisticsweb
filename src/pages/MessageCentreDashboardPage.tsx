@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BUTWideButton } from '../components/buttons'
+import TXTINPIconWideButtonSearch from '../components/textInputs/special/TXTINPIconWideButtonSearch'
 import type { InAppMessage, MessageStatus } from '../types/messages'
 import {
   archiveInAppMessage,
@@ -120,11 +121,21 @@ const MessageCentreDashboardPage: React.FC = () => {
           {notice && <p className="message-centre-status__notice">{notice}</p>}
         </div>
         <div className="message-centre-list-controls">
-          <input
-            type="search"
+          <TXTINPIconWideButtonSearch
+            id="message-centre-search"
+            icon={
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="7" cy="7" r="4" />
+                <line x1="11" y1="11" x2="13" y2="13" />
+              </svg>
+            }
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onInputChange={(event) => setSearch(event.target.value)}
             placeholder="Search title, preview, body..."
+            className="message-centre-search-input-shell"
+            colorVariant="secondary"
+            autoComplete="off"
+            spellCheck={false}
           />
           <select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value as FilterStatus)}>
             <option value="all">All statuses</option>

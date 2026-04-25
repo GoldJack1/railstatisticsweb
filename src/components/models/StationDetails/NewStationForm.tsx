@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import type { SandboxStationDoc, Station, YearlyPassengers } from '../../../types'
 import { usePendingStationChanges } from '../../../contexts/PendingStationChangesContext'
 import { BUTBaseButton as Button } from '../../buttons'
-import LocationMapPicker from '../../text-inputs/LocationMapPicker'
+import LocationMapPicker from './LocationMapPicker'
 import type { StationDetailsTab } from './StationDetailsView'
 import { createPortal } from 'react-dom'
+import TXTINPWideButton from '../../textInputs/plain/TXTINPWideButton'
 
 type NewStationFormState = Partial<Station>
 
@@ -289,91 +290,103 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
             <label className="edit-label" htmlFor="new-stationName">
               Station name *
             </label>
-            <input
+            <TXTINPWideButton
               id="new-stationName"
-              type="text"
               value={form.stationName ?? ''}
-              onChange={(e) => update({ stationName: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ stationName: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-crsCode">
               CRS Code *
             </label>
-            <input
+            <TXTINPWideButton
               id="new-crsCode"
-              type="text"
               value={form.crsCode ?? ''}
-              onChange={(e) => update({ crsCode: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ crsCode: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-tiploc">
               Tiploc *
             </label>
-            <input
+            <TXTINPWideButton
               id="new-tiploc"
-              type="text"
               value={form.tiploc ?? ''}
-              onChange={(e) => update({ tiploc: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ tiploc: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-toc">
               TOC *
             </label>
-            <input id="new-toc" type="text" value={form.toc ?? ''} onChange={(e) => update({ toc: e.target.value })} className="edit-input" />
+            <TXTINPWideButton id="new-toc" value={form.toc ?? ''} onInputChange={(e) => update({ toc: e.target.value })} inputClassName="edit-input" 
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-country">
               Country *
             </label>
-            <input
+            <TXTINPWideButton
               id="new-country"
-              type="text"
               value={form.country ?? ''}
-              onChange={(e) => update({ country: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ country: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-county">
               County *
             </label>
-            <input id="new-county" type="text" value={form.county ?? ''} onChange={(e) => update({ county: e.target.value })} className="edit-input" />
+            <TXTINPWideButton id="new-county" value={form.county ?? ''} onInputChange={(e) => update({ county: e.target.value })} inputClassName="edit-input" 
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-stnarea">
               Station area *
             </label>
-            <input
+            <TXTINPWideButton
               id="new-stnarea"
-              type="text"
               value={form.stnarea ?? ''}
-              onChange={(e) => update({ stnarea: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ stnarea: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-londonBorough">
               London Borough
             </label>
-            <input
+            <TXTINPWideButton
               id="new-londonBorough"
-              type="text"
               value={form.londonBorough ?? ''}
-              onChange={(e) => update({ londonBorough: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => update({ londonBorough: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-fareZone">
               Fare Zone
             </label>
-            <input id="new-fareZone" type="text" value={form.fareZone ?? ''} onChange={(e) => update({ fareZone: e.target.value })} className="edit-input" />
+            <TXTINPWideButton id="new-fareZone" value={form.fareZone ?? ''} onInputChange={(e) => update({ fareZone: e.target.value })} inputClassName="edit-input" 
+                colorVariant="secondary"
+              />
           </div>
         </div>
       </div>
@@ -429,16 +442,17 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               <label className="edit-label" htmlFor={`new-year-${idx}`}>
                 Year
               </label>
-              <input
+              <TXTINPWideButton
                 id={`new-year-${idx}`}
-                type="text"
                 value={row.year}
-                onChange={(e) => {
+                onInputChange={(e) => {
                   const v = e.target.value
                   setYearlyPassengersRows((prev) => prev.map((r, i) => (i === idx ? { ...r, year: v } : r)))
                 }}
-                className="edit-input"
+                inputClassName="edit-input"
                 placeholder="e.g. 2021"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
@@ -446,18 +460,19 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 Passengers
               </label>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input
+                <TXTINPWideButton
                   id={`new-passengers-${idx}`}
-                  type="text"
                   value={row.value}
-                  onChange={(e) => {
+                  onInputChange={(e) => {
                     const v = e.target.value
                     setYearlyPassengersRows((prev) => prev.map((r, i) => (i === idx ? { ...r, value: v } : r)))
                   }}
-                  className="edit-input"
+                  inputClassName="edit-input"
                   placeholder="e.g. 123456"
                   style={{ flex: 1 }}
-                />
+                
+                colorVariant="secondary"
+              />
                 <Button
                   type="button"
                   variant="circle"
@@ -489,49 +504,56 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
             <label className="edit-label" htmlFor="new-operatorCode">
               Operator Code
             </label>
-            <input
+            <TXTINPWideButton
               id="new-operatorCode"
-              type="text"
               value={String(additionalForm.operatorCode ?? '')}
-              onChange={(e) => updateAdditional({ operatorCode: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => updateAdditional({ operatorCode: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-staffingLevel">
               Staffing Level
             </label>
-            <input
+            <TXTINPWideButton
               id="new-staffingLevel"
-              type="text"
               value={String(additionalForm.staffingLevel ?? '')}
-              onChange={(e) => updateAdditional({ staffingLevel: e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => updateAdditional({ staffingLevel: e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-nlc">
               NLC
             </label>
-            <input id="new-nlc" type="text" value={String(additionalForm.nlc ?? '')} onChange={(e) => updateAdditional({ nlc: e.target.value })} className="edit-input" />
+            <TXTINPWideButton id="new-nlc" value={String(additionalForm.nlc ?? '')} onInputChange={(e) => updateAdditional({ nlc: e.target.value })} inputClassName="edit-input" 
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-minConnectionTime">
               Min connection time
             </label>
-            <input
+            <TXTINPWideButton
               id="new-minConnectionTime"
-              type="text"
               value={String((additionalForm['min-connection-time'] as unknown) ?? '')}
-              onChange={(e) => updateAdditional({ 'min-connection-time': e.target.value })}
-              className="edit-input"
-            />
+              onInputChange={(e) => updateAdditional({ 'min-connection-time': e.target.value })}
+              inputClassName="edit-input"
+            
+                colorVariant="secondary"
+              />
           </div>
           <div className="edit-field edit-field-full">
             <label className="edit-label" htmlFor="new-urlSlug">
               URL slug *
             </label>
-            <input id="new-urlSlug" type="text" value={String(additionalForm.urlSlug ?? '')} onChange={(e) => updateAdditional({ urlSlug: e.target.value })} className="edit-input" />
+            <TXTINPWideButton id="new-urlSlug" value={String(additionalForm.urlSlug ?? '')} onInputChange={(e) => updateAdditional({ urlSlug: e.target.value })} inputClassName="edit-input" 
+                colorVariant="secondary"
+              />
           </div>
         </div>
         </div>
@@ -546,36 +568,39 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               <label className="edit-label" htmlFor="new-toiletsAccessible">
                 Accessible
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-toiletsAccessible"
-                type="text"
                 value={String(additionalForm.toilets?.toiletsAccessible ?? '')}
-                onChange={(e) => updateAdditionalNested('toilets', { toiletsAccessible: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('toilets', { toiletsAccessible: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-toiletsChangingPlace">
                 Changing Place
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-toiletsChangingPlace"
-                type="text"
                 value={String(additionalForm.toilets?.toiletsChangingPlace ?? '')}
-                onChange={(e) => updateAdditionalNested('toilets', { toiletsChangingPlace: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('toilets', { toiletsChangingPlace: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-toiletsBabyChanging">
                 Baby changing
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-toiletsBabyChanging"
-                type="text"
                 value={String(additionalForm.toilets?.toiletsBabyChanging ?? '')}
-                onChange={(e) => updateAdditionalNested('toilets', { toiletsBabyChanging: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('toilets', { toiletsBabyChanging: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
           </div>
@@ -590,24 +615,26 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               <label className="edit-label" htmlFor="new-stepFreeCode">
                 Code
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-stepFreeCode"
-                type="text"
                 value={String(additionalForm.stepFree?.stepFreeCode ?? '')}
-                onChange={(e) => updateAdditionalNested('stepFree', { stepFreeCode: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('stepFree', { stepFreeCode: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field edit-field-full">
               <label className="edit-label" htmlFor="new-stepFreeNote">
                 Note
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-stepFreeNote"
-                type="text"
                 value={String(additionalForm.stepFree?.stepFreeNote ?? '')}
-                onChange={(e) => updateAdditionalNested('stepFree', { stepFreeNote: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('stepFree', { stepFreeNote: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
           </div>
@@ -622,36 +649,39 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               <label className="edit-label" htmlFor="new-liftAvailable">
                 Available
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-liftAvailable"
-                type="text"
                 value={String(additionalForm.lift?.liftAvailable ?? '')}
-                onChange={(e) => updateAdditionalNested('lift', { liftAvailable: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('lift', { liftAvailable: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field edit-field-full">
               <label className="edit-label" htmlFor="new-liftNotes">
                 Notes
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-liftNotes"
-                type="text"
                 value={String(additionalForm.lift?.liftNotes ?? '')}
-                onChange={(e) => updateAdditionalNested('lift', { liftNotes: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('lift', { liftNotes: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field edit-field-full">
               <label className="edit-label" htmlFor="new-liftDetails">
                 Details
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-liftDetails"
-                type="text"
                 value={String(additionalForm.lift?.liftDetails ?? '')}
-                onChange={(e) => updateAdditionalNested('lift', { liftDetails: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('lift', { liftDetails: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
           </div>
@@ -666,60 +696,65 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               <label className="edit-label" htmlFor="new-connectionBus">
                 Bus
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-connectionBus"
-                type="text"
                 value={String(additionalForm.connections?.connectionBus ?? '')}
-                onChange={(e) => updateAdditionalNested('connections', { connectionBus: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('connections', { connectionBus: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-connectionTaxi">
                 Taxi
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-connectionTaxi"
-                type="text"
                 value={String(additionalForm.connections?.connectionTaxi ?? '')}
-                onChange={(e) => updateAdditionalNested('connections', { connectionTaxi: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('connections', { connectionTaxi: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-connectionUnderground">
                 Underground
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-connectionUnderground"
-                type="text"
                 value={String(additionalForm.connections?.connectionUnderground ?? '')}
-                onChange={(e) => updateAdditionalNested('connections', { connectionUnderground: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('connections', { connectionUnderground: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-requestStop">
                 Request stop
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-requestStop"
-                type="text"
                 value={String(additionalForm.is?.isrequeststop ?? '')}
-                onChange={(e) => updateAdditionalNested('is', { isrequeststop: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('is', { isrequeststop: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-limitedService">
                 Limited service
               </label>
-              <input
+              <TXTINPWideButton
                 id="new-limitedService"
-                type="text"
                 value={String(additionalForm.is?.Islimitedservice ?? '')}
-                onChange={(e) => updateAdditionalNested('is', { Islimitedservice: e.target.value })}
-                className="edit-input"
+                onInputChange={(e) => updateAdditionalNested('is', { Islimitedservice: e.target.value })}
+                inputClassName="edit-input"
+              
+                colorVariant="secondary"
               />
             </div>
           </div>
@@ -742,17 +777,18 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                     <label className="edit-label" htmlFor={`new-facility-${idx}`}>
                       {label}
                     </label>
-                    <input
+                    <TXTINPWideButton
                       id={`new-facility-${idx}`}
-                      type="text"
                       value={row.value}
-                      onChange={(e) => {
+                      onInputChange={(e) => {
                         const v = e.target.value
                         setFacilitiesRows((prev) => prev.map((r, i) => (i === idx ? { ...r, value: v } : r)))
                       }}
-                      className="edit-input"
+                      inputClassName="edit-input"
                       placeholder="—"
-                    />
+                    
+                colorVariant="secondary"
+              />
                   </div>
                 )
               })}

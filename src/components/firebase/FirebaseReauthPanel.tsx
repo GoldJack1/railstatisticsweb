@@ -13,6 +13,7 @@ import { getTotpMfaHints, isMultiFactorAuthRequiredError, mapTotpMfaError } from
 import { BUTBaseButton as Button } from '../buttons'
 import { MFA_AUTOFILL, MFA_OTP_INPUT_NAME } from '../../constants/mfaAutofill'
 import './PasswordReauthModal/PasswordReauthModal.css'
+import TXTINPWideButton from '../textInputs/plain/TXTINPWideButton'
 
 export type FirebaseReauthLayout = 'phased' | 'stacked'
 
@@ -289,10 +290,9 @@ const FirebaseReauthPanel: React.FC<FirebaseReauthPanelProps> = ({
         <label className="password-reauth-label" htmlFor="firebase-reauth-totp-stacked">
           Authenticator code
         </label>
-        <input
+        <TXTINPWideButton
           id="firebase-reauth-totp-stacked"
           name={MFA_OTP_INPUT_NAME}
-          type="text"
           inputMode="numeric"
           autoComplete={MFA_AUTOFILL.reauthOtp}
           pattern="[0-9]*"
@@ -302,13 +302,15 @@ const FirebaseReauthPanel: React.FC<FirebaseReauthPanelProps> = ({
           enterKeyHint="done"
           maxLength={8}
           value={totpCode}
-          onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          className="password-reauth-input"
+          onInputChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          inputClassName="password-reauth-input"
           placeholder="123456"
           disabled={busy}
           required={mfaPending}
           aria-required={mfaPending}
-        />
+        
+                colorVariant="secondary"
+              />
         {error && (
           <p className="password-reauth-error" role="alert">
             {error}
@@ -404,10 +406,9 @@ const FirebaseReauthPanel: React.FC<FirebaseReauthPanelProps> = ({
           <label className="password-reauth-label" htmlFor="password-reauth-totp">
             6-digit code
           </label>
-          <input
+          <TXTINPWideButton
             id="password-reauth-totp"
             name={MFA_OTP_INPUT_NAME}
-            type="text"
             inputMode="numeric"
             autoComplete={MFA_AUTOFILL.reauthOtp}
             pattern="[0-9]*"
@@ -417,11 +418,13 @@ const FirebaseReauthPanel: React.FC<FirebaseReauthPanelProps> = ({
             enterKeyHint="done"
             maxLength={8}
             value={totpCode}
-            onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-            className="password-reauth-input"
+            onInputChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            inputClassName="password-reauth-input"
             placeholder="123456"
             disabled={busy}
-          />
+          
+                colorVariant="secondary"
+              />
           {error && (
             <p className="password-reauth-error" role="alert">
               {error}

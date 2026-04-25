@@ -6042,22 +6042,25 @@
   display: block;
 }
 
-.migration-station-search-field {
-  display: block;
+.migration-station-search-input-shell {
+  display: flex;
+  align-items: center;
   width: 100%;
   min-width: 0;
-  padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  box-sizing: border-box;
 }
 
-.migration-station-search-field:focus {
-  outline: 2px solid var(--accent-color, #3b82f6);
-  outline-offset: 2px;
+/* Keep migration search visually aligned with the design-system demo control. */
+.migration-station-search-input-shell.rs-input {
+  gap: 10px;
+}
+
+.migration-station-search-input-shell .rs-input__prefix--icon {
+  width: 16px;
+  height: 16px;
+}
+
+.migration-station-search-input-shell .rs-input__field {
+  line-height: 1.2;
 }
 
 .migration-station-search-sublabel {
