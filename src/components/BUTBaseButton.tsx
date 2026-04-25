@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import BUTLink from './BUTLink'
 import './Button.css'
 
 export type ButtonVariant = 'wide' | 'circle' | 'square' | 'tab' | 'chip'
@@ -30,6 +31,22 @@ export interface ButtonProps {
   rel?: string
   form?: string
   instantAction?: boolean
+}
+
+export type BUTSharedNativeButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  children?: React.ReactNode
+}
+
+export const BUTSharedNativeButton: React.FC<BUTSharedNativeButtonProps> = ({
+  children,
+  type = 'button',
+  ...rest
+}) => {
+  return (
+    <button type={type} {...rest}>
+      {children}
+    </button>
+  )
 }
 
 const BUTBaseButton: React.FC<ButtonProps> = ({
@@ -88,23 +105,23 @@ const BUTBaseButton: React.FC<ButtonProps> = ({
 
   if (href) {
     return (
-      <a
+      <BUTLink
         className={buttonClasses}
         href={href}
         target={target}
         rel={rel}
-        aria-label={ariaLabel}
+        ariaLabel={ariaLabel}
         title={title}
       >
         {icon && <span className="rs-button__icon">{icon}</span>}
         {children && <span className="rs-button__text">{children}</span>}
         <div className="rs-button__inner-shadow" aria-hidden="true" />
-      </a>
+      </BUTLink>
     )
   }
 
   return (
-    <button
+    <BUTSharedNativeButton
       className={buttonClasses}
       type={type}
       form={form}
@@ -116,7 +133,7 @@ const BUTBaseButton: React.FC<ButtonProps> = ({
       {icon && <span className="rs-button__icon">{icon}</span>}
       {children && <span className="rs-button__text">{children}</span>}
       <div className="rs-button__inner-shadow" aria-hidden="true" />
-    </button>
+    </BUTSharedNativeButton>
   )
 }
 

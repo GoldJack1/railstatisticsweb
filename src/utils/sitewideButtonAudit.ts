@@ -27,6 +27,7 @@ export interface SitewideButtonAuditData {
   generatedAtIso: string
   summary: SitewideAuditSummary
   entries: SitewideAuditEntry[]
+  unusedFiles: string[]
 }
 
 const SOURCE_FILES = import.meta.glob('/src/**/*.{ts,tsx}', {
@@ -46,8 +47,14 @@ const BUTTON_COMPONENT_NAMES = [
   'BUTVisitStatusButton',
   'BUTHeaderLink',
   'BUTFooterLink',
-  'NavigationButton',
+  'BUTLink',
 ]
+
+const NATIVE_BUTTON_AUDIT_EXCLUDED_FILES = new Set([
+  '/src/components/BUTBaseButton.tsx',
+  '/src/components/BUTBaseButtonBar.tsx',
+  '/src/components/BUTBaseVisitStatusButton.tsx',
+])
 
 const countMatches = (source: string, regex: RegExp): number => {
   const matches = source.match(regex)
@@ -59,6 +66,27 @@ const toDisplayPath = (absoluteLikePath: string): string =>
 
 const makeId = (filePath: string, item: string, category: AuditCategory): string =>
   `${filePath}::${item}::${category}`
+
+const normalizePath = (path: string): string => {
+  const segments = path.split('/')
+  const out: string[] = []
+
+  segments.forEach((segment) => {
+    if (!segment || segment === '.') return
+    if (segment === '..') {
+      out.pop()
+      return
+    }
+    out.push(segment)
+  })
+
+  return `/${out.join('/')}`
+}
+
+const dirname = (path: string): string => {
+  const index = path.lastIndexOf('/')
+  return index <= 0 ? '/' : path.slice(0, index)
+}
 
 const pushIfAny = (
   out: SitewideAuditEntry[],
@@ -82,42 +110,88 @@ const pushIfAny = (
 
 export const getSitewideButtonAuditData = (): SitewideButtonAuditData => {
   const entries: SitewideAuditEntry[] = []
+  const EXCLUDED_AUDIT_PAGE = '/src/pages/designSystem/SitewideButtonsPage.tsx'
+  const scopedFiles = Object.keys(SOURCE_FILES).filter(
+    (path) =>
+      (path.startsWith('/src/pages/') || path.startsWith('/src/components/')) &&
+      !path.endsWith('.d.ts') &&
+      path !== EXCLUDED_AUDIT_PAGE
+  )
+  const scopedFileSet = new Set(scopedFiles)
 
-  Object.entries(SOURCE_FILES)
-    .filter(([path]) => path.startsWith('/src/pages/') || path.startsWith('/src/components/'))
-    .forEach(([filePath, source]) => {
-      if (filePath.endsWith('.d.ts')) return
+  scopedFiles.forEach((filePath) => {
+    const source = SOURCE_FILES[filePath]
 
-      BUTTON_COMPONENT_NAMES.forEach((componentName) => {
-        const occurrences = countMatches(source, new RegExp(`<${componentName}\\b`, 'g'))
-        pushIfAny(entries, filePath, componentName, 'button-components', occurrences)
-      })
+    BUTTON_COMPONENT_NAMES.forEach((componentName) => {
+      const occurrences = countMatches(source, new RegExp(`<${componentName}\\b`, 'g'))
+      pushIfAny(entries, filePath, componentName, 'button-components', occurrences)
+    })
 
+    if (!NATIVE_BUTTON_AUDIT_EXCLUDED_FILES.has(filePath)) {
       pushIfAny(entries, filePath, '<button>', 'native-buttons', countMatches(source, /<button\b/g))
-      pushIfAny(entries, filePath, '<a>', 'link-controls', countMatches(source, /<a\b/g))
-      pushIfAny(entries, filePath, '<Link>', 'link-controls', countMatches(source, /<Link\b/g))
+    }
+    pushIfAny(entries, filePath, '<a>', 'link-controls', countMatches(source, /<a\b/g))
+    pushIfAny(entries, filePath, '<Link>', 'link-controls', countMatches(source, /<Link\b/g))
 
-      const linkClassButtons =
-        countMatches(source, /<button\b[^>]*className=\{?["'`][^"'`]*link[^"'`]*["'`]\}?[^>]*>/g) +
-        countMatches(source, /<a\b[^>]*className=\{?["'`][^"'`]*link[^"'`]*["'`]\}?[^>]*>/g)
-      pushIfAny(
-        entries,
-        filePath,
-        'link-styled control',
-        'link-controls',
-        linkClassButtons,
-        'Class name contains "link"'
-      )
+    const linkClassButtons =
+      countMatches(source, /<button\b[^>]*className=\{?["'`][^"'`]*link[^"'`]*["'`]\}?[^>]*>/g) +
+      countMatches(source, /<a\b[^>]*className=\{?["'`][^"'`]*link[^"'`]*["'`]\}?[^>]*>/g)
+    pushIfAny(
+      entries,
+      filePath,
+      'link-styled control',
+      'link-controls',
+      linkClassButtons,
+      'Class name contains "link"'
+    )
 
-      const likelyCardFile = /Card|ActionBar|Row/.test(filePath)
-      const cardButtonHits = countMatches(source, /<button\b/g) + countMatches(source, /<BUT\w+\b/g)
-      if (likelyCardFile || /card|action-bar|toolbar/i.test(source)) {
-        pushIfAny(entries, filePath, 'card/action controls', 'card-actions', cardButtonHits)
+    const likelyCardFile = /Card|ActionBar|Row/.test(filePath)
+    const cardButtonHits = countMatches(source, /<button\b/g) + countMatches(source, /<BUT\w+\b/g)
+    if (likelyCardFile || /card|action-bar|toolbar/i.test(source)) {
+      pushIfAny(entries, filePath, 'card/action controls', 'card-actions', cardButtonHits)
+    }
+
+    pushIfAny(entries, filePath, '<input>', 'text-inputs', countMatches(source, /<input\b/g))
+    pushIfAny(entries, filePath, '<textarea>', 'text-inputs', countMatches(source, /<textarea\b/g))
+  })
+
+  const referencedFiles = new Set<string>()
+  const importPattern = /from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g
+
+  scopedFiles.forEach((filePath) => {
+    const source = SOURCE_FILES[filePath]
+    const matches = source.matchAll(importPattern)
+
+    for (const match of matches) {
+      const rawImport = match[1] ?? match[2]
+      if (!rawImport) continue
+
+      const resolvedBases: string[] = []
+      if (rawImport.startsWith('.')) {
+        resolvedBases.push(normalizePath(`${dirname(filePath)}/${rawImport}`))
+      } else if (rawImport.startsWith('/src/')) {
+        resolvedBases.push(normalizePath(rawImport))
+      } else if (rawImport.startsWith('@/')) {
+        resolvedBases.push(normalizePath(`/src/${rawImport.slice(2)}`))
+      } else {
+        continue
       }
 
-      pushIfAny(entries, filePath, '<input>', 'text-inputs', countMatches(source, /<input\b/g))
-      pushIfAny(entries, filePath, '<textarea>', 'text-inputs', countMatches(source, /<textarea\b/g))
-    })
+      resolvedBases.forEach((base) => {
+        ;[base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`].forEach((candidate) => {
+          if (scopedFileSet.has(candidate)) {
+            referencedFiles.add(candidate)
+          }
+        })
+      })
+    }
+  })
+
+  const unusedFiles = scopedFiles
+    .filter((filePath) => !referencedFiles.has(filePath))
+    .filter((filePath) => !filePath.endsWith('/App.tsx'))
+    .map((filePath) => toDisplayPath(filePath))
+    .sort((a, b) => a.localeCompare(b))
 
   entries.sort((a, b) => {
     if (a.category !== b.category) return a.category.localeCompare(b.category)
@@ -142,6 +216,7 @@ export const getSitewideButtonAuditData = (): SitewideButtonAuditData => {
     generatedAtIso: new Date().toISOString(),
     summary,
     entries,
+    unusedFiles,
   }
 }
 

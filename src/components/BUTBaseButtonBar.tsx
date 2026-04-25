@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { BUTSharedNativeButton } from './BUTBaseButton'
 import './ButtonBar.css'
 import type { ButtonColorVariant } from './BUTBaseButton'
 
@@ -65,7 +66,7 @@ const BUTBaseButtonBar: React.FC<ButtonBarProps> = ({
 
         return (
           <div key={button.value} className="rs-button-bar__item">
-            <button
+            <BUTSharedNativeButton
               type="button"
               id={button.id}
               className={buttonClasses}
@@ -74,7 +75,7 @@ const BUTBaseButtonBar: React.FC<ButtonBarProps> = ({
             >
               <span className="rs-button-bar__text">{button.label}</span>
               <div className="rs-button-bar__inner-shadow" aria-hidden="true" />
-            </button>
+            </BUTSharedNativeButton>
           </div>
         )
       })}

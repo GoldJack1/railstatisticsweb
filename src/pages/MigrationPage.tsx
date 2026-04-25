@@ -20,6 +20,7 @@ import type {
   MigrationCorrectionLogEntry
 } from '../types/migration'
 import Button from '../components/BUTMappedButton'
+import { BUTSharedNativeButton } from '../components/BUTBaseButton'
 import '../components/Migration.css'
 import '../components/StationModal.css'
 import '../pages/StationDetailsPage.css'
@@ -1459,7 +1460,7 @@ const MigrationPage: React.FC = () => {
                         <ul className="migration-station-search-results-list" role="list">
                           {state.searchResults.map((station, index) => (
                             <li key={`${station.id ?? station.crsCode ?? index}-${index}`}>
-                              <button
+                              <BUTSharedNativeButton
                                 type="button"
                                 className="migration-station-search-result-button"
                                 onClick={() => {
@@ -1492,7 +1493,7 @@ const MigrationPage: React.FC = () => {
                                     </span>
                                   </div>
                                 </div>
-                              </button>
+                              </BUTSharedNativeButton>
                             </li>
                           ))}
                         </ul>

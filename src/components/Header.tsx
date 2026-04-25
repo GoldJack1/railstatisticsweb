@@ -1,5 +1,5 @@
 import React, { useEffect, useId } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import BUTHeaderLink from './BUTHeaderLink'
 import './Header.css'
@@ -66,7 +66,7 @@ const Header: React.FC = () => {
   }, [mobileMenuOpen])
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
-  const handleMenuToggleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>) => {
+  const handleMenuToggleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     setMobileMenuOpen((open) => !open)
@@ -84,20 +84,25 @@ const Header: React.FC = () => {
       <div className="header-inner">
         <div className="header-container">
           <div className="header-left">
-            <Link to="/" replace={logoNavReplace} className="logo-link logo-link--full" aria-label="Rail Statistics home">
+            <BUTHeaderLink
+              to="/"
+              replace={logoNavReplace}
+              className="logo-link logo-link--full"
+              ariaLabel="Rail Statistics home"
+            >
               <div className="logo">
                 <span className="logo-text">Rail Statistics</span>
               </div>
-            </Link>
+            </BUTHeaderLink>
             <div className="logo logo--mobile">
-              <Link
+              <BUTHeaderLink
                 to="/"
                 replace={logoNavReplace}
                 className="logo-link logo-link--mobile-title"
-                aria-label="Rail Statistics home"
+                ariaLabel="Rail Statistics home"
               >
                 <span className="header-page-title">{pageTitle}</span>
-              </Link>
+              </BUTHeaderLink>
             </div>
           </div>
 
@@ -111,15 +116,14 @@ const Header: React.FC = () => {
                 ))}
               </div>
             </nav>
-            <a
-              href="#"
+            <div
               role="button"
+              tabIndex={0}
               className="header-menu-toggle"
               aria-expanded={mobileMenuOpen}
               aria-controls={mobileNavId}
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              onClick={(event) => {
-                event.preventDefault()
+              onClick={() => {
                 setMobileMenuOpen((open) => !open)
               }}
               onKeyDown={handleMenuToggleKeyDown}
@@ -129,7 +133,7 @@ const Header: React.FC = () => {
                 <span className="header-menu-toggle__bar" />
                 <span className="header-menu-toggle__bar" />
               </span>
-            </a>
+            </div>
           </div>
         </div>
 

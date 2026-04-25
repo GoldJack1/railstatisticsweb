@@ -1,5 +1,5 @@
 import React from 'react'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/DesignSystemTypography.css'
 
 const SCALE_TOKENS = [
@@ -20,9 +20,9 @@ const TypographyPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-typography">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-typography__header">
           <h1>Design System Typography</h1>
           <p>

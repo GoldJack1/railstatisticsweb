@@ -21,7 +21,6 @@ import {
   userMustEnrollTotpMfaOnFirebase
 } from '../services/firebaseTotpMfa'
 import BUTWideButton from '../components/BUTWideButton'
-import BUTOperatorChip from '../components/BUTOperatorChip'
 import { MFA_AUTOFILL, MFA_OTP_INPUT_NAME } from '../constants/mfaAutofill'
 import '../components/LogIn.css'
 
@@ -447,7 +446,7 @@ const LoginPage: React.FC = () => {
               disabled={submitting}
             />
             <div className="login-phone-verify-actions">
-              <BUTOperatorChip
+              <BUTWideButton
                 type="button"
                 width="hug"
                 onClick={() => {
@@ -459,7 +458,7 @@ const LoginPage: React.FC = () => {
                 disabled={submitting}
               >
                 Back
-              </BUTOperatorChip>
+              </BUTWideButton>
               <BUTWideButton type="submit" width="fill" className="login-submit" disabled={submitting}>
                 {submitting ? 'Verifying…' : 'Verify and sign in'}
               </BUTWideButton>

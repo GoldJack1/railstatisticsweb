@@ -1,6 +1,7 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Button from '../../components/BUTMappedButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/DesignSystemHome.css'
 
 const SECTIONS = [
@@ -47,6 +48,8 @@ const SECTIONS = [
 ]
 
 const DesignSystemHomePage: React.FC = () => {
+  const navigate = useNavigate()
+
   return (
     <div className="container">
       <div className="ds-home">
@@ -91,11 +94,16 @@ const DesignSystemHomePage: React.FC = () => {
           <h2 className="ds-home__section-title">System Sections</h2>
           <div className="ds-home__grid">
             {SECTIONS.map((section) => (
-              <Link key={section.to} to={section.to} className="ds-home__card">
+              <BUTWideButton
+                key={section.to}
+                width="hug"
+                className="ds-home__card rs-button--text-size"
+                onClick={() => navigate(section.to)}
+              >
                 <h3>{section.title}</h3>
                 <p>{section.description}</p>
                 <span className="ds-home__card-link">Open</span>
-              </Link>
+              </BUTWideButton>
             ))}
           </div>
         </section>

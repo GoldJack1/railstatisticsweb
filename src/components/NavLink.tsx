@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import BUTLink from './BUTLink'
 
 interface NavLinkProps {
   to: string
@@ -48,13 +49,13 @@ const NavLink: React.FC<NavLinkProps> = ({
   }
 
   return (
-    <Link
+    <BUTLink
       to={to}
       className={`nav-link ${activeClass} ${pressedClass} ${className}`.trim()}
       onClick={handleClick}
     >
       {children}
-    </Link>
+    </BUTLink>
   )
 }
 

@@ -1,5 +1,5 @@
 import React, { type MouseEvent } from 'react'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import CarouselHero from '../../components/home/CarouselHero'
 import StaticHero from '../../components/home/StaticHero'
 import type { ButtonColorVariant } from '../../components/BUTBaseButton'
@@ -145,9 +145,9 @@ const HerosPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-heros">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
 
         <header className="ds-heros__header">
           <h1>Heroes</h1>

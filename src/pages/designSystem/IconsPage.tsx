@@ -1,5 +1,5 @@
 import React from 'react'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/DesignSystemIcons.css'
 
 const ICONS = [
@@ -237,9 +237,9 @@ const IconsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-icons">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-icons__header">
           <h1>Icons</h1>
           <p>All inline SVG icons currently used across Rail Statistics.</p>

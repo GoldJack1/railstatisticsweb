@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
 import type { Station } from '../../types'
 import Button from '../../components/BUTMappedButton'
 import ButtonBar from '../../components/BUTMappedButtonBar'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import NavLink from '../../components/NavLink'
 import VisitButton from '../../components/BUTMappedVisitButton'
+import BUTLink from '../../components/BUTLink'
 import StationModal from '../../components/StationModal'
 import StationEditModal from '../../components/StationEditModal'
 import NewStationModal from '../../components/NewStationModal'
@@ -22,7 +22,7 @@ const COMPONENT_GROUPS = [
   {
     title: 'Navigation and Actions',
     items: [
-      { name: 'NavigationButton', file: 'src/components/NavigationButton.tsx', usage: 'Route-based button nav' },
+      { name: 'BUTWideButton', file: 'src/components/BUTWideButton.tsx', usage: 'Wide button + route-based nav via `to`' },
       { name: 'BUTMappedButton', file: 'src/components/BUTMappedButton.tsx', usage: 'Maps legacy props onto BUT* wrappers' },
       { name: 'BUTMappedButtonBar', file: 'src/components/BUTMappedButtonBar.tsx', usage: 'Routes grouped actions to BUT bar wrappers' },
       { name: 'BUTMappedVisitButton', file: 'src/components/BUTMappedVisitButton.tsx', usage: 'Visited/not-visited status control' },
@@ -69,9 +69,9 @@ const ComponentsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-components">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-components__header">
           <h1>Design System Components</h1>
           <p>Catalogue of high-level components and where they are used in the product.</p>
@@ -136,9 +136,9 @@ const ComponentsPage: React.FC = () => {
             <article className="ds-components__example-card">
               <h3>Navigation Components</h3>
               <div className="ds-components__example-row">
-                <NavigationButton to="/design-system/components" variant="wide" width="hug" isActive>
-                  NavigationButton
-                </NavigationButton>
+                <BUTWideButton to="/design-system/components" width="hug" isActive>
+                  BUTWideButton
+                </BUTWideButton>
                 <NavLink to="/design-system/components" className="ds-components__navlink-demo">
                   NavLink
                 </NavLink>
@@ -189,9 +189,9 @@ const ComponentsPage: React.FC = () => {
         <section className="ds-components__section">
           <h2>Live Entry Points</h2>
           <div className="ds-components__links">
-            <Link to="/migration">Open Migration</Link>
-            <Link to="/stations">Open Stations</Link>
-            <Link to="/stations">Open Stations</Link>
+            <BUTLink to="/migration">Open Migration</BUTLink>
+            <BUTLink to="/stations">Open Stations</BUTLink>
+            <BUTLink to="/stations">Open Stations</BUTLink>
           </div>
         </section>
 

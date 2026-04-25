@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react'
-import NavigationButton from '../../components/NavigationButton'
 import BUTWideButton from '../../components/BUTWideButton'
 import BUTCircleButton from '../../components/BUTCircleButton'
 import BUTOperatorChip from '../../components/BUTOperatorChip'
 import BUTVisitStatusButton from '../../components/BUTVisitStatusButton'
 import BUTHeaderLink from '../../components/BUTHeaderLink'
 import BUTFooterLink from '../../components/BUTFooterLink'
+import BUTLink from '../../components/BUTLink'
 import '../../components/DesignSystemSitewideButtons.css'
 import { getSitewideButtonAuditData, type SitewideAuditEntry } from '../../utils/sitewideButtonAudit'
 
@@ -42,12 +42,8 @@ const renderRowExample = (category: SitewideAuditEntry['category'], item: string
     if (item === 'BUTFooterLink') {
       return <BUTFooterLink to="/privacy">Privacy Policy</BUTFooterLink>
     }
-    if (item === 'NavigationButton') {
-      return (
-        <NavigationButton to="/design-system/sitewide-buttons" variant="wide" width="hug">
-          Example
-        </NavigationButton>
-      )
+    if (item === 'BUTLink') {
+      return <BUTLink to="/home" className="header-nav-link">Generic BUTLink</BUTLink>
     }
     return <BUTWideButton width="hug">Example</BUTWideButton>
   }
@@ -189,28 +185,59 @@ const SitewideButtonsPage: React.FC = () => {
     )
   }, [grouped])
 
-  const headerFooterUsage = useMemo(() => {
+  const linkUsage = useMemo(() => {
     const buttonEntries = groupedUnique['button-components']
     const headerRow = buttonEntries.find((entry) => entry.item === 'BUTHeaderLink')
     const footerRow = buttonEntries.find((entry) => entry.item === 'BUTFooterLink')
+    const butLinkRow = buttonEntries.find((entry) => entry.item === 'BUTLink')
+
+    const splitFiles = (files: string[]) => {
+      const appFiles = files.filter((file) => !file.startsWith('src/pages/designSystem/'))
+      const demoFiles = files.filter((file) => file.startsWith('src/pages/designSystem/'))
+      return { appFiles, demoFiles }
+    }
+
     return {
-      header: headerRow ?? null,
-      footer: footerRow ?? null,
+      header: headerRow
+        ? {
+            ...headerRow,
+            ...splitFiles(headerRow.files),
+          }
+        : null,
+      footer: footerRow
+        ? {
+            ...footerRow,
+            ...splitFiles(footerRow.files),
+          }
+        : null,
+      butLink: butLinkRow
+        ? {
+            ...butLinkRow,
+            ...splitFiles(butLinkRow.files),
+          }
+        : null,
     }
   }, [groupedUnique])
+
+  const categoriesToRender = useMemo(
+    () =>
+      (Object.keys(CATEGORY_LABELS) as SitewideAuditEntry['category'][]).filter(
+        (category) => category !== 'link-controls'
+      ),
+    []
+  )
 
   return (
     <div className="container">
       <div className="ds-sitewide-buttons">
-        <NavigationButton
+        <BUTWideButton
           to="/design-system"
-          variant="wide"
           width="hug"
           colorVariant="primary"
           className="rs-button--text-size"
         >
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
 
         <header className="ds-sitewide-buttons__header">
           <h1>Sitewide Buttons Audit</h1>
@@ -242,39 +269,6 @@ const SitewideButtonsPage: React.FC = () => {
             <h2>Text Inputs</h2>
             <strong>{audit.summary.textInputs}</strong>
           </article>
-        </section>
-
-        <section className="ds-sitewide-buttons__group">
-          <div className="ds-sitewide-buttons__group-header">
-            <h2>Header vs Footer Link Usage</h2>
-            <p>Separated usage tracking for the dedicated link wrappers.</p>
-          </div>
-          <div className="ds-sitewide-buttons__examples-grid">
-            <article className="ds-sitewide-buttons__example-card">
-              <h3>BUTHeaderLink</h3>
-              <p className="ds-sitewide-buttons__meta">
-                Total: {headerFooterUsage.header?.occurrences ?? 0}
-              </p>
-              <div className="ds-sitewide-buttons__file-list">
-                {(headerFooterUsage.header?.files ?? []).map((file) => (
-                  <code key={`header-link-${file}`}>{file}</code>
-                ))}
-                {!headerFooterUsage.header && <span className="ds-sitewide-buttons__empty">No usage found.</span>}
-              </div>
-            </article>
-            <article className="ds-sitewide-buttons__example-card">
-              <h3>BUTFooterLink</h3>
-              <p className="ds-sitewide-buttons__meta">
-                Total: {headerFooterUsage.footer?.occurrences ?? 0}
-              </p>
-              <div className="ds-sitewide-buttons__file-list">
-                {(headerFooterUsage.footer?.files ?? []).map((file) => (
-                  <code key={`footer-link-${file}`}>{file}</code>
-                ))}
-                {!headerFooterUsage.footer && <span className="ds-sitewide-buttons__empty">No usage found.</span>}
-              </div>
-            </article>
-          </div>
         </section>
 
         <section className="ds-sitewide-buttons__group">
@@ -364,7 +358,7 @@ const SitewideButtonsPage: React.FC = () => {
           </div>
         </section>
 
-        {(Object.keys(CATEGORY_LABELS) as SitewideAuditEntry['category'][]).map((category) => (
+        {categoriesToRender.map((category) => (
           <section key={category} className="ds-sitewide-buttons__group">
             <div className="ds-sitewide-buttons__group-header">
               <h2>{CATEGORY_LABELS[category]}</h2>
@@ -412,6 +406,170 @@ const SitewideButtonsPage: React.FC = () => {
             )}
           </section>
         ))}
+
+        <section className="ds-sitewide-buttons__group">
+          <div className="ds-sitewide-buttons__group-header">
+            <h2>Header Link Code Files</h2>
+            <p>Files where <code>BUTHeaderLink</code> is used.</p>
+          </div>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Visual examples</h3>
+            <div className="ds-sitewide-buttons__example-row">
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Header link (inactive)</span>
+                <BUTHeaderLink to="/migration">Migration</BUTHeaderLink>
+              </div>
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Header link (active)</span>
+                <BUTHeaderLink to="/home" active>Home</BUTHeaderLink>
+              </div>
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>App code files</h3>
+            <p className="ds-sitewide-buttons__meta">
+              Total uses: {linkUsage.header?.occurrences ?? 0}
+            </p>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.header?.appFiles ?? []).map((file) => (
+                <code key={`header-link-app-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.header || linkUsage.header.appFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No app usage found.</span>
+              )}
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Design-system / demo files</h3>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.header?.demoFiles ?? []).map((file) => (
+                <code key={`header-link-demo-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.header || linkUsage.header.demoFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No demo usage found.</span>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <section className="ds-sitewide-buttons__group">
+          <div className="ds-sitewide-buttons__group-header">
+            <h2>Footer Link Code Files</h2>
+            <p>Files where <code>BUTFooterLink</code> is used.</p>
+          </div>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Visual examples</h3>
+            <div className="ds-sitewide-buttons__example-row">
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Footer link</span>
+                <BUTFooterLink to="/privacy">Privacy Policy</BUTFooterLink>
+              </div>
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Footer logout style</span>
+                <BUTFooterLink onActivate={() => undefined} className="site-footer-logout">
+                  Log out
+                </BUTFooterLink>
+              </div>
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Footer theme toggle style</span>
+                <BUTFooterLink onActivate={() => undefined} className="site-footer-theme-toggle">
+                  Toggle theme
+                </BUTFooterLink>
+              </div>
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>App code files</h3>
+            <p className="ds-sitewide-buttons__meta">
+              Total uses: {linkUsage.footer?.occurrences ?? 0}
+            </p>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.footer?.appFiles ?? []).map((file) => (
+                <code key={`footer-link-app-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.footer || linkUsage.footer.appFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No app usage found.</span>
+              )}
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Design-system / demo files</h3>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.footer?.demoFiles ?? []).map((file) => (
+                <code key={`footer-link-demo-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.footer || linkUsage.footer.demoFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No demo usage found.</span>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <section className="ds-sitewide-buttons__group">
+          <div className="ds-sitewide-buttons__group-header">
+            <h2>BUTLink Code Files</h2>
+            <p>Files where <code>BUTLink</code> is used.</p>
+          </div>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Visual examples</h3>
+            <div className="ds-sitewide-buttons__example-row">
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">Route BUTLink</span>
+                <BUTLink to="/stations" className="header-nav-link">Stations</BUTLink>
+              </div>
+              <div className="ds-sitewide-buttons__variant-stack">
+                <span className="ds-sitewide-buttons__variant-label">External BUTLink</span>
+                <BUTLink href="https://www.railstatistics.co.uk" target="_blank" rel="noopener noreferrer">
+                  External site
+                </BUTLink>
+              </div>
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>App code files</h3>
+            <p className="ds-sitewide-buttons__meta">
+              Total uses: {linkUsage.butLink?.occurrences ?? 0}
+            </p>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.butLink?.appFiles ?? []).map((file) => (
+                <code key={`but-link-app-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.butLink || linkUsage.butLink.appFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No app usage found.</span>
+              )}
+            </div>
+          </article>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Design-system / demo files</h3>
+            <div className="ds-sitewide-buttons__file-list">
+              {(linkUsage.butLink?.demoFiles ?? []).map((file) => (
+                <code key={`but-link-demo-${file}`}>{file}</code>
+              ))}
+              {(!linkUsage.butLink || linkUsage.butLink.demoFiles.length === 0) && (
+                <span className="ds-sitewide-buttons__empty">No demo usage found.</span>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <section className="ds-sitewide-buttons__group">
+          <div className="ds-sitewide-buttons__group-header">
+            <h2>Code Files Not Used in Site</h2>
+            <p>Files under <code>src/pages</code> and <code>src/components</code> with no inbound references detected in the current source scan.</p>
+          </div>
+          <article className="ds-sitewide-buttons__example-card">
+            <h3>Files</h3>
+            <p className="ds-sitewide-buttons__meta">Total files: {audit.unusedFiles.length}</p>
+            <div className="ds-sitewide-buttons__file-list">
+              {audit.unusedFiles.map((file) => (
+                <code key={`unused-file-${file}`}>{file}</code>
+              ))}
+              {audit.unusedFiles.length === 0 && (
+                <span className="ds-sitewide-buttons__empty">No unused files found.</span>
+              )}
+            </div>
+          </article>
+        </section>
       </div>
     </div>
   )

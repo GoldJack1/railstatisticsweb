@@ -4,6 +4,7 @@ import { useStations } from '../hooks/useStations'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
 import NewStationForm from '../components/stationDetails/NewStationForm'
 import type { StationDetailsTab } from '../components/stationDetails/StationDetailsView'
+import { BUTSharedNativeButton } from '../components/BUTBaseButton'
 import BUTWideButton from '../components/BUTWideButton'
 import '../components/StationModal.css'
 import '../components/StationEditModal.css'
@@ -114,55 +115,55 @@ const NewStationPage: React.FC = () => {
               <div id="station-details-sidebar-actions" />
             </div>
             <nav className="station-details-tabs" aria-label="Form sections">
-              <button
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'details' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('details')}
               >
                 Details
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'additional' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('additional')}
               >
                 Additional details
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'service' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('service')}
               >
                 Service & Connections
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'location' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('location')}
               >
                 Location
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'usage' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('usage')}
               >
                 Usage
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'stepFree' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('stepFree')}
               >
                 Step-free & Lift access
-              </button>
-              <button
+              </BUTSharedNativeButton>
+              <BUTSharedNativeButton
                 type="button"
                 className={`station-details-tab ${activeTab === 'facilities' ? 'station-details-tab--active' : ''}`}
                 onClick={() => setActiveTab('facilities')}
               >
                 Facilities
-              </button>
+              </BUTSharedNativeButton>
             </nav>
           </aside>
 

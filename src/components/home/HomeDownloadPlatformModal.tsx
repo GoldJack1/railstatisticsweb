@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Button from '../BUTMappedButton'
+import { BUTSharedNativeButton } from '../BUTBaseButton'
 import './HomeDownloadPlatformModal.css'
 
 const IOS_URL = 'https://apps.apple.com/gb/app/rail-statistics/id6759503043'
@@ -71,9 +72,9 @@ const HomeDownloadPlatformModal: React.FC<HomeDownloadPlatformModalProps> = ({ o
       }}
     >
       <div className="rs-download-platform-modal">
-        <button type="button" className="rs-download-platform-modal__close" aria-label="Close" onClick={onClose}>
+        <BUTSharedNativeButton type="button" className="rs-download-platform-modal__close" aria-label="Close" onClick={onClose}>
           ✕
-        </button>
+        </BUTSharedNativeButton>
         <h2 className="rs-download-platform-modal__title">Download Rail Statistics</h2>
         <p className="rs-download-platform-modal__subtitle">Choose your platform</p>
         <div className="rs-download-platform-modal__buttons">

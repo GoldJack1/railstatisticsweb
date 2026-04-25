@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import BUTWideButton from '../../components/BUTWideButton'
+import BUTLink from '../../components/BUTLink'
 import '../../components/Eula.css'
 
 const EulaPage: React.FC = () => {
@@ -42,9 +43,9 @@ const EulaPage: React.FC = () => {
             </div>
             <nav className="eula-tabs" aria-label="EULA sections">
               {sections.map((section) => (
-                <a key={section.id} href={`#${section.id}`} className="eula-tab">
+                <BUTLink key={section.id} href={`#${section.id}`} className="eula-tab">
                   {section.label}
-                </a>
+                </BUTLink>
               ))}
             </nav>
           </aside>
@@ -131,7 +132,7 @@ const EulaPage: React.FC = () => {
         <section className="eula-section">
           <h2 id="section-5">5. USE OF DATA</h2>
           <p>
-            You acknowledge that Licensor will be able to access and adjust Your downloaded Licensed Application content and Your personal information, and that Licensor&apos;s use of such material and information is subject to Your legal agreements with Licensor and Licensor&apos;s privacy policy, which can be accessed via Settings &gt; About App &gt; Privacy Policy, or by visiting <a href="https://www.railstatistics.co.uk/privacy" target="_blank" rel="noopener noreferrer">http://www.railstatistics.co.uk/privacy</a>.
+            You acknowledge that Licensor will be able to access and adjust Your downloaded Licensed Application content and Your personal information, and that Licensor&apos;s use of such material and information is subject to Your legal agreements with Licensor and Licensor&apos;s privacy policy, which can be accessed via Settings &gt; About App &gt; Privacy Policy, or by visiting <BUTLink href="https://www.railstatistics.co.uk/privacy" target="_blank" rel="noopener noreferrer">http://www.railstatistics.co.uk/privacy</BUTLink>.
           </p>
           <p>
             You acknowledge that the Licensor may periodically collect and use technical data and related information about your device, system, and application software, and peripherals, offer product support, facilitate the software updates, and for purposes of providing other services to you (if any) related to the Licensed Application. Licensor may also use this information to improve its products or to provide services or technologies to you, as long as it is in a form that does not personally identify you.
@@ -219,7 +220,7 @@ const EulaPage: React.FC = () => {
             England
           </p>
           <p>
-            <a href="mailto:enquires@railstatistics.co.uk">enquires@railstatistics.co.uk</a>
+            <BUTLink href="mailto:enquires@railstatistics.co.uk">enquires@railstatistics.co.uk</BUTLink>
           </p>
         </section>
 

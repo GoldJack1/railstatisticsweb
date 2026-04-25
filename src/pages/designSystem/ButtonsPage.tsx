@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import Button from '../../components/BUTMappedButton'
-import NavigationButton from '../../components/NavigationButton'
 import BUTWideButton from '../../components/BUTWideButton'
 import BUTTabButton from '../../components/BUTTabButton'
 import BUTOperatorChip from '../../components/BUTOperatorChip'
@@ -302,9 +301,9 @@ const ButtonsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-buttons">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-buttons__header">
           <h1>Buttons</h1>
           <p>Clean reference for button states and one focused interactive demo section.</p>

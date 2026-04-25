@@ -1,5 +1,5 @@
 import React from 'react'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/DesignSystemLayout.css'
 
 const SPACING_TOKENS = [
@@ -28,9 +28,9 @@ const LayoutPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-layout">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-layout__header">
           <h1>Design System Layout</h1>
           <p>Spacing, radius, and container tokens used to build responsive structure and hierarchy.</p>

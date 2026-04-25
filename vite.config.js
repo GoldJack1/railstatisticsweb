@@ -139,7 +139,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Create vendor chunks for better caching
+          // Create vendor and route-domain chunks for better caching
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor'
@@ -152,6 +152,17 @@ export default defineConfig({
             }
             return 'vendor'
           }
+
+          // Split heavy app domains so the main app chunk stays under warning threshold.
+          if (id.includes('/src/pages/designSystem/')) return 'design-system-pages'
+          if (id.includes('/src/pages/legal/')) return 'legal-pages'
+          if (id.includes('/src/pages/MigrationPage')) return 'migration-page'
+          if (id.includes('/src/pages/StationsPageRefactored') || id.includes('/src/pages/StationDetailsPage') || id.includes('/src/pages/NewStationPage')) {
+            return 'stations-pages'
+          }
+          if (id.includes('/src/pages/MessageCentre')) return 'message-centre-pages'
+          if (id.includes('/src/components/home/')) return 'home-components'
+          if (id.includes('/src/components/stationDetails/')) return 'station-details-components'
         }
       }
     },

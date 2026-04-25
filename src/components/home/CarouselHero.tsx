@@ -4,6 +4,7 @@
  */
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Button from '../BUTMappedButton'
+import { BUTSharedNativeButton } from '../BUTBaseButton'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import HeroImageStack, {
   type HeroImageStackSources,
@@ -819,7 +820,7 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                             className="rs-carousel-hero__indicator-progress"
                             aria-hidden
                           />
-                          <button
+                          <BUTSharedNativeButton
                             type="button"
                             className="rs-carousel-hero__indicator-autoplay-toggle"
                             aria-pressed={!autoplayUserPaused}
@@ -833,11 +834,11 @@ const CarouselHero: React.FC<CarouselHeroProps> = ({
                             }}
                           >
                             {autoplayUserPaused ? <AutoplayPlayIcon /> : <AutoplayPauseIcon />}
-                          </button>
+                          </BUTSharedNativeButton>
                         </>
                       ) : null}
                       {!isActive ? (
-                        <button
+                        <BUTSharedNativeButton
                           type="button"
                           aria-label={`Slide ${i + 1} of ${slideCount}`}
                           className="rs-carousel-hero__indicator"

@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react'
 import type { ButtonColorVariant } from '../BUTBaseButton'
+import type { BUTLinkTarget } from '../BUTLink'
 import type {
   HeroImageStackSources,
   HeroMobileTabletUncroppedSettings
@@ -13,9 +14,9 @@ export interface CarouselHeroSlideCta {
   label: string
   /** Wide hero CTA colour; defaults to `accent`. */
   colorVariant?: ButtonColorVariant
-  /** Renders as `<a>`. Omit to use `onClick` on a `<button>`. */
+  /** Renders as `<a>`. Omit to use `onClick` for an in-app button action. */
   href?: string
-  target?: React.HTMLAttributeAnchorTarget
+  target?: BUTLinkTarget
   onClick?: (e: MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
 }
 

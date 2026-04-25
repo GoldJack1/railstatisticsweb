@@ -1,4 +1,5 @@
 import React from 'react'
+import { BUTSharedNativeButton } from './BUTBaseButton'
 import './VisitButton.css'
 
 export interface BUTBaseVisitStatusButtonProps {
@@ -26,10 +27,10 @@ const BUTBaseVisitStatusButton: React.FC<BUTBaseVisitStatusButtonProps> = ({
   const displayText = visited ? (date ? `Visited on ${date}` : 'Visited') : 'Not Visited'
 
   return (
-    <button className={buttonClasses} onClick={onToggle} disabled={disabled} aria-label={displayText}>
+    <BUTSharedNativeButton className={buttonClasses} onClick={onToggle} disabled={disabled} aria-label={displayText}>
       <span className="rs-visit-button__text">{displayText}</span>
       <div className="rs-visit-button__inner-shadow" aria-hidden="true" />
-    </button>
+    </BUTSharedNativeButton>
   )
 }
 

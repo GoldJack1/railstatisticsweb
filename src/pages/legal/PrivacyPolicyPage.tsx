@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import BUTWideButton from '../../components/BUTWideButton'
+import BUTLink from '../../components/BUTLink'
 import '../../components/PrivacyPolicy.css'
 
 const PrivacyPolicyPage: React.FC = () => {
@@ -33,9 +34,9 @@ const PrivacyPolicyPage: React.FC = () => {
             </div>
             <nav className="privacy-tabs" aria-label="Privacy Policy sections">
               {sections.map((section) => (
-                <a key={section.id} href={`#${section.id}`} className="privacy-tab">
+                <BUTLink key={section.id} href={`#${section.id}`} className="privacy-tab">
                   {section.label}
-                </a>
+                </BUTLink>
               ))}
             </nav>
           </aside>
@@ -60,14 +61,14 @@ const PrivacyPolicyPage: React.FC = () => {
             <section id="section-2" className="privacy-section privacy-card">
               <h2>2. Payments and In-App Purchases</h2>
               <p>
-                Rail Statistics offers in-app purchases managed exclusively by Apple. When you make an in-app purchase, payment transactions are processed directly by Apple. Rail Statistics does not collect, store, or have access to any of your payment details or billing information. Please refer to <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener noreferrer">Apple&apos;s Privacy Policy</a> for details about how your payment information is processed and secured.
+                Rail Statistics offers in-app purchases managed exclusively by Apple. When you make an in-app purchase, payment transactions are processed directly by Apple. Rail Statistics does not collect, store, or have access to any of your payment details or billing information. Please refer to <BUTLink href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener noreferrer">Apple&apos;s Privacy Policy</BUTLink> for details about how your payment information is processed and secured.
               </p>
             </section>
 
             <section id="section-3" className="privacy-section privacy-card">
               <h2>3. Third-Party Services – Google AdMob</h2>
               <p>
-                Rail Statistics uses Google AdMob to serve advertisements. When you first launch the app, you will be asked to consent to advertising data collection. This data is securely stored, managed, and processed by Google in compliance with GDPR regulations. For more details, please review <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google&apos;s privacy policy</a>.
+                Rail Statistics uses Google AdMob to serve advertisements. When you first launch the app, you will be asked to consent to advertising data collection. This data is securely stored, managed, and processed by Google in compliance with GDPR regulations. For more details, please review <BUTLink href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google&apos;s privacy policy</BUTLink>.
               </p>
             </section>
 
@@ -102,7 +103,7 @@ const PrivacyPolicyPage: React.FC = () => {
             <section id="section-8" className="privacy-section privacy-card">
               <h2>8. Contact Us</h2>
               <p>
-                For any questions or concerns regarding this Privacy Policy, don&apos;t hesitate to get in touch with us by email at: <a href="mailto:support@railstatistics.co.uk">support@railstatistics.co.uk</a>. By using Rail Statistics, you acknowledge and agree to this Privacy Policy.
+                For any questions or concerns regarding this Privacy Policy, don&apos;t hesitate to get in touch with us by email at: <BUTLink href="mailto:support@railstatistics.co.uk">support@railstatistics.co.uk</BUTLink>. By using Rail Statistics, you acknowledge and agree to this Privacy Policy.
               </p>
             </section>
           </div>

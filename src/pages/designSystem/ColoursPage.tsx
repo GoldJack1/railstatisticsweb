@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import NavigationButton from '../../components/NavigationButton'
+import BUTWideButton from '../../components/BUTWideButton'
 import '../../components/DesignSystemColours.css'
 
 type TokenItem = {
@@ -43,9 +43,9 @@ const ColoursPage: React.FC = () => {
   return (
     <div className="container">
       <div className="ds-colours">
-        <NavigationButton to="/design-system" variant="wide" width="hug" colorVariant="primary" className="rs-button--text-size">
+        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
           ← Back to Design System
-        </NavigationButton>
+        </BUTWideButton>
         <header className="ds-colours__header">
           <h1>Design System Colours</h1>
           <p>Reference for colour tokens used by surfaces, text, and interactive UI states.</p>
