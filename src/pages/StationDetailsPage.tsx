@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import type { SandboxStationDoc, Station } from '../types'
@@ -25,6 +25,10 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const [activeTab, setActiveTab] = useState<StationDetailsTab>('details')
   const [isMobile, setIsMobile] = useState(false)
   const [editFormHasUnsavedChanges, setEditFormHasUnsavedChanges] = useState(false)
+  const [maxTabContentHeight, setMaxTabContentHeight] = useState(0)
+  const visibleBodyRef = useRef<HTMLDivElement | null>(null)
+  const tabMeasureRefs = useRef<Partial<Record<StationDetailsTab, HTMLDivElement | null>>>({})
+  const TAB_ORDER: StationDetailsTab[] = ['details', 'additional', 'service', 'location', 'usage', 'stepFree', 'facilities']
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)')
@@ -64,6 +68,39 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
       cancelled = true
     }
   }, [stationId])
+
+  useLayoutEffect(() => {
+    if (mode !== 'view') return
+
+    const measureHeights = () => {
+      const heights = TAB_ORDER
+        .map((tab) => {
+          const pane = tabMeasureRefs.current[tab]
+          if (!pane) return 0
+          return Math.ceil(pane.getBoundingClientRect().height)
+        })
+        .filter((height) => height > 0)
+
+      const visibleHeight = Math.ceil(visibleBodyRef.current?.getBoundingClientRect().height ?? 0)
+      const nextMax = Math.max(visibleHeight, ...(heights.length > 0 ? heights : [0]))
+      if (nextMax <= 0) return
+      setMaxTabContentHeight((current) => (current === nextMax ? current : nextMax))
+    }
+
+    measureHeights()
+    const frameA = window.requestAnimationFrame(measureHeights)
+    const frameB = window.requestAnimationFrame(measureHeights)
+    window.addEventListener('resize', measureHeights)
+    return () => {
+      window.cancelAnimationFrame(frameA)
+      window.cancelAnimationFrame(frameB)
+      window.removeEventListener('resize', measureHeights)
+    }
+  }, [mode, station?.id, additionalDoc, additionalLoading])
+
+  useEffect(() => {
+    setMaxTabContentHeight(0)
+  }, [station?.id, mode])
 
   if (loading) {
     return (
@@ -168,55 +205,90 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
             </div>
 
             <nav className="station-details-tabs" aria-label="Station sections">
-              <button
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'details' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'details'}
                 onClick={() => setActiveTab('details')}
               >
                 Details
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'additional' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'additional'}
                 onClick={() => setActiveTab('additional')}
               >
                 Additional details
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'service' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'service'}
                 onClick={() => setActiveTab('service')}
               >
                 Service & Connections
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'location' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'location'}
                 onClick={() => setActiveTab('location')}
               >
                 Location
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'usage' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'usage'}
                 onClick={() => setActiveTab('usage')}
               >
                 Usage
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'stepFree' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'stepFree'}
                 onClick={() => setActiveTab('stepFree')}
               >
                 Step-free & Lift access
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`station-details-tab ${activeTab === 'facilities' ? 'station-details-tab--active' : ''}`}
+                variant="wide"
+                shape="rounded"
+                width="hug"
+                colorVariant="accent"
+                className="station-details-tab"
+                pressed={activeTab === 'facilities'}
                 onClick={() => setActiveTab('facilities')}
               >
                 Facilities
-              </button>
+              </Button>
             </nav>
           </aside>
 
@@ -232,13 +304,35 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                   onUnsavedChangesChange={setEditFormHasUnsavedChanges}
                 />
               ) : (
-                <div className="modal-body">
+                <div
+                  className="modal-body station-details-visible-body"
+                  ref={visibleBodyRef}
+                  style={maxTabContentHeight > 0 ? { minHeight: `${maxTabContentHeight}px` } : undefined}
+                >
                   <StationDetailsView
                     station={station}
                     additionalDoc={additionalDoc}
                     additionalLoading={additionalLoading}
                     activeTab={activeTab}
                   />
+                  <div className="station-details-measure-layer" aria-hidden="true">
+                    {TAB_ORDER.map((tab) => (
+                      <div
+                        key={tab}
+                        className="station-details-measure-pane"
+                        ref={(el) => {
+                          tabMeasureRefs.current[tab] = el
+                        }}
+                      >
+                        <StationDetailsView
+                          station={station}
+                          additionalDoc={additionalDoc}
+                          additionalLoading={additionalLoading}
+                          activeTab={tab}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

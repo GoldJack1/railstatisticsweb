@@ -1,0 +1,44 @@
+.rs-station-card-action-bar {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rs-station-card-action-bar__visit.rs-visit-button {
+  /* Match design-system action palettes (red-action / green-action). */
+  --button-not-visited-active: hsl(0 68% 58%);
+  --button-not-visited-pressed: hsl(0 68% 48%);
+  --button-visited-active: hsl(141 60% 40%);
+  --button-visited-pressed: hsl(141 60% 35%);
+
+  height: 40px;
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 0 18px 0 12px;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 13px;
+}
+
+[data-theme="dark"] .rs-station-card-action-bar__visit.rs-visit-button {
+  --button-not-visited-active: hsl(359 100% 25%);
+  --button-not-visited-pressed: hsl(359 100% 17%);
+  --button-visited-active: hsl(141 100% 19%);
+  --button-visited-pressed: hsl(141 100% 12%);
+}
+
+.rs-station-card-action-bar__favorite--active {
+  --button-bg-active: #d6c85c;
+  --button-bg-inactive: #c6b539;
+  --button-text-active: #000000;
+  --button-text-inactive: #000000;
+}
+
+[data-theme="dark"] .rs-station-card-action-bar__favorite--active {
+  --button-bg-active: #7a6c00;
+  --button-bg-inactive: #3d3600;
+  --button-text-active: #ffffff;
+  --button-text-inactive: #ffffff;
+}

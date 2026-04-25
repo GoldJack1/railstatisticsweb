@@ -1,0 +1,61 @@
+.rs-station-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.rs-station-text-card {
+  position: relative;
+  margin: 0;
+  padding: 12px;
+  background: var(--button-bg-active);
+  color: var(--button-text-active);
+  box-shadow: 0 3px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.rs-station-text-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+.rs-station-text-card:active {
+  background: var(--button-bg-inactive);
+  color: var(--button-text-inactive);
+  box-shadow: none;
+}
+
+.rs-station-text-card:active::after {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+.rs-station-operator,
+.rs-station-location {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 13px;
+  color: inherit;
+}
+
+.rs-station-operator {
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+
+.rs-station-location {
+  font-weight: 300;
+}
+
+.rs-station-name {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  font-weight: 400;
+  color: inherit;
+  line-height: 1.2;
+}

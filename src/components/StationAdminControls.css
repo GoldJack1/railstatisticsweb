@@ -1,0 +1,44 @@
+.station-admin-controls-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  width: 100%;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.station-admin-controls-group {
+  display: grid;
+  gap: 4px;
+}
+
+.station-admin-controls-group--pending {
+  grid-column: auto;
+  align-content: end;
+}
+
+.station-admin-controls-group--pending .rs-button {
+  min-width: 0;
+}
+
+.station-admin-controls-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 639px) {
+  .station-admin-controls-card {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .station-admin-controls-group--pending {
+    align-content: start;
+  }
+}

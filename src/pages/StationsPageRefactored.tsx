@@ -2,11 +2,10 @@ import React, { useState, useMemo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../hooks/useStations'
 import { useDebounce } from '../hooks/useDebounce'
-import ButtonBar from '../components/ButtonBar'
 import Button from '../components/Button'
-import type { Station } from '../types'
-import { formatFareZoneDisplay } from '../utils/formatFareZone'
-import { formatStationLocationDisplay, isGreaterLondonCounty } from '../utils/formatStationLocation'
+import StationCard from '../components/StationCard'
+import StationAdminControls from '../components/StationAdminControls'
+import { formatStationLocationDisplay } from '../utils/formatStationLocation'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 import type { StationCollectionId } from '../services/firebase'
 import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
@@ -166,56 +165,35 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
       {/* Header */}
       <header className="stations-header">
         <div className="stations-header-content">
-          <h1 className="stations-title">Station Database</h1>
-          <p className="stations-subtitle">
-            {isEditMode
-              ? 'View or edit station fields and prepare changes for publishing'
-              : 'Explore railway stations and passenger data'}
-          </p>
+          <div className="stations-header-copy">
+            <h1 className="stations-title">Station Database</h1>
+            <p className="stations-subtitle">
+              {isEditMode
+                ? 'View or edit station fields and prepare changes for publishing'
+                : 'Explore railway stations and passenger data'}
+            </p>
+          </div>
         </div>
       </header>
+      <div className="stations-admin-controls-wrap">
+        <StationAdminControls
+          isEditMode={isEditMode}
+          collectionId={collectionId}
+          pendingChangesCount={Object.keys(pendingChanges).length}
+          onModeChange={(mode) => setIsEditMode(mode === 'edit')}
+          onCollectionChange={setCollectionId}
+          onOpenPendingChanges={() =>
+            navigate('/stations/pending-review', {
+              state: { from: pathnameForReviewPendingSource(routerLocation) }
+            })
+          }
+        />
+      </div>
 
       {/* Main Content */}
       <div className="stations-content">
         {/* Sidebar */}
         <aside className="stations-sidebar">
-          {/* Mode and Data Source */}
-          <div className="sidebar-section">
-            <h2 className="sidebar-section-title">Controls</h2>
-            
-            <div className="mode-toggle">
-              <ButtonBar
-                buttons={[
-                  { label: 'View only', value: 'view' },
-                  { label: 'Edit', value: 'edit' }
-                ]}
-                selectedIndex={isEditMode ? 1 : 0}
-                onChange={(_, value) => {
-                  if (value === 'edit') {
-                    setIsEditMode(true)
-                  } else {
-                    setIsEditMode(false)
-                  }
-                }}
-              />
-            </div>
-
-            <div className="data-source-section">
-              <label htmlFor="station-collection-select" className="filter-label">
-                Data source:
-              </label>
-              <select
-                id="station-collection-select"
-                value={collectionId}
-                onChange={(e) => setCollectionId(e.target.value as StationCollectionId)}
-                className="data-source-select"
-              >
-                <option value="stations2603">Production (stations2603)</option>
-                <option value="newsandboxstations1">Sandbox (newsandboxstations1)</option>
-              </select>
-            </div>
-          </div>
-
           {/* Search */}
           <div className="sidebar-section">
             <h2 className="sidebar-section-title">Search</h2>
@@ -352,97 +330,16 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
 
         {/* Main Content */}
         <main className="stations-main">
-          {Object.keys(pendingChanges).length > 0 && (
-            <div className="stations-controls stations-controls--pending-banner">
-              <div className="controls-actions controls-actions--pending-banner">
-                <span className="stations-pending-review-label">
-                  Review changes ({Object.keys(pendingChanges).length})
-                </span>
-                <Button
-                  type="button"
-                  variant="wide"
-                  width="hug"
-                  onClick={() =>
-                    navigate('/stations/pending-review', {
-                      state: { from: pathnameForReviewPendingSource(routerLocation) }
-                    })
-                  }
-                >
-                  Open full review
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Station Grid */}
-          <div className="stations-grid">
+          <div className="stations-page-grid">
             {paginatedStations.map(station => (
-              <div
+              <StationCard
                 key={station.id}
-                className="station-card"
-                onClick={() => navigate(`/stations/${station.id}${isEditMode ? '/edit' : ''}`)}
-              >
-                <div className="station-header">
-                  <h3 className="station-name">{station.stationName || 'Unknown Station'}</h3>
-                  <div className="station-header__badges">
-                    {station.crsCode && <span className="station-crs">{station.crsCode}</span>}
-                    {trackedScheduledJobId && scheduledRunIds.has(station.id) && (
-                      <span className="station-scheduled-run-badge" title="Included in your active server schedule">
-                        Scheduled
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="station-details">
-                  <div className="detail-item">
-                    <span className="detail-label">Location</span>
-                    <span className="detail-value">
-                      {formatStationLocationDisplay(station)}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">TOC</span>
-                    <span className="detail-value">{station.toc || 'N/A'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Fare zone</span>
-                    <span className="detail-value">
-                      {station.fareZone ? (formatFareZoneDisplay(station.fareZone) || station.fareZone) : 'N/A'}
-                    </span>
-                  </div>
-                  {station.londonBorough && !isGreaterLondonCounty(station.county) && (
-                    <div className="detail-item">
-                      <span className="detail-label">London borough</span>
-                      <span className="detail-value">{station.londonBorough}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="station-meta">
-                  <span>
-                    Latest passengers:{' '}
-                    {(() => {
-                      if (station.yearlyPassengers && typeof station.yearlyPassengers === 'object') {
-                        const years = Object.keys(station.yearlyPassengers)
-                          .filter(y => /^\d{4}$/.test(y))
-                          .sort((a, b) => parseInt(b) - parseInt(a))
-                        if (years.length > 0) {
-                          const latest = station.yearlyPassengers[years[0]]
-                          return typeof latest === 'number' ? latest.toLocaleString() : 'N/A'
-                        }
-                      }
-                      return 'N/A'
-                    })()}
-                  </span>
-                  <div className="station-action">
-                    {isEditMode ? 'Edit' : 'View Details'}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
+                station={station}
+                locationDisplay={formatStationLocationDisplay(station)}
+                onCardClick={() => navigate(`/stations/${station.id}${isEditMode ? '/edit' : ''}`)}
+                onInfoClick={() => navigate(`/stations/${station.id}${isEditMode ? '/edit' : ''}`)}
+              />
             ))}
           </div>
 
