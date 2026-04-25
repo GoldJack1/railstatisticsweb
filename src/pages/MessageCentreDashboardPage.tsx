@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import BUTWideButton from '../components/BUTWideButton'
+import { BUTWideButton } from '../components/buttons'
 import type { InAppMessage, MessageStatus } from '../types/messages'
 import {
   archiveInAppMessage,
@@ -8,7 +8,7 @@ import {
   listInAppMessages,
   publishInAppMessage
 } from '../services/messageCentre'
-import './MessageCentreAdminPage.css'
+import './MessageCentreAdminPage/MessageCentreAdminPage.css'
 
 type FilterStatus = MessageStatus | 'all'
 

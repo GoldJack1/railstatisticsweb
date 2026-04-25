@@ -1,0 +1,237 @@
+/* Button Bar Component Styles */
+.rs-button-bar {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+}
+
+.rs-button-bar__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rs-button-bar__indicator {
+  width: 100%;
+  height: 4px;
+  background-color: var(--accent-color);
+  border-radius: 2px 2px 0 0;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.rs-button-bar__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: normal;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  min-height: 40px;
+  background-color: var(--button-bg-active);
+  color: var(--button-text-active);
+  box-shadow: var(--button-drop-shadow);
+}
+
+.rs-button-bar__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+.rs-button-bar__text {
+  white-space: nowrap;
+}
+
+/* Color variants */
+.rs-button-bar--color-primary {
+  /* Uses global button tokens as-is. */
+}
+
+.rs-button-bar--color-secondary {
+  --button-bg-active: hsl(0 0% 5%);
+  --button-bg-inactive: hsl(0 0% 20%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 77%);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .rs-button-bar--color-secondary {
+  --button-bg-active: hsl(0 0% 100%);
+  --button-bg-inactive: hsl(0 0% 89%);
+  --button-text-active: #000000;
+  --button-text-inactive: #000000;
+  --button-text-disabled: var(--text-disabled);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
+}
+
+.rs-button-bar--color-accent {
+  --button-bg-active: hsl(353 57% 48%);
+  --button-bg-inactive: hsl(353 57% 38%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-accent {
+  --button-bg-active: hsl(353 100% 19%);
+  --button-bg-inactive: hsl(352, 100%, 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button-bar--color-green-action {
+  --button-bg-active: hsl(141 60% 40%);
+  --button-bg-inactive: hsl(141 60% 35%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-green-action {
+  --button-bg-active: hsl(141 100% 19%);
+  --button-bg-inactive: hsl(141 100% 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button-bar--color-red-action {
+  --button-bg-active: hsl(0 68% 58%);
+  --button-bg-inactive: hsl(0 68% 48%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-red-action {
+  --button-bg-active: hsl(359 100% 25%);
+  --button-bg-inactive: hsl(359 100% 17%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button-bar--color-fav-action {
+  --button-bg-active: hsl(53 59% 60%);
+  --button-bg-inactive: hsl(53 55% 50%);
+  --button-text-active: hsl(0 0% 0%);
+  --button-text-inactive: hsl(0 0% 0%);
+  --button-text-disabled: hsl(0 0% 35%);
+}
+
+[data-theme="dark"] .rs-button-bar--color-fav-action {
+  --button-bg-active: hsl(53 100% 24%);
+  --button-bg-inactive: hsl(53 100% 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+/* Pressed State (for selected button) */
+.rs-button-bar__button--pressed {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-inactive);
+  box-shadow: none;
+}
+
+.rs-button-bar__button--pressed .rs-button-bar__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+/* Disabled State */
+.rs-button-bar__button--disabled {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-disabled, var(--text-disabled));
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.rs-button-bar__button--disabled .rs-button-bar__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+/* Button Shapes in Bar */
+.rs-button-bar__button--left-rounded {
+  border-radius: 32px 0 0 32px;
+}
+
+.rs-button-bar__button--right-rounded {
+  border-radius: 0 32px 32px 0;
+}
+
+.rs-button-bar__button--squared {
+  border-radius: 0;
+}
+
+/* 2-Button Bar */
+.rs-button-bar--2 .rs-button-bar__button {
+  min-width: 180px;
+}
+
+/* 3-Button Bar */
+.rs-button-bar--3 .rs-button-bar__button {
+  min-width: 147px;
+}
+
+/* Hover states removed by design. */
+
+/* Focus States */
+.rs-button-bar__button:focus-visible {
+  outline: none;
+}
+
+/* Responsive Design */
+@media (max-width: 1023px) {
+  .rs-button-bar__button {
+    font-size: 15px;
+    padding: 10px 20px;
+  }
+  
+  .rs-button-bar--2 .rs-button-bar__button {
+    min-width: 140px;
+  }
+  
+  .rs-button-bar--3 .rs-button-bar__button {
+    min-width: 110px;
+  }
+}
+
+@media (max-width: 639px) {
+  .rs-button-bar {
+    width: 100%;
+  }
+  
+  .rs-button-bar__item {
+    flex: 1;
+  }
+  
+  .rs-button-bar__button {
+    font-size: 14px;
+    padding: 10px 16px;
+    width: 100%;
+  }
+  
+  .rs-button-bar--2 .rs-button-bar__button,
+  .rs-button-bar--3 .rs-button-bar__button {
+    min-width: auto;
+  }
+}
+

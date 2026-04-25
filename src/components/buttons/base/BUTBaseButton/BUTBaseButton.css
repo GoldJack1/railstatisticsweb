@@ -1,0 +1,447 @@
+/* Button Design System - Custom Properties */
+:root {
+  /* Active Button Colors - Light Mode */
+  --button-bg-active: hsl(0 0% 100%);
+  --button-text-active: #000000;
+  --button-drop-shadow: 0px 3px 3px rgba(0, 0, 0, 0.2);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
+  
+  /* Pressed & Disabled Button Colors - Light Mode */
+  --button-bg-inactive: hsl(0 0% 77%);
+  --button-text-inactive: #000000;
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
+  
+  /* Visit Button Colors - Light Mode */
+  --button-not-visited-active: #c10202;
+  --button-not-visited-pressed: #951b00;
+  --button-visited-active: #00ab3c;
+  --button-visited-pressed: #00802d;
+}
+
+/* Dark Mode */
+[data-theme="dark"] {
+  /* Active Button Colors - Dark Mode */
+  --button-bg-active: hsl(0 0% 24%);
+  --button-text-active: #ffffff;
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
+  
+  /* Pressed & Disabled Button Colors - Dark Mode */
+  --button-bg-inactive: hsl(0 0% 12%);
+  --button-text-inactive: #ffffff;
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
+
+  /* Visit Button Colors - Dark Mode */
+  --button-not-visited-active: #a61e00;
+  --button-not-visited-pressed: #8e1a00;
+  --button-visited-active: #008f32;
+  --button-visited-pressed: #007a2b;
+}
+
+/* Base Button Styles */
+.rs-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 400;
+  -webkit-font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
+  font-variation-settings: 'CRSV' 1, 'MONO' 0, 'slnt' 0;
+  font-size: 16px;
+  line-height: normal;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+a.rs-button {
+  text-decoration: none;
+}
+
+.rs-button__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.rs-button__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rs-button__text {
+  white-space: nowrap;
+}
+
+.rs-button--icon-right .rs-button__icon {
+  order: 2;
+}
+
+.rs-button--icon-right .rs-button__text {
+  order: 1;
+}
+
+/* Color variants */
+
+.rs-button--color-secondary {
+  --button-bg-active: hsl(0 0% 5%);
+  --button-bg-inactive: hsl(0 0% 20%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive:  hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 77%);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(255, 255, 255, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .rs-button--color-secondary {
+  --button-bg-active: hsl(0 0% 100%);
+  --button-bg-inactive: hsl(0 0% 89%);
+  --button-text-active: #000000;
+  --button-text-inactive: #000000;
+  --button-text-disabled: var(--text-disabled);
+  --button-inner-shadow-active: inset 0px 0px 4.5px rgba(0, 0, 0, 0.2);
+  --button-inner-shadow-pressed: inset 0px 0px 4.5px rgba(0, 0, 0, 0.25);
+}
+
+.rs-button--color-accent {
+  --button-bg-active: hsl(353 57% 48%);
+  --button-bg-inactive: hsl(353 57% 38%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button--color-accent {
+  --button-bg-active: hsl(353 100% 19%);
+  --button-bg-inactive: hsl(352, 100%, 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button--color-green-action {
+  --button-bg-active: hsl(141 60% 40%);
+  --button-bg-inactive: hsl(141 60% 35%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button--color-green-action {
+  --button-bg-active: hsl(141 100% 19%);
+  --button-bg-inactive: hsl(141 100% 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button--color-red-action {
+  --button-bg-active: hsl(0 68% 58%);
+  --button-bg-inactive: hsl(0 68% 48%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-button--color-red-action {
+  --button-bg-active: hsl(359 100% 25%);
+  --button-bg-inactive: hsl(359 100% 17%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-button--color-fav-action {
+  --button-bg-active: hsl(53 59% 60%);
+  --button-bg-inactive: hsl(53 55% 50%);
+  --button-text-active: hsl(0 0% 0%);
+  --button-text-inactive: hsl(0 0% 0%);
+  --button-text-disabled: hsl(0 0% 35%);
+}
+
+[data-theme="dark"] .rs-button--color-fav-action {
+  --button-bg-active: hsl(53 100% 24%);
+  --button-bg-inactive: hsl(53 100% 12%);
+  --button-text-active: hsl(0 0% 100%);
+  --button-text-inactive: hsl(0 0% 100%);
+  --button-text-disabled: hsl(0 0% 40%);
+}
+
+/* Button States */
+.rs-button--active {
+  background-color: var(--button-bg-active);
+  color: var(--button-text-active);
+  box-shadow: var(--button-drop-shadow);
+}
+
+.rs-button--active .rs-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+.rs-button--pressed {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-inactive);
+  box-shadow: none;
+}
+
+.rs-button--pressed .rs-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+.rs-button--disabled {
+  background-color: var(--button-bg-inactive);
+  color: var(--button-text-disabled, var(--text-disabled));
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.rs-button--disabled .rs-button__inner-shadow {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+/* Wide Button Variant */
+.rs-button--wide {
+  padding: 12px 20px;
+  min-height: 40px;
+}
+
+/* Width Options for Wide Buttons */
+.rs-button--width-fixed {
+  min-width: 288px;
+  width: auto;
+}
+
+.rs-button--width-hug {
+  min-width: auto;
+  width: auto;
+}
+
+.rs-button--width-fill {
+  width: 100%;
+  min-width: auto;
+}
+
+/* Utility: compact text-size wide button (used for back links). */
+.rs-button--text-size {
+  font-size: var(--text-sm);
+  min-height: 35px;
+  padding: 8px 14px;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+}
+
+/* Circle Button Variant */
+.rs-button--circle {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  flex-basis: 40px !important;
+}
+
+.rs-button--circle .rs-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Square Button Variant */
+.rs-button--square {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.rs-button--square .rs-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Tab Button Variant */
+.rs-button--tab {
+  padding: 12px 18px;
+  min-height: 40px;
+  min-width: 66px;
+}
+
+/* Chip Button Variant */
+.rs-button--chip {
+  padding: 8px 16px;
+  min-height: 35px;
+  font-size: 14px;
+}
+
+/* Button Shapes */
+.rs-button--rounded {
+  border-radius: 32px;
+}
+
+.rs-button--left-rounded {
+  border-radius: 32px 0 0 32px;
+}
+
+.rs-button--right-rounded {
+  border-radius: 0 32px 32px 0;
+}
+
+.rs-button--top-rounded {
+  border-radius: 16px 16px 0 0;
+}
+
+.rs-button--bottom-rounded {
+  border-radius: 0 0 16px 16px;
+}
+
+.rs-button--squared {
+  border-radius: 0;
+}
+
+/* Circle and Square buttons are always fully rounded/squared */
+.rs-button--circle.rs-button--rounded,
+.rs-button--circle.rs-button--top-rounded,
+.rs-button--circle.rs-button--bottom-rounded {
+  border-radius: 50%;
+}
+
+.rs-button--square.rs-button--squared {
+  border-radius: 0;
+}
+
+/* Small side-rounded variants keep 40px height but are 10px wider. */
+.rs-button--circle.rs-button--left-rounded,
+.rs-button--circle.rs-button--right-rounded,
+.rs-button--square.rs-button--left-rounded,
+.rs-button--square.rs-button--right-rounded {
+  width: 50px !important;
+  min-width: 50px !important;
+  max-width: 50px !important;
+  flex-basis: 50px !important;
+}
+
+.rs-button--circle.rs-button--left-rounded,
+.rs-button--square.rs-button--left-rounded {
+  padding-left: 4px !important;
+  padding-right: 0 !important;
+}
+
+.rs-button--circle.rs-button--right-rounded,
+.rs-button--square.rs-button--right-rounded {
+  padding-right: 4px !important;
+  padding-left: 0 !important;
+}
+
+/* Hover states removed by design. */
+
+/* Active (Click) State */
+.rs-button--active:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Focus States for Accessibility */
+.rs-button:focus-visible {
+  outline: none;
+}
+
+/* Responsive Design */
+@media (max-width: 1023px) {
+  .rs-button--wide {
+    font-size: 15px;
+  }
+  
+  .rs-button--width-fixed {
+    min-width: 240px;
+  }
+  
+  .rs-button--tab {
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+  
+  /* Ensure circle buttons maintain their shape on mobile */
+  .rs-button--circle {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+  }
+
+  /* Ensure square buttons keep fixed size on mobile */
+  .rs-button--square {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex-basis: 40px !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .rs-button--wide {
+    font-size: 14px;
+    padding: 10px 18px;
+  }
+  
+  .rs-button--width-fixed {
+    min-width: 200px;
+  }
+  
+  .rs-button--tab {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  
+  .rs-button--chip {
+    font-size: 13px;
+    padding: 7px 14px;
+  }
+  
+  /* Ensure circle buttons maintain their shape on small mobile */
+  .rs-button--circle {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+  }
+
+  /* Ensure square buttons keep fixed size on small mobile */
+  .rs-button--square {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex-basis: 40px !important;
+  }
+}
+

@@ -1,0 +1,18 @@
+.rs-station-card-action-bar {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rs-station-card-action-bar__visit.rs-visit-button {
+  height: 40px;
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 0 18px 0 12px;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 13px;
+}
+

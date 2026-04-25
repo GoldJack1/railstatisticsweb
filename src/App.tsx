@@ -3,29 +3,28 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { StationCollectionProvider } from './contexts/StationCollectionContext'
 import { PendingStationChangesProvider } from './contexts/PendingStationChangesContext'
-import HomePage from './pages/HomePage'
-import LoginPage from './pages/LoginPage'
-import StationsPageRefactored from './pages/StationsPageRefactored'
-import ReviewPendingChangesPage from './pages/ReviewPendingChangesPage'
-import StationDetailsPage from './pages/StationDetailsPage'
+import HomePage from './pages/HomePage/HomePage'
+import LoginPage from './pages/LoginPage/LoginPage'
+import StationsPageRefactored from './pages/StationsPageRefactored/StationsPageRefactored'
+import ReviewPendingChangesPage from './pages/ReviewPendingChangesPage/ReviewPendingChangesPage'
+import StationDetailsPage from './pages/StationDetailsPage/StationDetailsPage'
 import NewStationPage from './pages/NewStationPage'
-import MigrationPage from './pages/MigrationPage'
-import DesignSystemHomePage from './pages/designSystem/DesignSystemHomePage'
-import ColoursPage from './pages/designSystem/ColoursPage'
-import TypographyPage from './pages/designSystem/TypographyPage'
-import ButtonsPage from './pages/designSystem/ButtonsPage'
-import LayoutPage from './pages/designSystem/LayoutPage'
-import ComponentsPage from './pages/designSystem/ComponentsPage'
-import IconsPage from './pages/designSystem/IconsPage'
-import HerosPage from './pages/designSystem/HerosPage'
-import SitewideButtonsPage from './pages/designSystem/SitewideButtonsPage'
-import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage'
-import EulaPage from './pages/legal/EulaPage'
-import MessageCentreAdminPage from './pages/MessageCentreAdminPage'
+import MigrationPage from './pages/MigrationPage/MigrationPage'
+import DesignSystemHomePage from './pages/designSystem/DesignSystemHomePage/DesignSystemHomePage'
+import ColoursPage from './pages/designSystem/ColoursPage/ColoursPage'
+import TypographyPage from './pages/designSystem/TypographyPage/TypographyPage'
+import ButtonsPage from './pages/designSystem/ButtonsPage/ButtonsPage'
+import LayoutPage from './pages/designSystem/LayoutPage/LayoutPage'
+import ComponentsPage from './pages/designSystem/ComponentsPage/ComponentsPage'
+import IconsPage from './pages/designSystem/IconsPage/IconsPage'
+import HerosPage from './pages/designSystem/HerosPage/HerosPage'
+import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage/PrivacyPolicyPage'
+import EulaPage from './pages/legal/EulaPage/EulaPage'
+import MessageCentreAdminPage from './pages/MessageCentreAdminPage/MessageCentreAdminPage'
 import MessageCentreDashboardPage from './pages/MessageCentreDashboardPage'
-import Header from './components/Header'
-import Footer from './components/Footer'
-import ProtectedRoute from './components/ProtectedRoute'
+import Header from './components/misc/Header/Header'
+import Footer from './components/misc/Footer/Footer'
+import { ProtectedRoute } from './components/firebase'
 import './styles/App.css'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -45,7 +44,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/design-system/components': 'Design System Components | Rail Statistics',
   '/design-system/icons': 'Design System Icons | Rail Statistics',
   '/design-system/heros': 'Design System Heroes | Rail Statistics',
-  '/design-system/sitewide-buttons': 'Sitewide Buttons Audit | Rail Statistics',
   '/admin/messages': 'Message Centre Admin | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
@@ -85,7 +83,6 @@ const App: React.FC = () => {
                 <Route path="/design-system/components" element={<ProtectedRoute><ComponentsPage /></ProtectedRoute>} />
                 <Route path="/design-system/icons" element={<ProtectedRoute><IconsPage /></ProtectedRoute>} />
                 <Route path="/design-system/heros" element={<ProtectedRoute><HerosPage /></ProtectedRoute>} />
-                <Route path="/design-system/sitewide-buttons" element={<ProtectedRoute><SitewideButtonsPage /></ProtectedRoute>} />
                 <Route path="/admin/messages" element={<ProtectedRoute><MessageCentreDashboardPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/new" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/:messageId" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />
