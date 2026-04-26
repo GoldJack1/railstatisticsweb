@@ -103,6 +103,16 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     setMaxTabContentHeight(0)
   }, [station?.id, mode])
 
+  useEffect(() => {
+    const visibleMap = document.querySelector('.station-details-visible-body .location-map-preview-osm') as HTMLElement | null
+    const measureMap = document.querySelector('.station-details-measure-layer .location-map-preview-osm') as HTMLElement | null
+    const visibleRect = visibleMap?.getBoundingClientRect()
+    const measureRect = measureMap?.getBoundingClientRect()
+    // #region agent log
+    fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H5',location:'StationDetailsPage.tsx:layout-state',message:'Station details layout/map state snapshot',data:{mode,activeTab,isMobile,maxTabContentHeight,visibleMapCount:document.querySelectorAll('.station-details-visible-body .location-map-preview-osm').length,measureMapCount:document.querySelectorAll('.station-details-measure-layer .location-map-preview-osm').length,visibleRect:visibleRect?{width:visibleRect.width,height:visibleRect.height}:null,measureRect:measureRect?{width:measureRect.width,height:measureRect.height}:null},timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
+  }, [mode, activeTab, isMobile, maxTabContentHeight, station?.id])
+
   if (loading) {
     return (
       <div className="container">

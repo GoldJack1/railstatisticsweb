@@ -127,22 +127,6 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     return items
   }, [currentPage, totalPages, viewportWidth])
 
-  const hasActiveFilters =
-    Boolean(debouncedSearchTerm) ||
-    effectiveSelections.tocs.length !== uniqueValues.tocs.length ||
-    effectiveSelections.countries.length !== uniqueValues.countries.length ||
-    effectiveSelections.counties.length !== uniqueValues.counties.length ||
-    (isOnlyGreaterLondonSelected(effectiveSelections.counties) &&
-      effectiveSelections.londonBoroughs.length !== uniqueValues.londonBoroughs.length) ||
-    effectiveSelections.fareZones.length !== uniqueValues.fareZones.length
-
-  const clearFilters = useCallback(() => {
-    setSearchTerm('')
-    setHasUserInteractedWithFilters(false)
-    setFilterSelections(defaultSelections)
-    setCurrentPage(1)
-  }, [defaultSelections])
-
   const updateFilterSelection = useCallback(
     (key: keyof StationFilterSelections, selectedItems: string[]) => {
       setFilterSelections((prev) => {

@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import type { Station, SandboxStationDoc } from '../../../types'
 import { formatFareZoneDisplay } from '../../../utils/formatFareZone'
 import { BUTBaseButton as Button } from '../../buttons'
-import StationLocationMapView from './StationLocationMapView'
+import StationResponsiveLocationMap from './StationResponsiveLocationMap'
 
 const formatValue = (v: unknown): string => {
   if (v === null || v === undefined) return 'N/A'
@@ -128,6 +128,13 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   const showService = showAll || activeTab === 'service'
   const showFacilities = showAll || activeTab === 'facilities'
 
+  useEffect(() => {
+    if (!showLocationTab || !showLocation) return
+    // #region agent log
+    fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H4',location:'StationDetailsView.tsx:location-render',message:'Location tab render state',data:{activeTab:activeTab ?? 'all',showLocationTab,showLocation,lat:geoLat ?? station.latitude,lng:geoLng ?? station.longitude},timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
+  }, [activeTab, showLocationTab, showLocation, geoLat, geoLng, station.latitude, station.longitude])
+
   return (
     <>
       {showDetails && (
@@ -182,7 +189,7 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
       )}
 
       {showLocationTab && showLocation && (
-        <div className="modal-section">
+        <div className="modal-section modal-section--location">
           <h3 className="modal-section-title">Location</h3>
           <div className="modal-details-grid modal-facilities-grid">
             <div className="modal-detail-item">
@@ -215,11 +222,12 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
                 >
                   View on OpenStreetMap
                 </Button>
-                <StationLocationMapView
-                  latitude={lat}
-                  longitude={lng}
-                  height={500}
-                />
+                <div className="station-details-location-map-wrap">
+                  <StationResponsiveLocationMap
+                    latitude={lat}
+                    longitude={lng}
+                  />
+                </div>
               </>
             )
           })()}

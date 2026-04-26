@@ -406,5 +406,36 @@
   .modal-facilities-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Keep location maps proportional on tablet/mobile layouts. */
+  .location-map-preview {
+    min-height: 280px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .location-map-preview-osm {
+    min-height: 280px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .location-map-picker-map {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 639px) {
+  .location-map-preview {
+    min-height: 240px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .location-map-preview-osm {
+    min-height: 240px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .location-map-picker-map {
+    min-height: 180px;
+  }
 }
 
