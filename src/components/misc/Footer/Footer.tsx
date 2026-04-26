@@ -1,4 +1,5 @@
 import React from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { useTheme } from '../../../hooks/useTheme'
 import { BUTFooterLink } from '../../buttons'
@@ -7,6 +8,30 @@ import './Footer.css'
 const Footer: React.FC = () => {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const isStationsPage = location.pathname === '/stations' || location.pathname === '/stations/edit'
+
+  const handleAdminToggle = () => {
+    if (location.pathname === '/stations/edit') {
+      navigate('/stations')
+      return
+    }
+
+    if (location.pathname === '/stations') {
+      const params = new URLSearchParams(location.search)
+      if (params.get('admin') === '1') {
+        params.delete('admin')
+      } else {
+        params.set('admin', '1')
+      }
+      const query = params.toString()
+      navigate(query.length > 0 ? `/stations?${query}` : '/stations')
+      return
+    }
+
+    return
+  }
 
   return (
     <footer className="site-footer app-footer">
@@ -24,6 +49,11 @@ const Footer: React.FC = () => {
               <BUTFooterLink to="/stations">
                 Stations
               </BUTFooterLink>
+              {isStationsPage && (
+                <BUTFooterLink onActivate={handleAdminToggle}>
+                  Admin
+                </BUTFooterLink>
+              )}
             </>
           )}
           <BUTFooterLink to="/privacy">

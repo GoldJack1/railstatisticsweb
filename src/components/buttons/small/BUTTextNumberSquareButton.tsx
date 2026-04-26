@@ -28,7 +28,7 @@ const sanitizeTextNumber = (input: string): string => {
       continue
     }
 
-    if (!isNumber || count >= 2) continue
+    if (!isNumber || count >= 3) continue
     output += char
     count += 1
   }

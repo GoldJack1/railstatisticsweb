@@ -1,99 +1,89 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../../hooks/useStations'
 import { useDebounce } from '../../hooks/useDebounce'
-import type { Station } from '../../types'
-import { BUTWideButton } from '../../components/buttons'
-import { BUTCircleButton } from '../../components/buttons'
+import {
+  BUTLeftRoundedCircleButton,
+  BUTRightRoundedCircleButton,
+  BUTSquareButton,
+  BUTTextNumberSquareButton,
+  BUTWideButton,
+} from '../../components/buttons'
+import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
+import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import StationCard from '../../components/cards/StationCard/StationCard'
 import StationAdminControls from '../../components/cards/StationAdminControls/StationAdminControls'
 import { formatStationLocationDisplay } from '../../utils/formatStationLocation'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
+import {
+  filterStations,
+  getDefaultStationFilterSelections,
+  getStationFilterOptions,
+  isOnlyGreaterLondonSelected,
+  sortStations,
+  type SortOption,
+  type StationFilterSelections,
+} from './stationSearchFiltering'
 import './StationsPageRefactored.css'
-import TXTINPIconWideButtonSearch from '../../components/textInputs/special/TXTINPIconWideButtonSearch'
+import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
 
 interface StationsPageProps {
   initialMode?: 'view' | 'edit'
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'passengers-asc' | 'passengers-desc' | 'toc-asc' | 'toc-desc'
+const SORT_DDM_OPTIONS: Array<{ label: string; value: SortOption }> = [
+  { label: 'Name (A-Z)', value: 'name-asc' },
+  { label: 'Name (Z-A)', value: 'name-desc' },
+  { label: 'TOC (A-Z)', value: 'toc-asc' },
+  { label: 'TOC (Z-A)', value: 'toc-desc' },
+  { label: 'Passengers (Low-High)', value: 'passengers-asc' },
+  { label: 'Passengers (High-Low)', value: 'passengers-desc' },
+]
 
 const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => {
   const { stations, loading, error, refetch } = useStations()
   const navigate = useNavigate()
   const routerLocation = useLocation()
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTOC, setSelectedTOC] = useState<string>('')
-  const [selectedCountry, setSelectedCountry] = useState<string>('')
-  const [selectedCounty, setSelectedCounty] = useState<string>('')
-  const [selectedLondonBorough, setSelectedLondonBorough] = useState<string>('')
-  const [selectedFareZone, setSelectedFareZone] = useState<string>('')
+  const [filterSelections, setFilterSelections] = useState<StationFilterSelections>({
+    tocs: [],
+    countries: [],
+    counties: [],
+    londonBoroughs: [],
+    fareZones: [],
+  })
+  const [hasUserInteractedWithFilters, setHasUserInteractedWithFilters] = useState(false)
   const [sortOption, setSortOption] = useState<SortOption>('name-asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
+  const [isMobileFiltersExpanded, setIsMobileFiltersExpanded] = useState(false)
+  const [isMobileSortExpanded, setIsMobileSortExpanded] = useState(false)
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1280 : window.innerWidth
+  )
   const { collectionId, setCollectionId } = useStationCollection()
   const { pendingChanges } = usePendingStationChanges()
+  const isAdminPanelVisible =
+    initialMode === 'edit' || new URLSearchParams(routerLocation.search).get('admin') === '1'
 
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  const filteredStations = useMemo(() => {
-    if (!stations) return []
+  const uniqueValues = useMemo(() => getStationFilterOptions(stations || []), [stations])
+  const defaultSelections = useMemo(
+    () => getDefaultStationFilterSelections(uniqueValues),
+    [uniqueValues]
+  )
+  const effectiveSelections = hasUserInteractedWithFilters ? filterSelections : defaultSelections
 
-    return stations.filter(station => {
-      const searchTermMatch = !debouncedSearchTerm || 
-        (station.stationName?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-         station.crsCode?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-         station.toc?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-         station.county?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+  const filteredStations = useMemo(
+    () => filterStations(stations || [], debouncedSearchTerm, effectiveSelections, uniqueValues),
+    [stations, debouncedSearchTerm, effectiveSelections, uniqueValues]
+  )
 
-      const tocMatch = !selectedTOC || station.toc === selectedTOC
-      const countryMatch = !selectedCountry || station.country === selectedCountry
-      const countyMatch = !selectedCounty || station.county === selectedCounty
-      const londonBoroughMatch = !selectedLondonBorough || station.londonBorough === selectedLondonBorough
-      const fareZoneMatch = !selectedFareZone || station.fareZone === selectedFareZone
-
-      return searchTermMatch && tocMatch && countryMatch && countyMatch && londonBoroughMatch && fareZoneMatch
-    })
-  }, [stations, debouncedSearchTerm, selectedTOC, selectedCountry, selectedCounty, selectedLondonBorough, selectedFareZone])
-
-  const sortedStations = useMemo(() => {
-    const sorted = [...filteredStations].sort((a, b) => {
-      switch (sortOption) {
-        case 'name-asc':
-          return (a.stationName || '').localeCompare(b.stationName || '')
-        case 'name-desc':
-          return (b.stationName || '').localeCompare(a.stationName || '')
-        case 'toc-asc':
-          return (a.toc || '').localeCompare(b.toc || '')
-        case 'toc-desc':
-          return (b.toc || '').localeCompare(a.toc || '')
-        case 'passengers-asc':
-        case 'passengers-desc': {
-          const getLatestPassengers = (station: Station): number => {
-            if (station.yearlyPassengers && typeof station.yearlyPassengers === 'object') {
-              const years = Object.keys(station.yearlyPassengers)
-                .filter(y => /^\d{4}$/.test(y))
-                .sort((a, b) => parseInt(b) - parseInt(a))
-              if (years.length > 0) {
-                const latest = station.yearlyPassengers[years[0]]
-                return typeof latest === 'number' ? latest : 0
-              }
-            }
-            return 0
-          }
-          const aPassengers = getLatestPassengers(a)
-          const bPassengers = getLatestPassengers(b)
-          return sortOption === 'passengers-asc' ? aPassengers - bPassengers : bPassengers - aPassengers
-        }
-        default:
-          return 0
-      }
-    })
-    return sorted
-  }, [filteredStations, sortOption])
+  const sortedStations = useMemo(() => sortStations(filteredStations, sortOption), [filteredStations, sortOption])
 
   const ITEMS_PER_PAGE = 20
   const totalPages = Math.ceil(sortedStations.length / ITEMS_PER_PAGE)
@@ -101,30 +91,103 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   )
+  const visiblePaginationItems = useMemo(() => {
+    const windowSize = viewportWidth < 640 ? 3 : viewportWidth < 1024 ? 5 : 7
+    const trailingPagesCount = 3
 
-  const hasActiveFilters = debouncedSearchTerm || selectedTOC || selectedCountry || selectedCounty || selectedLondonBorough || selectedFareZone
+    if (totalPages <= windowSize + trailingPagesCount) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1)
+    }
+
+    const halfWindow = Math.floor(windowSize / 2)
+    let start = Math.max(1, currentPage - halfWindow)
+    let end = Math.min(totalPages, start + windowSize - 1)
+
+    if (end - start + 1 < windowSize) {
+      start = Math.max(1, end - windowSize + 1)
+    }
+
+    const currentWindow = Array.from({ length: end - start + 1 }, (_, index) => start + index)
+    const lastPagesStart = Math.max(1, totalPages - trailingPagesCount + 1)
+    const lastThreePages = Array.from(
+      { length: totalPages - lastPagesStart + 1 },
+      (_, index) => lastPagesStart + index
+    )
+    const mergedPages = Array.from(new Set([...currentWindow, ...lastThreePages])).sort((a, b) => a - b)
+
+    const items: Array<number | 'ellipsis'> = []
+    mergedPages.forEach((page, index) => {
+      const prev = mergedPages[index - 1]
+      if (typeof prev === 'number' && page - prev > 1) {
+        items.push('ellipsis')
+      }
+      items.push(page)
+    })
+
+    return items
+  }, [currentPage, totalPages, viewportWidth])
+
+  const hasActiveFilters =
+    Boolean(debouncedSearchTerm) ||
+    effectiveSelections.tocs.length !== uniqueValues.tocs.length ||
+    effectiveSelections.countries.length !== uniqueValues.countries.length ||
+    effectiveSelections.counties.length !== uniqueValues.counties.length ||
+    (isOnlyGreaterLondonSelected(effectiveSelections.counties) &&
+      effectiveSelections.londonBoroughs.length !== uniqueValues.londonBoroughs.length) ||
+    effectiveSelections.fareZones.length !== uniqueValues.fareZones.length
 
   const clearFilters = useCallback(() => {
     setSearchTerm('')
-    setSelectedTOC('')
-    setSelectedCountry('')
-    setSelectedCounty('')
-    setSelectedLondonBorough('')
-    setSelectedFareZone('')
+    setHasUserInteractedWithFilters(false)
+    setFilterSelections(defaultSelections)
     setCurrentPage(1)
+  }, [defaultSelections])
+
+  const updateFilterSelection = useCallback(
+    (key: keyof StationFilterSelections, selectedItems: string[]) => {
+      setFilterSelections((prev) => {
+        const baseSelections = hasUserInteractedWithFilters ? prev : defaultSelections
+        const next = { ...baseSelections, [key]: selectedItems }
+        if (key === 'counties') {
+          if (isOnlyGreaterLondonSelected(selectedItems)) {
+            next.londonBoroughs = uniqueValues.londonBoroughs
+          } else {
+            next.londonBoroughs = []
+          }
+        }
+        return next
+      })
+      setHasUserInteractedWithFilters(true)
+    },
+    [defaultSelections, hasUserInteractedWithFilters, uniqueValues.londonBoroughs]
+  )
+
+  const getSelectedPositions = (items: string[], selectedItems: string[]) =>
+    selectedItems
+      .map((item) => items.indexOf(item))
+      .filter((index) => index >= 0)
+
+  const londonBoroughFilterEnabled = isOnlyGreaterLondonSelected(effectiveSelections.counties)
+
+  const toggleLondonBoroughFilter = useCallback(() => {
+    if (londonBoroughFilterEnabled) {
+      updateFilterSelection('counties', defaultSelections.counties)
+      return
+    }
+    updateFilterSelection('counties', ['Greater London'])
+  }, [defaultSelections.counties, londonBoroughFilterEnabled, updateFilterSelection])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm, effectiveSelections, sortOption])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  const uniqueValues = useMemo(() => {
-    if (!stations) return { tocs: [], countries: [], counties: [], londonBoroughs: [], fareZones: [] }
-
-    const tocs = [...new Set(stations.map(s => s.toc).filter(Boolean))]
-    const countries = [...new Set(stations.map(s => s.country).filter(Boolean))]
-    const counties = [...new Set(stations.map(s => s.county).filter(Boolean))]
-    const londonBoroughs = [...new Set(stations.map(s => s.londonBorough).filter(Boolean))]
-    const fareZones = [...new Set(stations.map(s => s.fareZone).filter(Boolean))]
-
-    return { tocs, countries, counties, londonBoroughs, fareZones }
-  }, [stations])
 
 
   if (loading) {
@@ -172,30 +235,32 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
           </div>
         </div>
       </header>
-      <div className="stations-admin-controls-wrap">
-        <StationAdminControls
-          isEditMode={isEditMode}
-          collectionId={collectionId}
-          pendingChangesCount={Object.keys(pendingChanges).length}
-          onModeChange={(mode) => setIsEditMode(mode === 'edit')}
-          onCollectionChange={setCollectionId}
-          onOpenPendingChanges={() =>
-            navigate('/stations/pending-review', {
-              state: { from: pathnameForReviewPendingSource(routerLocation) }
-            })
-          }
-        />
-      </div>
+      {isAdminPanelVisible && (
+        <div className="stations-admin-controls-wrap">
+          <StationAdminControls
+            isEditMode={isEditMode}
+            collectionId={collectionId}
+            pendingChangesCount={Object.keys(pendingChanges).length}
+            onModeChange={(mode) => setIsEditMode(mode === 'edit')}
+            onCollectionChange={setCollectionId}
+            onOpenPendingChanges={() =>
+              navigate('/stations/pending-review', {
+                state: { from: pathnameForReviewPendingSource(routerLocation) }
+              })
+            }
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="stations-content">
         {/* Sidebar */}
         <aside className="stations-sidebar">
-          {/* Search */}
+          {/* Search + Filters + Sort */}
           <div className="sidebar-section">
-            <h2 className="sidebar-section-title">Search</h2>
+            <h2 className="sidebar-section-title sidebar-section-title--subsection">Search</h2>
             <div className="search-container">
-              <TXTINPIconWideButtonSearch
+              <TXTINPBUTIconWideButtonSearch
                 id="stations-search"
                 name="station-search"
                 icon={
@@ -205,124 +270,148 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                   </svg>
                 }
                 value={searchTerm}
-                onInputChange={(e) => setSearchTerm(e.target.value)}
+                onChange={setSearchTerm}
+                onClear={() => setSearchTerm('')}
                 className="search-input-shell"
                 placeholder="Search stations..."
                 autoComplete="off"
-                colorVariant="secondary"
-                showClear={false}
+                colorVariant="primary"
+                showClear
               />
-              {hasActiveFilters && (
-                <BUTCircleButton
-                  type="button"
-                  className="clear-search-button"
-                  ariaLabel="Clear all filters"
-                  onClick={clearFilters}
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  }
-                />
-              )}
             </div>
-          </div>
-
-          {/* Filters */}
-          <div className="sidebar-section">
-            <h2 className="sidebar-section-title">Filters</h2>
-            <div className="filters-grid">
-              <div className="filter-group">
-                <label className="filter-label">TOC</label>
-                <select
-                  value={selectedTOC}
-                  onChange={(e) => setSelectedTOC(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All</option>
-                  {uniqueValues.tocs.map(toc => (
-                    <option value={toc || ''}>{toc || 'Unknown'}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="filter-group">
-                <label className="filter-label">Country</label>
-                <select
-                  value={selectedCountry}
-                  onChange={(e) => setSelectedCountry(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All</option>
-                  {uniqueValues.countries.map(country => (
-                    <option value={country || ''}>{country || 'Unknown'}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="filter-group">
-                <label className="filter-label">County</label>
-                <select
-                  value={selectedCounty}
-                  onChange={(e) => setSelectedCounty(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All</option>
-                  {uniqueValues.counties.map(county => (
-                    <option value={county || ''}>{county || 'Unknown'}</option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedCounty === 'Greater London' && (
-                <div className="filter-group">
-                  <label className="filter-label">London Borough</label>
-                  <select
-                    value={selectedLondonBorough}
-                    onChange={(e) => setSelectedLondonBorough(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">All</option>
-                    {uniqueValues.londonBoroughs.map(borough => (
-                      <option key={borough} value={borough || ''}>{borough || 'Unknown'}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="filter-group">
-                <label className="filter-label">Fare Zone</label>
-                <select
-                  value={selectedFareZone}
-                  onChange={(e) => setSelectedFareZone(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All</option>
-                  {uniqueValues.fareZones.map(zone => (
-                    <option value={zone || ''}>{zone || 'Unknown'}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Sort */}
-          <div className="sidebar-section">
-            <h2 className="sidebar-section-title">Sort</h2>
-            <div className="sort-section">
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
-                className="sort-select"
+            <div className="search-filters-spacer" aria-hidden="true" />
+            <div className="mobile-filters-toggle-row">
+              <BUTWideButton
+                type="button"
+                width="fill"
+                className="mobile-filters-toggle"
+                onClick={() => setIsMobileFiltersExpanded((prev) => !prev)}
+                aria-expanded={isMobileFiltersExpanded}
+                aria-controls="stations-mobile-only-filters"
               >
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="toc-asc">TOC (A-Z)</option>
-                <option value="toc-desc">TOC (Z-A)</option>
-                <option value="passengers-asc">Passengers (Low-High)</option>
-                <option value="passengers-desc">Passengers (High-Low)</option>
-              </select>
+                {isMobileFiltersExpanded ? 'Hide Filters' : 'Show Filters'}
+              </BUTWideButton>
+              <BUTWideButton
+                type="button"
+                width="fill"
+                className="mobile-filters-toggle"
+                onClick={() => setIsMobileSortExpanded((prev) => !prev)}
+                aria-expanded={isMobileSortExpanded}
+                aria-controls="stations-mobile-only-sort"
+              >
+                {isMobileSortExpanded ? 'Hide Sort' : 'Show Sort'}
+              </BUTWideButton>
+            </div>
+
+            <div
+              id="stations-mobile-only-filters"
+              className={`mobile-filters-content mobile-filters-content--filters ${isMobileFiltersExpanded ? 'mobile-filters-content--expanded' : ''}`}
+            >
+              <div className="mobile-filters-content-inner">
+                <h2 className="sidebar-section-title sidebar-section-title--subsection">Filters</h2>
+                <div className="filters-grid">
+                  <div className="filter-group">
+                    <label className="filter-label">TOC</label>
+                    <BUTDDMListActionDual
+                      items={uniqueValues.tocs}
+                      filterName="TOCs"
+                      selectionMode="multi"
+                      selectedPositions={getSelectedPositions(uniqueValues.tocs, effectiveSelections.tocs)}
+                      onSelectionChanged={(_, selectedItems) => updateFilterSelection('tocs', selectedItems)}
+                      colorVariant="primary"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label className="filter-label">Country</label>
+                    <BUTDDMListActionDual
+                      items={uniqueValues.countries}
+                      filterName="Countries"
+                      selectionMode="multi"
+                      selectedPositions={getSelectedPositions(uniqueValues.countries, effectiveSelections.countries)}
+                      onSelectionChanged={(_, selectedItems) => updateFilterSelection('countries', selectedItems)}
+                      colorVariant="primary"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label className="filter-label">County</label>
+                    <BUTDDMListActionDual
+                      items={uniqueValues.counties}
+                      filterName="Counties"
+                      selectionMode="multi"
+                      selectedPositions={getSelectedPositions(uniqueValues.counties, effectiveSelections.counties)}
+                      onSelectionChanged={(_, selectedItems) => updateFilterSelection('counties', selectedItems)}
+                      colorVariant="primary"
+                    />
+                    <label className="county-london-toggle" htmlFor="county-london-toggle-input">
+                      <span className="county-london-toggle__label">London Borough Filter</span>
+                      <input
+                        id="county-london-toggle-input"
+                        type="checkbox"
+                        checked={londonBoroughFilterEnabled}
+                        onChange={toggleLondonBoroughFilter}
+                        className="county-london-toggle__input"
+                      />
+                      <span className="county-london-toggle__track" aria-hidden="true">
+                        <span className="county-london-toggle__thumb" />
+                      </span>
+                    </label>
+                  </div>
+
+                  {londonBoroughFilterEnabled && (
+                    <div className="filter-group">
+                      <label className="filter-label">London Borough</label>
+                      <BUTDDMListActionDual
+                        items={uniqueValues.londonBoroughs}
+                        filterName="Boroughs"
+                        selectionMode="multi"
+                        selectedPositions={getSelectedPositions(uniqueValues.londonBoroughs, effectiveSelections.londonBoroughs)}
+                        onSelectionChanged={(_, selectedItems) => updateFilterSelection('londonBoroughs', selectedItems)}
+                        colorVariant="primary"
+                      />
+                    </div>
+                  )}
+
+                  <div className="filter-group">
+                    <label className="filter-label">Fare Zone</label>
+                    <BUTDDMListActionDual
+                      items={uniqueValues.fareZones}
+                      filterName="Fare Zones"
+                      selectionMode="multi"
+                      selectedPositions={getSelectedPositions(uniqueValues.fareZones, effectiveSelections.fareZones)}
+                      onSelectionChanged={(_, selectedItems) => updateFilterSelection('fareZones', selectedItems)}
+                      colorVariant="primary"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="stations-mobile-only-sort"
+              className={`mobile-filters-content mobile-filters-content--sort ${isMobileSortExpanded ? 'mobile-filters-content--expanded' : ''}`}
+            >
+              <div className="mobile-filters-content-inner">
+                <h2 className="sidebar-section-title sidebar-section-title--subsection">Sort</h2>
+                <div className="sort-section">
+                  <BUTDDMList
+                    items={SORT_DDM_OPTIONS.map((option) => option.label)}
+                    filterName="Sort"
+                    selectionMode="single"
+                    selectedPositions={[Math.max(0, SORT_DDM_OPTIONS.findIndex((option) => option.value === sortOption))]}
+                    onSelectionChanged={(selectedPositions) => {
+                      const selectedIndex = selectedPositions[0]
+                      if (typeof selectedIndex !== 'number') return
+                      const selectedSortOption = SORT_DDM_OPTIONS[selectedIndex]
+                      if (selectedSortOption) {
+                        setSortOption(selectedSortOption.value)
+                      }
+                    }}
+                    colorVariant="primary"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </aside>
@@ -345,40 +434,51 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="stations-pagination">
-              <div className="pagination-controls">
-                <BUTWideButton
+              <div className="pagination-control-row">
+                <BUTLeftRoundedCircleButton
                   type="button"
-                  width="hug"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  ariaLabel="Previous page"
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7"/>
+                      <path d="M15 18l-6-6 6-6" />
                     </svg>
                   }
-                >
-                  Previous
-                </BUTWideButton>
-              </div>
-              
-              <div className="pagination-info">
-                Page {currentPage} of {totalPages}
-              </div>
-              
-              <div className="pagination-controls">
-                <BUTWideButton
+                />
+                <div className="pagination-page-buttons">
+                  {visiblePaginationItems.map((item, index) => (
+                    item === 'ellipsis' ? (
+                      <BUTSquareButton
+                        key={`ellipsis-${index}`}
+                        type="button"
+                        ariaLabel="More pages"
+                      >
+                        ...
+                      </BUTSquareButton>
+                    ) : (
+                      <BUTTextNumberSquareButton
+                        key={item}
+                        type="button"
+                        text={String(item)}
+                        pressed={item === currentPage}
+                        onClick={() => setCurrentPage(item)}
+                        ariaLabel={`Go to page ${item}`}
+                      />
+                    )
+                  ))}
+                </div>
+                <BUTRightRoundedCircleButton
                   type="button"
-                  width="hug"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  ariaLabel="Next page"
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                      <path d="M9 18l6-6-6-6" />
                     </svg>
                   }
-                >
-                  Next
-                </BUTWideButton>
+                />
               </div>
             </div>
           )}

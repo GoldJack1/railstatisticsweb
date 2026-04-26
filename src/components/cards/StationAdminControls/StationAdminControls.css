@@ -9,6 +9,15 @@
   padding: var(--space-md);
 }
 
+@media (min-width: 1024px) {
+  .station-admin-controls-card {
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: var(--space-md) 0;
+  }
+}
+
 .station-admin-controls-group {
   display: grid;
   gap: 4px;
@@ -36,6 +45,10 @@
   .station-admin-controls-card {
     grid-template-columns: 1fr;
     width: 100%;
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 20px;
   }
 
   .station-admin-controls-group--pending {

@@ -32,6 +32,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
+  '/stations/edit': 'Stations Admin | Rail Statistics',
   '/stations/pending-review': 'Review changes | Rail Statistics',
   '/stations/new': 'New Station | Rail Statistics',
   '/migration': 'Migration | Rail Statistics',
@@ -51,6 +52,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 const App: React.FC = () => {
   const { pathname } = useLocation()
+  const isStationsPage = pathname === '/stations' || pathname === '/stations/edit'
 
   useEffect(() => {
     document.title = PAGE_TITLES[pathname] ?? 'Rail Statistics'
@@ -63,12 +65,13 @@ const App: React.FC = () => {
         <PendingStationChangesProvider>
           <div className="app">
             <Header />
-            <main className="main-content app-main">
+            <main className={`main-content app-main${isStationsPage ? ' app-main--stations-layout' : ''}`}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/log-in" element={<LoginPage />} />
                 <Route path="/stations" element={<ProtectedRoute><StationsPageRefactored /></ProtectedRoute>} />
+                <Route path="/stations/edit" element={<ProtectedRoute><StationsPageRefactored initialMode="edit" /></ProtectedRoute>} />
                 <Route path="/stations/pending-review" element={<ProtectedRoute><ReviewPendingChangesPage /></ProtectedRoute>} />
                 <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
                 <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />

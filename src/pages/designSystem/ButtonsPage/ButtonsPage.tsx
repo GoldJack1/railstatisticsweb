@@ -24,6 +24,9 @@ import BUTSquaredWideButton from '../../../components/buttons/wide/BUTSquaredWid
 import BUTTwoButtonBar from '../../../components/buttons/other/BUTTwoButtonBar'
 import BUTThreeButtonBar from '../../../components/buttons/other/BUTThreeButtonBar'
 import BUTVisitStatusButton from '../../../components/buttons/other/BUTVisitStatusButton'
+import BUTDDMList from '../../../components/buttons/ddm/BUTDDMList'
+import BUTDDMListAction from '../../../components/buttons/ddm/BUTDDMListAction'
+import BUTDDMListActionDual from '../../../components/buttons/ddm/BUTDDMListActionDual'
 import TXTINPBUTWideButton from '../../../components/textInputButtons/plain/TXTINPBUTWideButton'
 import TXTINPBUTLeftRoundedButton from '../../../components/textInputButtons/plain/TXTINPBUTLeftRoundedButton'
 import TXTINPBUTSquaredButton from '../../../components/textInputButtons/plain/TXTINPBUTSquaredButton'
@@ -96,6 +99,19 @@ const SHAPES: Array<'left-rounded' | 'right-rounded' | 'top-rounded' | 'bottom-r
   'top-rounded',
   'bottom-rounded',
   'squared',
+]
+const DDM_ITEMS = [
+  'Avanti West Coast',
+  'CrossCountry',
+  'East Midlands Railway',
+  'Gatwick Express',
+  'Great Northern',
+  'Great Western Railway',
+  'LNER',
+  'London Northwestern Railway',
+  'Merseyrail',
+  'Northern',
+  'Southeastern',
 ]
 
 // Loose component type so we can iterate plain/icon/label/special wrappers in
@@ -642,6 +658,71 @@ const ButtonsPage: React.FC = () => {
         {renderTxtInpSection('Icon Text Inputs (TXTINP)', 'Alias TXTINP icon variants matching TXTINPBUT icon behaviors.', ICON_TXTINP_ALIAS_ENTRIES, 'txtinp-icon', { icon: <SearchIcon /> })}
         {renderTxtInpSection('Label Text Inputs (TXTINP)', 'Alias TXTINP label variants for key/value style rows.', LABEL_TXTINP_ALIAS_ENTRIES, 'txtinp-label')}
         {renderTxtInpSection('Special Text Inputs (TXTINP)', 'Alias TXTINP special variants (price, search, icon/label bar).', SPECIAL_TXTINP_ALIAS_ENTRIES, 'txtinp-special', { icon: <SearchIcon /> })}
+
+        <section className="ds-buttons__section">
+          <h2>DDM Dropdown Buttons</h2>
+          <p>Dropdown menu components replicated for web: base spacer, single action, and dual action variants.</p>
+          <div className="ds-buttons__controls-grid">
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>BUTDDMList</h3>
+              <p className="ds-buttons__name-preview">File name: BUTDDMList (decorative bottom spacer)</p>
+              <div className="ds-buttons__ddm-grid">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`ddm-list-${colorVariant}`} className="ds-buttons__ddm-cell">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTDDMList
+                      items={DDM_ITEMS}
+                      filterName="Operators"
+                      selectionMode="single"
+                      colorVariant={colorVariant}
+                      selectedPositions={[2]}
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>BUTDDMListAction</h3>
+              <p className="ds-buttons__name-preview">File name: BUTDDMListAction (Clear All action in multi mode)</p>
+              <div className="ds-buttons__ddm-grid">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`ddm-action-${colorVariant}`} className="ds-buttons__ddm-cell">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTDDMListAction
+                      items={DDM_ITEMS}
+                      filterName="Operators"
+                      selectionMode="multi"
+                      colorVariant={colorVariant}
+                      selectedPositions={[0, 3, 8]}
+                      disabledPositions={[5]}
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>BUTDDMListActionDual</h3>
+              <p className="ds-buttons__name-preview">File name: BUTDDMListActionDual (Clear All + Select All in multi mode)</p>
+              <div className="ds-buttons__ddm-grid">
+                {COLOR_VARIANTS.map((colorVariant) => (
+                  <div key={`ddm-dual-${colorVariant}`} className="ds-buttons__ddm-cell">
+                    <span className="ds-buttons__variant-label">{colorVariant}</span>
+                    <BUTDDMListActionDual
+                      items={DDM_ITEMS}
+                      filterName="Operators"
+                      selectionMode="multi"
+                      colorVariant={colorVariant}
+                      selectedPositions={[1, 4]}
+                      disabledPositions={[6, 7]}
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+          </div>
+        </section>
 
       </div>
     </div>

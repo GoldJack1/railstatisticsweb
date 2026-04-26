@@ -54,3 +54,9 @@
         }
     }
 }
+
+.main-content.app-main.app-main--stations-layout {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+

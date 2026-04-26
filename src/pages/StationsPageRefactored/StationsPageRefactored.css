@@ -13,10 +13,10 @@
 
 /* Header section */
 .stations-header {
-    margin-top: 15px;
-    padding: var(--space-lg) 0 var(--space-sm) 0;
+    margin-top: 0;
+    padding: calc(var(--space-lg) + 15px) 0 calc(var(--space-sm) + 25px) 0;
     border-bottom: 1px solid var(--border-color);
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
 }
 
 .stations-header-content {
@@ -35,10 +35,30 @@
     max-width: var(--container-3xl);
     width: 100%;
     margin: 0 auto;
-    margin-top: 25px;
+    margin-top: 0;
     margin-bottom: 10px;    
     padding: 0 var(--space-2xl) var(--space-lg) var(--space-2xl);
     box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+    .stations-page .stations-content {
+        padding: 10px var(--space-2xl) 0 var(--space-2xl);
+    }
+
+    .stations-admin-controls-wrap {
+        max-width: none;
+        padding-left: var(--space-2xl);
+        padding-right: var(--space-2xl);
+        padding-bottom: 0;
+        margin-bottom: var(--space-lg);
+        background-color: var(--bg-secondary);
+        border-radius: 0;
+    }
+
+    .stations-page-grid {
+        margin-top: var(--space-lg);
+    }
 }
 
 .stations-header-copy {
@@ -60,13 +80,13 @@
 
 /* Main content area */
 .stations-content {
-    flex: 1;
+    flex: 0 0 auto;
     display: grid;
     grid-template-columns: 320px 1fr;
     gap: var(--space-2xl);
     max-width: var(--container-3xl);
     margin: 0 auto;
-    padding: 0 var(--space-2xl) var(--space-2xl) var(--space-2xl);
+    padding: 0 var(--space-2xl) 0 var(--space-2xl);
     width: 100%;
     box-sizing: border-box;
     /* Remove height constraints for natural scrolling */
@@ -85,10 +105,10 @@
 }
 
 .sidebar-section {
-    background-color: var(--bg-secondary);
+    background-color: transparent;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
+    padding: var(--space-lg) 0;
 }
 
 .sidebar-section-title {
@@ -96,6 +116,14 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 var(--space-md) 0;
+}
+
+.sidebar-section-title--subsection {
+    margin: var(--space-lg) 0 var(--space-md) 0;
+}
+
+.sidebar-section-title--subsection:first-of-type {
+    margin-top: 0;
 }
 
 /* Search Section */
@@ -107,11 +135,30 @@
     width: 100%;
 }
 
-.clear-search-button {
-    position: absolute;
-    right: var(--space-sm);
-    top: 50%;
-    transform: translateY(-50%);
+.search-filters-spacer {
+    height: 20px;
+}
+
+.mobile-filters-toggle {
+    display: none;
+}
+
+.mobile-filters-toggle-row {
+    display: none;
+}
+
+.mobile-filters-content {
+    display: block;
+}
+
+@media (min-width: 1024px) {
+    .mobile-filters-content--sort {
+        margin-top: var(--space-md);
+    }
+
+    .mobile-filters-content--sort .sidebar-section-title--subsection {
+        margin-top: 0;
+    }
 }
 
 /* Mode Toggle — sidebar is 320px/280px; ButtonBar’s 2×180px min-width overflows and overlaps main */
@@ -153,7 +200,7 @@
 .filters-grid {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--space-lg);
 }
 
 .filter-group {
@@ -166,6 +213,66 @@
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
+.county-london-toggle {
+    margin-top: var(--space-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    cursor: pointer;
+    user-select: none;
+}
+
+.county-london-toggle__label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.county-london-toggle__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.county-london-toggle__track {
+    width: 2.25rem;
+    height: 1.25rem;
+    border-radius: 999px;
+    background-color: var(--border-color);
+    border: 1px solid var(--border-color);
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    box-sizing: border-box;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.county-london-toggle__thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    background-color: var(--bg-primary);
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+}
+
+.county-london-toggle__input:checked + .county-london-toggle__track {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.county-london-toggle__input:checked + .county-london-toggle__track .county-london-toggle__thumb {
+    transform: translateX(1rem);
+}
+
+.county-london-toggle__input:focus-visible + .county-london-toggle__track {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
 }
 
 .filter-select {
@@ -198,7 +305,8 @@
    ======================================== */
 
 .stations-page .stations-main {
-    align-self: stretch;
+    align-self: start;
+    width: 100%;
     display: flex;
     flex-direction: column;
     overflow: visible;
@@ -248,7 +356,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: var(--space-lg);
-    flex: 1; /* Make grid expand to fill available space */
+    margin-bottom: 0;
+    flex: 0 0 auto;
     align-content: start; /* Align cards to top */
     align-items: start; /* Prevent grid items from stretching to equal row height */
 }
@@ -259,22 +368,25 @@
 
 .stations-pagination {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    gap: var(--space-lg);
-    margin-top: var(--space-2xl);
-    padding-top: var(--space-2xl);
+    gap: 0;
+    margin-top: 25px;
+    margin-bottom: 0;
+    padding-top: 0;
     border-top: 1px solid var(--border-color);
 }
 
-.pagination-info {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
+.pagination-control-row {
+    display: flex;
+    gap: 0;
+    align-items: center;
 }
 
-.pagination-controls {
+.pagination-page-buttons {
     display: flex;
-    gap: var(--space-sm);
+    gap: 0;
+    align-items: center;
 }
 
 /* ========================================
@@ -316,47 +428,27 @@
    RESPONSIVE DESIGN
    ======================================== */
 
-/* Tablet */
-@media (max-width: 1023px) {
-    .stations-header {
-        padding: var(--space-md) 0 var(--space-xs) 0;
-    }
-
-    .stations-header-content {
-        padding: 0 var(--space-xl);
-    }
-
-    .stations-admin-controls-wrap {
-        padding: 0 var(--space-xl) var(--space-md) var(--space-xl);
-    }
-
-    .stations-content {
-        grid-template-columns: 280px 1fr;
-        gap: var(--space-xl);
-        padding: 0 var(--space-xl) var(--space-xl) var(--space-xl);
-        min-height: auto;
-    }
-    
-    .stations-page-grid {
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: var(--space-md);
-    }
-    
-    .stations-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-md);
-    }
-}
-
 /* Mobile */
 @media (max-width: 639px) {
+    .stations-admin-controls-wrap,
+    .stations-sidebar .sidebar-section {
+        box-sizing: border-box;
+    }
+
     .stations-admin-controls-wrap {
-        padding: 0 var(--space-lg) var(--space-sm) var(--space-lg);
+        max-width: none;
+        width: auto;
+        margin: 0;
+        margin-left: calc(var(--space-lg) * -1);
+        margin-right: calc(var(--space-lg) * -1);
+        padding: 16px var(--space-lg);
+        background-color: var(--bg-secondary);
+        border: 0;
+        border-radius: 0;
     }
 
     .stations-header {
-        padding: var(--space-md) 0 var(--space-xs) 0;
+        padding: calc(var(--space-md) + 10px) 0 calc(var(--space-xs) + 23px) 0;
     }
 
     .stations-header-content {
@@ -365,17 +457,83 @@
     
     .stations-content {
         grid-template-columns: 1fr;
-        gap: var(--space-lg);
-        padding: 0 var(--space-lg) var(--space-lg) var(--space-lg);
+        gap: 0;
+        padding: 0 var(--space-lg) 0 var(--space-lg);
         min-height: auto;
     }
     
     .stations-sidebar {
-        order: 2; /* Move sidebar below content on mobile */
+        order: 1;
+    }
+
+    .stations-sidebar .sidebar-section {
+        margin: 0 0 23px 0;
+        margin-left: calc(var(--space-lg) * -1);
+        margin-right: calc(var(--space-lg) * -1);
+        padding: 16px var(--space-lg);
+        background-color: var(--bg-secondary);
+        border: 0;
+        border-radius: 0;
+    }
+
+    .mobile-filters-toggle {
+        display: inline-flex;
+    }
+
+    .mobile-filters-toggle-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-sm);
+    }
+
+    .mobile-filters-content {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.22s ease, margin 0.22s ease;
+        overflow: hidden;
+    }
+
+    .mobile-filters-content.mobile-filters-content--expanded {
+        grid-template-rows: max-content;
+        margin-top: 30px;
+        margin-bottom: 10px;
+        overflow: visible;
+    }
+
+    .mobile-filters-content-inner {
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .mobile-filters-content.mobile-filters-content--expanded .mobile-filters-content-inner {
+        overflow: visible;
+    }
+
+    .mobile-filters-content-inner > .sidebar-section-title--subsection {
+        margin: 0 0 var(--space-md) 0;
+    }
+
+    .mobile-filters-content-inner > .filters-grid {
+        margin-bottom: var(--space-lg);
+    }
+
+    .mobile-filters-content-inner .filter-group {
+        gap: 0;
+    }
+
+    .mobile-filters-content-inner .filter-label {
+        margin: 0 0 5px 0;
+    }
+
+    .mobile-filters-content-inner .county-london-toggle {
+        margin-top: 10px;
     }
     
     .stations-page .stations-main {
-        align-self: stretch;
+        order: 2;
+        align-self: start;
+        width: 100%;
         overflow: visible;
         max-height: none;
         height: auto;
@@ -394,8 +552,17 @@
     }
     
     .stations-pagination {
-        flex-direction: column;
-        gap: var(--space-md);
+        margin-top: 25px;
+        margin-bottom: 0;
+        padding-top: 0;
+    }
+
+    .pagination-control-row {
+        gap: 0;
+    }
+
+    .pagination-page-buttons {
+        gap: 0;
     }
 }
 

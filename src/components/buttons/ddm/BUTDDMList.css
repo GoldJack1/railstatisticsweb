@@ -1,0 +1,133 @@
+.but-ddm {
+  width: 100%;
+  position: relative;
+}
+
+.but-ddm__header .rs-button {
+  font-size: 18px;
+  font-weight: 500;
+  padding: 0 18px;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-radius 300ms ease-in-out;
+}
+
+.but-ddm__header-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.but-ddm__panel {
+  overflow: hidden;
+  transition: max-height 300ms ease-in-out, opacity 300ms ease-in-out;
+  opacity: 0;
+  max-height: 0;
+}
+
+.but-ddm--open .but-ddm__panel {
+  opacity: 1;
+}
+
+.but-ddm__list-wrap {
+  position: relative;
+  background: var(--button-bg-active, var(--bg-secondary));
+}
+
+.but-ddm__list-viewport {
+  overflow-y: auto;
+  padding-right: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.but-ddm__list-viewport::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.but-ddm__custom-scrollbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--button-bg-active, var(--bg-secondary));
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.but-ddm__custom-scrollbar-thumb {
+  width: 100%;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--button-text-active, currentColor);
+  box-shadow: inset 0 0 2px color-mix(in srgb, var(--button-text-active, currentColor) 75%, #000 25%);
+  transition: transform 90ms linear;
+  cursor: grab;
+}
+
+.but-ddm__custom-scrollbar-thumb:active {
+  cursor: grabbing;
+}
+
+.but-ddm__row {
+  width: 100%;
+}
+
+.but-ddm__row .rs-button {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 24px 0 18px;
+  font-size: 14px;
+}
+
+.but-ddm__row.but-ddm__row--disabled .rs-button {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.but-ddm__check {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.but-ddm__bottom {
+  width: 100%;
+}
+
+.but-ddm__bottom-spacer {
+  height: 20px;
+  border-radius: 0 0 16px 16px;
+  background: var(--button-bg-active, var(--bg-tertiary));
+  box-shadow: var(--button-inner-shadow-active, inset 0 0 4.5px rgba(0, 0, 0, 0.2));
+}
+
+.but-ddm__bottom-single .rs-button {
+  width: 100%;
+}
+
+.but-ddm__bottom-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.but-ddm__bottom-dual .rs-button {
+  width: 100%;
+}
+
+.but-ddm__bottom-dual .but-ddm__dual-left.rs-button {
+  border-radius: 0 0 0 16px;
+}
+
+.but-ddm__bottom-dual .but-ddm__dual-right.rs-button {
+  border-radius: 0 0 16px 0;
+  margin-left: -1px;
+}
