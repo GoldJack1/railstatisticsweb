@@ -1,0 +1,155 @@
+.rs-text-card {
+  --text-card-bg-active: var(--button-bg-active, #ffffff);
+  --text-card-bg-pressed: var(--button-bg-inactive, #c4c4c4);
+  --text-card-text-active: var(--button-text-active, var(--text-primary));
+  --text-card-text-pressed: var(--button-text-inactive, var(--text-primary));
+  --text-card-text-disabled: var(--text-disabled, #8d8d8d);
+  --text-card-inner-shadow-active: var(--button-inner-shadow-active, inset 0 0 4.5px rgba(0, 0, 0, 0.2));
+  --text-card-inner-shadow-pressed: var(--button-inner-shadow-pressed, inset 0 0 4.5px rgba(0, 0, 0, 0.25));
+  --text-card-drop-shadow: var(--button-drop-shadow, 0 3px 3px rgba(0, 0, 0, 0.2));
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  background: var(--text-card-bg-active);
+  color: var(--text-card-text-active);
+  box-shadow: var(--text-card-drop-shadow);
+  padding: 12px 16px 12px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.rs-text-card__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+  padding-right: 40px;
+}
+
+.rs-text-card__title {
+  margin: 0 0 2px 0;
+  font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: inherit;
+}
+
+.rs-text-card__description {
+  margin: 0;
+  font-family: 'Geologica Cursive', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: inherit;
+}
+
+.rs-text-card__chevron {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.rs-text-card__chevron-svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rs-text-card__inner-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rs-text-card--active {
+  background: var(--text-card-bg-active);
+  color: var(--text-card-text-active);
+  box-shadow: var(--text-card-drop-shadow);
+}
+
+.rs-text-card--active .rs-text-card__inner-shadow {
+  box-shadow: var(--text-card-inner-shadow-active);
+}
+
+.rs-text-card--pressed {
+  background: var(--text-card-bg-pressed);
+  color: var(--text-card-text-pressed);
+  box-shadow: none;
+}
+
+.rs-text-card--pressed .rs-text-card__inner-shadow {
+  box-shadow: var(--text-card-inner-shadow-pressed);
+}
+
+.rs-text-card--disabled {
+  background: var(--text-card-bg-pressed);
+  color: var(--text-card-text-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.rs-text-card--disabled .rs-text-card__inner-shadow {
+  box-shadow: var(--text-card-inner-shadow-pressed);
+}
+
+.rs-text-card--state-accent {
+  --text-card-bg-active: hsl(353 57% 48%);
+  --text-card-bg-pressed: hsl(353 57% 38%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-text-card--state-accent {
+  --text-card-bg-active: hsl(353 100% 19%);
+  --text-card-bg-pressed: hsl(352 100% 12%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-text-card--state-redAction {
+  --text-card-bg-active: hsl(0 68% 58%);
+  --text-card-bg-pressed: hsl(0 68% 48%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-text-card--state-redAction {
+  --text-card-bg-active: hsl(359 100% 25%);
+  --text-card-bg-pressed: hsl(359 100% 17%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 40%);
+}
+
+.rs-text-card--state-greenAction {
+  --text-card-bg-active: hsl(141 60% 40%);
+  --text-card-bg-pressed: hsl(141 60% 35%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 80%);
+}
+
+[data-theme="dark"] .rs-text-card--state-greenAction {
+  --text-card-bg-active: hsl(141 100% 19%);
+  --text-card-bg-pressed: hsl(141 100% 12%);
+  --text-card-text-active: hsl(0 0% 100%);
+  --text-card-text-pressed: hsl(0 0% 100%);
+  --text-card-text-disabled: hsl(0 0% 40%);
+}

@@ -2,13 +2,13 @@ import React, { useState } from 'react'
 import type { Station } from '../../../types'
 import { BUTBaseButton as Button } from '../../../components/buttons'
 import { BUTBaseButtonBar as ButtonBar } from '../../../components/buttons'
-import { BUTWideButton } from '../../../components/buttons'
 import { NavLink } from '../../../components/buttons'
 import VisitButton from '../../../components/buttons/other/BUTVisitStatusButton'
 import BUTLink from '../../../components/buttons/other/BUTLink'
 import StationModal from '../../../components/models/StationModal/StationModal'
 import StationEditModal from '../../../components/models/StationEditModal/StationEditModal'
 import NewStationModal from '../../../components/models/NewStationModal/NewStationModal'
+import { PageTopHeader } from '../../../components/misc'
 import './ComponentsPage.css'
 
 const COMPONENT_GROUPS = [
@@ -67,15 +67,24 @@ const ComponentsPage: React.FC = () => {
   const [showNewStationModal, setShowNewStationModal] = useState(false)
 
   return (
-    <div className="container">
-      <div className="ds-components">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-        <header className="ds-components__header">
-          <h1>Design System Components</h1>
-          <p>Catalogue of high-level components and where they are used in the product.</p>
-        </header>
+    <div className="ds-components-page">
+      <PageTopHeader
+        title="Components"
+        subtitle="Catalogue of high-level components and where they are used in the product."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg className="rs-page-top-header__action-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-components">
 
         {COMPONENT_GROUPS.map((group) => (
           <section key={group.title} className="ds-components__section">
@@ -210,6 +219,7 @@ const ComponentsPage: React.FC = () => {
           onClose={() => setShowNewStationModal(false)}
           nextStationId="DS002"
         />
+        </div>
       </div>
     </div>
   )

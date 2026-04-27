@@ -73,6 +73,9 @@ import TXTINPLabelWideButtonPrice from '../../../components/textInputs/special/T
 import TXTINPIconWideButtonSearch from '../../../components/textInputs/special/TXTINPIconWideButtonSearch'
 import TXTINPWideIconLabelBar from '../../../components/textInputs/special/TXTINPWideIconLabelBar'
 import type { TXTINPBUTBaseButtonProps } from '../../../components/textInputButtons/base/TXTINPBUTBaseButton/TXTINPBUTBaseButton'
+import { SelectionDot, TextCard } from '../../../components/cards'
+import type { TextCardState } from '../../../components/cards/TextCard/TextCard'
+import { PageTopHeader } from '../../../components/misc'
 import './ButtonsPage.css'
 
 const PlusIcon = () => (
@@ -113,6 +116,7 @@ const DDM_ITEMS = [
   'Northern',
   'Southeastern',
 ]
+const TEXT_CARD_STATES: TextCardState[] = ['default', 'accent', 'redAction', 'greenAction']
 
 // Loose component type so we can iterate plain/icon/label/special wrappers in
 // a single map without per-wrapper prop-type narrowing on the showcase page.
@@ -200,6 +204,7 @@ const SPECIAL_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
 const ButtonsPage: React.FC = () => {
   const [controlledIndex, setControlledIndex] = useState<number | null>(0)
   const [visited, setVisited] = useState(false)
+  const [selectionDotSelected, setSelectionDotSelected] = useState(false)
   const [clickedButtons, setClickedButtons] = useState<Record<string, boolean>>({})
 
   const handlePressPreview = (id: string) => {
@@ -292,15 +297,24 @@ const ButtonsPage: React.FC = () => {
   )
 
   return (
-    <div className="container">
-      <div className="ds-buttons">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-        <header className="ds-buttons__header">
-          <h1>Buttons</h1>
-          <p>Clean reference for button states and one focused interactive demo section.</p>
-        </header>
+    <div className="ds-buttons-page">
+      <PageTopHeader
+        title="Buttons"
+        subtitle="Clean reference for button states and one focused interactive demo section."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg className="rs-page-top-header__action-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-buttons">
 
         <section className="ds-buttons__section">
           <h2>Interactive Buttons</h2>
@@ -724,6 +738,129 @@ const ButtonsPage: React.FC = () => {
           </div>
         </section>
 
+        <section className="ds-buttons__section">
+          <h2>Text Card Examples</h2>
+          <p>Android-style text card primitive with delayed spring-back press behavior and state-color variants.</p>
+          <div className="ds-buttons__controls-grid">
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>TextCard</h3>
+              <p className="ds-buttons__name-preview">File name: TextCard</p>
+              <div className="ds-buttons__state-stack">
+                {TEXT_CARD_STATES.map((textCardState) => (
+                  <div key={`text-card-${textCardState}`} className="ds-buttons__text-card-row">
+                    <span className="ds-buttons__variant-label">{textCardState}</span>
+                    <div className="ds-buttons__text-card-slot">
+                      <TextCard
+                        state={textCardState}
+                        title="Open Message"
+                        description="Unread messages use accent; default applies once read."
+                        onClick={() => handlePressPreview(`interactive-text-card-${textCardState}`)}
+                        pressed={Boolean(clickedButtons[`interactive-text-card-${textCardState}`])}
+                      />
+                    </div>
+                    <div className="ds-buttons__text-card-slot">
+                      <TextCard
+                        state={textCardState}
+                        title="Pressed State"
+                        description="Static pressed preview for style parity checks."
+                        pressed
+                      />
+                    </div>
+                    <div className="ds-buttons__text-card-slot">
+                      <TextCard
+                        state={textCardState}
+                        title="Disabled State"
+                        description="Non-interactive card with disabled tint treatment."
+                        disabled
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="ds-buttons__text-card-fixed">
+                <span className="ds-buttons__variant-label">fixed 325px</span>
+                <div className="ds-buttons__text-card-fixed-slot">
+                  <TextCard
+                    state="default"
+                    title="Fixed Width Card"
+                    description="This example is constrained to exactly 325px wide."
+                    onClick={() => handlePressPreview('interactive-text-card-fixed-300')}
+                    pressed={Boolean(clickedButtons['interactive-text-card-fixed-300'])}
+                  />
+                </div>
+              </div>
+              <div className="ds-buttons__text-card-fixed">
+                <span className="ds-buttons__variant-label">fill (flex)</span>
+                <div className="ds-buttons__text-card-flex-slot">
+                  <TextCard
+                    state="default"
+                    title="Flexible Width Card"
+                    description="This example fills the remaining row width using flex."
+                    onClick={() => handlePressPreview('interactive-text-card-flex-fill')}
+                    pressed={Boolean(clickedButtons['interactive-text-card-flex-fill'])}
+                  />
+                </div>
+              </div>
+
+              <h3>SelectionDot</h3>
+              <p className="ds-buttons__name-preview">File name: SelectionDot</p>
+              <div className="ds-buttons__selection-dot-grid">
+                <div className="ds-buttons__selection-dot-cell">
+                  <span className="ds-buttons__variant-label">selected=false, disabled=false</span>
+                  <TextCard
+                    state="default"
+                    title="Standard Plan"
+                    description="SelectionDot shown in the TextCard trailing slot."
+                    trailingIcon={<SelectionDot selected={false} />}
+                  />
+                </div>
+                <div className="ds-buttons__selection-dot-cell">
+                  <span className="ds-buttons__variant-label">selected=true, disabled=false</span>
+                  <TextCard
+                    state="default"
+                    title="Standard Plan"
+                    description="SelectionDot shown in the TextCard trailing slot."
+                    trailingIcon={<SelectionDot selected />}
+                  />
+                </div>
+                <div className="ds-buttons__selection-dot-cell">
+                  <span className="ds-buttons__variant-label">selected=false, disabled=true</span>
+                  <TextCard
+                    state="default"
+                    title="Standard Plan"
+                    description="Disabled state with secondary-tint selection dot."
+                    trailingIcon={<SelectionDot selected={false} disabled />}
+                    disabled
+                  />
+                </div>
+                <div className="ds-buttons__selection-dot-cell">
+                  <span className="ds-buttons__variant-label">selected=true, disabled=true</span>
+                  <TextCard
+                    state="default"
+                    title="Standard Plan"
+                    description="Disabled state with selected selection dot."
+                    trailingIcon={<SelectionDot selected disabled />}
+                    disabled
+                  />
+                </div>
+              </div>
+              <div className="ds-buttons__selection-dot-toggle">
+                <span className="ds-buttons__variant-label">interactive toggle</span>
+                <div className="ds-buttons__selection-dot-toggle-card">
+                  <TextCard
+                    state="default"
+                    title={selectionDotSelected ? 'Selected (click to clear)' : 'Unselected (click to select)'}
+                    description="Click to toggle selection state in the trailing SelectionDot."
+                    trailingIcon={<SelectionDot selected={selectionDotSelected} />}
+                    onClick={() => setSelectionDotSelected((prev) => !prev)}
+                  />
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        </div>
       </div>
     </div>
   )

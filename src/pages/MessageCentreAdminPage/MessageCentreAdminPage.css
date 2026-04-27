@@ -1,49 +1,118 @@
+.message-centre-admin-page-shell {
+  background: var(--bg-tertiary);
+}
+
 .message-centre-admin-page {
-  padding: 1.25rem;
+  padding: var(--space-lg) 1.25rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 
-.message-centre-admin-header h1 {
-  margin: 0 0 0.25rem;
-}
-
-.message-centre-admin-header p {
-  margin: 0;
-  color: var(--text-secondary);
+.message-centre-admin-page--dashboard {
+  padding-top: 0;
 }
 
 .message-centre-dashboard-stats {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.message-centre-dashboard-content {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.message-centre-dashboard-sidebar,
+.message-centre-dashboard-main {
+  min-width: 0;
+}
+
+.message-centre-dashboard-sidebar .message-centre-list-panel {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  position: relative;
+  overflow: visible;
+}
+
+@media (min-width: 1024px) {
+  .message-centre-dashboard-sidebar .message-centre-list-panel {
+    border-radius: 0;
+    margin-left: 0;
+    padding-left: var(--space-xl);
+  }
+
+  .message-centre-dashboard-sidebar .message-centre-list-panel::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -100vw;
+    width: 100vw;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    pointer-events: none;
+  }
+}
+
+.message-centre-dashboard-main .message-centre-list-panel {
+  padding: 0.85rem;
+}
+
+.message-centre-section-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.message-centre-section-title--subsection {
+  margin: 0;
+}
+
+.message-centre-panel-spacer {
+  height: 0.2rem;
 }
 
 .message-centre-stat-card {
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   background: var(--bg-secondary);
-  padding: 0.75rem 0.85rem;
+  padding: 0.55rem 0.65rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.2rem;
 }
 
 .message-centre-stat-card span {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .message-centre-stat-card strong {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
 }
 
 .message-centre-admin-layout {
   display: grid;
-  grid-template-columns: 280px minmax(420px, 1fr) 320px;
+  grid-template-columns: 280px minmax(420px, 1fr) 640px;
   gap: 1rem;
   align-items: start;
+  min-width: 0;
 }
 
 .message-centre-list-panel,
@@ -53,6 +122,7 @@
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   padding: 1rem;
+  min-width: 0;
 }
 
 .message-centre-composer-panel--wide {
@@ -63,6 +133,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.message-centre-list-controls--actions {
+  gap: 0;
 }
 
 .message-centre-list-controls input:not(.rs-input__field),
@@ -94,8 +168,9 @@
   color: var(--text-primary) !important;
   box-shadow: inset 0 0 4.5px var(--button-bg-active) !important;
   resize: vertical;
-  min-height: 6.5rem;
+  min-height: 0;
   line-height: 1.35;
+  overflow: hidden;
 }
 
 .message-centre-squared-textarea:focus {
@@ -113,6 +188,13 @@
   overflow: auto;
 }
 
+.message-centre-list-items--cards {
+  margin-top: 0;
+  max-height: none;
+  overflow: visible;
+  gap: 0.4rem;
+}
+
 .message-row {
   text-align: left;
   border: 1px solid var(--border-primary);
@@ -125,16 +207,84 @@
   cursor: pointer;
 }
 
+.message-row--card {
+  gap: 0.45rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.message-row-card-stack {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+}
+
+.message-row-card-stack__main,
+.message-row-card-stack__select {
+  min-width: 0;
+}
+
+.message-row-select-dot {
+  position: relative;
+  width: 56px;
+  height: 100%;
+  min-height: 100%;
+  border: 1px solid var(--border-primary);
+  border-radius: 0;
+  background: var(--button-bg-active);
+  color: var(--button-text-active);
+  box-shadow: var(--button-drop-shadow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.message-row-select-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: var(--button-inner-shadow-active);
+}
+
+.message-row-select-dot--pressed {
+  background: var(--button-bg-inactive);
+  color: var(--button-text-inactive);
+  box-shadow: none;
+}
+
+.message-row-select-dot--pressed::after {
+  box-shadow: var(--button-inner-shadow-pressed);
+}
+
+.message-centre-dashboard-main .message-centre-list-panel {
+  background: transparent;
+  border: none;
+  padding-top: var(--space-lg);
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+}
+
+.message-row-meta {
+  display: flex;
+  align-items: center;
+}
+
 .message-row--active {
   border-color: var(--accent-primary);
 }
 
-.message-row span {
+.message-row > span {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.message-row em {
+.message-row > em {
   text-transform: capitalize;
   color: var(--accent-primary);
   font-style: normal;
@@ -142,20 +292,19 @@
 }
 
 .message-row-actions {
-  margin-top: 0.35rem;
+  margin-top: 0.2rem;
   display: flex;
-  gap: 0.4rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
 }
 
 .message-centre-status {
-  min-height: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.message-centre-status:empty {
   min-height: 0;
   margin-bottom: 0;
+}
+
+.message-centre-status--active {
+  margin-bottom: 0.5rem;
 }
 
 .message-centre-status__error {
@@ -174,11 +323,22 @@
   gap: 0.75rem;
 }
 
-.message-centre-form-grid label {
+.message-centre-form-grid > label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.9rem;
+}
+
+.message-centre-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.message-centre-field__label {
+  display: inline-block;
 }
 
 .message-centre-form-grid__full {
@@ -208,15 +368,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .message-centre-inline-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .message-centre-composer-panel > .message-centre-inline-actions {
   margin-bottom: 0.5rem;
+}
+
+.message-centre-inline-actions .rs-button {
+  min-width: 0;
 }
 
 .message-centre-block-card {
@@ -239,6 +407,7 @@
   margin-top: 1rem;
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .message-preview-card {
@@ -246,29 +415,44 @@
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .message-preview-card h3 {
-  margin-top: 0;
+  margin: 0;
+}
+
+.message-preview-card p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .message-preview-card img {
   width: 100%;
   border-radius: 8px;
+  display: block;
 }
 
 .message-preview-card figure {
-  margin: 0.75rem 0;
+  margin: 0;
 }
 
 .message-preview-card figcaption {
+  margin-top: 0.35rem;
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
 @media (max-width: 1200px) {
-  .message-centre-dashboard-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .message-centre-admin-page {
+    padding-top: var(--space-md);
+  }
+
+  .message-centre-dashboard-content {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
   }
 
   .message-centre-admin-layout {
@@ -277,5 +461,142 @@
 
   .message-centre-composer-panel--wide {
     grid-column: auto;
+  }
+
+  .message-centre-preview-panel {
+    order: 3;
+  }
+}
+
+@media (max-width: 1023px) {
+  .message-centre-admin-page {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    gap: 0.85rem;
+  }
+
+  .message-centre-admin-page--dashboard {
+    padding-top: 0;
+  }
+
+  .message-centre-dashboard-sidebar .message-centre-list-panel,
+  .message-centre-dashboard-main .message-centre-list-panel {
+    padding: var(--space-lg);
+  }
+
+  .message-centre-list-panel,
+  .message-centre-composer-panel,
+  .message-centre-preview-panel {
+    padding: 0.85rem;
+  }
+
+  .message-centre-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .message-centre-form-grid__full {
+    grid-column: auto;
+  }
+
+  .message-row-actions {
+    gap: 0.35rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .message-centre-admin-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .message-centre-dashboard-sidebar .message-centre-list-panel {
+    gap: var(--space-md);
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
+
+  .message-centre-inline-actions {
+    width: 100%;
+  }
+
+  .message-centre-inline-actions .rs-button {
+    flex: 1 1 100%;
+  }
+
+  .message-centre-actions {
+    width: 100%;
+  }
+
+  .message-centre-actions .rs-button {
+    flex: 1 1 100%;
+  }
+
+  .message-row {
+    padding: 0.55rem 0.65rem;
+  }
+
+  .message-row-actions .rs-button {
+    flex: 1 1 calc(50% - 0.35rem);
+  }
+}
+
+@media (max-width: 639px) {
+  .message-centre-admin-page {
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
+
+  .message-centre-list-controls {
+    gap: 0.3rem;
+  }
+
+  .message-centre-list-items {
+    max-height: none;
+  }
+
+  .message-centre-dashboard-main .message-centre-list-panel {
+    padding: 0;
+  }
+
+  .message-centre-block-card__head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .message-row-actions .rs-button {
+    flex: 1 1 100%;
+  }
+
+  .message-row-card-stack {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .message-row--card {
+    padding: 0;
+  }
+
+  .message-row-card-stack__select {
+    width: 100%;
+  }
+
+  .message-row-select-dot {
+    width: 100%;
+    height: 60px;
+    min-height: 60px;
+  }
+
+  .message-centre-dashboard-sidebar .message-centre-list-panel {
+    margin-left: calc(var(--space-lg) * -1);
+    margin-right: calc(var(--space-lg) * -1);
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+    padding-top: var(--space-lg);
+    padding-bottom: var(--space-lg);
   }
 }

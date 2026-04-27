@@ -1,3 +1,12 @@
+.privacy-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-top: var(--space-lg);
+  padding-left: var(--space-2xl);
+  padding-right: var(--space-2xl);
+}
+
 .privacy-main {
   flex: 1;
   display: flex;
@@ -5,7 +14,7 @@
   max-width: none;
   margin: 0;
   width: 100%;
-  padding: var(--space-xl) 0;
+  padding: 0 0 var(--space-xl) 0;
   gap: var(--space-lg);
 }
 
@@ -187,5 +196,12 @@
   .privacy-tab {
     flex: 0 0 auto;
     width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .privacy-page {
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
   }
 }

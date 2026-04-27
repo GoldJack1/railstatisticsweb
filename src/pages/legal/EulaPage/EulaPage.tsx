@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { BUTWideButton } from '../../../components/buttons'
 import BUTLink from '../../../components/buttons/other/BUTLink'
+import { PageTopHeader } from '../../../components/misc'
 import './EulaPage.css'
 
 const EulaPage: React.FC = () => {
-  const navigate = useNavigate()
   const sections = [
     { id: 'section-1', label: '1. The Application' },
     { id: 'section-2', label: '2. Scope of Licence' },
@@ -55,20 +54,16 @@ const EulaPage: React.FC = () => {
   }
 
   return (
-    <div className="container">
-      <main className="eula-main">
-        <header className="eula-header">
-          <h1 className="eula-title">END USER LICENCE AGREEMENT</h1>
-          <p className="eula-updated">Last updated February 26, 2026</p>
-        </header>
-
-        <div className="eula-layout">
+    <div className="container container--station-details">
+        <PageTopHeader
+          title="END USER LICENCE AGREEMENT"
+          subtitle="Last updated February 26, 2026"
+          actionButton={{ to: '/', label: 'Back to home' }}
+        />
+      <div className="eula-page">
+        <main className="eula-main">
+          <div className="eula-layout">
           <aside className="eula-sidebar">
-            <div className="eula-sidebar-actions">
-              <BUTWideButton width="hug" onClick={() => navigate('/')}>
-                ← Back to home
-              </BUTWideButton>
-            </div>
             <nav className="eula-tabs" aria-label="EULA sections">
               {sections.map((section) => (
                 <BUTWideButton
@@ -297,8 +292,9 @@ const EulaPage: React.FC = () => {
         </section>
 
           </div>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

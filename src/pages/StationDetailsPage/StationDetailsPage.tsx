@@ -8,6 +8,7 @@ import { StationDetailsView, type StationDetailsTab } from '../../components/mod
 import { StationDetailsEditForm } from '../../components/models'
 import { BUTWideButton } from '../../components/buttons'
 import { BUTCircleButton } from '../../components/buttons'
+import { PageTopHeader } from '../../components/misc'
 import '../../components/models/StationModal/StationModal.css'
 import '../../components/models/StationEditModal/StationEditModal.css'
 import './StationDetailsPage.css'
@@ -151,23 +152,12 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
 
   return (
     <div className="container container--station-details">
+      <PageTopHeader
+        title={`${mode === 'edit' ? 'Edit station' : 'Station details'}: ${station.stationName || 'Station'}`}
+        subtitle={`${station.crsCode || 'No CRS'} · ID: ${station.id}`}
+        actionContent={(!isMobile && mode === 'edit') ? <div id="station-details-header-actions" className="station-details-header-actions-slot" /> : undefined}
+      />
       <div className="station-details-page">
-        <header className="station-details-header">
-          <div>
-            <h1 className="station-details-title">
-              {mode === 'edit' ? 'Edit station' : 'Station details'}: {station.stationName || 'Station'}
-            </h1>
-            <div className="station-details-subtitle">
-              <span>{station.crsCode || 'No CRS'}</span>
-              <span className="station-details-dot">·</span>
-              <span>ID: {station.id}</span>
-            </div>
-          </div>
-          <div className="station-details-header-right">
-            <div id="station-details-header-actions" />
-          </div>
-        </header>
-
         <div className="station-details-layout">
           <aside className="station-details-sidebar">
             <div className="station-details-sidebar-actions">

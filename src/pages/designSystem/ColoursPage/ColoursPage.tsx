@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react'
-import { BUTBaseButton as Button } from '../../../components/buttons'
-import { BUTWideButton } from '../../../components/buttons'
+import React, { useMemo, useState } from 'react'
+import { BUTBaseButton as Button, BUTSquaredWideButton } from '../../../components/buttons'
+import { PageTopHeader } from '../../../components/misc'
 import './ColoursPage.css'
 
 type TokenItem = {
@@ -37,6 +37,44 @@ const UI_COLOUR_TOKENS: TokenItem[] = [
 ]
 
 const ALL_TOKENS = [...SURFACE_TOKENS, ...TEXT_TOKENS, ...ACCENT_TOKENS, ...UI_COLOUR_TOKENS]
+
+const LIGHT_TOKEN_FILLS: Record<string, string> = {
+  '--bg-primary': '#F5F5F5',
+  '--bg-secondary': '#E8E8E8',
+  '--bg-tertiary': '#D1D1D1',
+  '--text-primary': '#000000',
+  '--text-secondary': '#404040',
+  '--text-disabled': '#737373',
+  '--accent-bright': '#E50000',
+  '--accent-strong': '#CC0000',
+  '--accent-base': '#B20016',
+  '--accent-deep': '#990000',
+  '--accent-darkest': '#7F0000',
+  '--border-color': '#B8B8B8',
+  '--accent-color': '#B20016',
+  '--accent-hover': '#CC0000',
+  '--accent-pressed': '#990000',
+  '--accent-light': '#F3C8CD',
+}
+
+const DARK_TOKEN_FILLS: Record<string, string> = {
+  '--bg-primary': '#333333',
+  '--bg-secondary': '#262626',
+  '--bg-tertiary': '#1A1A1A',
+  '--text-primary': '#FFFFFF',
+  '--text-secondary': '#BFBFBF',
+  '--text-disabled': '#8C8C8C',
+  '--accent-bright': '#E50000',
+  '--accent-strong': '#CC0000',
+  '--accent-base': '#B20016',
+  '--accent-deep': '#990000',
+  '--accent-darkest': '#7F0000',
+  '--border-color': '#525252',
+  '--accent-color': '#B20016',
+  '--accent-hover': '#CC0000',
+  '--accent-pressed': '#990000',
+  '--accent-light': '#4D0E16',
+}
 
 type ColorVariant = 'primary' | 'secondary' | 'accent' | 'green-action' | 'red-action' | 'fav-action'
 
@@ -319,139 +357,169 @@ const StateColorChips: React.FC<{ values: { light: StateValues; dark: StateValue
 )
 
 const ColoursPage: React.FC = () => {
+  const [selectedToken, setSelectedToken] = useState<TokenItem>(ALL_TOKENS[0])
+  const lightFill = LIGHT_TOKEN_FILLS[selectedToken.token] ?? '#000000'
+  const darkFill = DARK_TOKEN_FILLS[selectedToken.token] ?? '#000000'
+  const lightPreviewBg = selectedToken.token === '--bg-tertiary' ? LIGHT_TOKEN_FILLS['--bg-primary'] : undefined
+  const darkPreviewBg = selectedToken.token === '--bg-tertiary' ? DARK_TOKEN_FILLS['--bg-primary'] : undefined
+
   return (
-    <div className="container">
-      <div className="ds-colours">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-        <header className="ds-colours__header">
-          <h1>Design System Colours</h1>
-          <p>Reference for colour tokens used by surfaces, text, and interactive UI states.</p>
-        </header>
+    <div className="ds-colours-page">
+      <PageTopHeader
+        title="Colours"
+        subtitle="Reference for colour tokens used by surfaces, text, and interactive UI states."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          iconPosition: 'left',
+          icon: (
+            <svg
+              className="rs-page-top-header__action-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-colours">
+          <section className="ds-colours__section-panel ds-colours__section-panel--comparison">
+            <h2>Token Light vs Dark Comparison</h2>
+            <p className="ds-colours__hint">
+              Pick a token on the left and compare its light/dark rendering on the right.
+            </p>
+            <div className="ds-colours__token-compare-layout">
+              <div className="ds-colours__token-list">
+                {ALL_TOKENS.map((item) => (
+                  <BUTSquaredWideButton
+                    key={item.token}
+                    width="fill"
+                    colorVariant="primary"
+                    pressed={selectedToken.token === item.token}
+                    onClick={() => setSelectedToken(item)}
+                    className="ds-colours__token-button"
+                  >
+                    {item.label}
+                  </BUTSquaredWideButton>
+                ))}
+              </div>
 
-        <section>
-          <h2>Surfaces</h2>
-          <div className="ds-colours__grid">
-            {SURFACE_TOKENS.map((item) => (
-              <TokenCard key={item.token} {...item} />
-            ))}
-          </div>
-        </section>
+              <div className="ds-colours__token-preview-panel">
+                <div className="ds-colours__token-preview-head">
+                  <h3>{selectedToken.label}</h3>
+                  <p>{selectedToken.token}</p>
+                </div>
 
-        <section>
-          <h2>Text</h2>
-          <div className="ds-colours__grid">
-            {TEXT_TOKENS.map((item) => (
-              <TokenCard key={item.token} {...item} />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2>Accents</h2>
-          <div className="ds-colours__grid">
-            {ACCENT_TOKENS.map((item) => (
-              <TokenCard key={item.token} {...item} />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2>UI Colour Aliases</h2>
-          <div className="ds-colours__grid">
-            {UI_COLOUR_TOKENS.map((item) => (
-              <TokenCard key={item.token} {...item} />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2>Button States + Values</h2>
-          <p className="ds-colours__hint">
-            Each state shows the button plus light/dark HSL, HSB, and HEX values for background and text.
-          </p>
-          <div className="ds-colours__matrix">
-            {VARIANT_TOKENS.map((token) => (
-              <article key={token.id} className="ds-colours__card">
-                <h3 className="ds-colours__matrix-title">{token.label}</h3>
-                <div className="ds-colours__state-detail-grid">
-                  <div className="ds-colours__state-detail">
-                    <div className="ds-colours__state-detail-title">Active</div>
-                    <Button variant="wide" width="hug" colorVariant={token.id}>
-                      Active
-                    </Button>
-                    <StateColorChips values={token.active} />
-                    <div className="ds-colours__value-block">
-                      <div><strong>Light bg</strong> {formatColorValues(token.active.light.bg.hsl, token.active.light.bg.hex)}</div>
-                      <div><strong>Light text</strong> {formatColorValues(token.active.light.text.hsl, token.active.light.text.hex)}</div>
-                      <div><strong>Dark bg</strong> {formatColorValues(token.active.dark.bg.hsl, token.active.dark.bg.hex)}</div>
-                      <div><strong>Dark text</strong> {formatColorValues(token.active.dark.text.hsl, token.active.dark.text.hex)}</div>
+                <div className="ds-colours__theme-compare">
+                  <div className="ds-colours__theme-column">
+                    <h3 className="ds-colours__theme-column-title">Light Theme</h3>
+                    <div className="ds-colours__theme-preview" style={{ backgroundColor: lightPreviewBg }}>
+                      <div
+                        className="ds-colours__single-swatch"
+                        style={{ backgroundColor: lightFill }}
+                        aria-hidden="true"
+                      />
                     </div>
                   </div>
-                  <div className="ds-colours__state-detail">
-                    <div className="ds-colours__state-detail-title">Pressed</div>
-                    <Button variant="wide" width="hug" colorVariant={token.id} pressed>
-                      Pressed
-                    </Button>
-                    <StateColorChips values={token.pressed} />
-                    <div className="ds-colours__value-block">
-                      <div><strong>Light bg</strong> {formatColorValues(token.pressed.light.bg.hsl, token.pressed.light.bg.hex)}</div>
-                      <div><strong>Light text</strong> {formatColorValues(token.pressed.light.text.hsl, token.pressed.light.text.hex)}</div>
-                      <div><strong>Dark bg</strong> {formatColorValues(token.pressed.dark.bg.hsl, token.pressed.dark.bg.hex)}</div>
-                      <div><strong>Dark text</strong> {formatColorValues(token.pressed.dark.text.hsl, token.pressed.dark.text.hex)}</div>
-                    </div>
-                  </div>
-                  <div className="ds-colours__state-detail">
-                    <div className="ds-colours__state-detail-title">Disabled</div>
-                    <Button variant="wide" width="hug" colorVariant={token.id} disabled>
-                      Disabled
-                    </Button>
-                    <StateColorChips values={token.disabled} />
-                    <div className="ds-colours__value-block">
-                      <div><strong>Light bg</strong> {formatColorValues(token.disabled.light.bg.hsl, token.disabled.light.bg.hex)}</div>
-                      <div><strong>Light text</strong> {formatColorValues(token.disabled.light.text.hsl, token.disabled.light.text.hex)}</div>
-                      <div><strong>Dark bg</strong> {formatColorValues(token.disabled.dark.bg.hsl, token.disabled.dark.bg.hex)}</div>
-                      <div><strong>Dark text</strong> {formatColorValues(token.disabled.dark.text.hsl, token.disabled.dark.text.hex)}</div>
+                  <div className="ds-colours__theme-column">
+                    <h3 className="ds-colours__theme-column-title">Dark Theme</h3>
+                    <div className="ds-colours__theme-preview" style={{ backgroundColor: darkPreviewBg }}>
+                      <div
+                        className="ds-colours__single-swatch"
+                        style={{ backgroundColor: darkFill }}
+                        aria-hidden="true"
+                      />
                     </div>
                   </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
+              </div>
+            </div>
+          </section>
 
-        <section>
-          <h2>Dark Theme Preview</h2>
-          <p className="ds-colours__hint">
-            This preview applies the same tokens under a local dark theme container.
-          </p>
-          <div className="ds-colours__theme-preview" data-theme="dark">
-            <div className="ds-colours__theme-preview-inner">
-              {ALL_TOKENS.map((item) => (
-                <TokenCard key={`dark-${item.token}`} {...item} />
+          <section className="ds-colours__section-panel">
+            <h2>Button States + Values</h2>
+            <p className="ds-colours__hint">
+              Each state shows the button plus light/dark HSL, HSB, and HEX values for background and text.
+            </p>
+            <div className="ds-colours__matrix">
+              {VARIANT_TOKENS.map((token) => (
+                <article key={token.id} className="ds-colours__card">
+                  <h3 className="ds-colours__matrix-title">{token.label}</h3>
+                  <div className="ds-colours__state-detail-grid">
+                    <div className="ds-colours__state-detail">
+                      <div className="ds-colours__state-detail-title">Active</div>
+                      <Button variant="wide" width="hug" colorVariant={token.id}>
+                        Active
+                      </Button>
+                      <StateColorChips values={token.active} />
+                      <div className="ds-colours__value-block">
+                        <div><strong>Light bg</strong> {formatColorValues(token.active.light.bg.hsl, token.active.light.bg.hex)}</div>
+                        <div><strong>Light text</strong> {formatColorValues(token.active.light.text.hsl, token.active.light.text.hex)}</div>
+                        <div><strong>Dark bg</strong> {formatColorValues(token.active.dark.bg.hsl, token.active.dark.bg.hex)}</div>
+                        <div><strong>Dark text</strong> {formatColorValues(token.active.dark.text.hsl, token.active.dark.text.hex)}</div>
+                      </div>
+                    </div>
+                    <div className="ds-colours__state-detail">
+                      <div className="ds-colours__state-detail-title">Pressed</div>
+                      <Button variant="wide" width="hug" colorVariant={token.id} pressed>
+                        Pressed
+                      </Button>
+                      <StateColorChips values={token.pressed} />
+                      <div className="ds-colours__value-block">
+                        <div><strong>Light bg</strong> {formatColorValues(token.pressed.light.bg.hsl, token.pressed.light.bg.hex)}</div>
+                        <div><strong>Light text</strong> {formatColorValues(token.pressed.light.text.hsl, token.pressed.light.text.hex)}</div>
+                        <div><strong>Dark bg</strong> {formatColorValues(token.pressed.dark.bg.hsl, token.pressed.dark.bg.hex)}</div>
+                        <div><strong>Dark text</strong> {formatColorValues(token.pressed.dark.text.hsl, token.pressed.dark.text.hex)}</div>
+                      </div>
+                    </div>
+                    <div className="ds-colours__state-detail">
+                      <div className="ds-colours__state-detail-title">Disabled</div>
+                      <Button variant="wide" width="hug" colorVariant={token.id} disabled>
+                        Disabled
+                      </Button>
+                      <StateColorChips values={token.disabled} />
+                      <div className="ds-colours__value-block">
+                        <div><strong>Light bg</strong> {formatColorValues(token.disabled.light.bg.hsl, token.disabled.light.bg.hex)}</div>
+                        <div><strong>Light text</strong> {formatColorValues(token.disabled.light.text.hsl, token.disabled.light.text.hex)}</div>
+                        <div><strong>Dark bg</strong> {formatColorValues(token.disabled.dark.bg.hsl, token.disabled.dark.bg.hex)}</div>
+                        <div><strong>Dark text</strong> {formatColorValues(token.disabled.dark.text.hsl, token.disabled.dark.text.hex)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section>
-          <h2>Copy Prompt</h2>
-          <p className="ds-colours__hint">Copy this text block to share all button colour values.</p>
-          <textarea className="ds-colours__prompt-textarea" value={BUTTON_VALUES_PROMPT} readOnly />
-        </section>
+          <section className="ds-colours__section-panel">
+            <h2>Copy Prompt</h2>
+            <p className="ds-colours__hint">Copy this text block to share all button colour values.</p>
+            <textarea className="ds-colours__prompt-textarea" value={BUTTON_VALUES_PROMPT} readOnly />
+          </section>
 
-        <section>
-          <h2>Copy Prompt: Site Text Colours</h2>
-          <p className="ds-colours__hint">Copy this text block for the site text colour tokens.</p>
-          <textarea className="ds-colours__prompt-textarea" value={SITE_TEXT_COLOURS_PROMPT} readOnly />
-        </section>
+          <section className="ds-colours__section-panel">
+            <h2>Copy Prompt: Site Text Colours</h2>
+            <p className="ds-colours__hint">Copy this text block for the site text colour tokens.</p>
+            <textarea className="ds-colours__prompt-textarea" value={SITE_TEXT_COLOURS_PROMPT} readOnly />
+          </section>
 
-        <section>
-          <h2>Copy Prompt: Site Colours</h2>
-          <p className="ds-colours__hint">Copy this text block for the site background and accent colour tokens.</p>
-          <textarea className="ds-colours__prompt-textarea" value={SITE_COLOURS_PROMPT} readOnly />
-        </section>
+          <section className="ds-colours__section-panel">
+            <h2>Copy Prompt: Site Colours</h2>
+            <p className="ds-colours__hint">Copy this text block for the site background and accent colour tokens.</p>
+            <textarea className="ds-colours__prompt-textarea" value={SITE_COLOURS_PROMPT} readOnly />
+          </section>
+        </div>
       </div>
     </div>
   )

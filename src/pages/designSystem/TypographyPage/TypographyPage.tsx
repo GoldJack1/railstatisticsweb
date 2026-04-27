@@ -1,5 +1,5 @@
 import React from 'react'
-import { BUTWideButton } from '../../../components/buttons'
+import { PageTopHeader } from '../../../components/misc'
 import './TypographyPage.css'
 
 const SCALE_TOKENS = [
@@ -18,17 +18,24 @@ const WEIGHTS = [300, 400, 500, 600, 700]
 
 const TypographyPage: React.FC = () => {
   return (
-    <div className="container">
-      <div className="ds-typography">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-        <header className="ds-typography__header">
-          <h1>Design System Typography</h1>
-          <p>
-            Typography references based on Geologica Cursive, with tokenized type sizing and weight usage across the app.
-          </p>
-        </header>
+    <div className="ds-typography-page">
+      <PageTopHeader
+        title="Typography"
+        subtitle="Typography references based on Geologica Cursive, with tokenized type sizing and weight usage across the app."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg className="rs-page-top-header__action-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-typography">
 
         <section className="ds-typography__section">
           <h2>Font Family</h2>
@@ -69,6 +76,7 @@ const TypographyPage: React.FC = () => {
             ))}
           </div>
         </section>
+        </div>
       </div>
     </div>
   )

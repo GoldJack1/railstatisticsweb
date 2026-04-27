@@ -1,5 +1,5 @@
 import React from 'react'
-import { BUTWideButton } from '../../../components/buttons'
+import { PageTopHeader } from '../../../components/misc'
 import './LayoutPage.css'
 
 const SPACING_TOKENS = [
@@ -26,15 +26,24 @@ const CONTAINER_TOKENS = [
 
 const LayoutPage: React.FC = () => {
   return (
-    <div className="container">
-      <div className="ds-layout">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-        <header className="ds-layout__header">
-          <h1>Design System Layout</h1>
-          <p>Spacing, radius, and container tokens used to build responsive structure and hierarchy.</p>
-        </header>
+    <div className="ds-layout-page">
+      <PageTopHeader
+        title="Layout"
+        subtitle="Spacing, radius, and container tokens used to build responsive structure and hierarchy."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg className="rs-page-top-header__action-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-layout">
 
         <section className="ds-layout__section">
           <h2>Spacing Scale</h2>
@@ -100,6 +109,7 @@ const LayoutPage: React.FC = () => {
             </article>
           </div>
         </section>
+        </div>
       </div>
     </div>
   )

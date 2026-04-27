@@ -1,0 +1,28 @@
+.rs-selection-dot {
+  --selection-dot-color: var(--text-primary);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid var(--selection-dot-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.rs-selection-dot__inner {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--selection-dot-color);
+  opacity: 0;
+}
+
+.rs-selection-dot--selected .rs-selection-dot__inner {
+  opacity: 1;
+}
+
+.rs-selection-dot--disabled {
+  --selection-dot-color: var(--text-secondary);
+}

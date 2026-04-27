@@ -1,24 +1,12 @@
+.ds-icons-page {
+  background-color: var(--bg-tertiary);
+}
+
 .ds-icons {
-  padding: var(--space-4xl) 0;
+  padding: var(--space-lg) 0 var(--space-4xl) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2xl);
-}
-
-.ds-icons__header {
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-.ds-icons__header h1 {
-  font-size: var(--text-3xl);
-  color: var(--text-primary);
-  margin-bottom: var(--space-xs);
-}
-
-.ds-icons__header p {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
 }
 
 .ds-icons__grid {
@@ -60,6 +48,13 @@
 
 @media (max-width: 1023px) {
   .ds-icons {
-    padding: var(--space-3xl) 0;
+    padding: var(--space-md) 0 var(--space-3xl) 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .ds-icons__grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: var(--space-md);
   }
 }

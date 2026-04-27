@@ -1,9 +1,9 @@
 import React, { type MouseEvent } from 'react'
-import { BUTWideButton } from '../../../components/buttons'
 import CarouselHero from '../../../components/heros/CarouselHero/CarouselHero'
 import StaticHero from '../../../components/heros/StaticHero/StaticHero'
 import type { ButtonColorVariant } from '../../../components/buttons/base/BUTBaseButton/BUTBaseButton'
 import type { CarouselHeroSlide } from '../../../components/models/heroCarouselSlideModel'
+import { PageTopHeader } from '../../../components/misc'
 import './HerosPage.css'
 
 /** Design-system demos: block in-app navigation from placeholder CTAs. */
@@ -143,20 +143,24 @@ const CAROUSEL_SHOWCASE_SLIDES: CarouselHeroSlide[] = [
 
 const HerosPage: React.FC = () => {
   return (
-    <div className="container">
-      <div className="ds-heros">
-        <BUTWideButton to="/design-system" width="hug" colorVariant="primary" className="rs-button--text-size">
-          ← Back to Design System
-        </BUTWideButton>
-
-        <header className="ds-heros__header">
-          <h1>Heroes</h1>
-          <p>
-            Live specimens of <code>StaticHero</code> and <code>CarouselHero</code>: typography scale, text-panel fill,
-            layout placement, CTA count, button colour variants, and carousel behaviour. Full-bleed layout matches the home
-            page.
-          </p>
-        </header>
+    <div className="ds-heros-page">
+      <PageTopHeader
+        title="Heroes"
+        subtitle="Live specimens of StaticHero and CarouselHero: typography scale, text-panel fill, layout placement, CTA count, button colour variants, and carousel behaviour."
+        actionButton={{
+          to: '/design-system',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg className="rs-page-top-header__action-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          ),
+        }}
+      />
+      <div className="container">
+        <div className="ds-heros">
 
         <section className="ds-heros__section">
           <h2>Panel placement</h2>
@@ -391,6 +395,7 @@ const HerosPage: React.FC = () => {
             />
           </div>
         </section>
+        </div>
       </div>
     </div>
   )

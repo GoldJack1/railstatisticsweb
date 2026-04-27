@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { BUTWideButton } from '../../../components/buttons'
 import BUTLink from '../../../components/buttons/other/BUTLink'
+import { PageTopHeader } from '../../../components/misc'
 import './PrivacyPolicyPage.css'
 
 const PrivacyPolicyPage: React.FC = () => {
-  const navigate = useNavigate()
   const sections = [
     { id: 'section-1', label: '1. Information Collection' },
     { id: 'section-2', label: '2. Payments and In-App Purchases' },
@@ -46,20 +45,16 @@ const PrivacyPolicyPage: React.FC = () => {
   }
 
   return (
-    <div className="container">
-      <main className="privacy-main">
-        <header className="privacy-header">
-          <h1 className="privacy-title">Privacy Policy</h1>
-          <p className="privacy-updated">Last updated February 26, 2026</p>
-        </header>
-
-        <div className="privacy-layout">
+    <div className="container container--station-details">
+        <PageTopHeader
+          title="Privacy Policy"
+          subtitle="Last updated February 26, 2026"
+          actionButton={{ to: '/', label: 'Back to home' }}
+        />
+      <div className="privacy-page">
+        <main className="privacy-main">
+          <div className="privacy-layout">
           <aside className="privacy-sidebar">
-            <div className="privacy-sidebar-actions">
-              <BUTWideButton width="hug" onClick={() => navigate('/')}>
-                ← Back to home
-              </BUTWideButton>
-            </div>
             <nav className="privacy-tabs" aria-label="Privacy Policy sections">
               {sections.map((section) => (
                 <BUTWideButton
@@ -143,8 +138,9 @@ const PrivacyPolicyPage: React.FC = () => {
               </p>
             </section>
           </div>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

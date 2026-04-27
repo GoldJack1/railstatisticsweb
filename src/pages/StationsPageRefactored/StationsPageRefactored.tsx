@@ -9,6 +9,7 @@ import {
   BUTTextNumberSquareButton,
   BUTWideButton,
 } from '../../components/buttons'
+import { PageTopHeader } from '../../components/misc'
 import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import StationCard from '../../components/cards/StationCard/StationCard'
@@ -206,19 +207,14 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
 
   return (
     <div className="stations-page">
-      {/* Header */}
-      <header className="stations-header">
-        <div className="stations-header-content">
-          <div className="stations-header-copy">
-            <h1 className="stations-title">Station Database</h1>
-            <p className="stations-subtitle">
-              {isEditMode
-                ? 'View or edit station fields and prepare changes for publishing'
-                : 'Explore railway stations and passenger data'}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageTopHeader
+        title="Station Database"
+        subtitle={
+          isEditMode
+            ? 'View or edit station fields and prepare changes for publishing'
+            : 'Explore railway stations and passenger data'
+        }
+      />
       {isAdminPanelVisible && (
         <div className="stations-admin-controls-wrap">
           <StationAdminControls

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BUTWideButton } from '../../components/buttons'
+import { PageTopHeader } from '../../components/misc'
 import type { InAppMessageDraftInput, MessageContentBlock } from '../../types/messages'
 import {
   archiveInAppMessage,
@@ -35,6 +36,8 @@ const MessageCentreAdminPage: React.FC = () => {
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const blockTextareaRefs = useRef<Record<number, HTMLTextAreaElement | null>>({})
 
   const loadMessageIntoComposer = async (id: string) => {
     const selected = await getInAppMessage(id)
@@ -187,74 +190,93 @@ const MessageCentreAdminPage: React.FC = () => {
     }
   }
 
-  const resetComposer = () => {
-    setActiveMessageId('')
-    setDraft(EMPTY_DRAFT)
-    setError(null)
-    setNotice(null)
-    navigate('/admin/messages/new')
-  }
-
   const previewBlocks = useMemo(() => draft.contentBlocks ?? [], [draft.contentBlocks])
 
-  return (
-    <div className="message-centre-admin-page">
-      <header className="message-centre-admin-header">
-        <h1>Message Editor</h1>
-        <p>Edit content and live preview on this dedicated page.</p>
-      </header>
+  const autosizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }
 
+  useLayoutEffect(() => {
+    autosizeTextarea(bodyTextareaRef.current)
+    Object.values(blockTextareaRefs.current).forEach((textarea) => autosizeTextarea(textarea))
+  }, [draft.body, draft.contentBlocks])
+
+  return (
+    <div className="message-centre-admin-page-shell">
+      <PageTopHeader
+        title="Message Editor"
+        subtitle="Edit content and live preview on this dedicated page."
+        actionButton={{
+          to: '/admin/messages',
+          label: 'Back',
+          mode: 'iconText',
+          icon: (
+            <svg
+              className="rs-page-top-header__action-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M11.5 8H4.5" />
+              <path d="M7.5 5L4.5 8L7.5 11" />
+            </svg>
+          )
+        }}
+      />
+      <div className="message-centre-admin-page">
       <div className="message-centre-admin-layout">
         <section className="message-centre-composer-panel message-centre-composer-panel--wide">
           <div className="message-centre-status">
             {error && <p className="message-centre-status__error">{error}</p>}
             {notice && <p className="message-centre-status__notice">{notice}</p>}
           </div>
-          <div className="message-centre-inline-actions">
-            <BUTWideButton width="hug" instantAction onClick={() => navigate('/admin/messages')}>
-              Back to dashboard
-            </BUTWideButton>
-            <BUTWideButton width="hug" instantAction onClick={resetComposer}>
-              New message
-            </BUTWideButton>
-          </div>
 
           <div className="message-centre-form-grid">
-            <label>
-              Title
+            <div className="message-centre-field">
+              <span className="message-centre-field__label">Title</span>
               <TXTINPWideButton
                 value={draft.title ?? ''}
                 onInputChange={(event) => updateDraft({ title: event.target.value })}
-              
                 colorVariant="secondary"
               />
-            </label>
-            <label>
-              Preview
+            </div>
+            <div className="message-centre-field">
+              <span className="message-centre-field__label">Preview</span>
               <TXTINPWideButton
                 value={draft.preview ?? ''}
                 onInputChange={(event) => updateDraft({ preview: event.target.value })}
-              
                 colorVariant="secondary"
               />
-            </label>
+            </div>
             <label className="message-centre-form-grid__full">
               Body
               <textarea
+                ref={bodyTextareaRef}
                 className="message-centre-squared-textarea rs-button--color-secondary"
-                rows={6}
+                rows={1}
                 value={draft.body ?? ''}
-                onChange={(event) => updateDraft({ body: event.target.value })}
+                onChange={(event) => {
+                  autosizeTextarea(event.currentTarget)
+                  updateDraft({ body: event.target.value })
+                }}
               />
             </label>
-            <label className="message-centre-form-grid__full">
-              Top image URL
+            <div className="message-centre-field message-centre-form-grid__full">
+              <span className="message-centre-field__label">Top image URL</span>
               <TXTINPWideButton
                 value={draft.topImageUrl ?? ''}
                 onInputChange={(event) => updateDraft({ topImageUrl: event.target.value })}
                 colorVariant="secondary"
               />
-            </label>
+            </div>
             <label className="message-centre-upload-label">
               Upload top image
               <input type="file" accept="image/*" onChange={(event) => void handleUpload(event, { topImage: true })} />
@@ -279,10 +301,16 @@ const MessageCentreAdminPage: React.FC = () => {
                 </div>
                 {block.type === 'text' ? (
                   <textarea
+                    ref={(element) => {
+                      blockTextareaRefs.current[index] = element
+                    }}
                     className="message-centre-squared-textarea rs-button--color-secondary"
-                    rows={4}
+                    rows={1}
                     value={block.text}
-                    onChange={(event) => upsertBlock(index, { type: 'text', text: event.target.value })}
+                    onChange={(event) => {
+                      autosizeTextarea(event.currentTarget)
+                      upsertBlock(index, { type: 'text', text: event.target.value })
+                    }}
                   />
                 ) : (
                   <>
@@ -361,6 +389,7 @@ const MessageCentreAdminPage: React.FC = () => {
             })}
           </article>
         </section>
+      </div>
       </div>
     </div>
   )
