@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { BUTBaseButton as Button, BUTSquaredWideButton } from '../../../components/buttons'
 import { PageTopHeader } from '../../../components/misc'
 import './ColoursPage.css'
@@ -316,24 +316,6 @@ Dark theme
 - Accent deep: #990000
 - Accent darkest: #7F0000`
 
-
-const readTokenValue = (token: string): string => {
-  if (typeof window === 'undefined') return ''
-  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  return value || 'n/a'
-}
-
-const TokenCard: React.FC<TokenItem> = ({ label, token }) => {
-  const value = useMemo(() => readTokenValue(token), [token])
-  return (
-    <article className="ds-colours__card">
-      <div className="ds-colours__swatch" style={{ backgroundColor: `var(${token})` }} aria-hidden="true" />
-      <h3>{label}</h3>
-      <p className="ds-colours__token">{token}</p>
-      <p className="ds-colours__value">{value}</p>
-    </article>
-  )
-}
 
 const StateColorChips: React.FC<{ values: { light: StateValues; dark: StateValues } }> = ({ values }) => (
   <div className="ds-colours__chip-grid">

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import type { Station } from '../../../types'
-import { BUTBaseButton as Button } from '../../../components/buttons'
+import { BUTBaseButton as Button, BUTWideButton } from '../../../components/buttons'
 import { BUTBaseButtonBar as ButtonBar } from '../../../components/buttons'
 import { NavLink } from '../../../components/buttons'
 import VisitButton from '../../../components/buttons/other/BUTVisitStatusButton'
