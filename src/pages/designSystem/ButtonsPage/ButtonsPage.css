@@ -41,6 +41,29 @@
   gap: var(--space-md);
 }
 
+.ds-buttons__toggle-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ds-buttons__toggle-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ds-buttons__toggle-row {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, auto) repeat(3, auto);
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ds-buttons__toggle-row > .ds-buttons__variant-label {
+  min-width: 0;
+}
+
 .ds-buttons__state-row {
   display: flex;
   flex-wrap: nowrap;

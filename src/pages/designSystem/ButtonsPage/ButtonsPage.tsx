@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { BUTWideButton } from '../../../components/buttons'
+import TOGToggle from '../../../components/buttons/toggle/TOGToggle'
+import TOGToggleVisited from '../../../components/buttons/toggle/TOGToggleVisited'
 import BUTTabButton from '../../../components/buttons/wide/BUTTabButton'
 import BUTOperatorChip from '../../../components/buttons/wide/BUTOperatorChip'
 import BUTLeftIconWideButton from '../../../components/buttons/wide/BUTLeftIconWideButton'
@@ -117,6 +119,7 @@ const DDM_ITEMS = [
   'Southeastern',
 ]
 const TEXT_CARD_STATES: TextCardState[] = ['default', 'accent', 'redAction', 'greenAction']
+const TOGGLE_BUTTON_STYLE_COLORS = COLOR_VARIANTS
 
 // Loose component type so we can iterate plain/icon/label/special wrappers in
 // a single map without per-wrapper prop-type narrowing on the showcase page.
@@ -204,6 +207,17 @@ const SPECIAL_TXTINP_ALIAS_ENTRIES: TxtInpEntry[] = [
 const ButtonsPage: React.FC = () => {
   const [controlledIndex, setControlledIndex] = useState<number | null>(0)
   const [visited, setVisited] = useState(false)
+  const [togDefault, setTogDefault] = useState(false)
+  const [togVisited, setTogVisited] = useState(false)
+  const [togCustom, setTogCustom] = useState(true)
+  const [togVariantStates, setTogVariantStates] = useState<Record<ColorVariant, boolean>>({
+    primary: false,
+    secondary: false,
+    accent: false,
+    'green-action': true,
+    'red-action': false,
+    'fav-action': true,
+  })
   const [selectionDotSelected, setSelectionDotSelected] = useState(false)
   const [clickedButtons, setClickedButtons] = useState<Record<string, boolean>>({})
 
@@ -315,6 +329,120 @@ const ButtonsPage: React.FC = () => {
       />
       <div className="container">
         <div className="ds-buttons">
+
+        <section className="ds-buttons__section">
+          <h2>Toggle Examples</h2>
+          <p>TOG primitives matching app geometry with default, visited, and custom-color examples.</p>
+          <div className="ds-buttons__controls-grid">
+            <article className="ds-buttons__card">
+              <h3>TOGToggle</h3>
+              <p className="ds-buttons__name-preview">File name: TOGToggle</p>
+              <div className="ds-buttons__toggle-stack">
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">off</span>
+                  <TOGToggle checked={false} ariaLabel="Default toggle off" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">on</span>
+                  <TOGToggle checked ariaLabel="Default toggle on" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">disabled</span>
+                  <TOGToggle checked={false} disabled ariaLabel="Default toggle disabled" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">interactive</span>
+                  <TOGToggle checked={togDefault} onChange={setTogDefault} ariaLabel="Interactive default toggle" />
+                </div>
+              </div>
+            </article>
+
+            <article className="ds-buttons__card">
+              <h3>TOGToggle Button Variants</h3>
+              <p className="ds-buttons__name-preview">Pressed track + active knob across button color variants.</p>
+              <div className="ds-buttons__toggle-stack">
+                {TOGGLE_BUTTON_STYLE_COLORS.map((variant) => (
+                  <div key={`tog-variant-${variant}`} className="ds-buttons__toggle-row">
+                    <span className="ds-buttons__variant-label">{variant}</span>
+                    <TOGToggle
+                      checked={togVariantStates[variant]}
+                      colorVariant={variant}
+                      onChange={(next) =>
+                        setTogVariantStates((prev) => ({
+                          ...prev,
+                          [variant]: next,
+                        }))
+                      }
+                      ariaLabel={`${variant} toggle off`}
+                    />
+                    <TOGToggle
+                      checked
+                      colorVariant={variant}
+                      ariaLabel={`${variant} toggle on`}
+                    />
+                    <TOGToggle
+                      checked={false}
+                      disabled
+                      colorVariant={variant}
+                      ariaLabel={`${variant} toggle disabled`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="ds-buttons__card">
+              <h3>TOGToggleVisited</h3>
+              <p className="ds-buttons__name-preview">File name: TOGToggleVisited</p>
+              <div className="ds-buttons__toggle-stack">
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">off red</span>
+                  <TOGToggleVisited checked={false} ariaLabel="Visited toggle off" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">on green</span>
+                  <TOGToggleVisited checked ariaLabel="Visited toggle on" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">disabled</span>
+                  <TOGToggleVisited checked={false} disabled ariaLabel="Visited toggle disabled" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">interactive</span>
+                  <TOGToggleVisited checked={togVisited} onChange={setTogVisited} ariaLabel="Interactive visited toggle" />
+                </div>
+              </div>
+            </article>
+
+            <article className="ds-buttons__card ds-buttons__card--full">
+              <h3>TOGToggle Custom Colours</h3>
+              <p className="ds-buttons__name-preview">File name: TOGToggle (custom track/knob colours)</p>
+              <div className="ds-buttons__toggle-grid">
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">purple cyan</span>
+                  <TOGToggle checked={false} trackOffColor="#4A2A84" trackOnColor="#00A6C7" ariaLabel="Custom purple cyan toggle off" />
+                  <TOGToggle checked trackOffColor="#4A2A84" trackOnColor="#00A6C7" ariaLabel="Custom purple cyan toggle on" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">amber black</span>
+                  <TOGToggle checked={false} trackOffColor="#9A6B00" trackOnColor="#101010" knobColor="#F8E39A" ariaLabel="Custom amber black toggle off" />
+                  <TOGToggle checked trackOffColor="#9A6B00" trackOnColor="#101010" knobColor="#F8E39A" ariaLabel="Custom amber black toggle on" />
+                </div>
+                <div className="ds-buttons__toggle-row">
+                  <span className="ds-buttons__variant-label">interactive</span>
+                  <TOGToggle
+                    checked={togCustom}
+                    onChange={setTogCustom}
+                    trackOffColor="#5D2B2B"
+                    trackOnColor="#2B6A5D"
+                    knobColor="#E7E5E4"
+                    ariaLabel="Interactive custom color toggle"
+                  />
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
 
         <section className="ds-buttons__section">
           <h2>Interactive Buttons</h2>

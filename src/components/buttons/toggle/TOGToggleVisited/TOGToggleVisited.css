@@ -1,0 +1,4 @@
+.rs-tog-toggle.rs-tog-toggle-visited {
+  --tog-track-off: var(--button-not-visited-pressed, hsl(0 68% 48%));
+  --tog-track-on: var(--button-visited-pressed, hsl(141 60% 35%));
+}

@@ -1,0 +1,89 @@
+.rs-tog-toggle {
+  --tog-track-w: 45px;
+  --tog-track-h: 20px;
+  --tog-track-r: 32px;
+  --tog-knob-size: 25px;
+  --tog-offset-on: 20px;
+  --tog-track-off: var(--button-bg-inactive, hsl(0 0% 77%));
+  --tog-track-on: var(--button-bg-inactive, hsl(0 0% 77%));
+  --tog-knob-color: var(--button-bg-active, hsl(0 0% 100%));
+  --tog-knob-drop-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tog-track-w);
+  height: var(--tog-knob-size);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 0;
+  font-size: 0;
+  vertical-align: middle;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rs-tog-toggle__track {
+  position: absolute;
+  top: calc((var(--tog-knob-size) - var(--tog-track-h)) / 2);
+  left: 0;
+  width: var(--tog-track-w);
+  height: var(--tog-track-h);
+  border-radius: var(--tog-track-r);
+  background: var(--tog-track-off);
+  box-shadow: inset 0 0 1.5px rgba(0, 0, 0, 0.2);
+  transition: background-color 200ms ease;
+}
+
+.rs-tog-toggle.is-on .rs-tog-toggle__track {
+  background: var(--tog-track-on);
+}
+
+.rs-tog-toggle__knob {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--tog-knob-size);
+  height: var(--tog-knob-size);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tog-knob-color) 45%, transparent);
+  backdrop-filter: blur(8px) saturate(130%);
+  box-shadow:
+    var(--tog-knob-drop-shadow),
+    var(--button-inner-shadow-active, inset 0 0 4.5px rgba(0, 0, 0, 0.2));
+  transform: translateX(0);
+  transition: transform 300ms cubic-bezier(0.2, 0.9, 0.35, 1.2);
+}
+
+.rs-tog-toggle.is-on .rs-tog-toggle__knob {
+  transform: translateX(var(--tog-offset-on));
+}
+
+.rs-tog-toggle.is-disabled {
+  cursor: not-allowed;
+}
+
+.rs-tog-toggle.is-disabled .rs-tog-toggle__knob {
+  background: var(--button-bg-inactive, hsl(0 0% 77%));
+  box-shadow: var(--button-inner-shadow-pressed, inset 0 0 4.5px rgba(0, 0, 0, 0.25));
+}
+
+.rs-tog-toggle:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+  border-radius: 32px;
+}
+
+[data-theme='dark'] .rs-tog-toggle__track {
+  box-shadow: inset 0 0 1.5px rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .rs-tog-toggle__knob {
+  box-shadow:
+    var(--tog-knob-drop-shadow),
+    var(--button-inner-shadow-active, inset 0 0 4.5px rgba(255, 255, 255, 0.2));
+}

@@ -7,6 +7,7 @@ import {
   BUTRightRoundedCircleButton,
   BUTSquareButton,
   BUTTextNumberSquareButton,
+  TOGToggleVisited,
   BUTWideButton,
 } from '../../components/buttons'
 import { PageTopHeader } from '../../components/misc'
@@ -324,19 +325,15 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                       onSelectionChanged={(_, selectedItems) => updateFilterSelection('counties', selectedItems)}
                       colorVariant="primary"
                     />
-                    <label className="county-london-toggle" htmlFor="county-london-toggle-input">
+                    <div className="county-london-toggle">
                       <span className="county-london-toggle__label">London Borough Filter</span>
-                      <input
-                        id="county-london-toggle-input"
-                        type="checkbox"
+                      <TOGToggleVisited
                         checked={londonBoroughFilterEnabled}
-                        onChange={toggleLondonBoroughFilter}
-                        className="county-london-toggle__input"
+                        onChange={() => toggleLondonBoroughFilter()}
+                        ariaLabel="London Borough Filter"
+                        className="county-london-toggle__control"
                       />
-                      <span className="county-london-toggle__track" aria-hidden="true">
-                        <span className="county-london-toggle__thumb" />
-                      </span>
-                    </label>
+                    </div>
                   </div>
 
                   {londonBoroughFilterEnabled && (

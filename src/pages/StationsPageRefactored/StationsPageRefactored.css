@@ -181,61 +181,31 @@
 
 .county-london-toggle {
     margin-top: var(--space-xs);
-    display: flex;
+    padding-top: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-sm);
-    cursor: pointer;
-    user-select: none;
+    min-height: 25px;
 }
 
 .county-london-toggle__label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
-.county-london-toggle__input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-.county-london-toggle__track {
-    width: 2.25rem;
-    height: 1.25rem;
-    border-radius: 999px;
-    background-color: var(--border-color);
-    border: 1px solid var(--border-color);
     display: inline-flex;
     align-items: center;
-    padding: 2px;
-    box-sizing: border-box;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    min-height: 25px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.2;
+    margin: 0;
 }
 
-.county-london-toggle__thumb {
-    width: 0.875rem;
-    height: 0.875rem;
-    border-radius: 50%;
-    background-color: var(--bg-primary);
-    transform: translateX(0);
-    transition: transform 0.2s ease;
-}
-
-.county-london-toggle__input:checked + .county-london-toggle__track {
-    background-color: var(--accent-color);
-    border-color: var(--accent-color);
-}
-
-.county-london-toggle__input:checked + .county-london-toggle__track .county-london-toggle__thumb {
-    transform: translateX(1rem);
-}
-
-.county-london-toggle__input:focus-visible + .county-london-toggle__track {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
+.county-london-toggle__control {
+    display: inline-flex;
+    align-items: center;
+    min-height: 25px;
+    justify-self: end;
+    flex-shrink: 0;
+    transform: none;
 }
 
 .filter-select {
