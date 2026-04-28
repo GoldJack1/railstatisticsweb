@@ -43,6 +43,29 @@ function locTime(loc) {
 }
 function asArray(x) { return x == null ? [] : Array.isArray(x) ? x : [x]; }
 
+/**
+ * Convert a compact slot's earliest known time (HH:MM[:SS]) to seconds since
+ * midnight, for chronological sorting. Slots without any time get +Infinity
+ * so they sink to the end of their slice rather than ahead of timed entries.
+ *
+ * Picks the EARLIEST time of (arr, dep, pass) — for an intermediate stop the
+ * arrival is what really anchors it on the line, not the departure.
+ */
+function slotTimeSeconds(s) {
+  // Order matters: prefer working times when both are present (sub-minute
+  // precision for passing points and tight runs); fall back to public.
+  const candidates = [s.wta, s.pta, s.wtd, s.ptd, s.wtp];
+  let best = Number.POSITIVE_INFINITY;
+  for (const t of candidates) {
+    if (!t) continue;
+    const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(t));
+    if (!m) continue;
+    const secs = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0);
+    if (secs < best) best = secs;
+  }
+  return best;
+}
+
 function normaliseJourney(j) {
   const slots = [];
   for (const k of LOC_KEYS_BY_SLOT) {
@@ -136,4 +159,113 @@ export function loadTimetableForTiploc(filePath, tiploc) {
   const elapsed = Date.now() - t0;
   console.log(`[tt] ${filePath.split('/').pop()}: scanned ${scanned} chunks, parsed ${parsed} journeys, indexed ${result.size} for ${tipUpper} (${elapsed}ms)`);
   return result;
+}
+
+/**
+ * Load the whole timetable file (no TIPLOC filter) and build two indexes:
+ *   byRid:    rid -> normalised journey { rid, ssd, uid, trainId, toc, ...,
+ *                                         slots: Array<{ tpl, _slot, ptd, pta,
+ *                                         wtd, wta, wtp, plat, act }> }
+ *   byTiploc: tpl -> Array<{ rid, stopIdx }>   (so we can quickly list the
+ *                                              services calling at a station
+ *                                              without re-scanning every journey)
+ *
+ * This is the engine for the "any station on request" daemon. Memory-wise we
+ * keep one journey object per RID plus small pointer arrays per TIPLOC.
+ *
+ * @param {string} filePath absolute path to the .xml.gz timetable file
+ */
+export function loadAllJourneysIndexedByTiploc(filePath) {
+  const t0 = Date.now();
+  const buf = readFileSync(filePath);
+  const xml = gunzipSync(buf).toString('utf8');
+  const chunks = xml.split('</Journey>');
+
+  const byRid    = new Map();
+  const byTiploc = new Map();
+  let parsed = 0;
+  let totalSlots = 0;
+
+  for (const c of chunks) {
+    const open = c.lastIndexOf('<Journey ');
+    if (open < 0) continue;
+    const journeyXml = c.slice(open) + '</Journey>';
+    let doc;
+    try { doc = xmlParser.parse(journeyXml); } catch { continue; }
+    const j = doc.Journey;
+    if (!j || !j.rid) continue;
+    parsed++;
+
+    const slots = normaliseJourney(j);
+    if (slots.length === 0) continue;
+
+    // Identify origin & final destination from the raw slots, independent of
+    // the array order our flattener produces.
+    let origin = '';
+    for (const s of slots) {
+      if (ORIGIN_SLOTS.includes(s._slot)) { origin = locTpl(s); break; }
+    }
+    if (!origin) origin = locTpl(slots[0]);
+    let destination = '';
+    for (let i = slots.length - 1; i >= 0; i--) {
+      if (DEST_SLOTS.includes(slots[i]._slot)) { destination = locTpl(slots[i]); break; }
+    }
+    if (!destination) destination = locTpl(slots[slots.length - 1]);
+
+    // Store a compact per-location view — every attribute the daemon or the
+    // board/service-detail code needs.
+    const compactSlots = slots.map((s) => ({
+      tpl:  locTpl(s),
+      slot: s._slot,
+      ptd:  s.ptd  || null,
+      pta:  s.pta  || null,
+      wtd:  s.wtd  || null,
+      wta:  s.wta  || null,
+      wtp:  s.wtp  || null,
+      plat: s.plat ? String(s.plat).trim() : null,
+      act:  s.act  ? String(s.act).trim()  : null,
+    }));
+
+    // fast-xml-parser groups same-named elements, so the natural array order
+    // is OR, IP, IP..., PP, PP..., DT — passing points all fall to the end
+    // of the route. Sort by the earliest known time at each location to
+    // restore route order, anchoring OR first and DT last so we don't get
+    // tripped up by services whose times wrap across midnight or where a PP
+    // happens to coincide with a stop.
+    compactSlots.sort((a, b) => {
+      if (a.slot === 'OR' || a.slot === 'OPOR') return -1;
+      if (b.slot === 'OR' || b.slot === 'OPOR') return 1;
+      if (a.slot === 'DT' || a.slot === 'OPDT') return 1;
+      if (b.slot === 'DT' || b.slot === 'OPDT') return -1;
+      return slotTimeSeconds(a) - slotTimeSeconds(b);
+    });
+    totalSlots += compactSlots.length;
+
+    byRid.set(j.rid, {
+      rid: j.rid,
+      ssd: j.ssd,
+      uid: j.uid,
+      trainId: j.trainId,
+      toc: j.toc,
+      trainCat: j.trainCat,
+      status: j.status,
+      isPassenger: j.isPassengerSvc !== 'false',
+      origin,
+      destination,
+      slots: compactSlots,
+    });
+
+    // Index every calling point (one entry per (tpl, stop-within-journey)).
+    for (let i = 0; i < compactSlots.length; i++) {
+      const tp = compactSlots[i].tpl;
+      if (!tp) continue;
+      let arr = byTiploc.get(tp);
+      if (!arr) { arr = []; byTiploc.set(tp, arr); }
+      arr.push({ rid: j.rid, stopIdx: i });
+    }
+  }
+
+  const elapsed = Date.now() - t0;
+  console.log(`[tt] ${filePath.split('/').pop()}: parsed ${parsed} journeys, ${totalSlots} slots, indexed ${byTiploc.size} distinct TIPLOCs (${elapsed}ms)`);
+  return { byRid, byTiploc };
 }

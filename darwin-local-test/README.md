@@ -5,6 +5,68 @@ feed (Confluent Cloud Kafka) and the daily **Push Port Timetable** files
 (XML.gz). Has its own `package.json`; does **not** touch the website source or
 its dependencies.
 
+---
+
+## ⚡ Quick start — run the website + daemon together
+
+```bash
+# from the repo root (one terminal):
+npm install               # only needed once, or after dependency changes
+npm run devdarwin   # starts Vite (web) + the daemon side-by-side
+```
+
+Then open <http://localhost:3000/departures/LDS> in your browser. You'll see
+live Leeds departures; change the CRS in the URL for any station
+(`/departures/KGX`, `/departures/MAN`, `/departures/STP`, `/departures/DEW`).
+Click any departure card to see the full calling pattern at `/services/:rid`.
+
+### If port 4001 is already taken
+
+Most likely a previous daemon didn't shut down cleanly:
+
+```bash
+lsof -ti :4001 | xargs kill -9
+```
+
+then re-run `npm run devdarwin`.
+
+### Just the daemon, no website
+
+```bash
+# from the repo root:
+npm run darwin:daemon
+
+# or from this folder:
+cd darwin-local-test
+npm run daemon
+```
+
+Then hit it directly:
+
+```bash
+curl http://localhost:4001/api/health | jq
+curl 'http://localhost:4001/api/departures/LDS?hours=1' | jq '.counts, .departures[0]'
+```
+
+### One-shot scripts (no long-running process)
+
+```bash
+cd darwin-local-test
+npm run leeds:full        # Leeds departure board, prints once and exits
+DARWIN_LEEDS_TIPLOC=KNGX  npm run leeds:full   # any station
+AT=DWBY TIME=15:34        npm run service      # detailed view of one service
+```
+
+### First-time setup checklist
+
+1. `npm install` from the repo root, then `npm install` from this folder if you'll run the one-shot scripts directly.
+2. `cp .env.example .env` from this folder and fill in `DARWIN_USERNAME` / `DARWIN_PASSWORD` — credentials live in `docs/Darwin guides/Credentials.md` (gitignored).
+3. Drop today's timetable file into `docs/V8s/` (filename `PPTimetable_YYYYMMDDhhmmss_v8.xml.gz`). The daemon picks today's highest-version file automatically.
+
+Full setup details are in [§1](#1-one-time-setup) below.
+
+---
+
 Four scripts, one shared timetable loader. Pick whichever fits the question.
 
 | script                      | npm command         | what it does                                              |
@@ -13,7 +75,7 @@ Four scripts, one shared timetable loader. Pick whichever fits the question.
 | `leeds-next-hour.mjs`       | `npm run leeds:hour`| Kafka-only departure board (no timetable file needed).    |
 | `leeds-departures.mjs`      | `npm run leeds:full`| **Recommended.** Timetable + live Kafka + cancellation reasons. |
 | `service-detail.mjs`        | `npm run service`   | Full per-service detail (every calling point + live).     |
-| `departures-daemon.mjs`     | `npm run daemon`    | **Long-running.** Writes a rolling JSON snapshot every N s for the website to poll. |
+| `departures-daemon.mjs`     | `npm run daemon`    | **Long-running HTTP API.** Loads the whole UK timetable, streams Kafka, serves any-station departure boards on `:4001`. |
 | `probe-topic.mjs`           | `node probe-topic.mjs` | Prints partition count / leaders. Diagnostic only.    |
 | `probe-cancellations.mjs`   | `node probe-cancellations.mjs` | Prints every cancellation observed across the whole feed. |
 
@@ -140,62 +202,92 @@ npm run leeds:hour    # next-60-min board built ONLY from Kafka history+live
 These are useful when you want to verify the Kafka pipe is healthy independently
 of the timetable file workflow.
 
-### Continuous JSON output for the website (`daemon`)
+### Long-running daemon for the website (`npm run daemon`)
 
-The one-shot board scripts exit after a single listen. For a **live website**
-you want a long-running process that keeps rolling state and writes a snapshot
-file the web code can poll without touching Kafka itself.
+The one-shot board scripts exit after a single listen. For the **live website**
+the daemon keeps a rolling in-memory state for ALL UK stations and serves
+any-station departure boards over HTTP on port 4001.
 
 ```bash
-# single station
-TIPLOC=LEEDS npm run daemon
+# from this folder:
+npm run daemon
 
-# multiple stations — each writes its own file
-TIPLOC=LEEDS npm run daemon &
-TIPLOC=YORK  npm run daemon &
-TIPLOC=KNGX  npm run daemon &
-
-# tune
-TIPLOC=DWBY WINDOW_HOURS=4 WRITE_INTERVAL_SEC=2 INITIAL_REPLAY_MIN=720 npm run daemon
+# OR from the repo root, alongside the website dev server (recommended):
+cd ..
+npm run devdarwin
 ```
 
-Output file: `darwin-local-test/state/<tiploc>-departures.json` (atomic writes
-via `.tmp` + `rename` — readers never see a half-written file).
+On startup it:
+1. Loads today's timetable file from `docs/V8s/` (or `docs/timetablefiles/`).
+2. Builds two indexes: `byRid` (RID → full journey) and `byTiploc`
+   (TIPLOC → list of services calling there).
+3. Loads the `_ref_v*.xml.gz` reference file for late/cancel reasons,
+   TIPLOC ↔ CRS ↔ station-name lookup, and TOC code ↔ operator name.
+4. Connects to the Kafka Push Port and replays `INITIAL_REPLAY_MIN` minutes
+   (default 360) so today's earlier cancellations and forecasts are already
+   in state before the first HTTP request.
+5. Listens forever. Day rollover detected automatically at midnight.
 
-Key behaviours:
+For a single laptop running the full UK timetable: ~5 s startup, ~290 MB heap
+at rest, ~430 MB while replaying, ~420 MB steady-state.
 
-- **Rolling window** — as the clock moves forward, services slide in and out
-  of the snapshot without restart.
-- **Day rollover** — at midnight the daemon detects the date change and
-  reloads today's timetable + reasons file. Retries every 5 min if the new
-  file hasn't been dropped yet.
-- **Initial replay** — on startup, rewinds `INITIAL_REPLAY_MIN` minutes
-  (default 360) so today's earlier cancellations are already in state by the
-  time the first snapshot is written.
-- **Heartbeat log** — every `HEARTBEAT_SEC` seconds (default 60) prints
-  counts + last Kafka message time. `tail -f` the output to check health.
-- **Graceful shutdown** — SIGINT/SIGTERM writes a final snapshot before exit.
-- **Crash-tolerant** — one malformed Kafka message won't kill the daemon.
+#### HTTP endpoints (default port 4001)
 
-Env vars (all optional):
+| method | path                              | purpose                                                |
+|--------|-----------------------------------|--------------------------------------------------------|
+| GET    | `/api/health`                     | daemon stats: journeys loaded, kafka, memory           |
+| GET    | `/api/station/:code`              | resolve CRS or TIPLOC → `{ tiploc, name, crs, matchedAs }` |
+| GET    | `/api/departures/:code?hours=N`   | live departure board for any station, default 3 h      |
+| GET    | `/api/service/:rid`               | full calling pattern + live state for one service      |
 
-| var                     | default                                | meaning                                           |
-|-------------------------|----------------------------------------|---------------------------------------------------|
-| `TIPLOC`                | `LEEDS`                                | station to track                                  |
-| `WINDOW_HOURS`          | `3`                                    | look-ahead in hours                               |
-| `WRITE_INTERVAL_SEC`    | `5`                                    | snapshot write interval                           |
-| `INITIAL_REPLAY_MIN`    | `360`                                  | minutes of Kafka to replay on startup             |
-| `HEARTBEAT_SEC`         | `60`                                   | stats log interval                                |
-| `OUTPUT_FILE`           | `state/<tiploc>-departures.json`       | override output path                              |
+`code` accepts either CRS (`LDS`) or TIPLOC (`LEEDS`). Where a CRS maps to
+multiple TIPLOCs (e.g. multi-platform stations) the daemon picks the one
+with the most services that day and lists the others in `alternates`.
 
-Website-side polling pattern:
+#### Env vars (all optional except DARWIN_*)
 
-```js
-const snap = JSON.parse(await fs.readFile('darwin-local-test/state/leeds-departures.json'));
-const age = Date.now() - Date.parse(snap.updatedAt);
-if (age > 30_000) showStaleBadge();
-renderBoard(snap.departures);
+| var                      | default                       | meaning                                               |
+|--------------------------|-------------------------------|-------------------------------------------------------|
+| `DAEMON_PORT`            | `4001`                        | HTTP API port                                         |
+| `CORS_ORIGIN`            | `http://localhost:3000`       | `Access-Control-Allow-Origin` for browser clients     |
+| `DEFAULT_WINDOW_HOURS`   | `3`                           | look-ahead used when `?hours` is omitted              |
+| `INITIAL_REPLAY_MIN`     | `360`                         | minutes of Kafka to replay on startup                 |
+| `HEARTBEAT_SEC`          | `60`                          | stats log interval                                    |
+
+#### Smoke-test from a terminal
+
+```bash
+curl -s http://localhost:4001/api/health | jq
+curl -s http://localhost:4001/api/station/LDS | jq
+curl -s 'http://localhost:4001/api/departures/LDS?hours=1' | jq '.counts, .departures[0]'
 ```
+
+### Website integration (local dev)
+
+The React app (Vite, port 3000) talks to the daemon via a transparent proxy:
+
+```
+browser →  http://localhost:3000/api/darwin/departures/LDS
+  Vite proxy rewrites →  http://localhost:4001/api/departures/LDS
+```
+
+The proxy is configured in `vite.config.js`. Browser code uses
+`fetch('/api/darwin/...')` everywhere — the same path will work in
+production once the daemon has a public URL (the Netlify rewrite stays the
+same; only its target changes).
+
+Start everything with one command from the repo root:
+
+```bash
+npm run devdarwin     # starts vite (web) + daemon concurrently
+```
+
+Visit <http://localhost:3000/departures/LDS> for live Leeds, change the
+CRS in the URL for any other station (`/departures/KGX`, `/departures/MAN`,
+`/departures/DEW`, etc.).
+
+Shared TypeScript types live in `src/types/darwin.ts` (single source of
+truth, mirrors the daemon's JSON shape exactly).
 
 Schema for each row in `departures[]`:
 
@@ -473,5 +565,33 @@ Re-run `node probe-topic.mjs` if you suspect this has changed again.
 > (`_ref_v1` / `_ref_v2` / `_ref_v3` / `_ref_v4` / `_ref_v99`) that is
 > **unrelated** to the timetable file's v5/v6/v7/v8. As of 2026-04-28 `ref_v4`
 > is the current production version. No `ref_v8` exists.
-- ~~**Continuous JSON output**~~ — **done.** See `departures-daemon.mjs` — writes `state/<tiploc>-departures.json` atomically every N seconds.
+- ~~**Continuous JSON output**~~ — **done.** Replaced by an **HTTP API** in `departures-daemon.mjs` serving any-station boards on port 4001. The website consumes it via `fetch('/api/darwin/...')` (Vite proxies in dev).
+
+---
+
+## 10. Production hosting
+
+The daemon is a **stateful long-running process** with ~420 MB RSS that needs a
+persistent connection to Kafka. **Netlify Functions cannot host this** — they
+have short timeouts and no persistent memory between invocations. Options to
+choose between later:
+
+| host                  | fit for this workload                                                        |
+|-----------------------|------------------------------------------------------------------------------|
+| **Fly.io machine**    | Single small VM (1 GB), simplest, keeps RAM warm, scale-to-zero unsupported. |
+| **Railway worker**    | Easy GitHub-attached deploys, fixed monthly cost.                            |
+| **Bare VPS** (Hetzner/DO) | Cheapest at scale (~£4/mo), needs systemd unit + manual updates.        |
+| **Cloud Run** (GCP)   | Container, can stay warm with `min-instances >= 1`. Good if already on GCP.  |
+
+Production deploy contract:
+- Daemon exposes `/api/health`, `/api/station/:code`, `/api/departures/:code`,
+  `/api/service/:rid` on whatever port the host gives it (`PORT` env var
+  convention; daemon already accepts `DAEMON_PORT`).
+- Website's Netlify config gets a redirect from `/api/darwin/*` to that
+  public URL — no React changes needed because the browser already uses
+  the relative `/api/darwin/...` path in dev.
+- Daemon needs the same `DARWIN_*` env vars + access to today's timetable
+  files. Shipping the `docs/V8s/` directory with the container is fine for
+  v1 (~12 MB/day); a tiny cron that pulls from RDM's S3 bucket is the
+  follow-up.
 

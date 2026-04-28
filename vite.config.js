@@ -122,6 +122,16 @@ export default defineConfig({
     // Default fs.strict is true. strict:false allowed /@fs/ outside the project and could hit
     // sockets / special nodes → ENOTSUP during readFile in loadAndTransform.
     preTransformRequests: false,
+    // Proxy the Darwin daemon so the web app can use relative /api/darwin/*
+    // URLs that work the same in dev and production (production rewrites
+    // /api/darwin/* to wherever the daemon is hosted).
+    proxy: {
+      '/api/darwin': {
+        target: 'http://localhost:4001',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/darwin/, '/api'),
+      },
+    },
     hmr: {
       // Same port the browser uses for HTTP (needed when host is not localhost).
       clientPort: 3000,

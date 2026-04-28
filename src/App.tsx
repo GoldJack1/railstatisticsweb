@@ -22,6 +22,8 @@ import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage/PrivacyPolicyPage
 import EulaPage from './pages/legal/EulaPage/EulaPage'
 import MessageCentreAdminPage from './pages/MessageCentreAdminPage/MessageCentreAdminPage'
 import MessageCentreDashboardPage from './pages/MessageCentreDashboardPage'
+import DarwinDeparturesPage from './pages/DarwinDeparturesPage'
+import ServiceDetailPage from './pages/ServiceDetailPage'
 import Header from './components/misc/Header/Header'
 import Footer from './components/misc/Footer/Footer'
 import { ProtectedRoute } from './components/firebase'
@@ -46,6 +48,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/design-system/icons': 'Design System Icons | Rail Statistics',
   '/design-system/heros': 'Design System Heroes | Rail Statistics',
   '/admin/messages': 'Message Centre Admin | Rail Statistics',
+  '/departures': 'Live Departures | Rail Statistics',
+  '/services': 'Service Detail | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
 }
@@ -89,6 +93,9 @@ const App: React.FC = () => {
                 <Route path="/admin/messages" element={<ProtectedRoute><MessageCentreDashboardPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/new" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />
                 <Route path="/admin/messages/:messageId" element={<ProtectedRoute><MessageCentreAdminPage /></ProtectedRoute>} />
+                <Route path="/departures" element={<DarwinDeparturesPage />} />
+                <Route path="/departures/:code" element={<DarwinDeparturesPage />} />
+                <Route path="/services/:rid" element={<ServiceDetailPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/eula" element={<EulaPage />} />
               </Routes>
