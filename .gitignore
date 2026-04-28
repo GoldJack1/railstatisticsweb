@@ -102,3 +102,4 @@ darwin-local-test/.env
 darwin-local-test/first-message.*
 darwin-local-test/raw-samples.json
 darwin-local-test/type-samples.json
+darwin-local-test/state/

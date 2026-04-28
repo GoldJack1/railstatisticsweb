@@ -24,6 +24,7 @@ import { dirname, resolve } from 'node:path';
 import dotenv from 'dotenv';
 import { Kafka, logLevel } from 'kafkajs';
 import { loadTimetableForTiploc } from './timetable-loader.mjs';
+import { loadTodaysReasons } from './reasons-loader.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '.env') });
@@ -41,6 +42,9 @@ const cfg = {
   windowStart: process.env.WINDOW_START || '',
   windowEnd:   process.env.WINDOW_END   || '',
   liveSec:   Number(process.env.LIVE_SEC || 30),
+  // Seek back this many minutes on startup to replay retained messages
+  // (needed to catch schedule cancellations announced earlier today).
+  replayMin: Number(process.env.REPLAY_MIN || 0),
   timetablePath: process.env.LEEDS_TIMETABLE || pickTodaysTimetable(),
 };
 
@@ -128,9 +132,13 @@ if (cfg.windowStart && cfg.windowEnd) {
   windowTo   = new Date(now.getTime() + cfg.windowMin * 60_000);
 }
 
+// Load reasons reference tables.
+const { lateReasons, cancelReasons } = loadTodaysReasons();
+
 // rid -> live overlay (may be absent if the service is steady-state today)
 const live = new Map();
-const cancelled = new Set();
+const cancelled = new Map();  // rid -> { reason, source } — reason text if known
+const delayReason = new Map(); // rid -> { reason, source }
 
 const departureRows = [];
 for (const sc of timetable.values()) {
@@ -189,7 +197,24 @@ async function liveOverlay() {
 
   await consumer.connect();
   await consumer.subscribe({ topic: cfg.topic, fromBeginning: false });
-  console.log(`[leeds] listening live for ${cfg.liveSec}s ...`);
+
+  // Fetch replay offsets before run() (read-only admin op); apply after run().
+  let replayOffsets = null;
+  if (cfg.replayMin > 0) {
+    const admin = kafka.admin();
+    await admin.connect();
+    try {
+      const sinceMs = Date.now() - cfg.replayMin * 60_000;
+      replayOffsets = await admin.fetchTopicOffsetsByTimestamp(cfg.topic, sinceMs);
+      console.log(`[leeds] replay seek target: -${cfg.replayMin} min (${replayOffsets.length} partition(s)).`);
+    } catch (e) {
+      console.warn(`[leeds] replay offset fetch failed: ${e.message}`);
+    } finally {
+      await admin.disconnect();
+    }
+  }
+
+  console.log(`[leeds] listening${cfg.replayMin > 0 ? ` (with ${cfg.replayMin}-min replay)` : ' live'} for ${cfg.liveSec}s ...`);
 
   const stopAt = Date.now() + cfg.liveSec * 1000;
   let consumed = 0;
@@ -212,11 +237,27 @@ async function liveOverlay() {
       const pport = inner.Pport || inner;
       for (const env of ['uR', 'sR']) {
         const e = pport[env]; if (!e) continue;
+
+        // --- TS messages: live times, platform, per-location late/cancel ---
         for (const ts of asArray(e.TS)) {
           const row = ridToRow.get(ts.rid);
           if (!row) continue;
+
+          // TS-level reason codes (may appear at top-level or at our location).
+          if (ts.lateReason) {
+            const code = String(ts.lateReason['#text'] || ts.lateReason._ || ts.lateReason);
+            delayReason.set(ts.rid, { reason: lateReasons.get(code) || `code ${code}`, source: 'ts' });
+            updates++;
+          }
+          if (ts.cancelReason) {
+            const code = String(ts.cancelReason['#text'] || ts.cancelReason._ || ts.cancelReason);
+            cancelled.set(ts.rid, { reason: cancelReasons.get(code) || `code ${code}`, source: 'ts' });
+            updates++;
+          }
+
           for (const loc of asArray(ts.Location)) {
             if ((loc.tpl || '').toUpperCase() !== cfg.tiploc) continue;
+
             const dep = bestDepartureFromLoc(loc);
             if (dep && dep.kind !== 'scheduled' && dep.kind !== 'working') {
               row.bestTime = dep.time;
@@ -228,16 +269,72 @@ async function liveOverlay() {
               row.livePlat = platRaw;
               updates++;
             }
+            // Per-location cancellation (partial cancel — train doesn't call here)
+            if (loc.can === 'true' || loc.can === true) {
+              if (!cancelled.has(ts.rid)) {
+                cancelled.set(ts.rid, { reason: 'cancelled at this stop', source: 'ts-loc' });
+              }
+              updates++;
+            }
+            // Per-location reason codes
+            if (loc.lateReason) {
+              const code = String(loc.lateReason['#text'] || loc.lateReason._ || loc.lateReason);
+              delayReason.set(ts.rid, { reason: lateReasons.get(code) || `code ${code}`, source: 'ts-loc' });
+              updates++;
+            }
+            if (loc.cancelReason) {
+              const code = String(loc.cancelReason['#text'] || loc.cancelReason._ || loc.cancelReason);
+              cancelled.set(ts.rid, { reason: cancelReasons.get(code) || `code ${code}`, source: 'ts-loc' });
+              updates++;
+            }
           }
         }
+
+        // --- schedule messages: full cancellation with reason is common here ---
+        for (const sc of asArray(e.schedule)) {
+          if (!sc?.rid || !ridToRow.has(sc.rid)) continue;
+          if (sc.cancelReason) {
+            const code = String(sc.cancelReason['#text'] || sc.cancelReason._ || sc.cancelReason);
+            cancelled.set(sc.rid, { reason: cancelReasons.get(code) || `code ${code}`, source: 'schedule' });
+            updates++;
+          }
+          // Per-location can="true" → check if OUR tiploc is cancelled in this message.
+          for (const slotKey of ['OR','IP','PP','DT','OPOR','OPIP','OPPP','OPDT']) {
+            for (const loc of asArray(sc[slotKey])) {
+              if ((loc.tpl || '').toUpperCase() !== cfg.tiploc) continue;
+              if (loc.can === 'true' || loc.can === true) {
+                if (!cancelled.has(sc.rid)) {
+                  cancelled.set(sc.rid, { reason: 'this stop cancelled', source: 'schedule-loc' });
+                }
+                updates++;
+              }
+            }
+          }
+        }
+
+        // --- deactivated: no reason, just the rid ---
         for (const d of asArray(e.deactivated)) {
           if (d?.rid && ridToRow.has(d.rid)) {
-            cancelled.add(d.rid); updates++;
+            if (!cancelled.has(d.rid)) cancelled.set(d.rid, { reason: 'schedule deactivated', source: 'deactivated' });
+            updates++;
           }
         }
       }
     },
   }).catch(() => { /* swallow */ });
+
+  // Apply replay seek now that run() has started (kafkajs requirement).
+  if (replayOffsets) {
+    // Give the consumer a moment to become assigned to its partitions.
+    await new Promise((r) => setTimeout(r, 2000));
+    for (const o of replayOffsets) {
+      try {
+        consumer.seek({ topic: cfg.topic, partition: o.partition, offset: o.offset });
+      } catch (e) {
+        console.warn(`[leeds] seek p${o.partition} -> ${o.offset} failed: ${e.message}`);
+      }
+    }
+  }
 
   await done;
 }
@@ -248,16 +345,17 @@ await liveOverlay();
 const fmt = (d) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/London' });
 console.log(`\n=== ${cfg.tiploc} departures, ${fmt(windowFrom)} → ${fmt(windowTo)} ===`);
 console.log(`(now ${now.toISOString()})`);
-console.log(`(${departureRows.length} scheduled, ${cancelled.size} cancelled)\n`);
+console.log(`(${departureRows.length} scheduled, ${cancelled.size} cancelled, ${delayReason.size} with delay reason)\n`);
 console.log('time   plat   trainId  toc  status      from   →  to (calling: …)');
 console.log('-----  -----  -------  ---  ----------  ---------------------------------------');
 for (const r of departureRows) {
-  const isCancelled = cancelled.has(r.rid);
+  const cancelInfo = cancelled.get(r.rid);
+  const delayInfo  = delayReason.get(r.rid);
   const t   = fmt(r.scheduledAt);
   const plat = (r.livePlat || r.plat || '--').padEnd(5);
   const tid  = (r.trainId || '----').padEnd(7);
   const toc  = (r.toc || '?').padEnd(3);
-  let status = isCancelled ? 'CANCELLED'
+  let status = cancelInfo ? 'CANCELLED'
              : r.bestKind === 'scheduled' || r.bestKind === 'working' ? 'on time'
              : `${r.bestKind} ${r.bestTime}`;
   status = status.padEnd(10);
@@ -267,5 +365,11 @@ for (const r of departureRows) {
     ? `   (${r.callingAfter.slice(0, 5).join(' → ')}${r.callingAfter.length > 5 ? ' → …' : ''})`
     : '';
   console.log(`${t}  ${plat}  ${tid}  ${toc}  ${status}  ${from} → ${to}${calls}`);
+  // Surface reason on a second indented line when we know one.
+  if (cancelInfo) {
+    console.log(`       ↳ reason: ${cancelInfo.reason}  [${cancelInfo.source}]`);
+  } else if (delayInfo) {
+    console.log(`       ↳ delay reason: ${delayInfo.reason}  [${delayInfo.source}]`);
+  }
 }
 process.exit(0);

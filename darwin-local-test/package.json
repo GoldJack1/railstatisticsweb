@@ -9,7 +9,8 @@
     "leeds": "node index.mjs",
     "leeds:hour": "node leeds-next-hour.mjs",
     "leeds:full": "node leeds-departures.mjs",
-    "service": "node service-detail.mjs"
+    "service": "node service-detail.mjs",
+    "daemon": "node departures-daemon.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
