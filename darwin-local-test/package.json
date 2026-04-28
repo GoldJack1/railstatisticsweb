@@ -1,0 +1,22 @@
+{
+  "name": "darwin-local-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated local test that connects to the Darwin Kafka Push Port (JSON topic) and prints live departures calling at Leeds. Not part of the website build.",
+  "scripts": {
+    "start": "node index.mjs",
+    "leeds": "node index.mjs",
+    "leeds:hour": "node leeds-next-hour.mjs",
+    "leeds:full": "node leeds-departures.mjs",
+    "service": "node service-detail.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "fast-xml-parser": "^4.5.0",
+    "kafkajs": "^2.2.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
