@@ -61,9 +61,37 @@ AT=DWBY TIME=15:34        npm run service      # detailed view of one service
 
 1. `npm install` from the repo root, then `npm install` from this folder if you'll run the one-shot scripts directly.
 2. `cp .env.example .env` from this folder and fill in `DARWIN_USERNAME` / `DARWIN_PASSWORD` — credentials live in `docs/Darwin guides/Credentials.md` (gitignored).
-3. Drop today's timetable file into `docs/V8s/` (filename `PPTimetable_YYYYMMDDhhmmss_v8.xml.gz`). The daemon picks today's highest-version file automatically.
+3. Put today's timetable files under `darwin-local-test/tt/YYYYMMDD/` (the fetch script does this automatically). The daemon picks today's highest-version file automatically.
 
 Full setup details are in [§1](#1-one-time-setup) below.
+
+### Automate daily file fetch (04:05)
+
+You can auto-download today's `v8` + `ref_v99` files from GCS into `darwin-local-test/tt/YYYYMMDD/`.
+
+Manual run:
+
+```bash
+# from repo root
+npm run darwin:fetch-daily-files
+```
+
+Daily schedule with cron (runs at 04:05 local time):
+
+```bash
+crontab -e
+```
+
+Add:
+
+```cron
+5 4 * * * cd /Users/jackwingate/Documents/Rail\ Statistics/CODEBASES/RailStatisticsWebsite && /usr/bin/env npm run darwin:fetch-daily-files >> /tmp/darwin-fetch.log 2>&1
+```
+
+What this does:
+- Picks today's latest `PPTimetable_YYYYMMDD..._v8.xml.gz`
+- Picks today's latest `PPTimetable_YYYYMMDD..._ref_v99.xml.gz`
+- Downloads both to `darwin-local-test/tt/YYYYMMDD/` if missing
 
 ---
 
@@ -105,11 +133,12 @@ Fill in `.env`:
 ### Timetable files
 
 The board and service-detail scripts need today's PPTimetable XML.gz file.
-Drop it into one of these folders (the loader checks both):
+Drop it into one of these folders (the loader checks in this order):
 
 ```
-docs/V8s/                  ← preferred (v8 schema, full passing-point data)
-docs/timetablefiles/        ← fallback (older v5/v6/v7 schemas also work)
+darwin-local-test/tt/YYYYMMDD/  ← preferred (daily folder, used by auto-fetch)
+docs/V8s/                       ← fallback (legacy/manual)
+docs/timetablefiles/            ← fallback (older v5/v6/v7 schemas also work)
 ```
 
 File naming: `PPTimetable_YYYYMMDDhhmmss_v{N}.xml.gz`. The loader auto-picks
@@ -218,7 +247,7 @@ npm run devdarwin
 ```
 
 On startup it:
-1. Loads today's timetable file from `docs/V8s/` (or `docs/timetablefiles/`).
+1. Loads today's timetable file from `darwin-local-test/tt/YYYYMMDD/` (or legacy `docs/V8s/` / `docs/timetablefiles/`).
 2. Builds two indexes: `byRid` (RID → full journey) and `byTiploc`
    (TIPLOC → list of services calling there).
 3. Loads the `_ref_v*.xml.gz` reference file for late/cancel reasons,
@@ -304,6 +333,8 @@ with the most services that day and lists the others in `alternates`.
 | `DEFAULT_WINDOW_HOURS`   | `3`                           | look-ahead used when `?hours` is omitted              |
 | `INITIAL_REPLAY_MIN`     | `360`                         | minutes of Kafka to replay on startup                 |
 | `HEARTBEAT_SEC`          | `60`                          | stats log interval                                    |
+| `DARWIN_AUTO_FETCH_FILES`| `true`                        | auto-fetch daily `v8` + `ref_v99` files while daemon runs |
+| `DARWIN_AUTO_FETCH_TIME` | `04:05`                       | local HH:MM time to run auto-fetch once per day       |
 
 #### Smoke-test from a terminal
 

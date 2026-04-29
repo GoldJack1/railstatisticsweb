@@ -10,7 +10,8 @@
     "leeds:hour": "node leeds-next-hour.mjs",
     "leeds:full": "node leeds-departures.mjs",
     "service": "node service-detail.mjs",
-    "daemon": "node departures-daemon.mjs"
+    "daemon": "node departures-daemon.mjs",
+    "fetch:daily-files": "node fetch-daily-timetables.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:poll": "CHOKIDAR_USEPOLLING=1 vite",
     "darwin:daemon": "npm --prefix darwin-local-test run daemon",
+    "darwin:fetch-daily-files": "npm --prefix darwin-local-test run fetch:daily-files",
     "devdarwin": "concurrently -n web,darwin -c blue,magenta \"vite\" \"npm --prefix darwin-local-test run daemon\"",
     "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",

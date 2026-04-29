@@ -49,20 +49,21 @@ export function loadReasonsFromFile(filePath) {
  * Find today's highest-version reference file.
  */
 export function pickTodaysRefFile() {
+  const today = new Date();
+  const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
   const dirs = [
+    resolve(__dirname, `./tt/${ymd}`),
     resolve(__dirname, '../docs/timetablefiles'),
     resolve(__dirname, '../docs/V8s'),
   ];
-  const today = new Date();
-  const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+  const nameRe = new RegExp(`^(?:PPTimetable_)?${ymd}\\d{6}_ref_v(\\d+)\\.xml\\.gz$`);
   const all = [];
   for (const dir of dirs) {
     let files = []; try { files = readdirSync(dir); } catch { continue; }
     for (const f of files) {
-      if (!f.startsWith(`PPTimetable_${ymd}`)) continue;
-      if (!f.includes('_ref_')) continue;
-      if (!f.endsWith('.xml.gz')) continue;
-      const ver = Number(f.match(/_v(\d+)\.xml\.gz$/)?.[1] || 0);
+      const m = f.match(nameRe);
+      if (!m) continue;
+      const ver = Number(m[1] || 0);
       all.push({ path: resolve(dir, f), ver });
     }
   }

@@ -39,6 +39,7 @@ import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, exists
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
+import { execFile } from 'node:child_process';
 import dotenv from 'dotenv';
 import { Kafka, logLevel } from 'kafkajs';
 import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
@@ -62,6 +63,8 @@ const cfg = {
   windowHours:     Number(process.env.DEFAULT_WINDOW_HOURS || 3),
   initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 1080),
   heartbeat:       Number(process.env.HEARTBEAT_SEC || 60),
+  autoFetchFiles:  !['0', 'false', 'no'].includes(String(process.env.DARWIN_AUTO_FETCH_FILES || 'true').toLowerCase()),
+  autoFetchTime:   process.env.DARWIN_AUTO_FETCH_TIME || '04:05',
 };
 
 // PTAC (S506) feed config — separate creds and consumer group from Darwin.
@@ -77,20 +80,22 @@ const ptacCfg = {
 
 // ---------- pick today's timetable file ------------------------------------
 function pickTodaysTimetable() {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   const dirs = [
+    resolve(__dirname, `./tt/${ymd}`),
     resolve(__dirname, '../docs/V8s'),
     resolve(__dirname, '../docs/timetablefiles'),
   ];
-  const d = new Date();
-  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const nameRe = new RegExp(`^(?:PPTimetable_)?${ymd}\\d{6}_v(\\d+)\\.xml\\.gz$`);
   const all = [];
   for (const dir of dirs) {
     let files = []; try { files = readdirSync(dir); } catch { continue; }
     for (const f of files) {
-      if (!f.startsWith(`PPTimetable_${ymd}`)) continue;
       if (f.includes('_ref_')) continue;
-      if (!f.endsWith('.xml.gz')) continue;
-      const ver = Number(f.match(/_v(\d+)\.xml\.gz$/)?.[1] || 0);
+      const m = f.match(nameRe);
+      if (!m) continue;
+      const ver = Number(m[1] || 0);
       all.push({ path: resolve(dir, f), ver });
     }
   }
@@ -195,6 +200,9 @@ function escapeAttr(s) {
 function todayYmd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function todayYmdCompact(d = new Date()) {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
 function anchorTime(hhmm, ssd) {
   if (!hhmm) return null;
   const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(hhmm);
@@ -220,6 +228,49 @@ let timetablePath, loadedDate;
 //   "ssd|headcode|originTiploc|originHHMM" -> rid
 // Plus a fallback "ssd|headcode|originTiploc" -> [rid, ...] for stop-time-only matches.
 let ptacJoinByTuple, ptacJoinByOrigin;
+let lastAutoFetchRunYmd = null;
+
+function runDailyFileFetch(reason = 'scheduled') {
+  return new Promise((resolvePromise) => {
+    execFile(
+      'node',
+      [resolve(__dirname, 'fetch-daily-timetables.mjs')],
+      { cwd: __dirname, env: process.env },
+      (error, stdout, stderr) => {
+        if (stdout && stdout.trim()) {
+          console.log(`[daemon] auto-fetch (${reason}) stdout:\n${stdout.trim()}`);
+        }
+        if (stderr && stderr.trim()) {
+          console.warn(`[daemon] auto-fetch (${reason}) stderr:\n${stderr.trim()}`);
+        }
+        if (error) {
+          console.warn(`[daemon] auto-fetch (${reason}) failed: ${error.message}`);
+          resolvePromise(false);
+          return;
+        }
+        console.log(`[daemon] auto-fetch (${reason}) completed.`);
+        resolvePromise(true);
+      }
+    );
+  });
+}
+
+async function maybeRunScheduledAutoFetch(now = new Date()) {
+  if (!cfg.autoFetchFiles) return;
+  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const today = todayYmdCompact(now);
+  if (hhmm !== cfg.autoFetchTime) return;
+  if (lastAutoFetchRunYmd === today) return;
+  lastAutoFetchRunYmd = today;
+  const ok = await runDailyFileFetch('04:05 schedule');
+  if (ok) {
+    try {
+      reloadAllDataAndResetLive('post-fetch');
+    } catch (e) {
+      console.warn(`[daemon] post-fetch reload failed: ${e.message}`);
+    }
+  }
+}
 
 function reloadReferenceData() {
   timetablePath = pickTodaysTimetable();
@@ -261,7 +312,25 @@ function reloadReferenceData() {
   loadedDate = todayYmd();
 }
 
-reloadReferenceData();
+function reloadAllDataAndResetLive(reason = 'manual') {
+  console.log(`[daemon] reloading timetable/reference data (${reason}) ...`);
+  reloadReferenceData();
+  liveOverlayByRid.clear();
+  cancelled.clear();
+  delayReason.clear();
+  reverseFormation.clear();
+  formationsByRid.clear();
+  stationMessages.clear();
+  messagesById.clear();
+  associationsByRid.clear();
+  alertsByRid.clear();
+  consistByRid.clear();
+  unitsById.clear();
+  unmatchedConsists.clear();
+  // Flush the now-empty/live-reset caches to disk so an immediate restart
+  // doesn't restore stale data.
+  persistState();
+}
 
 // ---------- live overlay state (keyed by RID, global) ----------------------
 const liveOverlayByRid = new Map();   // rid -> { locs: Map<tpl, {ptd,pta,plat,...}>, latestTs }
@@ -1352,6 +1421,14 @@ async function startPtacConsumer() {
 }
 
 async function start() {
+  if (cfg.autoFetchFiles) {
+    await runDailyFileFetch('startup');
+  } else {
+    console.log('[daemon] auto-fetch disabled (DARWIN_AUTO_FETCH_FILES=false).');
+  }
+
+  reloadReferenceData();
+
   // Restore long-lived caches from the previous run *before* any messages are
   // processed, so live updates can immediately layer on top of yesterday's
   // formations / station messages / associations. Stale-day check happens
@@ -1430,28 +1507,20 @@ async function start() {
     if (t !== loadedDate) {
       console.log(`[daemon] day rollover detected (${loadedDate} → ${t}), reloading reference data ...`);
       try {
-        reloadReferenceData();
-        liveOverlayByRid.clear();
-        cancelled.clear();
-        delayReason.clear();
-        reverseFormation.clear();
-        formationsByRid.clear();
-        stationMessages.clear();
-        messagesById.clear();
-        associationsByRid.clear();
-        alertsByRid.clear();
-        consistByRid.clear();
-        unitsById.clear();
-        unmatchedConsists.clear();
-        // Flush the now-empty caches to disk straight away so an immediate
-        // restart doesn't re-load yesterday's data through the stale-day
-        // guard race window.
-        persistState();
+        reloadAllDataAndResetLive('day rollover');
       } catch (e) {
         console.warn(`[daemon] reload failed (will retry in 5 min): ${e.message}`);
       }
     }
   }, 5 * 60_000);
+
+  // Daily timetable file auto-fetch at configured local time (default 04:05).
+  // Runs once per date while daemon is alive.
+  setInterval(() => {
+    maybeRunScheduledAutoFetch().catch((e) => {
+      console.warn(`[daemon] scheduled auto-fetch failed: ${e.message}`);
+    });
+  }, 60_000);
 }
 
 start().catch((e) => { console.error('[daemon] fatal:', e); process.exit(1); });
