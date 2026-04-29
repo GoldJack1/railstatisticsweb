@@ -24,6 +24,7 @@ import MessageCentreAdminPage from './pages/MessageCentreAdminPage/MessageCentre
 import MessageCentreDashboardPage from './pages/MessageCentreDashboardPage'
 import DarwinDeparturesPage from './pages/DarwinDeparturesPage'
 import ServiceDetailPage from './pages/ServiceDetailPage'
+import UnitLookupPage from './pages/UnitLookupPage'
 import Header from './components/misc/Header/Header'
 import Footer from './components/misc/Footer/Footer'
 import { ProtectedRoute } from './components/firebase'
@@ -50,6 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/messages': 'Message Centre Admin | Rail Statistics',
   '/departures': 'Live Departures | Rail Statistics',
   '/services': 'Service Detail | Rail Statistics',
+  '/units': 'Unit Lookup | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
 }
@@ -96,6 +98,8 @@ const App: React.FC = () => {
                 <Route path="/departures" element={<DarwinDeparturesPage />} />
                 <Route path="/departures/:code" element={<DarwinDeparturesPage />} />
                 <Route path="/services/:rid" element={<ServiceDetailPage />} />
+                <Route path="/units" element={<UnitLookupPage />} />
+                <Route path="/units/:unitId" element={<UnitLookupPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/eula" element={<EulaPage />} />
               </Routes>

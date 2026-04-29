@@ -272,7 +272,7 @@ const DarwinDeparturesPage: React.FC = () => {
                     <TextCard
                       title={buildTitle(row)}
                       description={buildDescription(row)}
-                      state={row.cancelled ? 'redAction' : 'default'}
+                      state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
                       trailingIcon={<StatusBadge row={row} />}
                       onClick={() => navigate(`/services/${encodeURIComponent(row.rid)}`)}
                       ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : 'on time'}`}

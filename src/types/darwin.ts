@@ -82,6 +82,7 @@ export interface DepartureRow {
   loadingPercentage: number | null;
   coachLoading: CoachLoadingValue[] | null;
   reverseFormation: boolean;
+  hasConsist: boolean;
   hasAssociations: boolean;
   hasAlerts: boolean;
 

@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const darwinProxyTarget = process.env.VITE_DARWIN_API_ORIGIN || 'https://api-darwin.railstatistics.co.uk'
 
 /** CORS + MIME for font requests (must live in a plugin — top-level `configureServer` is not applied by Vite). */
 function fontHeadersPlugin() {
@@ -127,7 +128,7 @@ export default defineConfig({
     // /api/darwin/* to wherever the daemon is hosted).
     proxy: {
       '/api/darwin': {
-        target: 'http://localhost:4001',
+        target: darwinProxyTarget,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/darwin/, '/api'),
       },
