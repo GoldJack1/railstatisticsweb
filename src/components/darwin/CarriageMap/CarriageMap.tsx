@@ -348,6 +348,62 @@ function collectPtacStages(consist: ConsistData | null | undefined): PtacStage[]
   // (1 = leading on the left).
   stages.sort((a, b) => (a.startDt || '').localeCompare(b.startDt || ''))
   for (const s of stages) s.units.sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
+
+  // Step 6 — merge consecutive stages that have identical unit configurations.
+  // This handles cases where PTAC publishes allocations with time gaps but
+  // the formation hasn't actually changed (same units in same positions/reversed).
+  let i = 0
+  while (i < stages.length - 1) {
+    const curr = stages[i]
+    const next = stages[i + 1]
+
+    // Build config maps for comparison
+    const currConfig = new Map<string, { position: number | null; reversed: boolean }>()
+    for (const u of curr.units) {
+      if (u.unitId) currConfig.set(u.unitId, { position: u.position, reversed: u.reversed })
+    }
+    const nextConfig = new Map<string, { position: number | null; reversed: boolean }>()
+    for (const u of next.units) {
+      if (u.unitId) nextConfig.set(u.unitId, { position: u.position, reversed: u.reversed })
+    }
+
+    // Check if configurations are identical
+    let configsMatch = currConfig.size === nextConfig.size
+    if (configsMatch) {
+      for (const [id, cfg] of currConfig) {
+        const other = nextConfig.get(id)
+        if (!other || other.position !== cfg.position || other.reversed !== cfg.reversed) {
+          configsMatch = false
+          break
+        }
+      }
+    }
+
+    if (configsMatch) {
+      // Merge: stretch time range to cover both, combine units (deduped later)
+      if ((next.startDt || '') < (curr.startDt || '\uffff')) { curr.startDt = next.startDt; curr.startTpl = next.startTpl }
+      if ((next.endDt   || '') > (curr.endDt   || '')) { curr.endDt = next.endDt; curr.endTpl = next.endTpl }
+      curr.units.push(...next.units)
+      stages.splice(i + 1, 1)
+      // Don't increment i — re-check the new merged stage against its next neighbor
+    } else {
+      i += 1
+    }
+  }
+
+  // Re-dedupe units after merging (in case same unit appeared in both stages)
+  for (const s of stages) {
+    const seen = new Map<string, PtacUnitView>()
+    for (const u of s.units) {
+      if (!u.unitId) continue
+      const existing = seen.get(u.unitId)
+      if (!existing || (u.vehicles.length > existing.vehicles.length)) seen.set(u.unitId, u)
+    }
+    s.units = [...seen.values()]
+    // Re-sort by position after deduping
+    s.units.sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
+  }
+
   return stages
 }
 
@@ -362,11 +418,34 @@ function classifyStageBoundary(prev: PtacStage, next: PtacStage): 'reversal' | '
   const a = new Set(prev.units.map((u) => u.unitId).filter(Boolean) as string[])
   const b = new Set(next.units.map((u) => u.unitId).filter(Boolean) as string[])
   if (a.size === 0 || b.size === 0) return 'swap'
-  // If any unit changed → swap. If all units the same → it's a reversal
-  // (positions / reversed flags flipped but the formation is unchanged).
+  // If any unit changed → swap
   for (const id of a) if (!b.has(id)) return 'swap'
   for (const id of b) if (!a.has(id)) return 'swap'
-  return 'reversal'
+
+  // All units are the same — check if their configuration actually changed.
+  // Build a map of unitId -> (position, reversed) for both stages.
+  const prevConfig = new Map<string, { position: number | null; reversed: boolean }>()
+  for (const u of prev.units) {
+    if (u.unitId) prevConfig.set(u.unitId, { position: u.position, reversed: u.reversed })
+  }
+  const nextConfig = new Map<string, { position: number | null; reversed: boolean }>()
+  for (const u of next.units) {
+    if (u.unitId) nextConfig.set(u.unitId, { position: u.position, reversed: u.reversed })
+  }
+
+  // Check if any unit's position or reversed flag changed
+  let configChanged = false
+  for (const [id, cfg] of prevConfig) {
+    const other = nextConfig.get(id)
+    if (!other || other.position !== cfg.position || other.reversed !== cfg.reversed) {
+      configChanged = true
+      break
+    }
+  }
+
+  // Only call it a reversal if the configuration actually changed.
+  // Same units in same configuration = no meaningful change (treat as swap).
+  return configChanged ? 'reversal' : 'swap'
 }
 
 /**
