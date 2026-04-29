@@ -1,0 +1,18 @@
+[Unit]
+Description=Rail Statistics Darwin daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=railstats
+Group=railstats
+WorkingDirectory=/opt/railstats
+EnvironmentFile=/etc/darwin-daemon.env
+ExecStart=/usr/bin/npm --prefix darwin-local-test run daemon
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

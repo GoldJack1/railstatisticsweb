@@ -1,0 +1,2 @@
+# Daily timetable fetch at 04:05 local time
+5 4 * * * cd /opt/railstats && /usr/bin/env npm --prefix darwin-local-test run fetch:daily-files >> /var/log/darwin-fetch.log 2>&1

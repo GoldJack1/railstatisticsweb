@@ -1,0 +1,11 @@
+api-darwin.railstatistics.co.uk {
+  encode zstd gzip
+
+  reverse_proxy 127.0.0.1:4001
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+}

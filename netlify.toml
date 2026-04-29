@@ -32,6 +32,11 @@
   to = "/.netlify/functions/nominatim-proxy"
   status = 200
 
+[[redirects]]
+  from = "/api/darwin/*"
+  to = "https://api-darwin.railstatistics.co.uk/api/:splat"
+  status = 200
+
 # Redirect rules for SPA (Single Page Application) behavior
 [[redirects]]
   from = "/*"
