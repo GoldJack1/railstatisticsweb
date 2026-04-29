@@ -335,6 +335,7 @@ with the most services that day and lists the others in `alternates`.
 | `HEARTBEAT_SEC`          | `60`                          | stats log interval                                    |
 | `DARWIN_AUTO_FETCH_FILES`| `true`                        | auto-fetch daily `v8` + `ref_v99` files while daemon runs |
 | `DARWIN_AUTO_FETCH_TIME` | `04:05`                       | local HH:MM time to run auto-fetch once per day       |
+| `DARWIN_STATIONS_REF_XML`| `darwin-local-test/StationsRefData_v1.2.xml` | optional extra TIPLOC→name fallback for passing points |
 
 #### Smoke-test from a terminal
 

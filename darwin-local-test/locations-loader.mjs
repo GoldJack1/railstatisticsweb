@@ -18,6 +18,9 @@ import { pickTodaysRefFile } from './reasons-loader.mjs';
 const LOC_RE = /<LocationRef\s+([^>]*?)\/>/g;
 const TOC_RE = /<TocRef\s+([^>]*?)\/>/g;
 const ATTR_RE = /(\w+)="([^"]*)"/g;
+const STATION_BLOCK_RE = /<Station>([\s\S]*?)<\/Station>/g;
+const STATION_NAME_RE = /<Name>([\s\S]*?)<\/Name>/;
+const STATION_TIPLOC_RE = /<Tiploc>([\s\S]*?)<\/Tiploc>/;
 
 function parseAttrs(s) {
   const out = {};
@@ -60,6 +63,29 @@ export function loadLocationsFromFile(filePath) {
   return { locations, tocs };
 }
 
+/**
+ * Parse a non-Darwin station reference XML (e.g. StationsRefData_v1.2.xml)
+ * and build a TIPLOC -> friendly name map for fallback display.
+ */
+export function loadSupplementalNamesFromFile(filePath) {
+  const xml = readFileSync(filePath, 'utf8');
+  const names = new Map();
+  let m;
+  STATION_BLOCK_RE.lastIndex = 0;
+  while ((m = STATION_BLOCK_RE.exec(xml))) {
+    const block = m[1];
+    const nameMatch = STATION_NAME_RE.exec(block);
+    const tplMatch = STATION_TIPLOC_RE.exec(block);
+    if (!nameMatch || !tplMatch) continue;
+    const tpl = String(tplMatch[1] || '').trim().toUpperCase();
+    const name = String(nameMatch[1] || '').trim().replace(/&amp;/g, '&');
+    if (!tpl || !name) continue;
+    names.set(tpl, name);
+  }
+  console.log(`[supplemental] ${filePath.split('/').pop()}: names=${names.size}`);
+  return names;
+}
+
 /** Auto-pick today's ref file (or the latest any-day fallback). */
 export function loadTodaysLocations() {
   const p = pickTodaysRefFile();
@@ -71,12 +97,13 @@ export function loadTodaysLocations() {
 }
 
 /** Friendly display helpers. */
-export function makeResolvers({ locations, tocs }) {
+export function makeResolvers({ locations, tocs, supplementalNames = new Map() }) {
   return {
     tiplocToName: (tpl) => {
       if (!tpl) return null;
-      const e = locations.get(tpl.toUpperCase());
-      return e?.name || tpl;
+      const key = tpl.toUpperCase();
+      const e = locations.get(key);
+      return e?.name || supplementalNames.get(key) || null;
     },
     tiplocToCrs: (tpl) => {
       if (!tpl) return null;

@@ -67,20 +67,30 @@ export function pickTodaysRefFile() {
       all.push({ path: resolve(dir, f), ver });
     }
   }
-  if (all.length === 0) {
-    // Fall back to ANY ref file in either folder — reasons codes rarely change.
-    for (const dir of dirs) {
-      let files = []; try { files = readdirSync(dir); } catch { continue; }
-      for (const f of files) {
-        if (!f.includes('_ref_') || !f.endsWith('.xml.gz')) continue;
-        const ver = Number(f.match(/_v(\d+)\.xml\.gz$/)?.[1] || 0);
-        all.push({ path: resolve(dir, f), ver });
-      }
+
+  // Prefer today's ref_v99 explicitly when present.
+  const todayV99 = all.find((x) => x.ver === 99);
+  if (todayV99) return todayV99.path;
+  if (all.length > 0) {
+    all.sort((a, b) => b.ver - a.ver);
+    return all[0].path;
+  }
+
+  // Fall back to ANY ref file in either folder — still prefer v99 first.
+  const anyDay = [];
+  for (const dir of dirs) {
+    let files = []; try { files = readdirSync(dir); } catch { continue; }
+    for (const f of files) {
+      if (!f.includes('_ref_') || !f.endsWith('.xml.gz')) continue;
+      const ver = Number(f.match(/_v(\d+)\.xml\.gz$/)?.[1] || 0);
+      anyDay.push({ path: resolve(dir, f), ver });
     }
   }
-  if (all.length === 0) return null;
-  all.sort((a, b) => b.ver - a.ver);
-  return all[0].path;
+  if (anyDay.length === 0) return null;
+  const anyV99 = anyDay.find((x) => x.ver === 99);
+  if (anyV99) return anyV99.path;
+  anyDay.sort((a, b) => b.ver - a.ver);
+  return anyDay[0].path;
 }
 
 /**

@@ -44,7 +44,7 @@ import dotenv from 'dotenv';
 import { Kafka, logLevel } from 'kafkajs';
 import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
 import { loadTodaysReasons } from './reasons-loader.mjs';
-import { loadTodaysLocations, makeResolvers } from './locations-loader.mjs';
+import { loadTodaysLocations, loadSupplementalNamesFromFile, makeResolvers } from './locations-loader.mjs';
 import { parseConsistMessage, consistJoinKey, KNOWN_PTAC_TOC } from './consist-parser.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -222,6 +222,7 @@ function bestDepartureFromLiveLoc(loc) {
 let byRid, byTiploc;                  // from timetable
 let lateReasons, cancelReasons;       // from ref file
 let locations, tocs, resolve_;        // from ref file
+let supplementalStationNames;         // from optional non-Darwin station reference file
 let crsToTiplocs;                     // CRS -> Array<TIPLOC>
 let timetablePath, loadedDate;
 // PTAC join key index built from byRid each reload.
@@ -278,7 +279,19 @@ function reloadReferenceData() {
   ({ byRid, byTiploc } = loadAllJourneysIndexedByTiploc(timetablePath));
   ({ lateReasons, cancelReasons } = loadTodaysReasons());
   ({ locations, tocs } = loadTodaysLocations());
-  resolve_ = makeResolvers({ locations, tocs });
+  const supplementalPath = process.env.DARWIN_STATIONS_REF_XML
+    || resolve(__dirname, 'StationsRefData_v1.2.xml');
+  supplementalStationNames = new Map();
+  try {
+    if (existsSync(supplementalPath)) {
+      supplementalStationNames = loadSupplementalNamesFromFile(supplementalPath);
+    } else {
+      console.log(`[supplemental] file not found, skipping: ${supplementalPath}`);
+    }
+  } catch (e) {
+    console.warn(`[supplemental] failed to load ${supplementalPath}: ${e.message}`);
+  }
+  resolve_ = makeResolvers({ locations, tocs, supplementalNames: supplementalStationNames });
 
   crsToTiplocs = new Map();
   for (const [tpl, info] of locations) {
@@ -1099,12 +1112,25 @@ function buildServiceDetail(rid) {
   const cancelInfo = cancelled.get(rid) || null;
   const delayInfo  = delayReason.get(rid) || null;
 
-  const stops = j.slots.map((s) => {
+  function resolveStopName(tpl, crs) {
+    const direct = resolve_.tiplocToName(tpl);
+    if (direct && direct.toUpperCase() !== tpl.toUpperCase()) return direct;
+    if (!crs) return null;
+    const candidates = crsToTiplocs.get(String(crs).toUpperCase()) || [];
+    for (const candidateTpl of candidates) {
+      const n = resolve_.tiplocToName(candidateTpl);
+      if (n && n.toUpperCase() !== candidateTpl.toUpperCase()) return n;
+    }
+    return null;
+  }
+
+  const baseStops = j.slots.map((s) => {
     const live = ov?.locs?.get(s.tpl) || null;
+    const crs = resolve_.tiplocToCrs(s.tpl);
     return {
       tpl: s.tpl,
-      name: resolve_.tiplocToName(s.tpl),
-      crs:  resolve_.tiplocToCrs(s.tpl),
+      name: resolveStopName(s.tpl, crs),
+      crs,
       slot: s.slot,                          // OR / IP / PP / DT / OPxx
       pta:  s.pta,
       ptd:  s.ptd,
@@ -1124,6 +1150,8 @@ function buildServiceDetail(rid) {
       coachLoading: live?.coachLoading ?? null,
     };
   });
+
+  const stops = baseStops;
 
   // A "partial cancellation" is when the whole service isn't cancelled but
   // one or more individual stops are. The UI uses this to show a banner
