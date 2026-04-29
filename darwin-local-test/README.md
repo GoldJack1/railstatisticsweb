@@ -235,10 +235,61 @@ at rest, ~430 MB while replaying, ~420 MB steady-state.
 
 | method | path                              | purpose                                                |
 |--------|-----------------------------------|--------------------------------------------------------|
-| GET    | `/api/health`                     | daemon stats: journeys loaded, kafka, memory           |
+| GET    | `/api/health`                     | daemon stats: journeys loaded, kafka, overlay sizes    |
 | GET    | `/api/station/:code`              | resolve CRS or TIPLOC → `{ tiploc, name, crs, matchedAs }` |
-| GET    | `/api/departures/:code?hours=N`   | live departure board for any station, default 3 h      |
-| GET    | `/api/service/:rid`               | full calling pattern + live state for one service      |
+| GET    | `/api/departures/:code?hours=N`   | live departure board (rows + NRCC station messages)    |
+| GET    | `/api/messages/:crs`              | currently-known NRCC station messages for a CRS        |
+| GET    | `/api/service/:rid`               | full calling pattern + formation + associations + alerts + **consist** |
+| GET    | `/api/unit/:resourceGroupId`      | physical unit detail + today's diagram (PTAC)          |
+
+### Network Rail PTAC (Passenger Train Allocation and Consist) — second feed
+
+The daemon also runs a second Kafka consumer for Network Rail's
+`prod-1033-Passenger-Train-Allocation-and-Consist-1_0` topic when
+`PTAC_USERNAME`, `PTAC_PASSWORD` and `PTAC_GROUP_ID` are set in `.env`.
+This is an XML feed (parsed by `consist-parser.mjs`) that gives us the
+*physical reality* view of every passenger train: actual unit numbers,
+fleet/class identification, individual vehicle IDs, seat counts, max
+speed, brake type, weight, length, livery, registered category, **and
+open defects per coach**.
+
+PTAC messages are joined to Darwin RIDs via the 4-tuple
+`(StartDate, OperationalTrainNumber, TrainOriginLocation, TrainOriginDateTime)`
+— ~99 % match rate observed. Unmatched messages are stashed and retried
+when the timetable reloads.
+
+**Participating operators in this contract** (refreshed daily as we observe joins):
+SE (Southeastern), XR (Elizabeth Line), SW (South Western), NT (Northern),
+TP (TransPennine Express), c2c, GTR (Thameslink/Southern/GN), Greater
+Anglia, Northern, Heathrow Express, EMR, and more — ~21 distinct TOC
+codes seen, ~100+ fleet classes covered.
+
+Service-detail responses now include a `consist` field with the full
+allocation tree. Unit-tracking is surfaced via `/api/unit/:id`, e.g.
+
+```bash
+curl -s http://localhost:4001/api/unit/158756 | jq '.fleetId, .services'
+```
+
+### Beyond schedules: extra data exposed
+
+In addition to live arrival/departure forecasts and platforms, the daemon
+consumes and exposes the following Push Port elements:
+
+| Element              | Where it surfaces |
+|----------------------|-------------------|
+| `serviceLoading`     | `loadingPercentage` (0–100) on each board row and service-detail stop |
+| `formationLoading`   | `coachLoading[]` (1–10 enum per coach) on each row and stop |
+| `scheduleFormations` | `formation` ({ fid, coaches[] }) on service detail |
+| `association`        | `associations[]` on service detail (joins / divides / next-portion) |
+| `OW` (NRCC)          | `messages[]` on each board response, also via `/api/messages/:crs` |
+| `trainAlert`         | `alerts[]` on service detail |
+| `TS.isReverseFormation` | `reverseFormation: true` on service detail |
+| Per-stop `cancelReason` | `cancelReasonAtStop` on each stop in service detail |
+
+`/api/health` reports a counter for each overlay store (`live`, `cancelled`,
+`formations`, `messages`, `ridsWithAssociations`, etc.) so you can verify
+data is actually flowing without grepping the heartbeat log.
 
 `code` accepts either CRS (`LDS`) or TIPLOC (`LEEDS`). Where a CRS maps to
 multiple TIPLOCs (e.g. multi-platform stations) the daemon picks the one
@@ -585,8 +636,8 @@ choose between later:
 
 Production deploy contract:
 - Daemon exposes `/api/health`, `/api/station/:code`, `/api/departures/:code`,
-  `/api/service/:rid` on whatever port the host gives it (`PORT` env var
-  convention; daemon already accepts `DAEMON_PORT`).
+  `/api/messages/:crs`, `/api/service/:rid` on whatever port the host gives
+  it (`PORT` env var convention; daemon already accepts `DAEMON_PORT`).
 - Website's Netlify config gets a redirect from `/api/darwin/*` to that
   public URL — no React changes needed because the browser already uses
   the relative `/api/darwin/...` path in dev.

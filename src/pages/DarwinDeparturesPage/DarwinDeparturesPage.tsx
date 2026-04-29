@@ -6,6 +6,7 @@ import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton, BUTTabButton } from '../../components/buttons'
 import { TextCard } from '../../components/cards'
 import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
+import { StationMessages } from '../../components/darwin/StationMessages'
 import './DarwinDeparturesPage.css'
 
 const DEFAULT_CODE = 'LDS'
@@ -78,10 +79,12 @@ function buildDescription(row: DepartureRow): string {
 
   if (row.cancelled && row.cancellation) {
     // Cancelled: lead with the reason — that's the most useful info.
-    return `Cancelled — ${row.cancellation.reason}`
+    const code = row.cancellation.code ? ` (code ${row.cancellation.code})` : ''
+    return `Cancelled — ${row.cancellation.reason}${code}`
   }
   if (!row.cancelled && row.delayReason) {
-    return `Delay reason: ${row.delayReason.reason}`
+    const code = row.delayReason.code ? ` (code ${row.delayReason.code})` : ''
+    return `Delay reason: ${row.delayReason.reason}${code}`
   }
   return [platLabel, toc, headcode, fromOrigin].filter(Boolean).join(' · ')
 }
@@ -254,6 +257,10 @@ const DarwinDeparturesPage: React.FC = () => {
         {/* ----- Board ----- */}
         {data && (
           <>
+            {/* NRCC operational warnings affecting this station, severity-sorted.
+             * Renders nothing when no messages are in flight. */}
+            <StationMessages messages={data.messages || []} />
+
             {data.departures.length === 0 ? (
               <section className="dep-state-card">
                 <p>No departures in the next {data.windowHours} hour{data.windowHours === 1 ? '' : 's'}.</p>

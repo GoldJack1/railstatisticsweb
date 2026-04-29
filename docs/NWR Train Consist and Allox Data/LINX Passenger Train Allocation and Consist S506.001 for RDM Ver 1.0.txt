@@ -1,0 +1,1694 @@
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 1 of 34
+Document Control
+Name: LINX Passenger Train Allocation and Consist for RDM-S506_001 Ver
+1.0.docx
+File location: Rail Data Marketplace
+Document Title: LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Version No: 1.0
+Security Classification: OFFICIAL
+Status: Complete
+Date created: Thursday, 23 September 2021
+Date last amended: Wednesday, 27 August 2025
+This document should not be circulated outside your organisation. Instead, please link directly to the data product
+on the Rail Data Marketplace. This will ensure that the latest version is always available, as subsequent versions
+may contain important changes or advice regarding interpretation or usage of this flow.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+IMPORTANT NOTE: - the roadmaps and standards used to produce this document will change
+over time.
+Table of Contents
+0. DOCUMENT CONTROL AND ADMINISTRATION .................................................................. 3
+0.1. DOCUMENT .............................................................................................................................. 3
+0.2. GLOSSARY............................................................................................................................... 4
+1. INTRODUCTION ........................................................................................................................ 8
+1.1. PURPOSE ................................................................................................................................ 8
+1.2. SCOPE .................................................................................................................................... 8
+1.3. RELATED DOCUMENTS ............................................................................................................. 8
+1.4. SAFETY ASSESSMENT .............................................................................................................. 8
+1.5. RAILWAY SYSTEMS CODE ......................................................................................................... 9
+2. OVERVIEW .............................................................................................................................. 11
+2.1. INTRODUCTION: THE NEED FOR THE INTERFACES ..................................................................... 11
+2.2. DESCRIPTION ......................................................................................................................... 12
+2.3. DESIGN DECISIONS ................................................................................................................ 12
+2.4. RISKS .................................................................................................................................... 12
+2.5. BUSINESS CONTEXT ............................................................................................................... 12
+3. INTERFACE S506.001 PASSENGER TRAIN ALLOCATION AND CONSIST ...................... 13
+3.1. IMPLEMENTATION ................................................................................................................... 14
+3.2. OPERATIONAL CHARACTERISTICS ........................................................................................... 15
+3.3. PHYSICAL DATA ..................................................................................................................... 23
+4. APPENDIX A – LINX REFERENCE DATA SERVICE ............................................................ 25
+5. APPENDIX B – DATA MAPPING ........................................................................................... 27
+6. APPENDIX C – SAMPLE XML ............................................................................................... 32
+6.1. PASSENGER TRAIN CONSIST MESSAGE ........................................................................... 32
+List of Tables
+Table 1: Design Decisions impacting this interface -------------------------------------------------------------------------------------------------------- 12
+Table 2: Interface Risks ----------------------------------------------------------------------------------------------------------------------------------------- 12
+Table 3: Message flows defined within this document ------------------------------------------------------------------------------------------------------ 14
+Table 4: Passenger Train Allocation and Consist message failure scenarios -------------------------------------------------------------------------- 17
+Table 5: Conventional Systems and LINX activity for Passenger Train Allocation and Consist events -------------------------------------------- 22
+Table 6: Consuming System-LINX Passenger Train Allocation and Consist message queue connection activity --------------------------------- 23
+Table 7: LINX Reference Data service ------------------------------------------------------------------------------------------------------------------------ 26
+Table 8: Mapping of Resource Group Elements to Loco/Unit Class ------------------------------------------------------------------------------------- 27
+Table 9: Data Extraction Rules for Passenger Train Allocation and Consist Message --------------------------------------------------------------- 31
+List of Figures
+Figure 1: Simplified message architecture and the scope of this ICD ------------------------------------------------------------------------------------- 8
+Figure 2: Conceptual data flow diagram --------------------------------------------------------------------------------------------------------------------- 12
+Figure 3: Traffic Management: high level processes ------------------------------------------------------------------------------------------------------- 13
+Figure 4: Illustration of Vehicle to Resource Group to Train --------------------------------------------------------------------------------------------- 19
+Figure 5: Simplified Concept of Operation and Triggers for the Passenger Allocation and Consist Message ------------------------------------ 20
+Figure 6: Event Sequence Diagram for the Simplified Concept of Operation generating Passenger Allocation and Consist Messages ------ 21
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 2 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+0. DOCUMENT CONTROL AND ADMINISTRATION
+0.1. DOCUMENT
+This document is based on LINX S006.001 and S506.001 Interface Control Document Template v2.2
+Document Revision Information
+Note: this section is to be used to track the revision history of the ICD as completed and submitted by
+the supplier.
+Release Date Description of Changes
+1.0 10/07/2025 Created to support publication of data on the Rail Data Marketplace
+0.1.1. External References
+ID Name Version Date
+A. B. Network Rail Catalogue of Railway Code Systems, section 5.1.20 “Information for Safe Train Operation” RIS-3436-TOM 13 Issue 1 11/03/2021
+03/12/2016
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 3 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+0.2. GLOSSARY
+Term Description
+Agreed Plan The timetable loaded into a TM System for a given day of operation (usually “today”) prior to the
+first train movement of that plan. Effectively, the un-optimised “start of day” plan prior to the first
+train running and before any conflict resolution or mitigation by the TM Operator. This is built up
+using the Long Term Plan (LTP) and Short Term Plan (STP) base schedules and any STP
+variations or cancellations, plus any Very Short Term Plan (VSTP) additional schedules, VSTP
+variations to, and/or VSTP cancellations of, existing schedules applicable to the day of operation.
+The Agreed Plan is the baseline for any calculation by the TM System of performance variation i.e.
+lateness or earliness of trains as they run throughout the day. It is the TM System equivalent to the
+Applicable Timetable plus freight and other services not subject to Applicable Timetable protocol,
+i.e. the day plan used in all other systems for the same day of operation.
+See also: Current Plan; Forecast Plan.
+Agreed Location In TAF/TAP terms, a “contractually agreed location”. For the purposes of the message described in
+this document this is a location (TIPLOC) which forms part of a train’s path or schedule as originally
+published in CIF or VSTP. Unless expressly specified to the contrary elsewhere in this ICD, agreed
+locations must always be included in messages published by a TM System (or equivalent).
+Applicable Timetable The timetable that is agreed by Network Rail and Train Operators as at 2200 on the day prior to
+train operation, in accordance with the Passenger Performance Regime i.e. Schedule 8 of the
+Passenger Track Access Contract.
+In practice, the Applicable Timetable is all Schedule 8 services published by ITPS and distributed
+by CIF plus any VSTP schedule amendments or additions requested by Train Operators and
+agreed by Network Rail, at/by 2200 the day prior. Any VSTP schedules meeting these criteria must
+have the Applicable Timetable flag set to “Y” to ensure the train(s) concerned are included in the
+Schedule 8 Performance Regime and PPM count for the day.
+See also: Non-Applicable Timetable.
+Association Defines the relationship between two train schedules where those trains split or join or where one
+train simply forms the next, though the association relationship can be many to 1, or 1 to many.
+Represented by AA records in CIF data, associations have several attributes, including (but not
+limited to):
+• Category
+• JJ (Join) (a through train is attached-to by the joining train/s)
+• VV (Divide) (a through train is detached-from by the dividing train/s)
+• NP (Next/Previous) (all inward train/s terminate and the outward train/s originate/s)
+• Date Indicator (Same Day, Over midnight next day, Over midnight previous day), and
+• Type (Public or Operating)
+• Overlay Indicator (for CIF “STP overlay user” only)
+Usually the Type is set to “Operating”, to describe the planned use of physical rolling stock with no
+relevance to retail / ticketing considerations e.g. the incoming stock from train service A will next
+work train service B (though there are multiple scenarios in practice). If these trains are visible in
+retail or customer-facing systems, they will be shown as separate trains.
+Where two or more passenger-carrying trains are coupled together over common sections of their
+respective routes (i.e. portion working) the journey must be presented as continuous to the
+passenger with no change of train required (despite any physical joining or splitting of rolling-stock
+that takes place enroute). In these cases, the Type attribute is more commonly set to Public (or
+Passenger).
+Functionally, for conflict detection, Traffic Management systems should treat the Public association
+type as if it is an Operating type. However, customer-facing and other retail systems will behave
+differently.
+CIF Common Interface File
+CIS Customer Information System
+Common Operational
+Picture
+A shared representation of widespread and general knowledge relating to an operation, often
+enabled by a single identical display of relevant information shared by more than one command
+and control system. In the railway context, Common Operational Picture denotes the integration of
+data across organisational and technology boundaries such that different actors responsible for
+delivery of the train service in real time share the same core data e.g. crew and stock data is
+available to TM System users, and Current Plan updates are available to Resource Management
+system users.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 4 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Term Description
+Conflict The interaction between (typically) two trains where, because of early and/or late running by one or
+both, they are predicted to require the same piece of infrastructure (such as a junction or platform)
+at the same time. Conflicts will also arise where trains planned to use a specific piece of
+infrastructure can no longer do so because of a line blockage.
+Conflicts are identified visually to the TM Operator and most require positive intervention to resolve
+or mitigate their effect on the train service.
+Constraint A limitation on the planned movement of a train or trains, such as a temporary speed restriction,
+blockage of a running line (infrastructure constraint) or a train operating with reduced power
+(resource constraint) which results in the trains affected no longer being able to achieve the plan
+defined for them.
+Crew Association Defines the relationship between two or more trains where crew working a train or travelling
+passenger on it are critical to the working of the next train(s) in the association e.g. the incoming
+crew from train service A will next work train service B.
+Where crew associations are available Traffic Management systems should use the impact of late
+or early running of trains and/or reliability events to highlight consequential impact on next
+workings.
+CS Conventional Systems
+Current Plan The plan (timetable) within a TM System at current time (“now”) showing the effects of actual train
+running on the Agreed Plan since the start of day and further influenced by Reliability Events,
+plan/re-plan decisions and any future schedule amendments or adjustments made to the original
+Agreed Plan intent. Such changes can be made directly in the TM System or may be received from
+Conventional Systems. Changes to the Current Plan may also be made as a result of any
+automatic conflict resolution present within the TM System.
+The Current Plan represents the state of the railway assuming no further intervention or change,
+from current time to the end of the day of operation. Technically the Current Plan comprises two
+portions:
+1. Committed – from current time up to the point of the first unresolved conflict in the plan
+2. Forecast – from the point of the first unresolved conflict in the plan to the end of the day of
+operation.
+See also: Agreed Plan; Forecast Plan.
+Dispatching Area See Operator Dispatching Area and TM Dispatching Area
+Diversion (of a train) A train whose path is altered so as physically run via a different part of the rail network to that
+originally planned (denoted by geographically distinct timing points to those on the original path)
+e.g. a train planned to run from Rugby to Stafford via Nuneaton is diverted via Coventry instead.
+See also: Rerouting
+External Visibility Area Locations outside the TM Dispatching Area at which trains are monitored by this TM system.
+Forecast Plan The plan (timetable) within a TM System forward from the first unresolved conflict to the end of the
+plan date. It shows the predicted effect of current train running and any Availability Constraints
+affecting either train services or infrastructure (e.g. speed restrictions, blockages of the line,
+underpowered traction etc.). The Forecast Plan allows the TM Operator to see and resolve future
+conflicts or mitigate their effects, the results of which update the Current Plan.
+See also: Agreed Plan; Current Plan.
+Inbound Operating
+Location
+The last location at which a Traffic Management system (or other Consuming System) is dependent
+on an external system for information relating to trains entering its area of control (the TM
+Dispatching Area in a Traffic Management system)
+Interpolated Location A location which is not a “contractually agreed location” (in TAF/TAP terms) and does not appear
+on the path or schedule for a train as published in CIF or VSTP, but has been added to the path of
+that train by a TM System in order to render that path with the greatest degree of geographic
+routing detail. See also Operating Point. May be included in messages published by a TM System
+(or equivalent) only if the location has a valid associated TIPLOC in the CORPUS National
+Locations Codes data applicable at the time, and only if expressly permitted in this ICD.
+ITPS Integrated Train Planning System
+LAN Local Area Network
+LINX Layered INformation eXchange
+LINX EI LINX External Interfaces
+LTP Long Term Planning
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 5 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Term Description
+Non-Applicable
+Timetable
+Additions to the timetable agreed after 2200 the day prior to the day of operation are excluded from
+the Applicable Timetable. Such changes must be created with the Applicable Timetable flag on the
+relevant schedule(s) set to “N” to exclude the train(s) affected from the Schedule 8 Performance
+Regime and the PPM count for the day.
+Any changes made after 2200, on the day prior to operation, to previously agreed Applicable
+Timetable services, such as cancellations and diversions are considered reliability events: the
+schedules remain Applicable Timetable.
+Freight services, and those services which are not part of Schedule 8 of the Passenger Track
+Access Contract do not form part of the Applicable Timetable.
+See also: Applicable Timetable.
+ODST Operations Decision Support Tool: a TM system that is not integrated with its geographically-
+related signalling control system (previously known as TM Isolated)
+Off-route A train which is subject to diversion (see definition) is described as off-route in TRUST, and any
+movement reports received on the diversionary route will be recorded as off-route reports. Note that
+TRUST does not distinguish between a location which is not on the train’s planned route and a
+location which is on the planned route but does not form part of the train’s schedule.
+Operating Point A location defined within the TM system for train planning and monitoring purposes, which includes
+all nationally defined TIPLOCs and any additional locations required by the TM system to ensure
+train paths can be fully rendered.
+Operator Dispatching
+Area
+Where, within a TM Dispatching Area, individual TM Operators may be responsible for smaller
+geographic areas of control, each of these shall be known as an Operator Dispatching Area. An
+operator may be responsible for more than one Operator Dispatching Area, depending on
+requirements.
+Outbound Operating
+Location
+The last location at which a Traffic Management system (or other originating system) is responsible
+for generating information to external systems for trains leaving its area of control (the TM
+Dispatching Area in a Traffic Management system)
+Physical Boundary
+Point
+The first and/or last Operating Point at which train running can be controlled by the TM Operator.
+Reliability Event An event which leads to a train not operating as planned, such as any of the following:
+• Train cancelled for its full journey (excluding planned cancellations);
+• Train starts forward of origin or is terminated short of destination on its booked schedule;
+• Train suffers delay or line blockage and a replacement train completes part of the original
+scheduled journey;
+• Train diverted away from booked route;
+• Train runs through a station it is booked to call at but does not stop.
+• Train starts or terminates at a location not on its booked schedule.
+Rerouting (of a train) A train whose path is altered so as to use a different running line to that originally planned between
+the same timing points e.g. a train planned to run from Crewe to Stafford via the Up Fast Line is
+rerouted via the Up Slow Line instead.
+See also: Diversion
+RDM Rail Data Marketplace. The intended central platform for finding and sharing rail-related data for
+which this document has been prepared.
+ROC Rail Operating Centre. A building that houses all signallers, signalling equipment, ancillaries and
+operations staff (Network Rail and Train Operating Company) for a wide geographic area.
+ROC ID A two-numeric code used to identify the ROC from which a LINX message has originated. Original
+expectations were that ROCs would be populated with a single TMS and therefore that a ROC and
+its TMS were synonymous. The probability of multiple TMS instances in a single ROC now exists;
+therefore the ROC ID more properly identifies a ROC + TMS Instance within it. Finally, TMS
+instances are now being deployed in locations that are not officially defined as ROCs e.g. SCCs but
+for consistency a ROC ID is used to identify the location in the same way as is done for an official
+ROC.
+SCC Signalling Control Centre. A building where signalling control of a part of the railway network is
+undertaken, but not one officially defined as a Rail Operating Centre. Where an SCC hosts a TMS,
+that TMS will be allocated a ROC ID for LINX message identification purposes
+See also: ROC, ROC ID
+STANOX STAtion Number (a 5-digit location coding convention used by TOPS)
+STP Short Term Planning
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 6 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Term Description
+TAF/TAP Telematics Application for Freight / Telematics Application for Passenger
+TIPLOC TIming Point LOCation
+TM / TMS Traffic Management / Traffic Management System
+TM Dispatching Area The overall geographic area associated with a Traffic Management system within which one or
+more TM Operators have responsibility for the very short term planning and re-planning of train
+movements either directly (in an Integrated TM solution) or indirectly (in a decision support solution
+or ODST). The TM Dispatching Area may extend beyond the boundaries of associated signalling
+control systems by inclusion of off-network private sidings or customer locations.
+TM Operator A user of the TM System, irrespective of role or role title
+TOPS Total Operations Processing System
+TRUST Train Running System (TOPS)
+TSI Technical Specifications for Interoperability
+TSIA Train Schedule Interface Access
+UTC Coordinated Universal Time
+VSTP Very Short Term Planning
+WAN Wide Area Network
+XML eXtensible Markup Language
+Note: This is a generic glossary and not all terms defined here will appear in this specific document.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 7 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+1. INTRODUCTION
+1.1. PURPOSE
+This document describes the Passenger Train Allocation and Consist Message Interface from LINX to
+the Rail Data Marketplace:
+For the purposes of this ICD the target system (the client system connecting to LINX) referred to in
+this document is known as the Rail Data Marketplace system and is hereafter simply described as the
+“Consuming System”.
+1.2. SCOPE
+This document defines the characteristics of the Passenger Train Allocation and Consist Interface
+between LINX and the Consuming System.
+It does not specify the processing and management of the data which is transferred between these
+systems i.e. the way the data is modified or queried once received by the Consuming System.
+The data transported in this interface is conveyed from LINX to the Consuming System by the
+outbound LINX Flow ID S506 from LINX External Interface and this document therefore relates solely
+to that pair of systems and flow. The relationship between Originating and Consuming Systems, LINX
+and the flows that connect them in respect of this ICD is shown below.
+Publisher Subscriber
+LINX
+IMQ
+(IBM Websphere
+MQ)
+CS Gateway
+IIB
+(IBM Integration
+Broker)
+(IBM MQ)
+ROC Gateway
+Originating
+System
+(Conventional
+System)
+Consuming
+System
+(ROC Traffic Mgt
+System)
+Outbound
+Queue
+S006
+Exception
+Handling
+MQ Client
+P006
+MQ Client
+Inbound
+Queue
+Inbound
+Queue
+Outbound
+Queue
+LINX message
+Message
+validation
+validation
+(schema),
+(schema),
+transformation
+transformation
+and internal
+and internal
+processes
+processes
+Consuming
+System
+(AWS Traffic Mgt
+System)
+(IBM MQ)
+AWS ROC
+Gateway
+Outbound
+Queue
+S006
+or
+S506
+MQ Client
+Inbound
+Queue
+Key
+Inbound
+Queue
+Consuming
+System
+(Conventional
+System)
+This document
+Other documents
+Outbound
+Queue
+S006
+Or
+S506
+MQ Client
+Drwg: S006 & S506 simplified architecture diagram [TM LINX Subscriber] Ver. 2.1
+Figure 1: Simplified message architecture and the scope of this ICD
+1.3. RELATED DOCUMENTS
+This document is an initial release to support the publication of this LINX Passenger Train Allocation
+and Consist feed. We note additional material is available and will be release subject to appropriate
+review and agreement.
+1.4. SAFETY ASSESSMENT
+There are no known safety implications for LINX. The LINX Safety Implications Statement in the LINX
+Catalogue states that:
+“LINX is a layered information exchange system and is designed as an information message transport
+system for information transfer between NR internal and other external systems.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 8 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+It is the responsibility of any receiving system to perform any safety validations because LINX does
+not validate the veracity or safety aspects of the data transported.”
+1.5. RAILWAY SYSTEMS CODE
+LINX is a Railway Systems Code system (Ref A).
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 9 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+This page intentionally blank.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 10 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+2. OVERVIEW
+2.1. INTRODUCTION: THE NEED FOR THE INTERFACES
+LINX Flow ID S506 Passenger Train Allocation and Consist is the LINX message by which confirmation
+(that a train, detailed in the message, has had rolling stock assigned to it) is provided to a Consuming
+System. Where references are made to LINX Flow ID S006 please read these as S506.
+Within Network Rail operation typical consuming Systems may be one of the following. These are
+provided as examples and not suggested or supported for us by the RDM:
+2.1.1. Traffic Management Systems
+A key feature of a Traffic Management system is the Plan / Replan component. This allows the TM
+operator to optimise the timetable for a given date – usually the current day – by removing or minimising
+conflicts present in the plan from upstream processes. In addition, the TM operator can continually
+optimise the plan in light of actual train performance in real time throughout the day.
+For this optimisation to be wholly effective, the TM system will have awareness of the physical
+composition of each train i.e. what vehicles are assigned to work what trains such that
+• Trains with no vehicles currently assigned can be highlighted as possible constraints (since the
+TM System operator cannot be certain that the train is resourced properly and, as a result, the
+operator of the train itself is not compliant with Railway Group Standard “Information for Safe
+Train Operation”)
+• Trains with vehicles of types that differ to what was planned in the timetable can be identified
+(since the actual performance or operational capabilities of the train may differ from expected)
+• Trains with vehicles carrying defects or operational restrictions can be highlighted or identified
+(since the conditions may impact the operational use of the train or its performance)
+• The length of trains can be determined, based on the number and type of vehicles assigned
+(since the length may affect the operational use of the train)
+Where these factors are not available to the TM System the operator is dependent on external sources
+of information and manual activity to establish details that may impact the delivery of the train service.
+If the TM system does not subscribe to this message, or if the interface fails, the TM Plan / Replan
+component will have a sub-optimal and incomplete view of the train service in real time, leading to
+degraded decision-making and increased risk to delivery of performance targets.
+2.1.2. Signalling Control Systems
+Conventional Signalling Control Systems which incorporate an Automatic (or Assisted) Route Setting
+capability but do not possess the more extensive capabilities of a TM System may benefit from
+consuming this message since the information conveyed by the message may provide easier access
+to decision-making by the System’s users. Examples of this would include routing of trains based on
+traction capability, and berthing of trains based on length.
+2.1.3. Other Interested Systems
+Other systems may have a requirement to acquire Passenger Train Allocation and Consist messages
+from LINX for similar but not necessarily identical business purposes. Such systems might include
+customer information systems or incident management systems. It is with this in mind that this
+document has been prepared.
+In every case, acquiring the Passenger Train Allocation and Consist messages is fundamental to the
+target system’s ability to operate with a complete view of the intended train service and its
+performance in near real time. The message is integral to developing a Common Operational Picture
+between the Originating and Consuming Systems.
+2.1.4. This ICD
+For clarity, the Consuming System referred to in this ICD shall be regarded as an Other Interested
+System.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 11 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+2.2. DESCRIPTION
+The LINX service provides approximately 40 individual file or message flows for the exchange of data
+between systems in either direction, typically between Conventional Systems and Traffic Management
+Systems. Whilst the majority of these are message flows, some are files of reference data.
+These messages are grouped into functional “services”, covering Timetable, Crew, Train, Asset,
+Possession and Reference Data. Although defined in the LINX Catalogue, not all services are available.
+Each service and message within is described in detail, with its associated concept of operation and
+XML schema but this not in scope of this initial release..
+The Passenger Train Allocation and Consist message is a member of the LINX Train service.
+For clarity and simplicity, each individual LINX Flow is described in its own service document which
+defines the interface relating to the transfer of Passenger Train Allocation and Consist messages from
+LINX to the Consuming System. The internal LINX flow intergraion is as below but will vary based on
+the technology used when integrating via the Rail Data Marketplace:
+Passenger Train
+Allocation & Consist
+S006
+WMQ WMQ
+Consuming System
+Consuming System
+Passenger Train
+Allocation & Consist
+S506
+WMQ WMQ
+LINX
+Messages acquired by Message Queue Get and initiated by this
+Consuming System
+Drwg: Conceptual data flow diagram Ver. 1.1
+Figure 2: Conceptual data flow diagram
+2.3. DESIGN DECISIONS
+The following design decisions have influenced the interface described in this ICD.
+ID Design Decision Approved By Impact
+1 Use of MQRFH2 Header LINX Design Board MQRFH2 enables consumers to
+identify the TOC to which the resource
+in the message belongs, without having
+to open the full xml.
+Table 1: Design Decisions impacting this interfaceRISKS
+ID Risk Mitigation Source
+Table 2: Interface Risks
+2.5. BUSINESS CONTEXT
+Traffic Management comprises six principal business processes which are carried out by operators
+working in Rail Operating Centres using the technology provided by a Traffic Management system or,
+in some cases, alternative technical solutions that possess some though not all of the key features of a
+TM system.
+The six processes are:
+• TM1 Manage and Monitor Train Movements
+• TM2 Manage Disruptive Event
+• TM3 Re-plan and Recover Service
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 12 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Service Recovery
+Optioneering and
+selection
+TM2
+Manage Disruptive
+Event
+Emergency
+Access
+Incident
+Communications
+Possession
+Overrun
+Service Recovery
+Intent
+• TM4 Manage Infrastructure Access
+• TM5 Manage Information Distribution
+• TM6 Prepare Agreed Plan
+The relationship between the individual processes, their typical inputs/influences and outputs/outcomes
+is shown in Figure 3 below.
+The TM Passenger Train Allocation and Consist message described in this ICD is a component of the
+TM1 Manage and Monitor Train Movements process.
+Inputs and Influences Outputs and Outcomes
+Traffic Management – High Level Processes
+Stakeholders
+(TOCs, Emergency
+Svcs etc.)
+Incidents
+VSTP
+(Service Recovery)
+Freight Consists
+(TOPS)
+Rolling Stock
+Allocations
+Crew Allocations
+Train Movement
+Reports
+Reliability Events
+Train-initiated events
+e.g. C-DAS
+Timetable
+(LTP/STP via CIF)
+VSTP
+(Operator Requests)
+Weekly/Periodic
+Operating Notices
+Train
+performance
+variation from plan
+(earliness /
+lateness)
+TM3
+Re-Plan and
+Recover Service
+(Current Plan - Forecast)
+Replanning
+Incl. VSTP
+Ad-hoc
+Req ts
+TM1
+Manage and
+Monitor Train
+Movements
+(Current Plan - Committed)
+Plan
+Updates and Train
+Journey
+Modifications
+TM4
+Manage
+Infrastructure
+Access
+Progress
+Reporting
+Agreed
+Plan
+(Planning Intent
+at
+Start of Day)
+TM6
+Prepare Agreed
+Plan
+Train Running
+Information, Delay Causes
+and
+Predictions/Forecasts
+TM5
+Manage Information
+Distribution
+Agreed Plan (Planning Intent at Start of Day)
+Performance
+Analysis & Reporting
+Delay Causes &
+Attribution
+Commercial / Billing
+Customer
+information services
+Rail Staff
+Information services
+Other Command &
+Control Systems
+Train-borne systems
+e.g. C-DAS
+Drwg: TM Concept of Operations High-level Process Ver. 5.2
+Figure 3: Traffic Management: high level processes
+3. INTERFACE S506.001 PASSENGER TRAIN ALLOCATION AND
+CONSIST
+Each Passenger Train Allocation and Consist message supports the following actions:
+• Identification of the rolling stock vehicle(s) allocated to work a train (defined in the message) or
+portion thereof (if not for the entire train journey) and therefore assurance that the train operator
+for the train concerned is compliant with the requirements of Railway Group Standard RIS-3436-
+TOM (Ref B)
+• Adjustment of the train’s predicted performance where the allocated rolling stock type differs from
+that defined in the timetable and recorded on the schedule for the train today
+• Determination of a train’s physical composition and associated physical characteristics such as
+length, or performance characteristics such as speed
+• Inference of associations between one train and another where trains join and split or terminate
+and originate, enabling the identification of constraints when late running/cancellation, or non-
+availability of rolling stock, cause the associations to break down
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 13 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+3.1. IMPLEMENTATION
+3.1.1. Overview
+3.1.1.1. Message identification – this ICD
+The notation allocated for this message flow is as follows (this relates to the 5xx version of the file):
+Service
+Network Rail
+Consuming System
+Network Rail
+Flow ID Version
+Flow ID
+Network Rail
+Flow Title LINX Operation
+Operation
+No.
+(this ICD)
+LINX 5xx
+Acquire Passenger
+S506 001 S506.001
+Passenger
+Train Allocation
+and Consist
+Publish
+Passenger
+Train Consist
+Train Consist
+messages from
+LINX MQ Service
+Table 3: Message flows defined within this document
+3.1.1.2. LINX Flow ID Version numbering
+The key identifier for any given LINX message is the Flow ID e.g. S506. If it becomes necessary to
+implement a new version of a message, this will be identified by an increment to the Flow ID Version
+No. The associated message will function independently of any earlier version(s) of the message.
+This will allow enhancements and modifications to be implemented without adverse effect on existing
+users. This ICD relates specifically and only to the Flow ID and Version No. defined in Table 3.
+3.1.2. Assumptions
+It is assumed that the Consuming System will also have access to the LINX file flow S538 Consist
+Codes to enable human-friendly presentation of rolling stock coded values at the user interface. It is
+also assumed that the Consuming System will also subscribe to the LINX file flows S529 BPlan
+Extract Files and S536 Delay Codes to enable full value to be made of the S506 messages. These
+are not currently available via the Rail Data Market place and are expected to be included in a future
+release
+3.1.3. Transport Protocol
+Communication between the Consuming System and LINX RDM will be as set out in the description
+of the RDM service
+If it is unclear, when drafting this document for a specific use, which of the interface pattern should be used, the
+author should refer to documentation on the RDM site regarding access to this flow.
+3.1.4. Security and Auditing
+Passenger Train Allocation and Consist data transported in this message is classified as official and
+hence no special security measures are required. Based on guidance from the Department for
+Transport (DfT) in October 2024, any prior restriction on distribution to external customers via LINX EI
+has been lifted.
+3.1.4.1. GDPR Compliance
+No personal details or data which may be used to identify individuals is conveyed in the message
+interface described in this document.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 14 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+3.2. OPERATIONAL CHARACTERISTICS
+3.2.1. Message Volumetrics
+The S506 message flow has been designed and implemented as a “broadcast”, as with other flows, so
+overall message volume on the queue will be the national volume for Passenger Train Allocation and
+Consists. LINX does not filter the messages or provide the means for a connected system to limit the
+messages by topic.
+Subscribing systems must determine which messages they wish to process and which to discard.
+It is estimated that – where all train operators have authorised the use of their rolling stock allocations
+data in LINX and consuming systems – there will be approximately 30,000 such messages generated
+each weekday as part of the “start of day” processes by those operators, typically around 0500hrs.
+Some operators have very peak-related business processes, meaning their allocations may be
+published as a “start of day” activity in the morning, and then again in the early afternoon for the
+evening peak. At other times there will be approximately 1000 messages per hour, depending on the
+level of inherent disruption to train services and associated reallocation of rolling stock by train
+operators..The peak hourly volume is calculated at 5889 messages. The projected network bandwidth
+required to support this message flow is 117780kb/hr.
+3.2.2. Operating Schedules
+Conventional Systems publish a Passenger Train Allocation and Consist whenever a Resource Group
+allocation is made, whether initially (as part of a “start of day” process) or as a subsequent update.
+There are several originating systems which enable the creation of Passenger Train Allocation data,
+including but not limited to:
+• Genius
+• XV Tact
+• WebGemini
+Allocations are created and updated as and when required throughout the day, every day of the week.
+3.2.3. Dependencies
+1) WebGemini
+a) Permissions
+WebGemini provides an open interface to enable it to receive stock allocations and train
+consist information from the various stock allocations systems used by passenger train
+operators on GB rail and can publish allocations data to LINX, where configured to do so.
+For this data to be available to LINX, permission must be granted by the train operating
+company owning the allocations data. Once permission has been granted, the configuration
+setting must be updated in WebGemini. Without these steps, no data will be available (for the
+train operator(s) concerned) to LINX and consuming systems.
+b) Processing behaviours
+Publication processing within WebGemini is interval-driven, which may result in allocations
+data being published with a small delay, relative to its creation in the source system. This
+delay period is configurable, and presently set at 300 seconds (5 minutes).
+Allocations may be withheld (not published) by WebGemini beyond the 500 second
+processing interval, if either of the following conditions exist:
+1. The allocation itself has not been validated by Gemini mainframe processes
+2. There is no schedule that matches one or more trains contained within it and
+WebGemini is therefore waiting for a TSIA schedule to be created.
+2) Train Operator business process
+The management of rolling stock by resource controllers (working for Train Operating Companies) is
+a complex activity.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 15 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+For entirely valid business reasons, updates to rolling stock allocations may occur some time after the
+actual event to which those updates apply, especially during times of significant disruption to the train
+service. Consuming Systems must be aware that the timeliness of updates may be compromised under
+these circumstances.
+3.2.4. Failure & Recovery Procedures
+Potential message failure scenarios are presented in the table below. Note that some of these
+scenarios are not applicable to the RDM release, however the table has been included verbatim for
+context.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 16 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Seq.
+No. Step Failure Actions
+Connection not established
+after configured re-try
+period, for reasons
+including (but not limited
+to):
+• Host not present
+• Queue not present
+• Subscriber not
+authenticated
+1. Configuration Items:
+Consuming System Re-Try
+Interval = Configurable,
+default to 10 seconds
+Consuming System Maximum
+Re-Tries = Indefinite
+2. Logging:
+Connections and
+Disconnections
+3. Alerts:
+To be determined by RDM
+Connection established but
+no messages received
+1.0
+Consuming System
+Initiates Connection to
+Message Queue
+No Action.
+Consuming System cannot
+determine reason for no
+messages present on queue.
+Messages are sporadic; hence
+queue may be fully
+operational, but without
+content.
+Connection established,
+but Consuming System
+fails to consume messages
+from the queue (either at
+the start or during
+operation)
+In this scenario, the
+Consuming System has failed
+to consume messages as
+presented on the queue,
+following authentication. LINX
+will raise an alert as the
+message queue depth rises to
+its pre-configured alert level.
+Once queue consumption has
+resumed, the Consuming
+System will consume all
+message present on the
+queue.
+Design Pattern: Auto Commit
+on GET is configurable. This
+results in either messages
+being deleted from the queue
+on acquisition or post
+processing of message within
+the Consuming System.
+2.0
+LINX and Consuming
+System validate Message
+Payload Content & Context
+Message Fails Validation
+LINX IBM Integration Bus (IIB)
+Integration Node performs
+Schema validation. Failures
+will be notified to support.
+Consuming System performs
+payload Content and Context
+Validation.
+Table 4: Passenger Train Allocation and Consist message failure scenarios
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 17 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+3.2.5. Additional Information
+Each Passenger Train Allocation and Consist message identifies the physical rolling stock intended to
+operate one individual train, or portions of that train’s journey. In this respect, the S506 message is a
+“train-centric” message which informs the Consuming System what rolling stock is allocated to a specific
+train or parts therefore – one message relates to one train. For the purposes of this interface, the rolling
+stock is referred to as a Resource Group.
+• Resource Group is the collective name for a group of vehicles forming a fixed or semi-permanent
+set of vehicles, such as a Multiple Unit, Locomotive and Coaches or Single Car Unit. For each
+Resource Group, details of the vehicles comprising the Resource Group are provided including
+the position within the Resource Group and any unresolved defects on each vehicle (where
+recorded). Additionally, any restrictions on the use or operation of the Resource Group will be
+indicated, where these have been recorded.
+• Allocation is the term given to the work which is defined for a single (and unique) Resource
+Group, comprising one or more train journeys or parts of train journeys, on a given day. It is, prior
+to train operation, a statement of intent: after train operation, it is deemed to be the actual vehicles
+which worked the train or trains shown. The Allocation will include non-train-related activities such
+as Fuelling, Washing/Cleaning and so on, though these details are not passed in the interface
+described in this document. An Allocation will, at the start of day, resemble a single rolling-stock
+Diagram but whereas Diagrams are a planning instrument whose content does not vary
+dynamically, Allocations can and do vary as disruption and service alterations require resources
+to be swapped about. An Allocation may also contain “undiagrammed” work such as on-the-day
+VSTP train services not contained in the planned timetable and related stock diagrams.
+• Consist is the term given to the specific list of vehicles which have been recorded as forming an
+individual train or part of that train’s journey – literally, what the train “consists” of.
+A single train may have more than one Resource Group allocated to it, though this is usually only the
+norm for multiple-unit type operations, and the number of Resource Groups allocated to a train may
+vary at different points of the train’s journey where split and join ‘portion working’ is in operation.
+It is a valid circumstance for a train to have no Resource Group allocated to it: this will usually occur
+near the start of the day when no allocations have been committed by the train operator and may occur
+at other times when fleet and/or resource management requirements mean there are no resources
+available to operate the train currently but there may be later. If a train cannot subsequently be
+resourced at all it will be cancelled.
+The train details specified in the message will include Train ID, Train UID, Origin and Destination
+Locations.
+Within each Resource Group, the following are specified:
+• The Allocation Origin TIPLOC, Date and Time (may be a part of or a full Train Journey)
+• The Allocation Destination TIPLOC, Date and Time (may be a part of or a full Train Journey)
+The Passenger Train Allocation & Consist data serves a primary purpose of enabling the Consuming
+System to have awareness of what vehicles, if any, are intended to work a train or portion of a train.
+Numerous allocations relating to many trains enable the Consuming System to identify where there are
+trains for which no resources have yet been allocated.
+In addition, data relating to Resource Groups enables the Consuming System to determine where the
+physical characteristics of the resources allocated to a train will alter (compared to what was planned,
+as defined on the relevant CIF or VSTP schedule) the performance capabilities of that train or
+operational constraints affecting. These factors can be derived from the Resource Group data as
+detailed in Appendix B – Data Mapping.
+Data conveyed in this message represents “actual” rolling stock intended to work trains, irrespective of when the
+allocation is published or how many allocations for the same resource group are published in any given day. It is
+not possible to use allocations data to determine the commercially-intended formation or vehicle count for train
+and the Consuming System must not attempt to use the data in this message for that purpose.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 18 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+3.2.5.1. Message Structure
+Not applicable.
+3.2.5.2. Example usage
+The illustration below shows a representative arrangement of vehicles to resource groups, and resource
+groups to a train. In this case:
+• Resource Group 150234, a “Sprinter” class 150/2 is comprised of vehicles:
+o 57234 type DMS (a Driving Motor Second class) and
+o 52234 type DMSL (a Driving Motor Second class with Lavatory)
+• Resource Group 156406, a “Super Sprinter” class 156 is made up of vehicles:
+o 57406 type DMS (a Driving Motor Second class) and
+o 52406 type DMSL (a Driving Motor Second class with Lavatory).
+Both Resource Groups are allocated to train 2B30 and at this point in the train’s journey, Resource
+Group 156406 is “Leading” (ResourceGroupPosition1) and 150234 is “Trailing”
+(ResourceGroupPosition2).
+CRDFCEN
+Train ID: 2B30
+Vehicle ID: 57234 Vehicle ID: 52234 Vehicle ID: 57406 Vehicle ID: 52406
+Resource Group 150234 Resource Group 156406
+Front
+of
+Train
+ResourceGroupPosition: 2
+ResourceGroupPosition: 1
+ResourceGroupPosition is used to indicate the order of the Resource Groups Relative to the front of the train.
+Figure 4: Illustration of Vehicle to Resource Group to Train
+Each Allocation element includes a “Reversed” flag, indicating whether the Resource Group is formed
+in the forward (i.e. first vehicle in the Resource Group is the lead vehicle) or reverse (i.e. last vehicle in
+the Resource Group is the lead vehicle) direction. A Resource Group may start its journey in reverse
+formation, in which case a reversal en route will result in it then travelling in forward formation. However,
+it should be noted this depends on the reversal being recorded by the train operator in the resource
+plan.
+An example is presented below illustrating a simplified concept of operation for the allocation of work
+to Resource Groups and the generation of the associated Passenger Allocation and Consist
+Messages.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 19 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+TIPLOC
+Work Given To
+Resource Group 156406
+CANTTMD
+5B29
+1
+5B29
+CRDFCEN
+2B29
+n Passenger Train Allocation and Consist Message
+Delete and Replace Message with contents of
+‘THIS’ Message
+n
+2
+2B29
+MERTHYR
+2B30
+Resource Groups
+150234 and 156406
+Attach (Join)
+TIPLOC
+Work Given To
+Resource Group 150234
+2B30
+CRDFCEN
+CRDFCEN
+6
+3
+2B30
+2B30
+2B30
+2B30
+BARRY
+BARRY
+2B31
+2B31
+4 7
+2B31
+2B31
+CRDFCEN
+CRDFCEN
+5B31
+5
+Resource Groups
+150234 and 156406
+Detach (Split)
+CANTTMD 5B31
+Figure 5: Simplified Concept of Operation and Triggers for the Passenger Allocation and Consist Message
+In Figure 5 above Message 6 also INCLUDES the allocations specified within Message 3. Similarly, Message 7
+also INCLUDES the allocations specified within Message 4.
+The event sequence diagram illustrating the application of the Passenger Train Allocation and Consist
+Message in the Consuming System is presented below:
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 20 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+LINX TM System
+Resource Controller Allocates
+Work to Resource Group
+156406 using Conventional
+Systems resulting in:
+Messages 1 – 5 being
+Generated
+Passenger Train Allocation and
+Consist Message
+Apply Allocations and Consists
+Resource Controller Allocates
+Work to Resource Group
+150234 using Conventional
+Systems resulting in:
+Messages 6-7 being Generated
+Passenger Train Allocation and
+Consist Message Overwrite content of
+Messages 3 & 4 with content
+of Messages 6 & 7
+Note 1: Work can be removed from Resource Groups
+Note 2: A Train Journey or parts of that Train Journey can have any of zero, 1 or multiple Resource Groups Allocated
+Figure 6: Event Sequence Diagram for the Simplified Concept of Operation generating Passenger Allocation and Consist
+Messages
+In practice, the allocation of Resource Groups 156406 and 150234 may happen in either order: the later
+of the two allocations will include any Resource Group information for resources that were previously
+allocated, where two or more Resource Groups are allocated to the same train.
+3.2.5.3. Exceptions
+Not applicable.
+3.2.5.4. Message Order
+No design measures are necessary to protect message. Historic Data Movement
+There are no requirements for historic data integration. A newly-commissioned Consuming System
+will consume the messages as required from start-up and does not need any historic data at that
+point. To ensure the Consuming System is properly aligned with Conventional Systems, system start-
+up will need to precede first operational use by at least 48 hours.
+3.2.6. Processing Roles
+Not applicable.
+3.2.6.1. Sending Function (LINX)
+The Operational Event Sequence for the Passenger Train Consist Message generation is presented
+in the table below:
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 21 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Seq.
+No. Triggering Event Actions Notes
+1
+Conventional Systems
+generate Passenger Train
+Allocation and Consist
+Messages
+Conventional Systems
+Publish Passenger Train
+Allocation and Consist
+Messages to LINX
+Conventional Systems
+create Passenger Train
+Allocation and Consist
+Messages as described in
+3.2.2 above.
+The events are published
+by Conventional Systems
+to LINX as message
+P006.001.
+2
+Conventional Systems
+Publish Passenger Train
+Allocation and Consist
+Message to LINX
+LINX acquires and validates
+Passenger Train Allocation
+and Consist Message
+Queue received from
+originating system
+3
+LINX validates the message
+received from the originating
+system
+• For messages which fail
+validation, the failure
+reasons are logged and
+an exception report
+created
+• For messages which
+pass validation, LINX
+transforms and transfers
+the validated content to
+the outbound message
+queue
+Exception handling is
+defined in the LINX support
+and maintenance
+documentation
+4
+LINX transforms and
+transfers the validated
+message received from the
+originating system to the
+outbound message queue
+Passenger Train Allocation
+Messages are written to the
+queue on the ROC Gateway for
+TM Systems to acquire
+Passenger Train Allocation
+Messages are written to the
+queue on the CS Gateway for
+internal non-TM Systems to
+acquire
+Consuming Systems can
+acquire the Passenger
+Train Allocation and
+Consist Message Queue
+messages (See 3.2.6.2)
+Table 5: Conventional Systems and LINX activity for Passenger Train Allocation and Consist events
+3.2.6.2. Receiving Function (this Consuming System)
+The Consuming System connects to the LINX Passenger Train Allocation and Consist Message
+Queue and receives the messages as per the table below.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 22 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Seq.
+No. Triggering Event Actions Notes
+1
+Consuming System
+connects to Passenger
+Train Allocation and
+Consist Message Queue
+On connection, all messages
+in the LINX queue are
+acquired via Message Queue
+‘GET’ initiated by the
+Consuming System
+See 3.2.6.1
+2
+Consuming System
+remains connected to
+Passenger Train Allocation
+and Consist Message
+Queue
+As messages are published
+to LINX from the
+Conventional Systems, they
+are placed in the LINX
+Queue and made available to
+the connected Consuming
+System
+3
+Consuming System
+validates the message
+received from LINX
+For messages which fail
+validation, the failure reasons
+are logged and an exception
+report created
+• For messages which
+pass validation, the
+Consuming System
+processes and applies
+the message content
+Error handling and actions
+arising from message
+validation failure fall
+outside the scope of this
+implementation.
+4
+Consuming System
+processes Passenger Train
+Allocation and Consist
+Messages
+To be determined by
+consuming system
+The train(s) specified in the
+message are updated with
+associated Allocation
+details
+Table 6: Consuming System-LINX Passenger Train Allocation and Consist message queue connection activity
+3.3. PHYSICAL DATA
+3.3.1. General
+The S506 message differs from other LINX outbound (subscribe) flows, in that it utilises the MQ format
+“MQRFH2” rather than the LINX default “MQSTR” format. This provides a header, above the XML
+message, which contains the TOC coding for the Train Operating Company to whom the allocation
+contained in the XML message relates. An example of the “MQRFH2” content is as follows:
+<usr><TOC>9923</TOC></usr> @
+<mcd><Msd>xmlnsc</Msd><Set></Set><Type></Type><Fmt></Fmt></mcd> $
+<mqps><Top>LINX/CONW</Top></mqps>
+The “MQRFH2” header allows the consuming system to rapidly determine the train operating company
+responsible for the resource allocation in the message, without having to parse the complete XML
+message that follows.
+This additional header can be removed by a configuration setting on the consuming system if
+required, in which case the message can then be treated as “MQSTR” format by that consuming
+system.
+For the RDM release of this flow, the ‘TOC’ component is placed in the Kafka header ‘toc’, and the
+rest of the RFH2 header is discarded.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 23 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+3.3.1.1. Data Update Methodology
+Allocations data passed to LINX always represent the complete allocation for a Resource Group:
+there is no concept of Add, Change and Delete. Consuming systems should treat every allocation
+received as a ‘new’ allocation and remove any previously-received allocation data for the resource
+group, for the day/date concerned.
+3.3.1.2. Message Types
+The S006 message only contains one message type. The same structure is used to report allocations
+irrespective of the type of Resource Group contained in the message i.e. multiple units or locomotives
+and coaching sets.
+The TypeOfResource element distinguishes the nature of each ResourceGroup included in the
+allocation and has values of:
+• “S" for Set
+• “U" for Unit
+• "L" for Locomotive
+3.3.2. Transfer Parameters
+Not applicable.
+3.3.3. Business Validation Rules
+Not applicable.
+3.3.4. Retention of Data
+There is no data retention by the Conventional Systems.
+Passenger Train Allocation and Consist messages published by LINX shall be retained in the
+Consuming System in accordance with the retention requirements for that system which should be
+defined in the Detailed Solution Design for the consuming system.
+3.3.5. File Naming
+Not applicable.
+3.3.6. Layout of the data to be transferred
+The XML schema for message S506.001 is, the same as the schema for S006.001, however, the
+sender reference is removed.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 24 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+4. APPENDIX A – LINX REFERENCE DATA SERVICE
+LINX provides a reference data service which is fully documented in the LINX Catalogue: one or more
+of these data sets may/will be required to enable the proper interpretation of the Passenger Train
+Allocation and Consist message.
+If the Consuming System does not subscribe to the file(s) shown in the table below, appropriate
+mechanisms must be developed to accommodate reference data changes which would be otherwise
+be conveyed in the files listed. These feeds are under consideration for future publication on the RDM.
+Flow
+Needed
+ID and
+Flow Name and
+Purpose Description
+for
+Type
+S506.001?
+S029
+PIF
+BPlan extract
+Full NR Reference &
+Geography PIF file
+Provides reference data used in GB train
+planning systems, in particular network links
+between TIPLOCs and the set of applicable
+Sectional Running Times (SRTs) for each link.
+(The file contains additional timing information
+that is unavailable in the schedules published in
+the CIF files. Such information can also be used
+for VSTP schedules.)
+Yes
+S030
+NR
+XML
+CORPUS Location
+extract
+Lookup table of Codes
+for GB Rail Locations
+(NLC, STANOX,
+TIPLOC, UIC)
+Provides the means to translate between
+various location code systems used in GB rail
+systems. This is necessary for a TMS to provide
+the Primary Location Code in GB TAF TAP
+messages. It also allows TMS to enable
+conversion of TIPLOC codes to the official GB
+descriptions, if required, and also to enable
+population of UIC location codes in TM
+outbound messages
+Yes
+S031
+NR
+XML
+CORPUS Service Codes
+extract
+Lookup table of Train
+Service Codes & Sector
+Codes
+Provides the train service codes used in GB rail
+systems to group train services for reporting and
+other purposes; together with the year(s) that
+code was valid.
+This is necessary for population of GB TAF TAP
+messages by TMS. e.g. to enable validation by
+TM of the train service coding applied to any
+VSTP services entered into TM and also to
+enable TM to identify the corresponding train
+operator.
+Also provides a means to map train service
+codes to higher level groupings (sub sector,
+sector and TOC)
+S032
+CSV
+Train Class / Category
+File
+Permitted combinations
+of Train Class and Train
+Category
+Provides a list of valid train category and train
+class combinations that must be used when
+creating a new train schedule by a TM VSTP.
+S034
+CSV
+ROC Codes file
+Used for Senders and
+Recipients in GB TAF
+TAP message headers
+A TM System will be configured to know its own
+ROC ID when a Sender of a GB TAF TAP
+message
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 25 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Flow
+Needed
+ID and
+Flow Name and
+Purpose Description
+for
+Type
+S506.001?
+S035
+CSV
+STANOX to TIPLOC file
+Lookup table for Primary
+TIPLOC where many
+TIPLOCs to one
+STANOX
+Provides the primary TIPLOC for instances
+where the STANOX-TIPLOC relationship is
+1:many. This is used to populate the LINX
+location index in order to ensure consistent
+translation on LINX flows when translating CS
+messages to GB TAF TAP format.
+Not required by TMS (is internal to LINX).
+S036
+CSV
+Delay Codes file
+Allowable GB delay
+codes and mapping to
+corresponding UIC delay
+codes
+Allowable GB delay codes and mapping to
+corresponding UIC delay codes.
+S037
+CSV
+Company Codes file
+Lookup table Sector
+Code to UIC [and other]
+Company Codes and
+names
+Provides a means for populating GB TAF TAP
+messages correctly with UIC Company Code by
+look up using Sector Code.
+S038
+CSV
+Consist Codes file
+Lookup table for
+consumers of consist
+data codes published by
+LINX
+Provides codes and descriptions for use by
+consumer systems when interpreting consist
+data published by LINX.
+A Consuming System should be able to display
+train consist details with English descriptions for
+codes.
+Yes
+Table 7: LINX Reference Data service
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 26 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+5. APPENDIX B – DATA MAPPING
+5.1.1. Recalculation of train timings using Passenger Train Allocation and Consist Message
+Consuming Systems may require to use Passenger Train Allocation and Consist data to determine
+more accurate point-to-point running times for trains where the actual rolling-stock assigned to a train
+differs from that against which the train was originally planned, to the extent where that difference may
+have a material impact on future forecast times for the train concerned within the TM System i.e. the
+timing load in the CIF schedule for the train is not adequately representative of the physical rolling-stock
+forming the train. Additionally, where the formation of a train changes en route, it may be necessary to
+recalculate the running times of the train forward from that point or change the formation length for
+future platform occupation conflicts detection.
+Even where the actual rolling stock allocated to the train is unchanged to that originally planned, the
+Resource Group may have speed-related defects or restrictions applied to it or one or more vehicles
+within it. Such defects will affect the forward performance of the train and it may be necessary to
+recalculate the running times of the train accordingly.
+Over short distances the time difference between the planned and actual performance of the train may
+be negligible, but over longer distances the difference will be significant and have a bearing on future
+forecasts and path utilisation, making recalculation of forward timings essential. This is especially true
+where the Consuming System will be publishing P004 TM Current Plan Path Details messages for use
+by CDAS.
+Determining the revised point-to-point timings requires access to the appropriate BPlan TLD (Timing
+Load) records for the class/type of resource group allocated to each section of the train journey (a
+“journey leg”) where the actual stock differs to the planned timing load.
+Identifying the appropriate BPlan records to use is achieved as follows:
+1. Derive the locomotive or multiple-unit class from the Resource Group type using Table 8
+below, then
+2. 3. Match the traction type, trailing load and speed of the actual stock allocated to the appropriate
+BPlan timing load (TLD) records using the rules defined in Table 8 Ref 3, 4 and 5 overleaf, then
+Calculate the forward timings of the train using the BPlan timing link (TLK) records which
+match to the most appropriate TLD record found in step 2 above, as per Table 8 Ref 6 and 7
+overleaf
+It may not be possible to identify a matching set of timing links for the actual stock allocated to the
+train, in which case the original timings will apply.
+5.1.1.1. Derivation of Loco Class
+For each Resource Group allocated to a Journey Leg, its Loco/Unit Class should be derived as
+follows.
+ResourceGroup /
+Derivation of Loco/Unit Class Example
+TypeOfResource
+U (Unit) First 3 Characters of ResourceGroup /
+ResourceGroupID Eg: unit 158830 = Class 158
+L (Loco)
+First 2 Characters of ResourceGroup /
+Vehicle/
+VehicleID
+Eg: loco 67023 = Class 67
+Table 8: Mapping of Resource Group Elements to Loco/Unit Class
+It is possible for units of different classes to be coupled together, in which case the train will have two unit classes
+for part or all of its journey. Where a locomotive hauls a dead-in-tow multiple-unit (e.g. “Thunderbird” case), the
+movement of the unit will be reported via this message, but the movement of the locomotive will be reported
+separately.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 27 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+5.1.1.2. Vehicle Characteristics mapping
+The Consuming System will use the running times derived from the Access Plan (CS) CIF Files or
+VSTP Path Details (CS) messages until it receives Passenger Train Allocation and Consist
+Messages.
+On receipt of the Passenger Train Allocation and Consist Messages, the Consuming System applies
+the data as follows:
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 28 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+Ref Characteristic Derivation
+1 Formed Train Length
+For every vehicle in each allocation, there is a
+‘Length’ and ‘Measure’ (ft or mm) element.
+For each Journey Leg, the Formed Train Length is
+the sum of the individual lengths of vehicles
+allocated to the Journey Leg, presented in the
+following elements:
+Allocation/ ResourceGroup/ Vehicle/ Length/
+Value
+Allocation/ ResourceGroup/ Vehicle/ Length/
+Measure
+2 Power Type
+(Electric or Diesel)
+For each Allocation of a Resource Group,
+determine its Power Type dependent on loco/unit
+class derived as per Table 8:
+01 to 70 = Diesel
+71 to 96 = Electric (incl. 8x bi-mode units e.g. 88)
+97 = Diesel
+98 = Steam
+101 to 299 = Diesel
+300 to 398 = Electric
+399 = Diesel
+400 to 799 = Electric
+800 = Diesel/Electric (bi-mode)
+801 = Electric
+802 = Diesel/Electric (bi-mode)
+901 = Diesel
+910 to 939 = Electric
+950 to 999 = Diesel
+Units or locos of different classes coupled together
+will still have the same Power Type.
+Traction Type
+3
+Traction Type will usually be the same as the
+Loco/Class derived from the Resource Group as
+per Table 8 above, but there are exceptions:
+• If Loco/Class = 142 to 144, use 14x
+• If Loco/Class = 165, use 165-0
+• If Loco/Class = 150, 155 or 156, use 150
+• If Loco/Class = 172, use 172-0
+• If Loco/Class = 200 to 299, use DMU
+• If Loco/Class = 300 to 398, use EMUAC
+• If Loco/Class = 400 to 799, use EMUDC
+• If Loco/Class = 98, use STEAM
+It is possible for units or locos of different classes
+coupled together to have different Traction Types.
+In this case, the first unit/loco in the series is used
+to derive the traction type.
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 29 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+4 Trailing Load
+For each Allocation of a Resource Group with
+TypeOfResource = ‘S’ (set), except class 43:
+Sum of Allocation/ ResourceGroup/ Vehicle/
+Weight (in tonnes) for all non-loco vehicles
+allocated to the Train Journey Leg.
+Not Applicable for light locos, Class 43 or units.
+5 Speed
+For each vehicle allocated to the train, its currently
+permissible maximum speed is the lowest of its
+‘as-built’ design speed, or any applicable defect
+code or restricted working code which requires a
+reduction from that design speed.
+Derive the current maximum permissible speed
+from:
+1) Vehicle/ MaximumSpeed
+2) Look up: Vehicle/ Defect/ DefectCode in
+Consist Codes File (file flow S038.001) and if
+the defect is speed related, and the value for
+the speed given in the text description against
+that defect code is a maximum speed then
+return the value of maximum speed in mph.
+3) Look up: ResourceGroup/ Restriction/
+RestrictionCode In Consist Codes File (file
+flow S038.001) and if the Restriction Code is
+speed related, and the value for the speed
+given in the text description against that
+Restriction Code is a maximum speed then
+return the value of maximum speed in mph.
+Speed of the train for each Journey Leg is the
+minimum of the above speeds for all vehicles
+allocated to the train for that Journey Leg.
+6 BPlan Timing Load
+For each Journey Leg, combination of Traction
+Type, Trailing Load (null for units and HSTs) and
+Speed as derived above, matched against the
+corresponding BPlan Timing Load as defined in
+file flow S029.001.
+If there is a match on Traction Type but not
+Trailing Load, match against the “next higher”
+BPlan Trailing Load for the Traction Type.
+If there is a match on Traction Type and Trailing
+Load but not Speed, match against the “next
+lower” BPlan Speed for the Traction Type and
+Trailing Load.
+If there is still no match, then the train cannot be
+retimed over this Journey Leg (use the original
+values).
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 30 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+7 Point-to-Point Timings
+For each consecutive pair of Mandatory TIPLOCs
+on the train’s path within the Dispatching Area
+including and forward of the train’s current
+location, determine the Sectional Running Time
+between them from the BPlan Timing Link (in
+S029) matching:
+• BPlan Timing Load for the Journey Leg (as
+derived above)
+• Start TIPLOC
+• End TIPLOC
+• Running Line
+• Stopping Pattern (Start/Pass, Pass/Pass,
+Pass/Stop or Start/Stop)
+8 Visualise Train Consist Combination of Traction Type, Trailing Load and
+Speed
+Visualise ‘RIS-3436-TOM’ advisory
+information For Required Data, additional detail is required.
+Table 9: Data Extraction Rules for Passenger Train Allocation and Consist Message
+BPlan generally only contains timing links for regularly-used and planned movements and traction types. Unusual
+combinations may occur, where matches are not possible with the BPlan data. In these cases, the Consuming
+System will default to the original running times as provided by the systems via CIF files (S001/S041) and / or
+VSTP Path Details (CS) Messages (S002).
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 31 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+6. APPENDIX C – SAMPLE XML
+Sample XML messages for a number (not all) of the scenarios described in this document appear below,
+for illustration only.
+Whilst every effort has been made to ensure that the following examples are valid, developers must
+ensure they reference and have access to the correct version of the when constructing their xml
+implementation of the S506 message scenarios (the examples below may have been superseded).
+6.1. PASSENGER TRAIN CONSIST MESSAGE
+Use Case: Resource Group 158843 allocated to 2P90 2129 Lincoln Central-Sheffield
+<usr><TOC>9923</TOC></usr> @
+<mcd><Msd>xmlnsc</Msd><Set></Set><Type></Type><Fmt></Fmt></mcd> $
+<mqps><Top>LINX/CONW</Top></mqps>
+<?xml version="1.0" encoding="UTF-8"?>
+<PassengerTrainConsistMessage xmlns="http://www.era.europa.eu/schemes/TAFTSI/5.3"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:n1="http://www.era.europa.eu/schemes/TAFTSI/5.3"
+xsi:schemaLocation="http://www.era.europa.eu/schemes/TAFTSI/5.3 LINX%20XML%20v094.xsd">
+<MessageHeader>
+<MessageReference>
+<MessageType>9002</MessageType>
+<MessageTypeVersion>1.0</MessageTypeVersion>
+<MessageIdentifier>acb369bd-be71-4f8a-96ce-743cd4a412b1</MessageIdentifier>
+<MessageDateTime>2019-04-30T04:14:19</MessageDateTime>
+</MessageReference>
+<SenderReference>2P90tCEvKT7I</SenderReference>
+<Sender n1:CI_InstanceNumber="01">0070</Sender>
+<Recipient n1:CI_InstanceNumber="99">0070</Recipient>
+</MessageHeader>
+<MessageStatus>1</MessageStatus>
+<TrainOperationalIdentification>
+<TransportOperationalIdentifiers>
+<ObjectType>PA</ObjectType>
+<Company>9923</Company>
+<Core>2P90Y5426721</Core>
+<Variant>01</Variant>
+<TimetableYear>2019</TimetableYear>
+<StartDate>2019-04-30</StartDate>
+</TransportOperationalIdentifiers>
+</TrainOperationalIdentification>
+<OperationalTrainNumberIdentifier>
+<OperationalTrainNumber>2P90</OperationalTrainNumber>
+<ScheduledTimeAtHandover>2019-04-30T21:29:00</ScheduledTimeAtHandover>
+<ScheduledDateTimeAtTransfer>2019-04-30T22:47:00</ScheduledDateTimeAtTransfer>
+</OperationalTrainNumberIdentifier>
+<ResponsibleRU>9923</ResponsibleRU>
+<Allocation>
+<AllocationSequenceNumber>1</AllocationSequenceNumber>
+<TrainOriginDateTime>2019-04-30T21:29:00</TrainOriginDateTime>
+<TrainOriginLocation>
+<CountryCodeISO>GB</CountryCodeISO>
+<LocationPrimaryCode>63400</LocationPrimaryCode>
+<LocationSubsidiaryIdentification>
+<LocationSubsidiaryCode
+n1:LocationSubsidiaryTypeCode="0">LINCLNC</LocationSubsidiaryCode>
+<AllocationCompany>0070</AllocationCompany>
+</LocationSubsidiaryIdentification>
+</TrainOriginLocation>
+<ResourceGroupPosition>1</ResourceGroupPosition>
+<DiagramDate>2019-04-30</DiagramDate>
+<DiagramNo>NL152</DiagramNo>
+<TrainDestLocation>
+<CountryCodeISO>GB</CountryCodeISO>
+<LocationPrimaryCode>66910</LocationPrimaryCode>
+<LocationSubsidiaryIdentification>
+<LocationSubsidiaryCode
+n1:LocationSubsidiaryTypeCode="0">SHEFFLD</LocationSubsidiaryCode>
+<AllocationCompany>0070</AllocationCompany>
+</LocationSubsidiaryIdentification>
+</TrainDestLocation>
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 32 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+<TrainDestDateTime>2019-04-30T22:47:00</TrainDestDateTime>
+<AllocationOriginLocation>
+<CountryCodeISO>GB</CountryCodeISO>
+<LocationPrimaryCode>63400</LocationPrimaryCode>
+<LocationSubsidiaryIdentification>
+<LocationSubsidiaryCode
+n1:LocationSubsidiaryTypeCode="0">LINCLNC</LocationSubsidiaryCode>
+<AllocationCompany>0070</AllocationCompany>
+</LocationSubsidiaryIdentification>
+</AllocationOriginLocation>
+<AllocationOriginDateTime>2019-04-30T21:29:00</AllocationOriginDateTime>
+<AllocationOriginMiles>0</AllocationOriginMiles>
+<AllocationDestinationLocation>
+<CountryCodeISO>GB</CountryCodeISO>
+<LocationPrimaryCode>66910</LocationPrimaryCode>
+<LocationSubsidiaryIdentification>
+<LocationSubsidiaryCode
+n1:LocationSubsidiaryTypeCode="0">SHEFFLD</LocationSubsidiaryCode>
+<AllocationCompany>0070</AllocationCompany>
+</LocationSubsidiaryIdentification>
+</AllocationDestinationLocation>
+<AllocationDestinationDateTime>2019-04-30T22:47:00</AllocationDestinationDateTime>
+<AllocationDestinationMiles>49</AllocationDestinationMiles>
+<Reversed>N</Reversed>
+<ResourceGroup>
+<ResourceGroupId>158843</ResourceGroupId>
+<TypeOfResource>U</TypeOfResource>
+<FleetId>158/8</FleetId>
+<ResourceGroupStatus>N</ResourceGroupStatus>
+<EndOfDayMiles>4317710</EndOfDayMiles>
+<Preassignment/>
+<Vehicle>
+<VehicleId>57843</VehicleId>
+<TypeOfVehicle>C</TypeOfVehicle>
+<ResourcePosition>1</ResourcePosition>
+<PlannedResourceGroup>158843</PlannedResourceGroup>
+<SpecificType>DP2510F</SpecificType>
+<Length>
+<Value>22160</Value>
+<Measure>mm</Measure>
+</Length>
+<Weight>38500</Weight>
+<Livery>NP</Livery>
+<Decor>ZZ</Decor>
+<SpecialCharacteristics>G</SpecialCharacteristics>
+<NumberOfSeats>70</NumberOfSeats>
+<VehicleStatus>N</VehicleStatus>
+<RegisteredStatus>C</RegisteredStatus>
+<Cabs>1</Cabs>
+<DateEnteredService>1992-02-01</DateEnteredService>
+<DateRegistered>2019-04-08</DateRegistered>
+<RegisteredCategory>J</RegisteredCategory>
+<TrainBrakeType>E</TrainBrakeType>
+<MaximumSpeed>90</MaximumSpeed>
+</Vehicle>
+<Vehicle>
+<VehicleId>52843</VehicleId>
+<TypeOfVehicle>C</TypeOfVehicle>
+<ResourcePosition>2</ResourcePosition>
+<PlannedResourceGroup>158843</PlannedResourceGroup>
+<SpecificType>DP2520D</SpecificType>
+<Length>
+<Value>22160</Value>
+<Measure>mm</Measure>
+</Length>
+<Weight>38500</Weight>
+<Livery>NP</Livery>
+<Decor>ZZ</Decor>
+<SpecialCharacteristics>GW</SpecialCharacteristics>
+<NumberOfSeats>68</NumberOfSeats>
+<VehicleStatus>N</VehicleStatus>
+<RegisteredStatus>C</RegisteredStatus>
+<Cabs>1</Cabs>
+<DateEnteredService>1992-02-01</DateEnteredService>
+<DateRegistered>2019-04-08</DateRegistered>
+<RegisteredCategory>J</RegisteredCategory>
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 33 of 34
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0
+<TrainBrakeType>E</TrainBrakeType>
+<MaximumSpeed>90</MaximumSpeed>
+<Defect>
+<MaintenanceUID>181375042</MaintenanceUID>
+<DefectCode>EW</DefectCode>
+<MaintenanceDefectLocation>NM1</MaintenanceDefectLocation>
+<DefectDescription>INFO ONLY</DefectDescription>
+<DefectStatus>O</DefectStatus>
+</Defect>
+<Defect>
+<MaintenanceUID>183165144</MaintenanceUID>
+<DefectCode>CE</DefectCode>
+<MaintenanceDefectLocation>MML</MaintenanceDefectLocation>
+<DefectDescription>#G1 No.2 end gangway door frame
+corroded</DefectDescription>
+<DefectStatus>O</DefectStatus>
+</Defect>
+<Defect>
+<MaintenanceUID>190165040</MaintenanceUID>
+<DefectCode>EW</DefectCode>
+<MaintenanceDefectLocation>NM1</MaintenanceDefectLocation>
+<DefectDescription>INFO. TW3 down to earth - Spare wire 4 ran
+(..R2)</DefectDescription>
+<DefectStatus>O</DefectStatus>
+</Defect>
+<Defect>
+<MaintenanceUID>190955145</MaintenanceUID>
+<DefectCode>WT</DefectCode>
+<MaintenanceDefectLocation>MML</MaintenanceDefectLocation>
+<DefectDescription>Concession MTC/2019/044 W*0001 Task to
+to</DefectDescription>
+<DefectStatus>O</DefectStatus>
+</Defect>
+</Vehicle>
+</ResourceGroup>
+</Allocation>
+</PassengerTrainConsistMessage>
+End of Document
+LINX Passenger Train Allocation and Consist S506.001 for RDM Ver 1.0 34 of 34

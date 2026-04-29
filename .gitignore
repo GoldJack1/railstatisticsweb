@@ -98,8 +98,19 @@ jspm_packages/
 docs/Darwin guides/Credentials.md
 docs/timetablefiles/
 docs/V8s/
+# Date-suffixed TT-file dumps the user drops in (e.g. "v8 TT files 29:4/")
+docs/v8 TT files*/
+docs/V8 TT files*/
 darwin-local-test/.env
 darwin-local-test/first-message.*
 darwin-local-test/raw-samples.json
 darwin-local-test/type-samples.json
 darwin-local-test/state/
+
+# Network Rail PTAC (S506) credentials and any other Cred.txt files
+# inside docs/. The accompanying spec docs and XSD files are public
+# reference material and remain trackable.
+docs/**/Cred.txt
+docs/**/cred.txt
+docs/**/credentials.txt
+docs/**/Credentials.md

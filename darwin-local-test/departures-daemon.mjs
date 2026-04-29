@@ -19,18 +19,23 @@
  *   GET  /api/health
  *   GET  /api/station/:code
  *   GET  /api/departures/:code?hours=N
+ *   GET  /api/messages/:crs
  *   GET  /api/service/:rid
+ *   GET  /api/unit/:resourceGroupId   (PTAC unit / day diagram)
  *
  * Env vars (all optional except DARWIN_*):
  *   DAEMON_PORT            HTTP port (default 4001)
  *   CORS_ORIGIN            Access-Control-Allow-Origin (default http://localhost:5173)
  *   DEFAULT_WINDOW_HOURS   default look-ahead when ?hours is omitted (default 3)
- *   INITIAL_REPLAY_MIN     Kafka replay on startup (default 360)
+ *   INITIAL_REPLAY_MIN     Kafka replay on startup (default 1080 = 18h, which
+ *                          covers the overnight `scheduleFormations` broadcast
+ *                          window so most services running today have their
+ *                          formation cached on first request)
  *   HEARTBEAT_SEC          stats log interval (default 60)
  *   DARWIN_*               Kafka creds from .env
  */
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
@@ -39,6 +44,7 @@ import { Kafka, logLevel } from 'kafkajs';
 import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
 import { loadTodaysReasons } from './reasons-loader.mjs';
 import { loadTodaysLocations, makeResolvers } from './locations-loader.mjs';
+import { parseConsistMessage, consistJoinKey, KNOWN_PTAC_TOC } from './consist-parser.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '.env') });
@@ -54,8 +60,19 @@ const cfg = {
   // the special "*" entry is present) so multiple local dev URLs can connect.
   corsOrigins:     (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3001').split(',').map((s) => s.trim()),
   windowHours:     Number(process.env.DEFAULT_WINDOW_HOURS || 3),
-  initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 360),
+  initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 1080),
   heartbeat:       Number(process.env.HEARTBEAT_SEC || 60),
+};
+
+// PTAC (S506) feed config — separate creds and consumer group from Darwin.
+// All optional: if any are missing, the PTAC consumer is skipped silently.
+const ptacCfg = {
+  bootstrap:    process.env.PTAC_BOOTSTRAP || cfg.bootstrap,  // same Confluent cluster
+  username:     process.env.PTAC_USERNAME,
+  password:     process.env.PTAC_PASSWORD,
+  topic:        process.env.PTAC_TOPIC || 'prod-1033-Passenger-Train-Allocation-and-Consist-1_0',
+  groupId:      process.env.PTAC_GROUP_ID,
+  initialReplay: Number(process.env.PTAC_INITIAL_REPLAY_MIN || 720),
 };
 
 // ---------- pick today's timetable file ------------------------------------
@@ -89,6 +106,92 @@ function decodeKafkaJson(rawBuf) {
   return typeof v.bytes === 'string' ? JSON.parse(v.bytes) : v;
 }
 function unwrap(v) { return v == null ? v : typeof v === 'object' ? (v['#text'] || v._ || v['']) : v; }
+
+/**
+ * Flatten a fast-xml-parser-style mixed-content tree into plain text + a
+ * naive HTML representation. NRCC `OW.Msg` arrives shaped like:
+ *   { "": "leading text ", a: { href: "...", "": "link text" } }
+ * or with multiple paragraphs:
+ *   { p: ["para 1", "para 2"] }
+ * The empty-string key holds bare text content; named keys are nested HTML
+ * elements. Children may be objects, strings, or arrays. Iteration order on
+ * a plain object is insertion order in V8, which matches XML reading order
+ * for the cases observed in the wild.
+ */
+function flattenHtml(node) {
+  if (node == null) return { plain: '', html: '' };
+  if (typeof node === 'string' || typeof node === 'number') {
+    const s = String(node);
+    return { plain: s, html: s };
+  }
+  if (Array.isArray(node)) {
+    let plain = '', html = '';
+    for (const item of node) {
+      const r = flattenHtml(item);
+      // Separate array items with a space so adjacent paragraphs don't
+      // smush into one word.
+      plain += (plain && r.plain ? ' ' : '') + r.plain;
+      html  += r.html;
+    }
+    return { plain, html };
+  }
+  if (typeof node === 'object') {
+    let plain = '', html = '';
+    for (const [key, val] of Object.entries(node)) {
+      // Bare text content of this element (fast-xml-parser convention).
+      if (key === '' || key === '#text' || key === '_') {
+        const r = flattenHtml(val);
+        plain += r.plain; html += r.html;
+        continue;
+      }
+      // XML attributes: skip in the flattened text. The href etc. live
+      // inside child elements; if we have an `a` with href it's already
+      // an object and the href is processed below.
+      if (typeof val !== 'object') {
+        // Scalar attribute (e.g. on the parent) — ignore.
+        continue;
+      }
+      const inner = flattenHtml(val);
+      // Wrap recognised inline elements in real HTML. For `a` we also
+      // pull the href out of the child object so links are clickable.
+      if (key === 'a') {
+        // val may be a single anchor object or an array of them.
+        const anchors = Array.isArray(val) ? val : [val];
+        for (const anc of anchors) {
+          const href = anc && (anc.href || anc.HREF);
+          const r    = flattenHtml(anc);
+          if (href) html += `<a href="${escapeAttr(String(href))}" target="_blank" rel="noopener">${escapeText(r.plain)}</a>`;
+          else      html += escapeText(r.plain);
+          plain += r.plain;
+        }
+      } else if (key === 'br') {
+        html  += '<br>';
+        plain += '\n';
+      } else if (key === 'p') {
+        const r = flattenHtml(val);
+        html  += `<p>${escapeText(r.plain)}</p>`;
+        plain += (plain ? '\n\n' : '') + r.plain;
+      } else if (key === 'b' || key === 'strong' || key === 'i' || key === 'em' || key === 'u' || key === 'span') {
+        html  += `<${key}>${escapeText(inner.plain)}</${key}>`;
+        plain += inner.plain;
+      } else {
+        // Unknown element: keep its text content but drop the wrapper.
+        plain += inner.plain;
+        html  += escapeText(inner.plain);
+      }
+    }
+    return { plain, html };
+  }
+  return { plain: '', html: '' };
+}
+
+function escapeText(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escapeAttr(s) {
+  return escapeText(s).replace(/"/g, '&quot;');
+}
+
 function todayYmd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -113,6 +216,10 @@ let lateReasons, cancelReasons;       // from ref file
 let locations, tocs, resolve_;        // from ref file
 let crsToTiplocs;                     // CRS -> Array<TIPLOC>
 let timetablePath, loadedDate;
+// PTAC join key index built from byRid each reload.
+//   "ssd|headcode|originTiploc|originHHMM" -> rid
+// Plus a fallback "ssd|headcode|originTiploc" -> [rid, ...] for stop-time-only matches.
+let ptacJoinByTuple, ptacJoinByOrigin;
 
 function reloadReferenceData() {
   timetablePath = pickTodaysTimetable();
@@ -130,6 +237,27 @@ function reloadReferenceData() {
     if (!arr) { arr = []; crsToTiplocs.set(crs, arr); }
     arr.push(tpl);
   }
+
+  // Build the PTAC join index. Each Darwin journey gets two entries:
+  //   1. A precise key (ssd, headcode, originTiploc, originHHMM) → rid
+  //   2. A looser fallback (ssd, headcode, originTiploc) → [rids]
+  // PTAC rarely sends seconds in its timestamps, but Darwin sometimes
+  // publishes ptd as "HH:MM:30" so we trim to HH:MM before indexing.
+  ptacJoinByTuple = new Map();
+  ptacJoinByOrigin = new Map();
+  for (const [rid, j] of byRid) {
+    const origin = j.slots?.find((s) => s.slot === 'OR' || s.slot === 'OPOR');
+    if (!origin?.tpl) continue;
+    const time = (origin.ptd || origin.wtd || '').slice(0, 5);
+    if (!j.trainId || !j.ssd) continue;
+    const exact = `${j.ssd}|${j.trainId}|${origin.tpl}|${time}`;
+    const loose = `${j.ssd}|${j.trainId}|${origin.tpl}`;
+    ptacJoinByTuple.set(exact, rid);
+    let arr = ptacJoinByOrigin.get(loose);
+    if (!arr) { arr = []; ptacJoinByOrigin.set(loose, arr); }
+    arr.push(rid);
+  }
+
   loadedDate = todayYmd();
 }
 
@@ -139,12 +267,140 @@ reloadReferenceData();
 const liveOverlayByRid = new Map();   // rid -> { locs: Map<tpl, {ptd,pta,plat,...}>, latestTs }
 const cancelled   = new Map();        // rid -> { reason, source, code? }
 const delayReason = new Map();        // rid -> { reason, source, code? }
+const reverseFormation = new Set();   // rids known to run with reversed coach order
+// uR.scheduleFormations — maps RID to its formation { fid, coaches: [{coachNumber, coachClass}] }.
+// Long-lived (one per service per day); a service may also be re-formed mid-day so
+// later messages overwrite earlier.
+const formationsByRid = new Map();    // rid -> { fid, coaches: [{number, class}] }
+// uR.serviceLoading — overall load %, set on the per-TIPLOC overlay entry.
+// uR.formationLoading — per-coach load values; stashed on the overlay entry too.
+// Both decay naturally with the live overlay map.
+
+// uR.OW — Operational Warning (NRCC station messages). Indexed by CRS so a
+// board lookup is O(1). Each message is referenced by every CRS it lists.
+const stationMessages = new Map();    // crs -> Set<id>
+const messagesById    = new Map();    // id  -> { id, severity, category, htmlMessage, plainMessage, stations: [crs], suppress }
+
+// uR.association — service joins/divides/next-portion. Keyed by main RID and
+// (mirrored) by associated RID so either side can look up.
+const associationsByRid = new Map();  // rid -> Array<{ category, mainRid, assocRid, tiploc, ... }>
+
+// uR.trainAlert — short text alerts per service.
+const alertsByRid = new Map();        // rid -> Array<{ id, type, audience, text, source, locations }>
+
+// ---------- PTAC (S506 Passenger Train Allocation and Consist) state ------
+// Each PTAC message describes one train's physical formation (which units,
+// vehicles, defects, etc.). Keyed by Darwin RID after the (ssd, headcode,
+// originTpl, originHHMM) join.
+const consistByRid = new Map();       // rid -> { allocations: [...], parsedAt, ptacCompany, sourceCore }
+// Unit-tracking index: which RIDs has this physical unit worked today, in
+// chronological order. Useful for the "follow this unit" page.
+const unitsById    = new Map();       // unitId -> { fleetId, vehicles, lastSeenRid, services: [{rid, start, end, headcode}], updatedAt }
+// Stash messages we couldn't immediately match — they may match after the
+// next timetable reload (overnight services published before midnight).
+// Keyed by the join tuple; value is the parsed message. Bounded to avoid
+// unbounded growth on a sustained mismatch.
+const unmatchedConsists = new Map();  // "ssd|headcode|tpl|hhmm" -> parsed
+const PTAC_UNMATCHED_CAP = 5000;
+
 const stats = {
   consumed: 0,
   updates:  0,
   startedAt: new Date().toISOString(),
   lastKafkaMsgAt: null,
 };
+
+// ---------- persistence ---------------------------------------------------
+// Long-lived caches (formations, station messages, associations, alerts,
+// reverseFormation) accumulate slowly because Darwin only broadcasts each
+// piece of data once per service per day. Confluent's broker retention is
+// shorter than a day, so a daemon restart wipes a lot of useful state. We
+// persist these caches to disk every PERSIST_INTERVAL_SEC and on graceful
+// shutdown, then reload them on startup. Live overlays (forecasts, actuals,
+// platform changes) are *not* persisted — they're high-churn and Darwin
+// rebroadcasts them frequently.
+const STATE_DIR  = resolve(__dirname, 'state');
+const STATE_FILE = resolve(STATE_DIR, 'daemon-cache.json');
+const PERSIST_INTERVAL_SEC = Number(process.env.PERSIST_INTERVAL_SEC || 30);
+let lastPersistAt = null;
+
+function loadPersistedState() {
+  if (!existsSync(STATE_FILE)) {
+    console.log(`[daemon] no persisted state at ${STATE_FILE} — starting fresh.`);
+    return;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+    // Stale guard: if the file is from a previous operating day, drop it.
+    // A "day" here is the daemon's local YMD, matching reloadReferenceData().
+    if (raw.savedDate && raw.savedDate !== todayYmd()) {
+      console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${todayYmd()} — discarding.`);
+      return;
+    }
+    if (raw.formations)        for (const [k, v] of raw.formations)        formationsByRid.set(k, v);
+    if (raw.messagesById) {
+      let dropped = 0;
+      for (const [k, v] of raw.messagesById) {
+        // Old cache entries may have lost link text from their plainMessage
+        // (the previous flattener didn't walk into nested anchor objects).
+        // Tidy up dangling ",.", ",," that came from that bug so the UI
+        // doesn't render "can be found in ,." until Darwin re-broadcasts.
+        if (v?.plainMessage)
+          v.plainMessage = v.plainMessage.replace(/\s*[,;]+\s*\.?\s*$/, '.').replace(/\s+/g, ' ').trim();
+        // Drop entries with no usable text — they were broken by the old
+        // flattener and will be re-populated correctly when NRCC re-issues.
+        if (!v?.plainMessage || v.plainMessage.length < 3) { dropped++; continue; }
+        messagesById.set(k, v);
+      }
+      if (dropped) console.log(`[daemon] dropped ${dropped} empty/broken cached messages from previous flattener.`);
+    }
+    if (raw.stationMessages)   for (const [k, v] of raw.stationMessages)   stationMessages.set(k, new Set(v));
+    if (raw.associations)      for (const [k, v] of raw.associations)      associationsByRid.set(k, v);
+    if (raw.alerts)            for (const [k, v] of raw.alerts)            alertsByRid.set(k, v);
+    if (raw.reverseFormation)  for (const r of raw.reverseFormation)       reverseFormation.add(r);
+    if (raw.consistByRid) for (const [k, v] of raw.consistByRid) consistByRid.set(k, v);
+    if (raw.unitsById)    for (const [k, v] of raw.unitsById)    unitsById.set(k, v);
+    if (raw.unmatchedConsists) for (const [k, v] of raw.unmatchedConsists) unmatchedConsists.set(k, v);
+    console.log(
+      `[daemon] restored persisted state: ${formationsByRid.size} formations, `
+      + `${consistByRid.size} consists, ${unitsById.size} units, `
+      + `${messagesById.size} messages, ${associationsByRid.size} associations, `
+      + `${alertsByRid.size} alerted services, ${reverseFormation.size} reverse formations.`
+    );
+  } catch (e) {
+    console.warn(`[daemon] failed to load persisted state: ${e.message}`);
+  }
+}
+
+function persistState() {
+  try {
+    if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
+    const payload = {
+      savedAt:   new Date().toISOString(),
+      savedDate: todayYmd(),
+      // Convert Maps/Sets to JSON-serialisable arrays. Use [[k,v], ...] format
+      // for Maps so order is preserved on round-trip.
+      formations:       [...formationsByRid.entries()],
+      messagesById:     [...messagesById.entries()],
+      stationMessages:  [...stationMessages.entries()].map(([k, v]) => [k, [...v]]),
+      associations:     [...associationsByRid.entries()],
+      alerts:           [...alertsByRid.entries()],
+      reverseFormation: [...reverseFormation],
+      // PTAC caches — biggest entries, but together still <10 MB JSON.
+      consistByRid:     [...consistByRid.entries()],
+      unitsById:        [...unitsById.entries()],
+      unmatchedConsists: [...unmatchedConsists.entries()],
+    };
+    // Atomic write: write to a tmp file, then rename. Avoids leaving a
+    // half-written cache on disk if the process crashes mid-flush.
+    const tmp = STATE_FILE + '.tmp';
+    writeFileSync(tmp, JSON.stringify(payload));
+    renameSync(tmp, STATE_FILE);
+    lastPersistAt = new Date().toISOString();
+  } catch (e) {
+    console.warn(`[daemon] failed to persist state: ${e.message}`);
+  }
+}
 
 function getOverlay(rid) {
   let o = liveOverlayByRid.get(rid);
@@ -160,6 +416,12 @@ function processMessage(pport) {
     for (const ts of asArray(e.TS)) {
       if (!ts.rid) continue;
       stats.lastKafkaMsgAt = new Date().toISOString();
+
+      // Reverse-formation flag (e.g. when a unit runs the wrong way round; the
+      // platform numbering of carriages is mirrored). Useful for the future
+      // formation-aware UI: passenger asking "which end is coach 1?".
+      if (ts.isReverseFormation === 'true' || ts.isReverseFormation === true) reverseFormation.add(ts.rid);
+      else if (ts.isReverseFormation === 'false' || ts.isReverseFormation === false) reverseFormation.delete(ts.rid);
 
       if (ts.lateReason) {
         const code = String(unwrap(ts.lateReason));
@@ -188,9 +450,13 @@ function processMessage(pport) {
             : (loc.plat[''] || loc.plat['#text'] || loc.plat._);
           if (platStr && platStr !== entry.livePlat) { entry.livePlat = platStr; stats.updates++; }
         }
+        // PARTIAL CANCELLATION semantics: a `can="true"` or `cancelReason`
+        // attribute on a single Location means *just this stop* is cancelled
+        // (e.g. service runs A→B but is cancelled B→F). Do NOT promote that
+        // to a whole-service cancellation; the board/detail responses derive
+        // per-stop status from entry.cancelled and per-stop cancelReason.
         if (loc.can === 'true' || loc.can === true) {
           entry.cancelled = true;
-          if (!cancelled.has(ts.rid)) cancelled.set(ts.rid, { reason: 'cancelled at this stop', source: 'ts-loc' });
           stats.updates++;
         }
         if (loc.lateReason) {
@@ -200,7 +466,8 @@ function processMessage(pport) {
         }
         if (loc.cancelReason) {
           const code = String(unwrap(loc.cancelReason));
-          cancelled.set(ts.rid, { code, source: 'ts-loc', reason: cancelReasons.get(code) || `code ${code}` });
+          entry.cancelled    = true;
+          entry.cancelReason = { code, reason: cancelReasons.get(code) || `code ${code}` };
           stats.updates++;
         }
       }
@@ -215,16 +482,18 @@ function processMessage(pport) {
         stats.updates++;
       }
       for (const k of ['OR','IP','PP','DT','OPOR','OPIP','OPPP','OPDT']) {
-        for (const loc of asArray(sc[k])) {
-          const tpl = String(loc.tpl || '').toUpperCase();
-          if (!tpl) continue;
-          if (loc.can === 'true' || loc.can === true) {
-            const ov = getOverlay(sc.rid);
-            let entry = ov.locs.get(tpl);
-            if (!entry) { entry = {}; ov.locs.set(tpl, entry); }
-            entry.cancelled = true;
-            if (!cancelled.has(sc.rid)) cancelled.set(sc.rid, { source: 'schedule-loc', reason: 'this stop cancelled' });
-            stats.updates++;
+        for (const node of asArray(sc[k])) {
+          // Same partial-cancellation rule as the TS branch: per-stop
+          // cancelled flags don't cancel the whole service, only that stop.
+          if (node?.cancelled === 'true' || node?.can === 'true') {
+            const tpl = unwrap(node?.tpl);
+            if (tpl) {
+              const ov = getOverlay(sc.rid);
+              let entry = ov.locs.get(tpl);
+              if (!entry) { entry = {}; ov.locs.set(tpl, entry); }
+              entry.cancelled = true;
+              stats.updates++;
+            }
           }
         }
       }
@@ -236,7 +505,311 @@ function processMessage(pport) {
       if (!cancelled.has(d.rid)) cancelled.set(d.rid, { source: 'deactivated', reason: 'schedule deactivated' });
       stats.updates++;
     }
+
+    // --- serviceLoading (overall passenger load % at a stop) ----------------
+    // {rid, tpl, wta/wtd/pta/ptd, loadingPercentage:"61"}
+    for (const sl of asArray(e.serviceLoading)) {
+      if (!sl?.rid || !sl.tpl) continue;
+      const ov = getOverlay(sl.rid);
+      const tpl = String(sl.tpl).toUpperCase();
+      let entry = ov.locs.get(tpl);
+      if (!entry) { entry = {}; ov.locs.set(tpl, entry); }
+      const pct = Number(unwrap(sl.loadingPercentage));
+      if (Number.isFinite(pct)) { entry.loadPct = pct; stats.updates++; }
+    }
+
+    // --- formationLoading (per-coach load values at a stop) -----------------
+    // {fid, rid, tpl, ..., loading:[{coachNumber, "":"7"}, ...]}
+    // Loading values appear to be 1–10 enum (1 = empty, 10 = full) per the
+    // Darwin spec; we pass them through as-is so the UI can decide.
+    for (const fl of asArray(e.formationLoading)) {
+      if (!fl?.rid || !fl.tpl) continue;
+      const ov = getOverlay(fl.rid);
+      const tpl = String(fl.tpl).toUpperCase();
+      let entry = ov.locs.get(tpl);
+      if (!entry) { entry = {}; ov.locs.set(tpl, entry); }
+      entry.fid = String(unwrap(fl.fid) || '');
+      entry.coachLoading = asArray(fl.loading).map((c) => ({
+        number: String(unwrap(c.coachNumber) || ''),
+        value:  Number(unwrap(c['']) ?? unwrap(c['#text']) ?? unwrap(c._)),
+      })).filter((c) => c.number);
+      stats.updates++;
+    }
+
+    // --- scheduleFormations (coach list + class for an FID) -----------------
+    // {rid, formation:{fid, coaches:{coach:[{coachNumber, coachClass}]}}}
+    for (const sf of asArray(e.scheduleFormations)) {
+      if (!sf?.rid) continue;
+      const f = sf.formation || {};
+      const fid = String(unwrap(f.fid) || '');
+      const coaches = asArray(f.coaches?.coach || f.coach).map((c) => ({
+        number: String(unwrap(c.coachNumber) || ''),
+        class:  String(unwrap(c.coachClass)  || ''),
+        // Optional Darwin attrs we pass through if present.
+        toilet:        c.toilet     ? String(unwrap(c.toilet))     : null,
+        catering:      c.catering   ? String(unwrap(c.catering))   : null,
+      }));
+      formationsByRid.set(sf.rid, { fid, coaches });
+      stats.updates++;
+    }
+
+    // --- association (service joins / divides / next-portion) ---------------
+    // {tiploc, category:"VV"|"JJ"|"NP", main:{rid, wtd/ptd...}, assoc:{rid,...}, isCancelled?, isDeleted?}
+    // Categories: JJ=join, VV=divide, NP=next-portion. We index on BOTH RIDs
+    // so either side of the relationship can find the other.
+    for (const a of asArray(e.association)) {
+      const tiploc = String(unwrap(a.tiploc) || '').toUpperCase();
+      const category = String(unwrap(a.category) || '');
+      const main = a.main || {};
+      const assoc = a.assoc || {};
+      const mainRid  = String(unwrap(main.rid)  || '');
+      const assocRid = String(unwrap(assoc.rid) || '');
+      if (!mainRid || !assocRid) continue;
+      const isDeleted = a.isDeleted === 'true' || a.isDeleted === true;
+      const isCancelled = a.isCancelled === 'true' || a.isCancelled === true;
+      const record = {
+        category, tiploc, mainRid, assocRid, isCancelled, isDeleted,
+        mainTime:  unwrap(main.ptd)  || unwrap(main.wtd)  || unwrap(main.pta)  || unwrap(main.wta)  || null,
+        assocTime: unwrap(assoc.ptd) || unwrap(assoc.wtd) || unwrap(assoc.pta) || unwrap(assoc.wta) || null,
+      };
+      if (isDeleted) {
+        // Withdraw any existing association between this pair at this tiploc.
+        for (const rid of [mainRid, assocRid]) {
+          const arr = associationsByRid.get(rid);
+          if (!arr) continue;
+          const left = arr.filter((x) => !(x.tiploc === tiploc && x.mainRid === mainRid && x.assocRid === assocRid));
+          if (left.length) associationsByRid.set(rid, left);
+          else associationsByRid.delete(rid);
+        }
+      } else {
+        for (const rid of [mainRid, assocRid]) {
+          const arr = associationsByRid.get(rid) || [];
+          // Replace any existing record for the same tiploc+pair.
+          const filtered = arr.filter((x) => !(x.tiploc === tiploc && x.mainRid === mainRid && x.assocRid === assocRid));
+          filtered.push(record);
+          associationsByRid.set(rid, filtered);
+        }
+      }
+      stats.updates++;
+    }
+
+    // --- OW (Operational Warning / NRCC station message) -------------------
+    // {id, cat, sev:"0"-"3", suppress?, Station:[{crs}], Msg:"<html...>"}
+    // Severity levels: 0=info, 1=minor, 2=major, 3=severe.
+    // Setting Station to empty or sev to deletion-equivalent isn't standardised;
+    // these messages are typically refreshed by being re-broadcast or removed
+    // by NRCC choosing not to mention them again. We expire stale ones via TTL.
+    for (const ow of asArray(e.OW)) {
+      const id = String(unwrap(ow.id) || '');
+      if (!id) continue;
+      const stations = asArray(ow.Station).map((s) => String(unwrap(s.crs) || '').toUpperCase()).filter(Boolean);
+      const severity = Number(unwrap(ow.sev) ?? 0);
+      const category = String(unwrap(ow.cat) || '');
+      const suppress = ow.suppress === 'true' || ow.suppress === true;
+      // Msg comes as a tree (mixed text + nested anchor / paragraph elements
+      // courtesy of the JSON serializer). Walk the tree to recover both a
+      // plain-text variant and a sanitised HTML one with clickable links.
+      const flat  = flattenHtml(ow.Msg);
+      const plain = flat.plain.replace(/\s+/g, ' ').trim();
+      const html  = flat.html.replace(/\s+/g, ' ').trim();
+      // Drop any prior CRS associations (the message might cover a different list now).
+      const prior = messagesById.get(id);
+      if (prior) for (const c of prior.stations) stationMessages.get(c)?.delete(id);
+      // An empty plain text means the flattener couldn't recover anything
+      // useful from this Msg shape — usually a malformed broadcast or a
+      // structure we don't know about yet. Suppress rather than show a
+      // blank banner; if NRCC re-issues with proper content we'll catch it.
+      if (suppress || stations.length === 0 || !plain || plain.length < 3) {
+        messagesById.delete(id);
+      } else {
+        messagesById.set(id, { id, severity, category, htmlMessage: html, plainMessage: plain, stations, receivedAt: new Date().toISOString() });
+        for (const c of stations) {
+          let set = stationMessages.get(c);
+          if (!set) { set = new Set(); stationMessages.set(c, set); }
+          set.add(id);
+        }
+      }
+      stats.updates++;
+    }
+
+    // --- trainAlert (per-service free-text alert) --------------------------
+    // {AlertID, AlertServices:{AlertService:{RID,...}}, AlertText, AlertType, Audience, Source}
+    for (const al of asArray(e.trainAlert)) {
+      const id = String(unwrap(al.AlertID) || '');
+      if (!id) continue;
+      const text = String(unwrap(al.AlertText) || '').trim();
+      const type = String(unwrap(al.AlertType) || '');
+      const audience = String(unwrap(al.Audience) || '');
+      const source = String(unwrap(al.Source) || '');
+      const services = asArray(al.AlertServices?.AlertService || al.AlertService);
+      for (const svc of services) {
+        const rid = String(unwrap(svc.RID) || '');
+        if (!rid) continue;
+        const locations = asArray(svc.Location).map((l) => String(unwrap(l) || '').toUpperCase()).filter(Boolean);
+        const arr = alertsByRid.get(rid) || [];
+        // Deduplicate by alert id; replace any prior copy.
+        const filtered = arr.filter((x) => x.id !== id);
+        filtered.push({ id, type, audience, source, text, locations });
+        alertsByRid.set(rid, filtered);
+        stats.updates++;
+      }
+    }
   }
+}
+
+// ---------- PTAC ingestion -------------------------------------------------
+const ptacStats = {
+  consumed: 0,
+  parsed:   0,
+  matched:  0,
+  unmatched: 0,
+  errors:   0,
+  startedAt: null,
+  lastMessageAt: null,
+};
+
+/**
+ * Process a single raw PTAC XML message off the Kafka topic. We:
+ *   1. Parse the XML to a normalised JS object.
+ *   2. Resolve to a Darwin RID via the (ssd, headcode, originTpl, originHHMM) join.
+ *   3. Store the consist by RID (latest broadcast wins).
+ *   4. Update the unit-tracking index.
+ * Unmatched messages are stashed in case a timetable reload later resolves them.
+ */
+function processConsistMessage(rawXml) {
+  ptacStats.consumed++;
+  ptacStats.lastMessageAt = new Date().toISOString();
+  let parsed;
+  try { parsed = parseConsistMessage(rawXml); }
+  catch (e) { ptacStats.errors++; return; }
+  if (!parsed) { ptacStats.errors++; return; }
+  ptacStats.parsed++;
+
+  // Empty messages = "remove allocation"; nothing to record but we should
+  // still drop any prior consist for this train if we can match it.
+  if (!parsed.allocations || parsed.allocations.length === 0) return;
+
+  const key = consistJoinKey(parsed);
+  if (!key) { ptacStats.unmatched++; return; }
+
+  const exact = `${key.ssd}|${key.headcode}|${key.originTpl}|${key.originHHMM}`;
+  const loose = `${key.ssd}|${key.headcode}|${key.originTpl}`;
+
+  let rid = ptacJoinByTuple?.get(exact);
+  if (!rid) {
+    // Fall back to (ssd, headcode, originTpl) — disambiguate by picking the
+    // candidate whose origin time is closest to PTAC's HHMM (in minutes).
+    const cands = ptacJoinByOrigin?.get(loose) || [];
+    if (cands.length === 1) rid = cands[0];
+    else if (cands.length > 1) {
+      const target = parseHHMM(key.originHHMM);
+      let best = null, bestDelta = Infinity;
+      for (const r of cands) {
+        const j = byRid.get(r);
+        const o = j?.slots?.find((s) => s.slot === 'OR' || s.slot === 'OPOR');
+        const t = parseHHMM((o?.ptd || o?.wtd || '').slice(0, 5));
+        if (target == null || t == null) continue;
+        const delta = Math.abs(t - target);
+        if (delta < bestDelta) { bestDelta = delta; best = r; }
+      }
+      if (best && bestDelta <= 5) rid = best;
+    }
+  }
+
+  if (!rid) {
+    // Stash for later resolution — bounded to prevent unbounded growth.
+    if (unmatchedConsists.size >= PTAC_UNMATCHED_CAP) {
+      // Drop the oldest entry (Maps iterate in insertion order).
+      const firstKey = unmatchedConsists.keys().next().value;
+      if (firstKey) unmatchedConsists.delete(firstKey);
+    }
+    unmatchedConsists.set(exact, parsed);
+    ptacStats.unmatched++;
+    return;
+  }
+
+  ptacStats.matched++;
+  applyConsistToRid(rid, parsed);
+}
+
+/**
+ * Convert a HH:MM string into minutes since midnight; returns null on bad input.
+ */
+function parseHHMM(s) {
+  if (!s) return null;
+  const m = /^(\d{1,2}):(\d{2})/.exec(s);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/**
+ * Store the consist against a RID and update the unit-tracking index.
+ * Always overwrites — latest broadcast wins, per the spec's "delete and
+ * replace" semantics for repeated messages on the same train.
+ */
+function applyConsistToRid(rid, parsed) {
+  consistByRid.set(rid, {
+    parsedAt:     new Date().toISOString(),
+    company:      parsed.company,
+    companyDarwin: parsed.companyDarwin,
+    core:         parsed.core,
+    diagramDate:  parsed.allocations[0]?.diagramDate || null,
+    allocations:  parsed.allocations,
+  });
+
+  // Refresh the unit-tracking index. Each unit (ResourceGroupId) gets a
+  // record of every service it's been seen on today.
+  const seenUnits = new Set();
+  for (const a of parsed.allocations) {
+    for (const rg of a.resourceGroups || []) {
+      if (!rg.unitId || seenUnits.has(rg.unitId)) continue;
+      seenUnits.add(rg.unitId);
+      let entry = unitsById.get(rg.unitId);
+      if (!entry) {
+        entry = { unitId: rg.unitId, fleetId: rg.fleetId, vehicles: rg.vehicles, services: [] };
+        unitsById.set(rg.unitId, entry);
+      } else {
+        // Refresh fleet + vehicles in case formation changed mid-day.
+        entry.fleetId = rg.fleetId || entry.fleetId;
+        entry.vehicles = rg.vehicles;
+      }
+      // Replace any existing service entry for this RID.
+      entry.services = entry.services.filter((s) => s.rid !== rid);
+      entry.services.push({
+        rid,
+        start: a.allocationOriginDateTime || a.trainOriginDateTime || null,
+        end:   a.allocationDestinationDateTime || a.trainDestDateTime || null,
+        startTpl: a.allocationOrigin?.tiploc || a.trainOrigin?.tiploc || null,
+        endTpl:   a.allocationDestination?.tiploc || a.trainDest?.tiploc || null,
+        headcode: parsed.headcode,
+        position: a.resourceGroupPosition,
+        reversed: a.reversed,
+      });
+      entry.services.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+      entry.lastSeenRid = rid;
+      entry.updatedAt   = new Date().toISOString();
+    }
+  }
+}
+
+/**
+ * After a timetable reload, retry unmatched PTAC messages — overnight
+ * services published before the rollover may now resolve to a fresh RID.
+ */
+function retryUnmatchedConsists() {
+  if (unmatchedConsists.size === 0) return 0;
+  let resolved = 0;
+  for (const [k, parsed] of [...unmatchedConsists]) {
+    const key = consistJoinKey(parsed);
+    if (!key) continue;
+    const rid = ptacJoinByTuple?.get(`${key.ssd}|${key.headcode}|${key.originTpl}|${key.originHHMM}`);
+    if (rid) {
+      applyConsistToRid(rid, parsed);
+      unmatchedConsists.delete(k);
+      resolved++;
+    }
+  }
+  return resolved;
 }
 
 // ---------- snapshot builder (per-TIPLOC, on demand) -----------------------
@@ -295,8 +868,18 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
     const bestTime = liveLoc?.bestTime || scheduledTime;
     const bestKind = liveLoc?.bestKind || 'scheduled';
 
-    const cancelInfo = cancelled.get(rid) || null;
-    const delayInfo  = delayReason.get(rid) || null;
+    // Effective cancellation seen by *this row*: a row is cancelled if the
+    // whole service is cancelled OR this individual calling point is
+    // cancelled (partial cancellation, e.g. service runs A→B but is
+    // cancelled B→F — for stops in B→F the train won't appear).
+    const wholeCancel = cancelled.get(rid) || null;
+    const stopCancel  = liveLoc?.cancelled
+      ? (liveLoc.cancelReason
+          ? { ...liveLoc.cancelReason, source: 'ts-loc', scope: 'stop' }
+          : { reason: 'Cancelled at this stop', source: 'ts-loc', scope: 'stop' })
+      : null;
+    const cancelInfo  = wholeCancel || stopCancel;
+    const delayInfo   = delayReason.get(rid) || null;
 
     // Calling pattern after this stop (only actual passenger stops, not PPs).
     const callingAfter = [];
@@ -318,6 +901,14 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
       liveKind: bestKind,
       platform: stop.plat,
       livePlatform: liveLoc?.livePlat || null,
+      // Loading at this stop, when published. loadPct is 0-100;
+      // coachLoading is 1-10 enum per coach.
+      loadingPercentage: liveLoc?.loadPct ?? null,
+      coachLoading: liveLoc?.coachLoading ?? null,
+      reverseFormation: reverseFormation.has(rid),
+      hasAssociations: (associationsByRid.get(rid)?.length ?? 0) > 0,
+      hasAlerts:       (alertsByRid.get(rid)?.length ?? 0) > 0,
+      hasConsist:      consistByRid.has(rid),
       // Which platform-group TIPLOC this row came from. Useful when a CRS
       // aggregates several (STP -> STPX | STPANCI | STPXBOX).
       sourceTiploc: sourceTpl,
@@ -344,18 +935,34 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
   return rows;
 }
 
+// All currently-known NRCC messages for a CRS, freshest first within each
+// severity bucket so the UI can pick a representative one for a banner.
+function listMessagesForCrs(crs) {
+  const ids = stationMessages.get(String(crs).toUpperCase());
+  if (!ids || ids.size === 0) return [];
+  const out = [];
+  for (const id of ids) {
+    const m = messagesById.get(id);
+    if (m) out.push(m);
+  }
+  out.sort((a, b) => (b.severity - a.severity) || b.receivedAt.localeCompare(a.receivedAt));
+  return out;
+}
+
 function buildSnapshot(tiplocs, windowHours, primaryTiploc) {
   const all = Array.isArray(tiplocs) ? tiplocs : [tiplocs];
   const primary = (primaryTiploc || all[0]).toUpperCase();
   const rows = buildDeparturesForTiplocs(all, windowHours);
   if (rows === null) return null;
+  const stationCrs = resolve_.tiplocToCrs(primary);
+  const messages = stationCrs ? listMessagesForCrs(stationCrs) : [];
   return {
     tiploc: primary,
     // When the station spans several TIPLOCs, expose the full set so the
     // caller (and the website) can see what's been merged.
     tiplocs: all.length > 1 ? all : undefined,
     stationName: resolve_.tiplocToName(primary),
-    stationCrs:  resolve_.tiplocToCrs(primary),
+    stationCrs,
     updatedAt: new Date().toISOString(),
     timetableFile: timetablePath.split('/').pop(),
     windowHours,
@@ -363,7 +970,9 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc) {
       departures: rows.length,
       cancelled:  rows.filter((r) => r.cancelled).length,
       withDelay:  rows.filter((r) => r.delayReason).length,
+      messages:   messages.length,
     },
+    messages,
     kafka: {
       consumed: stats.consumed,
       updatesApplied: stats.updates,
@@ -439,6 +1048,35 @@ function buildServiceDetail(rid) {
       liveTime: live?.bestTime || null,
       liveKind: live?.bestKind || null,
       cancelledAtStop: live?.cancelled || false,
+      cancelReasonAtStop: live?.cancelReason || null,
+      // Loading at this stop (if Darwin published it): overall % and/or
+      // per-coach 1–10 enum. Null means no live loading data yet.
+      loadingPercentage: live?.loadPct ?? null,
+      coachLoading: live?.coachLoading ?? null,
+    };
+  });
+
+  // A "partial cancellation" is when the whole service isn't cancelled but
+  // one or more individual stops are. The UI uses this to show a banner
+  // explaining the situation alongside per-stop strikethroughs.
+  const partiallyCancelled = !cancelInfo && stops.some((s) => s.cancelledAtStop);
+
+  // Resolve associated services to human-readable summaries. We only look up
+  // basic info on the *other* RID — full traversal can be done by the client
+  // by following the RID into another /api/service/:rid call.
+  const associations = (associationsByRid.get(rid) || []).map((a) => {
+    const otherRid = a.mainRid === rid ? a.assocRid : a.mainRid;
+    const other = byRid.get(otherRid);
+    return {
+      ...a,
+      role: a.mainRid === rid ? 'main' : 'associated',
+      otherRid,
+      otherTrainId: other?.trainId || null,
+      otherToc: other?.toc || null,
+      otherOriginName:      other ? resolve_.tiplocToName(other.origin) : null,
+      otherDestinationName: other ? resolve_.tiplocToName(other.destination) : null,
+      tiplocName: resolve_.tiplocToName(a.tiploc),
+      tiplocCrs:  resolve_.tiplocToCrs(a.tiploc),
     };
   });
 
@@ -457,7 +1095,16 @@ function buildServiceDetail(rid) {
     destinationName: resolve_.tiplocToName(j.destination),
     cancelled: cancelInfo ? true : false,
     cancellation: cancelInfo,
+    partiallyCancelled,
     delayReason: delayInfo,
+    reverseFormation: reverseFormation.has(rid),
+    formation:    formationsByRid.get(rid) || null,
+    // PTAC consist (physical reality view): unit numbers, vehicles, defects,
+    // class identification. Null when no PTAC message has been received for
+    // this RID yet (most regional services + LNER don't publish to PTAC).
+    consist:      consistByRid.get(rid) || null,
+    associations,
+    alerts:       alertsByRid.get(rid) || [],
     stops,
     updatedAt: new Date().toISOString(),
   };
@@ -512,8 +1159,28 @@ function handleRequest(req, res) {
       timetableFile: timetablePath.split('/').pop(),
       loadedDate,
       kafka: stats,
-      overlaySize: { live: liveOverlayByRid.size, cancelled: cancelled.size, delayed: delayReason.size },
+      overlaySize: {
+        live: liveOverlayByRid.size,
+        cancelled: cancelled.size,
+        delayed: delayReason.size,
+        formations: formationsByRid.size,
+        stationsWithMessages: stationMessages.size,
+        messages: messagesById.size,
+        ridsWithAssociations: associationsByRid.size,
+        ridsWithAlerts: alertsByRid.size,
+        reverseFormation: reverseFormation.size,
+        // PTAC (S506) consist & unit caches
+        consists: consistByRid.size,
+        units: unitsById.size,
+        unmatchedConsists: unmatchedConsists.size,
+      },
+      ptac: {
+        enabled: !!(ptacCfg.username && ptacCfg.groupId),
+        topic: ptacCfg.topic,
+        ...ptacStats,
+      },
       memoryMB: { heap: +(mem.heapUsed/1024/1024).toFixed(1), rss: +(mem.rss/1024/1024).toFixed(1) },
+      persistence: { stateFile: STATE_FILE, intervalSec: PERSIST_INTERVAL_SEC, lastPersistAt },
     }, req);
     return;
   }
@@ -545,6 +1212,16 @@ function handleRequest(req, res) {
     return;
   }
 
+  // /api/messages/:crs — currently-known NRCC station messages for that CRS.
+  // Falls through to 200 with empty list if the CRS is unknown so the UI can
+  // call this freely without 404 noise.
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'messages') {
+    const crs = parts[2].toUpperCase();
+    const messages = listMessagesForCrs(crs);
+    sendJson(res, 200, { crs, messages, count: messages.length, updatedAt: new Date().toISOString() }, req);
+    return;
+  }
+
   // /api/service/:rid
   if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'service') {
     const detail = buildServiceDetail(parts[2]);
@@ -553,7 +1230,21 @@ function handleRequest(req, res) {
     return;
   }
 
-  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/service/:rid' }, req);
+  // /api/unit/:resourceGroupId — physical unit detail + day's diagram
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'unit') {
+    const unit = unitsById.get(parts[2]);
+    if (!unit) { sendJson(res, 404, { error: `unit not seen today: "${parts[2]}"` }, req); return; }
+    // Enrich each service entry with friendly origin/destination names.
+    const services = (unit.services || []).map((s) => ({
+      ...s,
+      startName: s.startTpl ? resolve_.tiplocToName(s.startTpl) : null,
+      endName:   s.endTpl   ? resolve_.tiplocToName(s.endTpl)   : null,
+    }));
+    sendJson(res, 200, { ...unit, services, updatedAt: new Date().toISOString() }, req);
+    return;
+  }
+
+  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid, /api/unit/:id' }, req);
 }
 
 const server = createServer(handleRequest);
@@ -569,6 +1260,12 @@ const kafka = new Kafka({
 });
 const consumer = kafka.consumer({ groupId: cfg.groupId });
 
+// PTAC consumer — separate Kafka client (different SASL credentials) on the
+// same Confluent cluster. Created lazily inside startPtacConsumer() so it
+// is silently skipped when the PTAC creds aren't set in .env.
+let ptacKafka = null;
+let ptacConsumer = null;
+
 let shuttingDown = false;
 async function shutdown() {
   if (shuttingDown) return;
@@ -576,19 +1273,99 @@ async function shutdown() {
   console.log('\n[daemon] shutting down ...');
   try { server.close(); } catch {}
   try { await consumer.disconnect(); } catch {}
+  if (ptacConsumer) try { await ptacConsumer.disconnect(); } catch {}
+  // Final flush so the latest accumulated state survives the restart.
+  console.log('[daemon] persisting final state ...');
+  persistState();
   console.log('[daemon] bye.');
   process.exit(0);
 }
 process.on('SIGINT',  shutdown);
 process.on('SIGTERM', shutdown);
 
+/**
+ * Spin up the PTAC consumer alongside Darwin. Silent no-op if PTAC creds
+ * are missing — Darwin still works fine without it. Failures here log a
+ * warning but don't crash the process; the daemon should keep serving
+ * Darwin data even if Network Rail's feed is unreachable.
+ */
+async function startPtacConsumer() {
+  if (!ptacCfg.username || !ptacCfg.password || !ptacCfg.groupId) {
+    console.log('[ptac] disabled: missing PTAC_USERNAME / PTAC_PASSWORD / PTAC_GROUP_ID in .env');
+    return;
+  }
+  ptacStats.startedAt = new Date().toISOString();
+  ptacKafka = new Kafka({
+    clientId: 'rs-departures-daemon-ptac',
+    brokers:  [ptacCfg.bootstrap], ssl: true,
+    sasl:     { mechanism: 'plain', username: ptacCfg.username, password: ptacCfg.password },
+    connectionTimeout: 15000,
+    authenticationTimeout: 15000,
+    logLevel: logLevel.WARN,
+  });
+  ptacConsumer = ptacKafka.consumer({ groupId: ptacCfg.groupId });
+
+  try {
+    await ptacConsumer.connect();
+    await ptacConsumer.subscribe({ topic: ptacCfg.topic, fromBeginning: false });
+  } catch (e) {
+    console.warn(`[ptac] connect failed: ${e.message} — feed disabled.`);
+    ptacConsumer = null;
+    return;
+  }
+
+  // Replay window — same pattern as Darwin: fetch offsets corresponding to
+  // (now − initialReplay) so a fresh start picks up the broker's full
+  // retention without reprocessing already-consumed data.
+  let replayOffsets = null;
+  if (ptacCfg.initialReplay > 0) {
+    const admin = ptacKafka.admin();
+    try {
+      await admin.connect();
+      const sinceMs = Date.now() - ptacCfg.initialReplay * 60_000;
+      replayOffsets = await admin.fetchTopicOffsetsByTimestamp(ptacCfg.topic, sinceMs);
+      console.log(`[ptac] will replay -${ptacCfg.initialReplay} min across ${replayOffsets.length} partition(s).`);
+    } catch (e) { console.warn(`[ptac] offset fetch failed: ${e.message}`); }
+    finally { await admin.disconnect(); }
+  }
+
+  ptacConsumer.run({
+    eachMessage: async ({ message }) => {
+      try { processConsistMessage(message.value); }
+      catch (e) { /* don't die on one bad message */ ptacStats.errors++; }
+    },
+  }).catch((e) => {
+    console.error('[ptac] consumer.run error:', e);
+    // Don't shutdown — keep Darwin running even if PTAC dies.
+    ptacConsumer = null;
+  });
+
+  if (replayOffsets) {
+    await new Promise((r) => setTimeout(r, 2000));
+    for (const o of replayOffsets) {
+      try { ptacConsumer.seek({ topic: ptacCfg.topic, partition: o.partition, offset: o.offset }); }
+      catch (e) { console.warn(`[ptac] seek p${o.partition} failed: ${e.message}`); }
+    }
+  }
+
+  console.log('[ptac] consumer running.');
+}
+
 async function start() {
+  // Restore long-lived caches from the previous run *before* any messages are
+  // processed, so live updates can immediately layer on top of yesterday's
+  // formations / station messages / associations. Stale-day check happens
+  // inside loadPersistedState().
+  loadPersistedState();
+
   server.listen(cfg.port, () => {
     console.log(`[daemon] HTTP API listening on http://localhost:${cfg.port}`);
     console.log(`[daemon]   GET /api/health`);
     console.log(`[daemon]   GET /api/station/:code`);
     console.log(`[daemon]   GET /api/departures/:code?hours=N   (default ${cfg.windowHours})`);
+    console.log(`[daemon]   GET /api/messages/:crs`);
     console.log(`[daemon]   GET /api/service/:rid`);
+    console.log(`[daemon]   GET /api/unit/:resourceGroupId`);
   });
 
   await consumer.connect();
@@ -630,10 +1407,22 @@ async function start() {
     }
   }
 
+  // Spin up the PTAC consumer in parallel. Fire-and-forget — its own
+  // failures are isolated and won't bring Darwin down.
+  startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
+
   setInterval(() => {
     const mem = process.memoryUsage();
-    console.log(`[daemon] heartbeat: consumed=${stats.consumed} updates=${stats.updates} live=${liveOverlayByRid.size} cancelled=${cancelled.size} lastMsg=${stats.lastKafkaMsgAt || 'none'} heap=${(mem.heapUsed/1024/1024).toFixed(0)}MB`);
+    console.log(
+      `[daemon] heartbeat: darwin consumed=${stats.consumed} updates=${stats.updates} live=${liveOverlayByRid.size} cancelled=${cancelled.size} formations=${formationsByRid.size}`
+      + ` | ptac consumed=${ptacStats.consumed} matched=${ptacStats.matched} unmatched=${unmatchedConsists.size} consists=${consistByRid.size} units=${unitsById.size}`
+      + ` | heap=${(mem.heapUsed/1024/1024).toFixed(0)}MB`
+    );
   }, cfg.heartbeat * 1000);
+
+  // Persist long-lived caches on a regular timer so a crash or kill -9 still
+  // leaves us at most PERSIST_INTERVAL_SEC of new data behind.
+  setInterval(persistState, PERSIST_INTERVAL_SEC * 1000);
 
   // Day rollover: every 5 min, check the date.
   setInterval(() => {
@@ -645,6 +1434,19 @@ async function start() {
         liveOverlayByRid.clear();
         cancelled.clear();
         delayReason.clear();
+        reverseFormation.clear();
+        formationsByRid.clear();
+        stationMessages.clear();
+        messagesById.clear();
+        associationsByRid.clear();
+        alertsByRid.clear();
+        consistByRid.clear();
+        unitsById.clear();
+        unmatchedConsists.clear();
+        // Flush the now-empty caches to disk straight away so an immediate
+        // restart doesn't re-load yesterday's data through the stale-day
+        // guard race window.
+        persistState();
       } catch (e) {
         console.warn(`[daemon] reload failed (will retry in 5 min): ${e.message}`);
       }

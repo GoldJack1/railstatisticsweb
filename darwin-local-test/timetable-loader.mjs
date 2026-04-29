@@ -229,15 +229,30 @@ export function loadAllJourneysIndexedByTiploc(filePath) {
     // fast-xml-parser groups same-named elements, so the natural array order
     // is OR, IP, IP..., PP, PP..., DT — passing points all fall to the end
     // of the route. Sort by the earliest known time at each location to
-    // restore route order, anchoring OR first and DT last so we don't get
+    // Restore route order, anchoring OR first and DT last so we don't get
     // tripped up by services whose times wrap across midnight or where a PP
     // happens to coincide with a stop.
+    //
+    // Midnight rollover: pure HH:MM:SS sorting puts post-midnight stops
+    // (00:05, 00:07 …) BEFORE the evening intermediates (21:14, 22:30 …) for
+    // a service that originates at, say, 21:02 and finishes at 00:30 the
+    // next day. To fix this we anchor on the origin's time and treat any
+    // slot whose raw seconds are >6h earlier than the anchor as belonging
+    // to the next day (+86400s). 6h is a safe gap: no real journey segment
+    // jumps that far backwards within the same operating day.
+    const anchorSlot = compactSlots.find((s) => s.slot === 'OR' || s.slot === 'OPOR') || compactSlots[0];
+    const anchorSec  = anchorSlot ? slotTimeSeconds(anchorSlot) : 0;
+    const ROLLOVER   = 6 * 3600;
+    const effSec = (s) => {
+      const t = slotTimeSeconds(s);
+      return (t < anchorSec - ROLLOVER) ? t + 86400 : t;
+    };
     compactSlots.sort((a, b) => {
       if (a.slot === 'OR' || a.slot === 'OPOR') return -1;
       if (b.slot === 'OR' || b.slot === 'OPOR') return 1;
       if (a.slot === 'DT' || a.slot === 'OPDT') return 1;
       if (b.slot === 'DT' || b.slot === 'OPDT') return -1;
-      return slotTimeSeconds(a) - slotTimeSeconds(b);
+      return effSec(a) - effSec(b);
     });
     totalSlots += compactSlots.length;
 
