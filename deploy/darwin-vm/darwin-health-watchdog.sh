@@ -2,12 +2,28 @@
 set -euo pipefail
 
 STATE_FILE="/tmp/darwin-health-watchdog.failcount"
+ENV_FILE="/etc/darwin-daemon.env"
 FAILS=0
 if [[ -f "$STATE_FILE" ]]; then
   FAILS=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
 fi
 
-HEALTH_JSON="$(curl -fsS --max-time 8 http://127.0.0.1:4001/api/health || true)"
+API_KEY=""
+if [[ -f "$ENV_FILE" ]]; then
+  # Prefer multi-key list, first key used for local health checks.
+  KEYS_LINE="$(awk -F= '/^INTERNAL_API_KEYS=/{print $2}' "$ENV_FILE" | tail -n1 || true)"
+  if [[ -n "$KEYS_LINE" ]]; then
+    API_KEY="$(printf "%s" "$KEYS_LINE" | awk -F',' '{print $1}' | sed 's/^ *//;s/ *$//')"
+  else
+    API_KEY="$(awk -F= '/^INTERNAL_API_KEY=/{print $2}' "$ENV_FILE" | tail -n1 | sed 's/^ *//;s/ *$//' || true)"
+  fi
+fi
+
+if [[ -n "$API_KEY" ]]; then
+  HEALTH_JSON="$(curl -fsS --max-time 8 -H "X-API-Key: $API_KEY" http://127.0.0.1:4001/api/health || true)"
+else
+  HEALTH_JSON="$(curl -fsS --max-time 8 http://127.0.0.1:4001/api/health || true)"
+fi
 if [[ -z "$HEALTH_JSON" ]]; then
   FAILS=$((FAILS + 1))
   echo "$FAILS" > "$STATE_FILE"

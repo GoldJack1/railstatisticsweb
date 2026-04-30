@@ -1,15 +1,71 @@
-.unit-shell {
-  background-color: var(--bg-tertiary);
-  width: 100%;
+.container.container--unit-details {
+  max-width: none !important;
+  width: 100vw;
+  margin: 0 !important;
+  padding-top: 0;
+  padding-bottom: var(--space-xl);
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .unit-page {
-  max-width: var(--container-2xl);
-  margin: 0 auto;
+  width: 100%;
   padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+}
+
+.unit-details-layout {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  min-width: 0;
+  gap: var(--space-xl);
+}
+
+.unit-details-sidebar {
+  width: 260px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
+}
+
+.unit-details-sidebar-actions {
+  display: none;
+}
+
+.unit-details-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.unit-details-tab {
+  width: 100%;
+  justify-content: flex-start;
+  font-size: var(--text-sm);
+}
+
+.unit-details-tab.rs-button--pressed {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-secondary);
+}
+
+.unit-details-tab.rs-button--pressed .rs-button__inner-shadow {
+  box-shadow: none !important;
+}
+
+.unit-details-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-details-main .unit-list-card,
+.unit-details-main .unit-summary-card,
+.unit-details-main .unit-state-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .unit-controls,
@@ -26,12 +82,12 @@
 .unit-search-row {
   display: flex;
   gap: var(--space-sm);
-  align-items: center;
+  align-items: flex-start;
+  flex-direction: column;
 }
 
 .unit-search-input {
-  flex: 1 1 auto;
-  min-width: 14rem;
+  width: 100%;
 }
 
 .unit-summary-grid {
@@ -101,6 +157,50 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.unit-log-count-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
+}
+
+.unit-log-count-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.unit-log-count-title {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.unit-log-count-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.unit-log-count-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 85%, transparent);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .unit-muted {
@@ -205,13 +305,76 @@
   font-size: var(--text-sm);
 }
 
-@media (max-width: 639px) {
+@media (max-width: 768px) {
   .unit-page {
     padding: var(--space-md) var(--space-lg) var(--space-2xl);
     gap: var(--space-lg);
   }
-  .unit-search-row {
-    flex-wrap: wrap;
+
+  .unit-details-layout {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .unit-details-sidebar {
+    width: 100%;
+    gap: var(--space-sm);
+    min-width: 0;
+  }
+
+  .unit-details-sidebar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .unit-details-tabs {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-xs);
+    margin-bottom: var(--space-sm);
+  }
+
+  .unit-details-tab {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .unit-details-tabs::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .unit-summary-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .unit-summary-card,
+  .unit-list-card,
+  .unit-state-card {
+    padding: var(--space-md);
+  }
+
+  .unit-services {
+    gap: var(--space-xs);
+  }
+
+  .unit-details-main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .unit-log-count-chip {
+    min-width: 1.4rem;
+    height: 1.25rem;
   }
 }
 

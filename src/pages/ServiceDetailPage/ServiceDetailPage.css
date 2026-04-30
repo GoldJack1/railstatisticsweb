@@ -28,6 +28,11 @@
   color: var(--accent-base);
 }
 
+.service-detail-header .rs-page-top-header__subtitle {
+  white-space: pre-line;
+  line-height: 1.45;
+}
+
 /* ===== State cards ===== */
 
 .svc-state-card {
@@ -219,6 +224,7 @@
   background: var(--accent-base);
   color: #fff;
 }
+
 
 /* ===== Calling pattern card ===== */
 

@@ -17,7 +17,7 @@ interface PageTopHeaderActionButton {
 
 interface PageTopHeaderProps {
   title: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   className?: string
   innerClassName?: string
   actionButton?: PageTopHeaderActionButton

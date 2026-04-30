@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useServiceDetail } from '../../hooks/useServiceDetail'
 import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
@@ -121,7 +121,10 @@ const RawDataDump: React.FC<{ data: ServiceDetail }> = ({ data }) => {
     ['Stops',             data.stops?.length || 0],
     ['Stops with loading', (data.stops || []).filter((s: ServiceDetail['stops'][number]) => s.coachLoading || s.loadingPercentage != null).length],
   ]
-  const apiUrl = `/api/darwin/service/${encodeURIComponent(data.rid)}`
+  const qp = new URLSearchParams()
+  if (data.historicalDate) qp.set('date', data.historicalDate)
+  if (data.historicalAt) qp.set('at', data.historicalAt)
+  const apiUrl = `/api/darwin/service/${encodeURIComponent(data.rid)}${qp.toString() ? `?${qp.toString()}` : ''}`
   return (
     <details className="svc-rawdump" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="svc-rawdump-summary">
@@ -181,11 +184,23 @@ const RawDataBody: React.FC<{ data: ServiceDetail }> = React.memo(
 
 const ServiceDetailPage: React.FC = () => {
   const params   = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const rid = params.rid || ''
   const [viewMode, setViewMode] = useState<ViewMode>('detailed')
 
-  const { status, data, error, ageMs, refetch } = useServiceDetail({ rid })
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const historicalDate = query.get('date') || undefined
+  const historicalAt = query.get('at') || undefined
+  const from = query.get('from') || ''
+  const historicalMode = !!historicalDate
+
+  const { status, data, error, ageMs, refetch } = useServiceDetail({
+    rid,
+    date: historicalDate,
+    at: historicalAt,
+    pollMs: historicalMode ? 0 : 15_000,
+  })
 
   const title = useMemo(() => {
     if (!data) return rid
@@ -194,13 +209,20 @@ const ServiceDetailPage: React.FC = () => {
   }, [data, rid])
 
   const subtitle = useMemo(() => {
-    if (status === 'ok')        return `Live · updated ${formatAge(ageMs)}`
-    if (status === 'stale')     return `Stale · ${formatAge(ageMs)}`
-    if (status === 'loading')   return 'Loading service detail…'
+    const serviceDate = data?.ssd ? formatDateOnly(data.ssd) : null
+    const histDate = data?.historicalDate ? formatDateOnly(data.historicalDate) : null
+    const dateText = histDate
+      ? `Service date ${serviceDate || '—'} · Viewing ${histDate}`
+      : serviceDate
+        ? `Service date ${serviceDate}`
+        : ''
+    if (status === 'ok')        return `${historicalMode ? 'Historical snapshot' : `Live · updated ${formatAge(ageMs)}`}${dateText ? `\n${dateText}` : ''}`
+    if (status === 'stale')     return `${historicalMode ? 'Historical snapshot' : `Stale · ${formatAge(ageMs)}`}${dateText ? `\n${dateText}` : ''}`
+    if (status === 'loading')   return `Loading service detail…${dateText ? `\n${dateText}` : ''}`
     if (status === 'error')     return error ? `Error: ${error}` : 'Service unavailable'
     if (status === 'not-found') return 'Service not found'
-    return ''
-  }, [status, error, ageMs])
+    return dateText
+  }, [status, error, ageMs, historicalMode, data])
 
   return (
     <div className="service-detail-shell">
@@ -210,7 +232,11 @@ const ServiceDetailPage: React.FC = () => {
         className={`service-detail-header service-detail-header--${status}`}
         actionButton={{
           label: '← Back',
-          onClick: () => (window.history.length > 1 ? navigate(-1) : navigate('/departures')),
+          onClick: () => {
+            if (from) { navigate(from); return }
+            if (window.history.length > 1) { navigate(-1); return }
+            navigate('/departures')
+          },
         }}
       />
 
@@ -354,7 +380,13 @@ const ServiceDetailPage: React.FC = () => {
                   <button
                     type="button"
                     className="svc-banner-link"
-                    onClick={() => navigate(`/services/${encodeURIComponent(a.otherRid)}`)}
+                    onClick={() => {
+                      const next = new URLSearchParams()
+                      if (historicalDate) next.set('date', historicalDate)
+                      if (historicalAt) next.set('at', historicalAt)
+                      if (from) next.set('from', from)
+                      navigate(`/services/${encodeURIComponent(a.otherRid)}${next.toString() ? `?${next.toString()}` : ''}`)
+                    }}
                   >View other portion →</button>
                 </div>
               ))}
@@ -459,8 +491,11 @@ const ServiceDetailPage: React.FC = () => {
                           {!s.cancelledAtStop && showLive && s.liveKind === 'actual-arr'  && <span className="svc-pill svc-pill--actual">Arrived {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && s.liveTime !== pDep && <span className="svc-pill svc-pill--late">Expected {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'est-arr'     && <span className="svc-pill">Expected arr {s.liveTime}</span>}
-                          {!s.cancelledAtStop && !showLive && kind !== 'pass' && (idx === 0 || idx === data.stops.length - 1) && (
+                          {!s.cancelledAtStop && !showLive && kind !== 'pass' && (idx === 0 || idx === data.stops.length - 1) && !data.historicalDate && (
                             <span className="svc-pill svc-pill--ontime">Scheduled</span>
+                          )}
+                          {!s.cancelledAtStop && !showLive && kind !== 'pass' && data.historicalDate && (
+                            <span className="svc-pill">---</span>
                           )}
                         </div>
                       </td>

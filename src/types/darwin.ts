@@ -33,6 +33,12 @@ export type LiveTimeKind =
   | 'est-arr'      // forecast arrival (when no departure forecast available)
   | 'actual-arr';  // actual arrival (terminating / set-down only services)
 
+export type DepartureServiceType =
+  | 'passenger'
+  | 'freight'
+  | 'rail-replacement'
+  | 'other';
+
 export interface DepartureRow {
   rid: string;
   trainId: string;
@@ -40,6 +46,10 @@ export interface DepartureRow {
 
   toc: string;
   tocName: string | null;
+  /** Darwin/CIF train category code when provided (e.g. "OO"). */
+  trainCat: string | null;
+  /** Normalised service type derived from Darwin feed metadata. */
+  serviceType: DepartureServiceType;
 
   scheduledTime: string;       // "HH:MM"
   scheduledAt: string;         // ISO8601 anchored to today
@@ -274,6 +284,10 @@ export interface ServiceDetail {
   associations: ServiceAssociation[];
   alerts: ServiceAlert[];
   stops: ServiceStop[];
+  /** Present when served from historical snapshot query mode. */
+  historicalDate?: string | null;
+  historicalAt?: string | null;
+  historicalSavedAt?: string | null;
   updatedAt: string;
 }
 

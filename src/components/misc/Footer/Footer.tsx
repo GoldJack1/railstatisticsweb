@@ -37,11 +37,14 @@ const Footer: React.FC = () => {
             <BUTFooterLink to="/home">
               Home
             </BUTFooterLink>
-            <BUTFooterLink to="/departures/LDS">
+            <BUTFooterLink to="/departures">
               Departures
             </BUTFooterLink>
             <BUTFooterLink to="/units">
               Units
+            </BUTFooterLink>
+            <BUTFooterLink to="/api-status">
+              API Status
             </BUTFooterLink>
             <BUTFooterLink to="/migration">
               Migration

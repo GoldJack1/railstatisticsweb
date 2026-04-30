@@ -1,15 +1,27 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useDepartures } from '../../hooks/useDepartures'
-import type { DepartureRow } from '../../types/darwin'
+import type { DepartureRow, DepartureServiceType } from '../../types/darwin'
+import type { Station } from '../../types'
+import { useStations } from '../../hooks/useStations'
 import { PageTopHeader } from '../../components/misc'
-import { BUTWideButton, BUTTabButton } from '../../components/buttons'
+import { BUTBaseButton, BUTWideButton } from '../../components/buttons'
+import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
+import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import { TextCard } from '../../components/cards'
 import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
 import { StationMessages } from '../../components/darwin/StationMessages'
 import './DarwinDeparturesPage.css'
 
-const DEFAULT_CODE = 'LDS'
+interface HistoryDatesResponse {
+  count: number
+  dates: Array<{
+    date: string
+    hasState: boolean
+    hasTimetable: boolean
+    snapshots?: string[]
+  }>
+}
 
 const WINDOW_OPTIONS = [
   { label: '1 hour',   value: 1 },
@@ -17,6 +29,7 @@ const WINDOW_OPTIONS = [
   { label: '6 hours',  value: 6 },
   { label: '12 hours', value: 12 },
 ]
+const WINDOW_VALUES = new Set(WINDOW_OPTIONS.map((opt) => opt.value))
 
 const SearchIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -40,6 +53,56 @@ function formatAge(ms: number | null): string {
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
   return `${h}h ago`
+}
+
+function formatHeaderDate(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function formatLiveNowUk(): string {
+  return new Date().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/London',
+  })
+}
+
+function getCurrentRailwayDayIsoUk(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now)
+
+  const pick = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value || '00'
+
+  const year = Number(pick('year'))
+  const month = Number(pick('month'))
+  const day = Number(pick('day'))
+  const hour = Number(pick('hour'))
+  const minute = Number(pick('minute'))
+
+  const londonAsUtc = Date.UTC(year, month - 1, day, hour, minute)
+  const railwayDayUtc = londonAsUtc - ((4 * 60 + 30) * 60 * 1000)
+  return new Date(railwayDayUtc).toISOString().slice(0, 10)
+}
+
+function addDaysIsoDate(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  if (Number.isNaN(d.getTime())) return dateStr
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 
 /**
@@ -96,38 +159,282 @@ function buildTitle(row: DepartureRow): string {
   return `${time} · ${dest}`
 }
 
+function normalizeStationText(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s\-_,.]+/g, ' ')
+}
+
+function resolveSearchInput(rawInput: string, stations: Station[]): string | null {
+  const trimmed = rawInput.trim()
+  if (!trimmed) return null
+
+  const directCode = trimmed.toUpperCase()
+  const byCode = stations.find((station) => {
+    const crs = station.crsCode?.toUpperCase()
+    const tiploc = station.tiploc?.toUpperCase()
+    return crs === directCode || tiploc === directCode
+  })
+  if (byCode) return byCode.crsCode || byCode.tiploc
+
+  const normalizedInput = normalizeStationText(trimmed)
+  const withNormalizedName = stations
+    .filter((station) => station.stationName)
+    .map((station) => ({
+      station,
+      normalizedName: normalizeStationText(station.stationName),
+    }))
+
+  const exactNameMatch = withNormalizedName.find((item) => item.normalizedName === normalizedInput)
+  if (exactNameMatch) return exactNameMatch.station.crsCode || exactNameMatch.station.tiploc
+
+  const startsWithMatch = withNormalizedName.find((item) => item.normalizedName.startsWith(normalizedInput))
+  if (startsWithMatch) return startsWithMatch.station.crsCode || startsWithMatch.station.tiploc
+
+  const includesMatch = withNormalizedName.find((item) => item.normalizedName.includes(normalizedInput))
+  if (includesMatch) return includesMatch.station.crsCode || includesMatch.station.tiploc
+
+  return null
+}
+
+const SERVICE_TYPE_LABELS: Record<DepartureServiceType, string> = {
+  passenger: 'Passenger',
+  freight: 'Freight',
+  'rail-replacement': 'Rail replacement',
+  other: 'Other',
+}
+
+function buildStationNameSearchResults(rawInput: string, stations: Station[]): Station[] {
+  const normalizedInput = normalizeStationText(rawInput)
+  if (normalizedInput.length < 2) return []
+
+  const candidates = stations
+    .filter((station) => Boolean(station.stationName))
+    .map((station) => ({
+      station,
+      normalizedName: normalizeStationText(station.stationName),
+    }))
+    .filter((item) => item.normalizedName.includes(normalizedInput))
+
+  const exact = candidates.filter((item) => item.normalizedName === normalizedInput)
+  const starts = candidates.filter((item) => item.normalizedName.startsWith(normalizedInput) && item.normalizedName !== normalizedInput)
+  const includes = candidates.filter((item) => !item.normalizedName.startsWith(normalizedInput))
+
+  return [...exact, ...starts, ...includes].slice(0, 8).map((item) => item.station)
+}
+
 const DarwinDeparturesPage: React.FC = () => {
   const params = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
-  const code = (params.code || DEFAULT_CODE).toUpperCase()
-  const [hours, setHours] = useState<number>(3)
+  const code = params.code?.toUpperCase() || ''
+  const hasStationSelected = code.length > 0
   const [searchInput, setSearchInput] = useState<string>('')
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [historyDateError, setHistoryDateError] = useState<string | null>(null)
+  const [selectedTocs, setSelectedTocs] = useState<string[]>([])
+  const [selectedServiceTypes, setSelectedServiceTypes] = useState<DepartureServiceType[]>([])
+  const [historyDates, setHistoryDates] = useState<string[]>([])
+  const { stations } = useStations()
+  const historyDateInputRef = useRef<HTMLInputElement | null>(null)
+  const historyTimeInputRef = useRef<HTMLInputElement | null>(null)
 
-  const { status, data, error, ageMs, refetch } = useDepartures({ code, hours })
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const historyDate = query.get('date') || ''
+  const historyTime = query.get('at') || ''
+  const todayIsoDate = useMemo(() => getCurrentRailwayDayIsoUk(), [])
+  const maxFutureDateIso = useMemo(() => addDaysIsoDate(todayIsoDate, 2), [todayIsoDate])
+  const hoursFromQuery = Number(query.get('hours') || WINDOW_OPTIONS[0].value)
+  const hours = WINDOW_VALUES.has(hoursFromQuery) ? hoursFromQuery : WINDOW_OPTIONS[0].value
+  const historicalMode = Boolean(historyDate && historyDate < todayIsoDate)
+  const futureTimetableMode = Boolean(historyDate && historyDate > todayIsoDate)
 
-  useEffect(() => { setSearchInput('') }, [code])
+  const updateQuery = (updater: (next: URLSearchParams) => void) => {
+    const next = new URLSearchParams(location.search)
+    updater(next)
+    navigate(
+      {
+        pathname: location.pathname,
+        search: next.toString() ? `?${next.toString()}` : '',
+      },
+      { replace: true }
+    )
+  }
+
+  const { status, data, error, ageMs, refetch } = useDepartures({
+    code: hasStationSelected ? code : '',
+    hours,
+    date: historyDate || undefined,
+    at: historyDate && historyTime ? historyTime : undefined,
+  })
+
+  useEffect(() => {
+    setSearchInput('')
+    setSearchError(null)
+  }, [code])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/darwin/history/dates')
+        if (!res.ok) throw new Error(`Request failed (${res.status})`)
+        const body: HistoryDatesResponse = await res.json()
+        if (cancelled) return
+        const dates = (body.dates || [])
+          .filter((d) => d.hasState && d.hasTimetable)
+          .map((d) => d.date)
+          .sort((a, b) => b.localeCompare(a))
+        setHistoryDates(dates)
+      } catch (e) {
+        if (cancelled) return
+        setHistoryDates([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const submitSearch = () => {
-    const next = searchInput.trim().toUpperCase()
-    if (!next || next === code) return
-    navigate(`/departures/${next}`)
+    const next = resolveSearchInput(searchInput, stations)
+    if (!next) {
+      setSearchError('No station match found. Try station name, CRS, or TIPLOC.')
+      return
+    }
+    const normalizedNext = next.toUpperCase()
+    if (normalizedNext === code) return
+    setSearchError(null)
+    navigate(`/departures/${normalizedNext}${location.search}`)
   }
 
   const stationLabel = useMemo(() => {
+    if (!hasStationSelected) return 'Live departures'
     if (data?.stationName) {
       return data.stationCrs ? `${data.stationName} (${data.stationCrs})` : data.stationName
     }
     return code
-  }, [code, data])
+  }, [code, data, hasStationSelected])
 
-  const subtitle = useMemo(() => {
-    if (status === 'ok')        return `Live · updated ${formatAge(ageMs)}`
-    if (status === 'stale')     return `Stale · ${formatAge(ageMs)}`
-    if (status === 'loading')   return 'Loading live departures…'
-    if (status === 'error')     return error ? `Error: ${error}` : 'Departures unavailable'
-    if (status === 'not-found') return 'Unknown station'
+  const windowSelectedIndex = useMemo(() => {
+    const idx = WINDOW_OPTIONS.findIndex((opt) => opt.value === hours)
+    return idx >= 0 ? idx : 0
+  }, [hours])
+
+  const tocOptions = useMemo(() => {
+    if (!data) return []
+    return Array.from(new Set(data.departures.map((row) => row.tocName || row.toc).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [data])
+
+  const serviceTypeOptions = useMemo(() => {
+    if (!data) return []
+    const inFeedOrder = data.departures
+      .map((row) => row.serviceType || 'other')
+      .filter((value, index, arr): value is DepartureServiceType => arr.indexOf(value) === index)
+    return inFeedOrder.sort((a, b) => SERVICE_TYPE_LABELS[a].localeCompare(SERVICE_TYPE_LABELS[b]))
+  }, [data])
+
+  useEffect(() => {
+    setSelectedTocs(tocOptions)
+  }, [tocOptions])
+
+  useEffect(() => {
+    setSelectedServiceTypes(serviceTypeOptions)
+  }, [serviceTypeOptions])
+
+  const filteredDepartures = useMemo(() => {
+    if (!data) return []
+    return data.departures.filter((row) => {
+      const tocLabel = row.tocName || row.toc
+      const tocMatch = selectedTocs.includes(tocLabel)
+      const rowServiceType = row.serviceType || 'other'
+      const serviceTypeMatch = selectedServiceTypes.includes(rowServiceType)
+      return tocMatch && serviceTypeMatch
+    })
+  }, [data, selectedTocs, selectedServiceTypes])
+
+  const filteredCounts = useMemo(() => ({
+    departures: filteredDepartures.length,
+    cancelled: filteredDepartures.filter((row) => row.cancelled).length,
+    withDelay: filteredDepartures.filter((row) => row.delayReason).length,
+  }), [filteredDepartures])
+
+  const subtitle = useMemo<React.ReactNode>(() => {
+    const countPrefix = data
+      ? `${filteredCounts.departures} departures in the next ${data.windowHours} hour${data.windowHours === 1 ? '' : 's'}`
+      : null
+
+    if (!hasStationSelected) return 'Search by station name, CRS, or TIPLOC'
+    const boardDate = historyDate || todayIsoDate
+    const boardDateText = `Board date: ${formatHeaderDate(boardDate)}${historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''}`
+    const liveNowText = historicalMode || futureTimetableMode ? null : `Live now: ${formatLiveNowUk()}`
+
+    if (status === 'ok') {
+      const statusText = historicalMode
+        ? `Historical snapshot${historyTime ? ` at ${historyTime}` : ' (latest for selected date)'}`
+        : futureTimetableMode
+          ? `Timetable view${historyTime ? ` at ${historyTime}` : ' for selected date'}`
+        : `Live board · auto-refreshing · updated ${formatAge(ageMs)}`
+      return countPrefix ? (
+        <>
+          <span className="dep-subtitle__count">{countPrefix}</span>
+          {'\n'}
+          <span className="dep-subtitle__status">{statusText}</span>
+          {'\n'}
+          <span className="dep-subtitle__status">{boardDateText}</span>
+          {liveNowText ? (
+            <>
+              {'\n'}
+              <span className="dep-subtitle__status">{liveNowText}</span>
+            </>
+          ) : null}
+        </>
+      ) : <span className="dep-subtitle__status">{statusText}</span>
+    }
+    if (status === 'stale') {
+      const statusText = historicalMode
+        ? `Historical snapshot${historyTime ? ` at ${historyTime}` : ' (latest for selected date)'}`
+        : futureTimetableMode
+          ? `Timetable view${historyTime ? ` at ${historyTime}` : ' for selected date'}`
+        : `Stale live board · ${formatAge(ageMs)}`
+      return countPrefix ? (
+        <>
+          <span className="dep-subtitle__count">{countPrefix}</span>
+          {'\n'}
+          <span className="dep-subtitle__status">{statusText}</span>
+          {'\n'}
+          <span className="dep-subtitle__status">{boardDateText}</span>
+          {liveNowText ? (
+            <>
+              {'\n'}
+              <span className="dep-subtitle__status">{liveNowText}</span>
+            </>
+          ) : null}
+        </>
+      ) : <span className="dep-subtitle__status">{statusText}</span>
+    }
+    if (status === 'loading')   return <span className="dep-subtitle__status">Loading departures for {boardDateText.toLowerCase()}…</span>
+    if (status === 'error')     return <span className="dep-subtitle__status">{error ? `Error: ${error}` : 'Departures unavailable'} · {boardDateText}</span>
+    if (status === 'not-found') return <span className="dep-subtitle__status">Unknown station</span>
     return ''
-  }, [status, error, ageMs])
+  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, historyDate, historyTime, futureTimetableMode, todayIsoDate])
+
+  const stationNameResults = useMemo(
+    () => buildStationNameSearchResults(searchInput, stations),
+    [searchInput, stations]
+  )
+
+  const boardDateLabel = useMemo(() => {
+    const boardDate = historyDate || todayIsoDate
+    return `${formatHeaderDate(boardDate)}${historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''}`
+  }, [historicalMode, historyDate, futureTimetableMode, todayIsoDate])
+
+  const showStationNameResults = useMemo(() => {
+    const trimmed = searchInput.trim()
+    if (trimmed.length < 2) return false
+    if (trimmed === trimmed.toUpperCase() && trimmed.length <= 7) return false
+    return stationNameResults.length > 0
+  }, [searchInput, stationNameResults])
+
+  const availableHistoryDatesSet = useMemo(() => new Set(historyDates), [historyDates])
 
   return (
     <div className="darwin-departures-shell">
@@ -138,156 +445,337 @@ const DarwinDeparturesPage: React.FC = () => {
       />
 
       <div className="darwin-departures-page">
-        {/* ----- Controls panel ----- */}
-        <section className="dep-controls-panel" aria-label="Filters">
-          <div className="dep-controls-row">
-            <div className="dep-control-group">
-              <h2 className="dep-control-label">Station</h2>
-              <div className="dep-search-row">
-                <TXTINPBUTIconWideButtonSearch
-                  id="darwin-station-search"
-                  icon={<SearchIcon />}
-                  value={searchInput}
-                  onChange={setSearchInput}
-                  placeholder="CRS or TIPLOC e.g. KGX, LEEDS"
-                  className="dep-search-input"
+        <div className="dep-content">
+          <aside className="dep-sidebar" aria-label="Departure controls">
+            <section className="dep-controls-panel dep-sidebar-section" aria-label="Filters">
+              <div className="dep-date-context" role="status" aria-live="polite">
+                <span><strong>Board date:</strong> {boardDateLabel}</span>
+                <span><strong>Live now:</strong> {formatLiveNowUk()}</span>
+              </div>
+              <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Search</h2>
+              <div className="dep-control-group">
+                <div className="dep-search-row">
+                  <TXTINPBUTIconWideButtonSearch
+                    id="darwin-station-search"
+                    icon={<SearchIcon />}
+                    value={searchInput}
+                    onChange={(value) => {
+                      setSearchInput(value)
+                      if (searchError) setSearchError(null)
+                    }}
+                    onSubmit={submitSearch}
+                    enterKeyHint="search"
+                    placeholder="Station name, CRS or TIPLOC e.g. Leeds, KGX, LEEDS"
+                    className="dep-search-input"
+                    colorVariant="primary"
+                  />
+                </div>
+                {showStationNameResults && (
+                  <div className="dep-search-results" role="listbox" aria-label="Station matches">
+                    {stationNameResults.map((station) => {
+                      const isFirst = stationNameResults[0]?.id === station.id
+                      const isLast = stationNameResults[stationNameResults.length - 1]?.id === station.id
+                      const buttonShape = isFirst ? 'top-rounded' : isLast ? 'bottom-rounded' : 'squared'
+                      const targetCode = (station.crsCode || station.tiploc || '').toUpperCase()
+                      const targetLabel = station.crsCode
+                        ? `${station.stationName} (${station.crsCode.toUpperCase()})`
+                        : `${station.stationName} (${(station.tiploc || '').toUpperCase()})`
+
+                      return (
+                        <BUTBaseButton
+                          key={station.id}
+                          variant="wide"
+                          shape={buttonShape}
+                          width="fill"
+                          className="dep-search-result-item-button"
+                          instantAction
+                          aria-label={`Open departures for ${targetLabel}`}
+                          onClick={() => {
+                            if (!targetCode) return
+                            setSearchError(null)
+                            setSearchInput('')
+                            navigate(`/departures/${targetCode}${location.search}`)
+                          }}
+                        >
+                          <span className="dep-search-result-name">{station.stationName}</span>
+                          <span className="dep-search-result-code">
+                            {station.crsCode?.toUpperCase() || '—'} · {(station.tiploc || '—').toUpperCase()}
+                          </span>
+                        </BUTBaseButton>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Date and time</h2>
+                <div className="dep-history-controls">
+                  <input
+                    ref={historyDateInputRef}
+                    className="dep-history-hidden-input"
+                    type="date"
+                    value={historyDate}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value > maxFutureDateIso) {
+                        setHistoryDateError(`Future timetable view currently supports up to ${formatHeaderDate(maxFutureDateIso)}.`)
+                        return
+                      }
+                      if (value < todayIsoDate && historyDates.length > 0 && !availableHistoryDatesSet.has(value)) {
+                        setHistoryDateError('That date is not available in historical snapshots.')
+                        return
+                      }
+                      setHistoryDateError(null)
+                      updateQuery((next) => {
+                        if (value) next.set('date', value)
+                        else {
+                          next.delete('date')
+                          next.delete('at')
+                        }
+                      })
+                    }}
+                    min={historyDates.length ? historyDates[historyDates.length - 1] : undefined}
+                    max={maxFutureDateIso}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
+                  <BUTWideButton
+                    width="fill"
+                    instantAction
+                    colorVariant="primary"
+                    onClick={() => {
+                      const input = historyDateInputRef.current
+                      if (!input) return
+                      if (typeof input.showPicker === 'function') input.showPicker()
+                      else input.click()
+                    }}
+                  >
+                    {historyDate ? `Date: ${formatHeaderDate(historyDate)}` : 'Select date'}
+                  </BUTWideButton>
+
+                  <input
+                    ref={historyTimeInputRef}
+                    className="dep-history-hidden-input"
+                    type="time"
+                    value={historyTime}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setHistoryDateError(null)
+                      updateQuery((next) => {
+                        if (value) next.set('at', value)
+                        else next.delete('at')
+                      })
+                    }}
+                    disabled={!historyDate}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
+                  <BUTWideButton
+                    width="fill"
+                    instantAction
+                    colorVariant="primary"
+                    disabled={!historyDate}
+                    onClick={() => {
+                      const input = historyTimeInputRef.current
+                      if (!input || !historyDate) return
+                      if (typeof input.showPicker === 'function') input.showPicker()
+                      else input.click()
+                    }}
+                  >
+                    {historyTime ? `Time: ${historyTime}` : 'Select time (optional)'}
+                  </BUTWideButton>
+                  {historyDateError && (
+                    <p className="dep-history-inline-error" role="alert">{historyDateError}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="dep-search-filters-spacer" aria-hidden="true" />
+
+              <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Window</h2>
+                <BUTDDMList
+                  items={WINDOW_OPTIONS.map((opt) => opt.label)}
+                  filterName="Window"
+                  selectionMode="single"
+                  selectedPositions={[windowSelectedIndex]}
+                  onSelectionChanged={(selectedPositions) => {
+                    const idx = selectedPositions[0]
+                    if (typeof idx !== 'number') return
+                    const selectedOption = WINDOW_OPTIONS[idx]
+                    if (!selectedOption) return
+                    updateQuery((next) => {
+                      next.set('hours', String(selectedOption.value))
+                    })
+                  }}
                   colorVariant="primary"
                 />
-                <span className="dep-search-spacer" aria-hidden="true" />
+              </div>
+
+              <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">TOC</h2>
+                <BUTDDMListActionDual
+                  items={tocOptions}
+                  filterName="TOCs"
+                  selectionMode="multi"
+                  selectedPositions={selectedTocs
+                    .map((toc) => tocOptions.indexOf(toc))
+                    .filter((index) => index >= 0)}
+                  onSelectionChanged={(_, selectedItems) => {
+                    setSelectedTocs(selectedItems)
+                  }}
+                  colorVariant="primary"
+                />
+              </div>
+
+              <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Service type</h2>
+                <BUTDDMListActionDual
+                  items={serviceTypeOptions.map((type) => SERVICE_TYPE_LABELS[type])}
+                  filterName="Service types"
+                  selectionMode="multi"
+                  selectedPositions={selectedServiceTypes
+                    .map((type) => serviceTypeOptions.indexOf(type))
+                    .filter((index) => index >= 0)}
+                  onSelectionChanged={(_, selectedItems) => {
+                    const selected = selectedItems
+                      .map((label) => serviceTypeOptions.find((type) => SERVICE_TYPE_LABELS[type] === label))
+                      .filter((value): value is DepartureServiceType => Boolean(value))
+                    setSelectedServiceTypes(selected)
+                  }}
+                  colorVariant="primary"
+                />
+              </div>
+
+              <div className="dep-control-group dep-control-group--actions">
                 <BUTWideButton
-                  width="hug"
+                  width="fill"
                   instantAction
-                  disabled={!searchInput.trim()}
-                  onClick={submitSearch}
+                  colorVariant="primary"
+                  onClick={refetch}
+                  disabled={historicalMode && !historyDate}
                 >
-                  Go
+                  Refresh
                 </BUTWideButton>
               </div>
-            </div>
 
-            <div className="dep-control-group">
-              <h2 className="dep-control-label">Window</h2>
-              <div className="dep-window-buttons" role="tablist" aria-label="Look-ahead window">
-                {WINDOW_OPTIONS.map((opt) => {
-                  const selected = hours === opt.value
-                  return (
-                    <BUTTabButton
-                      key={opt.value}
-                      width="hug"
-                      instantAction
-                      state={selected ? 'pressed' : 'active'}
-                      onClick={() => setHours(opt.value)}
-                      ariaLabel={`Show next ${opt.label}`}
-                    >
-                      {opt.label}
-                    </BUTTabButton>
-                  )
-                })}
-              </div>
-            </div>
+              {searchError && (
+                <p className="dep-state-card dep-state-card--error dep-state-card--compact" role="alert">{searchError}</p>
+              )}
 
-            <div className="dep-control-group dep-control-group--actions">
-              <BUTWideButton
-                width="hug"
-                instantAction
-                colorVariant="primary"
-                onClick={refetch}
-              >
-                Refresh
-              </BUTWideButton>
-            </div>
-          </div>
-
-          {/* Counts strip — sits at the bottom of the same panel as the
-              search/window/refresh controls, so the page reads as one card. */}
-          {data && (
-            <div className="dep-summary" role="status" aria-live="polite">
-              <div className="dep-summary-stat">
-                <strong>{data.counts.departures}</strong>
-                <span>departure{data.counts.departures === 1 ? '' : 's'}</span>
-              </div>
-              {data.counts.cancelled > 0 && (
-                <div className="dep-summary-stat dep-summary-stat--cancel">
-                  <strong>{data.counts.cancelled}</strong><span>cancelled</span>
+              {data && (
+                <div className="dep-summary" role="status" aria-live="polite">
+                  {filteredCounts.cancelled > 0 && (
+                    <div className="dep-summary-stat dep-summary-stat--cancel">
+                      <strong>{filteredCounts.cancelled}</strong><span>cancelled</span>
+                    </div>
+                  )}
+                  {filteredCounts.withDelay > 0 && (
+                    <div className="dep-summary-stat dep-summary-stat--delay">
+                      <strong>{filteredCounts.withDelay}</strong><span>with delay reason</span>
+                    </div>
+                  )}
+                  {data.alternates && data.alternates.length > 0 && (
+                    <div className="dep-summary-stat dep-summary-stat--alt">
+                      <span>also matches:</span>
+                      <strong>{data.alternates.join(', ')}</strong>
+                    </div>
+                  )}
                 </div>
               )}
-              {data.counts.withDelay > 0 && (
-                <div className="dep-summary-stat dep-summary-stat--delay">
-                  <strong>{data.counts.withDelay}</strong><span>with delay reason</span>
-                </div>
-              )}
-              {data.alternates && data.alternates.length > 0 && (
-                <div className="dep-summary-stat dep-summary-stat--alt">
-                  <span>also matches:</span>
-                  <strong>{data.alternates.join(', ')}</strong>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+            </section>
 
-        {/* ----- Empty / error states ----- */}
-        {status === 'not-found' && (
-          <section className="dep-state-card dep-state-card--error">
-            <h2>Station not found</h2>
-            <p>
-              No station matches the code <code>{code}</code>. Try a 3-letter CRS
-              (e.g. <code>KGX</code>, <code>LDS</code>) or a TIPLOC
-              (e.g. <code>LEEDS</code>, <code>KNGX</code>).
-            </p>
-          </section>
-        )}
+          </aside>
 
-        {status === 'error' && !data && (
-          <section className="dep-state-card dep-state-card--error">
-            <h2>Departures unavailable</h2>
-            <p>{error}</p>
-          </section>
-        )}
-
-        {status === 'loading' && !data && (
-          <section className="dep-state-card">
-            <p>Loading live departures…</p>
-          </section>
-        )}
-
-        {/* ----- Board ----- */}
-        {data && (
-          <>
-            {/* NRCC operational warnings affecting this station, severity-sorted.
-             * Renders nothing when no messages are in flight. */}
-            <StationMessages messages={data.messages || []} />
-
-            {data.departures.length === 0 ? (
+          <main className="dep-main">
+            {!hasStationSelected && (
               <section className="dep-state-card">
-                <p>No departures in the next {data.windowHours} hour{data.windowHours === 1 ? '' : 's'}.</p>
+                <h2>Choose a station to begin</h2>
+                <p>
+                  Enter a full station name (for example <code>Leeds</code>), a
+                  3-letter CRS code (for example <code>LDS</code>), or a TIPLOC
+                  (for example <code>LEEDS</code>).
+                </p>
               </section>
-            ) : (
-              <div className="dep-cards" role="list">
-                {data.departures.map((row) => (
-                  <div role="listitem" key={row.rid}>
-                    <TextCard
-                      title={buildTitle(row)}
-                      description={buildDescription(row)}
-                      state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
-                      trailingIcon={<StatusBadge row={row} />}
-                      onClick={() => navigate(`/services/${encodeURIComponent(row.rid)}`)}
-                      ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : 'on time'}`}
-                    />
-                  </div>
-                ))}
-              </div>
             )}
 
-            <footer className="dep-footer">
-              <span>Source: Network Rail Darwin Push Port</span>
-              <span className="dep-footer-sep" aria-hidden="true">·</span>
-              <span>Timetable: {data.timetableFile}</span>
-              <span className="dep-footer-sep" aria-hidden="true">·</span>
-              <span>Updated {new Date(data.updatedAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span>
-            </footer>
-          </>
-        )}
+            {hasStationSelected && status === 'not-found' && (
+              <section className="dep-state-card dep-state-card--error">
+                <h2>Station not found</h2>
+                <p>
+                  No station matches <code>{code}</code>. Try a station name, 3-letter CRS
+                  (e.g. <code>KGX</code>, <code>LDS</code>) or a TIPLOC
+                  (e.g. <code>LEEDS</code>, <code>KNGX</code>).
+                </p>
+              </section>
+            )}
+
+            {hasStationSelected && status === 'error' && !data && (
+              <section className="dep-state-card dep-state-card--error">
+                <h2>Departures unavailable</h2>
+                <p>{error}</p>
+              </section>
+            )}
+
+            {hasStationSelected && status === 'loading' && !data && (
+              <section className="dep-state-card">
+                <p>{historicalMode ? 'Loading historical departures…' : 'Loading live departures…'}</p>
+              </section>
+            )}
+
+            {data && (
+              <>
+                {/* NRCC operational warnings affecting this station, severity-sorted.
+                 * Renders nothing when no messages are in flight. */}
+                <StationMessages messages={data.messages || []} />
+
+                {filteredDepartures.length === 0 ? (
+                  <section className="dep-state-card">
+                    <p>No departures match the selected filters in the next {data.windowHours} hour{data.windowHours === 1 ? '' : 's'}.</p>
+                  </section>
+                ) : (
+                  <div className="dep-cards" role="list">
+                    {filteredDepartures.map((row) => (
+                      <div role="listitem" key={row.rid}>
+                        <TextCard
+                          title={buildTitle(row)}
+                          description={buildDescription(row)}
+                          state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
+                          trailingIcon={<StatusBadge row={row} />}
+                          onClick={() => {
+                            const qp = new URLSearchParams()
+                            if (historicalMode && historyDate) {
+                              qp.set('date', historyDate)
+                              if (historyTime) qp.set('at', historyTime)
+                            }
+                            const backQs = new URLSearchParams()
+                            backQs.set('hours', String(hours))
+                            if (historicalMode && historyDate) backQs.set('date', historyDate)
+                            if (historicalMode && historyTime) backQs.set('at', historyTime)
+                            const backTo = `/departures/${encodeURIComponent(code)}${backQs.toString() ? `?${backQs.toString()}` : ''}`
+                            qp.set('from', backTo)
+                            const suffix = qp.toString() ? `?${qp.toString()}` : ''
+                            navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
+                          }}
+                          ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : 'on time'}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <footer className="dep-footer">
+                  <span>Source: Network Rail Darwin Push Port</span>
+                  <span className="dep-footer-sep" aria-hidden="true">·</span>
+                  <span>Timetable: {data.timetableFile}</span>
+                  <span className="dep-footer-sep" aria-hidden="true">·</span>
+                  <span>Updated {new Date(data.updatedAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span>
+                </footer>
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )

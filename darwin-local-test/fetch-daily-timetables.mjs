@@ -15,14 +15,28 @@ function todayYmd() {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function shiftYmd(ymd, deltaDays) {
+  const y = Number(ymd.slice(0, 4));
+  const m = Number(ymd.slice(4, 6));
+  const d = Number(ymd.slice(6, 8));
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  return `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 function runGsutil(args) {
   return execFileSync('gsutil', args, { encoding: 'utf8' });
 }
 
-function listTodaysFiles(ymd) {
-  const pattern = `${BUCKET_PREFIX}/${ymd}*`;
-  const out = runGsutil(['ls', pattern]);
-  return out.split('\n').map((s) => s.trim()).filter(Boolean);
+function listFilesByPattern(pattern) {
+  try {
+    const out = runGsutil(['ls', pattern]);
+    return out.split('\n').map((s) => s.trim()).filter(Boolean);
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (msg.includes('One or more URLs matched no objects')) return [];
+    throw err;
+  }
 }
 
 function pickLatest(files, matcher) {
@@ -58,17 +72,37 @@ function main() {
   const ymd = process.env.DARWIN_YMD || todayYmd();
   const targetDir = resolve(__dirname, process.env.DARWIN_TIMETABLE_DIR || `./tt/${ymd}`);
   ensureDir(targetDir);
-  console.log(`[fetch] scanning ${BUCKET_PREFIX} for date ${ymd}`);
+  const candidateDates = [ymd, shiftYmd(ymd, -1)];
+  let selectedDate = null;
+  let v8Uri = null;
+  let refV99Uri = null;
 
-  const files = listTodaysFiles(ymd);
-  const v8Uri = pickLatest(files, /^(\d{14})_v8\.xml\.gz$/);
-  const refV99Uri = pickLatest(files, /^(\d{14})_ref_v99\.xml\.gz$/);
+  for (const d of candidateDates) {
+    console.log(`[fetch] scanning ${BUCKET_PREFIX} for date ${d}`);
+    const files = listFilesByPattern(`${BUCKET_PREFIX}/${d}*`);
+    v8Uri = pickLatest(files, /^(\d{14})_v8\.xml\.gz$/);
+    refV99Uri = pickLatest(files, /^(\d{14})_ref_v99\.xml\.gz$/);
+    if (v8Uri && refV99Uri) {
+      selectedDate = d;
+      break;
+    }
+  }
 
-  if (!v8Uri) throw new Error(`no v8 file found for ${ymd}`);
-  if (!refV99Uri) throw new Error(`no ref_v99 file found for ${ymd}`);
+  // Last fallback: pick latest available from the whole prefix.
+  if (!v8Uri || !refV99Uri) {
+    console.log(`[fetch] date-scoped scan missed files, falling back to latest available under ${BUCKET_PREFIX}`);
+    const allFiles = listFilesByPattern(`${BUCKET_PREFIX}/*`);
+    if (!v8Uri) v8Uri = pickLatest(allFiles, /^(\d{14})_v8\.xml\.gz$/);
+    if (!refV99Uri) refV99Uri = pickLatest(allFiles, /^(\d{14})_ref_v99\.xml\.gz$/);
+    selectedDate = selectedDate || 'latest-available';
+  }
+
+  if (!v8Uri) throw new Error(`no v8 file found (checked ${candidateDates.join(', ')} and full prefix)`);
+  if (!refV99Uri) throw new Error(`no ref_v99 file found (checked ${candidateDates.join(', ')} and full prefix)`);
 
   console.log(`[fetch] selected v8: ${basename(v8Uri)}`);
   console.log(`[fetch] selected ref_v99: ${basename(refV99Uri)}`);
+  console.log(`[fetch] source date window: ${selectedDate}`);
 
   const results = [maybeDownload(v8Uri, targetDir), maybeDownload(refV99Uri, targetDir)];
   const downloaded = results.filter((r) => r.status === 'downloaded').length;

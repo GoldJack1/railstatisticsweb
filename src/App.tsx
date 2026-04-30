@@ -25,6 +25,8 @@ import MessageCentreDashboardPage from './pages/MessageCentreDashboardPage'
 import DarwinDeparturesPage from './pages/DarwinDeparturesPage'
 import ServiceDetailPage from './pages/ServiceDetailPage'
 import UnitLookupPage from './pages/UnitLookupPage'
+import UnitsInServicePage from './pages/UnitsInServicePage'
+import ApiStatusPage from './pages/ApiStatusPage'
 import Header from './components/misc/Header/Header'
 import Footer from './components/misc/Footer/Footer'
 import { ProtectedRoute } from './components/firebase'
@@ -51,7 +53,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/messages': 'Message Centre Admin | Rail Statistics',
   '/departures': 'Live Departures | Rail Statistics',
   '/services': 'Service Detail | Rail Statistics',
-  '/units': 'Unit Lookup | Rail Statistics',
+  '/units': 'Units in Service | Rail Statistics',
+  '/api-status': 'API Status | Rail Statistics',
   '/privacy': 'Privacy Policy | Rail Statistics',
   '/eula': 'EULA | Rail Statistics',
 }
@@ -61,7 +64,13 @@ const App: React.FC = () => {
   const isStationsPage = pathname === '/stations' || pathname === '/stations/edit'
 
   useEffect(() => {
-    document.title = PAGE_TITLES[pathname] ?? 'Rail Statistics'
+    if (pathname.startsWith('/units/')) {
+      document.title = 'Unit Detail | Rail Statistics'
+    } else if (pathname.startsWith('/services/')) {
+      document.title = 'Service Detail | Rail Statistics'
+    } else {
+      document.title = PAGE_TITLES[pathname] ?? 'Rail Statistics'
+    }
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pathname])
 
@@ -98,8 +107,9 @@ const App: React.FC = () => {
                 <Route path="/departures" element={<DarwinDeparturesPage />} />
                 <Route path="/departures/:code" element={<DarwinDeparturesPage />} />
                 <Route path="/services/:rid" element={<ServiceDetailPage />} />
-                <Route path="/units" element={<UnitLookupPage />} />
+                <Route path="/units" element={<UnitsInServicePage />} />
                 <Route path="/units/:unitId" element={<UnitLookupPage />} />
+                <Route path="/api-status" element={<ApiStatusPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/eula" element={<EulaPage />} />
               </Routes>

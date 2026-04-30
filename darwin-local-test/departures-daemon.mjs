@@ -20,8 +20,10 @@
  *   GET  /api/station/:code
  *   GET  /api/departures/:code?hours=N
  *   GET  /api/messages/:crs
- *   GET  /api/service/:rid
+ *   GET  /api/service/:rid?date=YYYY-MM-DD&at=HH:MM
  *   GET  /api/unit/:resourceGroupId   (PTAC unit / day diagram)
+ *   GET  /api/units/catalog?fleet=158
+ *   GET  /api/history/dates
  *
  * Env vars (all optional except DARWIN_*):
  *   DAEMON_PORT            HTTP port (default 4001)
@@ -35,7 +37,7 @@
  *   DARWIN_*               Kafka creds from .env
  */
 
-import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync, rmSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
@@ -75,6 +77,9 @@ const cfg = {
   })(),
   autoFetchFiles:  !['0', 'false', 'no'].includes(String(process.env.DARWIN_AUTO_FETCH_FILES || 'true').toLowerCase()),
   autoFetchTime:   process.env.DARWIN_AUTO_FETCH_TIME || '04:05',
+  rawArchiveEnabled: !['0', 'false', 'no'].includes(String(process.env.RAW_ARCHIVE_ENABLED || 'true').toLowerCase()),
+  rawArchiveDir: process.env.RAW_ARCHIVE_DIR || resolve(__dirname, 'state/raw-feed'),
+  rawArchiveRetentionDays: Math.max(1, Number(process.env.RAW_ARCHIVE_RETENTION_DAYS || 30)),
 };
 
 // PTAC (S506) feed config — separate creds and consumer group from Darwin.
@@ -112,6 +117,25 @@ function pickTodaysTimetable() {
   if (all.length === 0) throw new Error(`no timetable file for today (${ymd})`);
   all.sort((a, b) => b.ver - a.ver);
   return all[0].path;
+}
+
+function pickTimetableForDate(ymdDashed) {
+  if (!isIsoDate(ymdDashed)) return null;
+  const ymd = ymdToCompact(ymdDashed);
+  const dir = resolve(__dirname, `./tt/${ymd}`);
+  let files = [];
+  try { files = readdirSync(dir); } catch { return null; }
+  const nameRe = new RegExp(`^(?:PPTimetable_)?${ymd}\\d{6}_v(\\d+)\\.xml\\.gz$`);
+  const matches = [];
+  for (const f of files) {
+    if (f.includes('_ref_')) continue;
+    const m = f.match(nameRe);
+    if (!m) continue;
+    matches.push({ path: resolve(dir, f), ver: Number(m[1] || 0) });
+  }
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => b.ver - a.ver);
+  return matches[0].path;
 }
 
 // ---------- helpers --------------------------------------------------------
@@ -210,6 +234,28 @@ function escapeAttr(s) {
 function todayYmd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function railwayDayYmd(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const pick = (type) => parts.find((p) => p.type === type)?.value || '00';
+  const year = Number(pick('year'));
+  const month = Number(pick('month'));
+  const day = Number(pick('day'));
+  const hour = Number(pick('hour'));
+  const minute = Number(pick('minute'));
+
+  const londonAsUtcMs = Date.UTC(year, month - 1, day, hour, minute);
+  const railwayDayUtcMs = londonAsUtcMs - ((4 * 60 + 30) * 60 * 1000);
+  return new Date(railwayDayUtcMs).toISOString().slice(0, 10);
+}
 function todayYmdCompact(d = new Date()) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -226,6 +272,23 @@ function bestDepartureFromLiveLoc(loc) {
   if (loc?.arr?.at) return { time: loc.arr.at, kind: 'actual-arr' };
   if (loc?.arr?.et) return { time: loc.arr.et, kind: 'est-arr' };
   return null;
+}
+
+/**
+ * Normalise Darwin feed metadata into UI-facing service classes.
+ * Output values are stable strings consumed by the frontend filter.
+ */
+function classifyServiceType({ trainCat, isPassenger, trainId, originName, destinationName }) {
+  const cat = String(trainCat || '').toUpperCase();
+  const headcodeClass = String(trainId || '').charAt(0);
+  const replacementHints = ['rail replacement', 'replacement bus', 'bus replacement', 'bus service'];
+  const endpoints = `${originName || ''} ${destinationName || ''}`.toLowerCase();
+  if (replacementHints.some((hint) => endpoints.includes(hint))) return 'rail-replacement';
+  if (cat === 'BR' || cat === 'BS' || cat.startsWith('B')) return 'rail-replacement';
+  if (isPassenger) return 'passenger';
+  if (['4', '6', '7', '8'].includes(headcodeClass)) return 'freight';
+  if (cat.startsWith('E') || cat.startsWith('F') || cat.startsWith('H') || cat.startsWith('J') || cat.startsWith('M')) return 'freight';
+  return 'other';
 }
 
 // ---------- reference data (reloadable on day rollover) --------------------
@@ -352,6 +415,7 @@ function reloadAllDataAndResetLive(reason = 'manual') {
   consistByRid.clear();
   unitsById.clear();
   unmatchedConsists.clear();
+  historicalContextCache.clear();
   // Flush the now-empty/live-reset caches to disk so an immediate restart
   // doesn't restore stale data.
   persistState();
@@ -415,8 +479,412 @@ const stats = {
 // rebroadcasts them frequently.
 const STATE_DIR  = resolve(__dirname, 'state');
 const STATE_FILE = resolve(STATE_DIR, 'daemon-cache.json');
+const STATE_HISTORY_DIR = resolve(STATE_DIR, 'history');
+const UNIT_CATALOG_FILE = resolve(STATE_DIR, 'unit-catalog.json');
 const PERSIST_INTERVAL_SEC = Number(process.env.PERSIST_INTERVAL_SEC || 30);
+const KEEP_STATE_ACROSS_DAYS = !['0', 'false', 'no'].includes(String(process.env.KEEP_STATE_ACROSS_DAYS || 'true').toLowerCase());
+const PROTECT_RICHER_STATE = !['0', 'false', 'no'].includes(String(process.env.PROTECT_RICHER_STATE || 'true').toLowerCase());
+const STATE_SNAPSHOT_COUNT = Math.max(0, Number(process.env.STATE_SNAPSHOT_COUNT || 24));
+const STATE_HISTORY_RETENTION_DAYS = Math.max(1, Number(process.env.STATE_HISTORY_RETENTION_DAYS || 90));
+const STATE_HISTORY_PRUNE_ON_PERSIST = !['0', 'false', 'no'].includes(String(process.env.STATE_HISTORY_PRUNE_ON_PERSIST || 'true').toLowerCase());
 let lastPersistAt = null;
+let lastUnitCatalogPersistAt = null;
+const unitCatalogById = new Map(); // unitId -> cumulative unit record across days
+const historicalContextCache = new Map(); // date -> { loadedAtMs, byRid, overlays }
+const historicalTimetableCache = new Map(); // date -> { loadedAtMs, byRid, byTiploc }
+const rawArchivePrunedYmd = new Set();
+const HIST_TIMETABLE_CACHE_TTL_MS = Number(process.env.HIST_TIMETABLE_CACHE_TTL_MS || 10 * 60_000);
+const HIST_TIMETABLE_CACHE_MAX = Math.max(1, Number(process.env.HIST_TIMETABLE_CACHE_MAX || 4));
+
+function isIsoDate(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+}
+
+function ymdToCompact(ymd) {
+  return String(ymd || '').replace(/-/g, '');
+}
+
+function compareIsoDate(a, b) {
+  if (!isIsoDate(a) || !isIsoDate(b)) return 0;
+  return a.localeCompare(b);
+}
+
+function addDaysIsoDate(ymd, days) {
+  const base = new Date(`${ymd}T00:00:00Z`);
+  if (!Number.isFinite(base.getTime())) return ymd;
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+function availableHistoryDates() {
+  let entries = [];
+  try { entries = readdirSync(STATE_HISTORY_DIR); } catch { return []; }
+  return entries.filter((d) => isIsoDate(d)).sort().reverse();
+}
+
+function pruneHistoryDirsByRetention() {
+  if (!STATE_HISTORY_PRUNE_ON_PERSIST) return;
+  const cutoff = Date.now() - (STATE_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const dates = availableHistoryDates();
+  for (const d of dates) {
+    const ts = Date.parse(`${d}T00:00:00Z`);
+    if (!Number.isFinite(ts) || ts >= cutoff) continue;
+    try {
+      rmSync(resolve(STATE_HISTORY_DIR, d), { recursive: true, force: true });
+    } catch {}
+  }
+}
+
+function pruneRawArchiveByRetention() {
+  if (!cfg.rawArchiveEnabled) return;
+  let dayDirs = [];
+  try { dayDirs = readdirSync(cfg.rawArchiveDir); } catch { return; }
+  const cutoff = Date.now() - (cfg.rawArchiveRetentionDays * 24 * 60 * 60 * 1000);
+  for (const d of dayDirs) {
+    if (!/^\d{8}$/.test(d)) continue;
+    const ymd = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    const ts = Date.parse(`${ymd}T00:00:00Z`);
+    if (!Number.isFinite(ts) || ts >= cutoff) continue;
+    try { rmSync(resolve(cfg.rawArchiveDir, d), { recursive: true, force: true }); } catch {}
+  }
+}
+
+function archiveRawFeed(feed, rawBuf) {
+  if (!cfg.rawArchiveEnabled || !rawBuf) return;
+  try {
+    const now = new Date();
+    const ymd = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const dayDir = resolve(cfg.rawArchiveDir, ymd);
+    if (!existsSync(dayDir)) mkdirSync(dayDir, { recursive: true });
+    const out = resolve(dayDir, `${feed}-${hh}.ndjson`);
+    const line = JSON.stringify({
+      ts: now.toISOString(),
+      feed,
+      payload: rawBuf.toString('utf8'),
+    }) + '\n';
+    appendFileSync(out, line);
+    if (!rawArchivePrunedYmd.has(ymd)) {
+      pruneRawArchiveByRetention();
+      rawArchivePrunedYmd.add(ymd);
+      if (rawArchivePrunedYmd.size > 7) {
+        for (const v of [...rawArchivePrunedYmd].slice(0, rawArchivePrunedYmd.size - 7)) rawArchivePrunedYmd.delete(v);
+      }
+    }
+  } catch (e) {
+    console.warn(`[archive] failed writing ${feed} raw message: ${e.message}`);
+  }
+}
+
+function stateScore(raw = {}) {
+  const count = (arr) => Array.isArray(arr) ? arr.length : 0;
+  return (
+    count(raw.formations) * 5
+    + count(raw.consistByRid) * 4
+    + count(raw.unitsById) * 4
+    + count(raw.associations) * 2
+    + count(raw.messagesById)
+    + count(raw.stationMessages)
+    + count(raw.alerts)
+    + count(raw.reverseFormation)
+    + count(raw.unmatchedConsists)
+  );
+}
+
+function pruneOldStateSnapshots() {
+  if (STATE_SNAPSHOT_COUNT <= 0) return;
+  const prefix = 'daemon-cache.';
+  const suffix = '.json';
+  let files = [];
+  try { files = readdirSync(STATE_DIR); } catch { return; }
+  const snapshots = files
+    .filter((f) => f.startsWith(prefix) && f.endsWith(suffix) && f !== 'daemon-cache.json')
+    .sort()
+    .reverse();
+  for (const stale of snapshots.slice(STATE_SNAPSHOT_COUNT)) {
+    try { unlinkSync(resolve(STATE_DIR, stale)); } catch {}
+  }
+}
+
+function toMap(entries) {
+  const m = new Map();
+  if (!Array.isArray(entries)) return m;
+  for (const [k, v] of entries) m.set(k, v);
+  return m;
+}
+
+function serializeLiveOverlayEntries() {
+  return [...liveOverlayByRid.entries()].map(([rid, ov]) => [
+    rid,
+    {
+      ...(ov || {}),
+      locs: [...((ov?.locs || new Map()).entries())],
+    },
+  ]);
+}
+
+function restoreLiveOverlayEntries(entries) {
+  if (!Array.isArray(entries)) return;
+  for (const [rid, ov] of entries) {
+    if (!rid || !ov) continue;
+    const locs = new Map(Array.isArray(ov.locs) ? ov.locs : []);
+    liveOverlayByRid.set(rid, { ...ov, locs });
+  }
+}
+
+function getOverlayLoc(ov, tpl) {
+  if (!ov || !tpl) return null;
+  const locs = ov.locs;
+  if (!locs) return null;
+  if (locs instanceof Map) return locs.get(tpl) || null;
+  if (Array.isArray(locs)) {
+    const m = new Map(locs);
+    ov.locs = m;
+    return m.get(tpl) || null;
+  }
+  if (typeof locs === 'object') return locs[tpl] || null;
+  return null;
+}
+
+function parseAtToMinutes(at) {
+  if (!at) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(at).trim());
+  if (!m) return null;
+  const h = Number(m[1]); const mm = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return h * 60 + mm;
+}
+
+function pruneHistoricalTimetableCache() {
+  const now = Date.now();
+  for (const [k, v] of historicalTimetableCache.entries()) {
+    if (now - (v.loadedAtMs || 0) > HIST_TIMETABLE_CACHE_TTL_MS) historicalTimetableCache.delete(k);
+  }
+  if (historicalTimetableCache.size <= HIST_TIMETABLE_CACHE_MAX) return;
+  const ordered = [...historicalTimetableCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
+  for (const [k] of ordered.slice(0, historicalTimetableCache.size - HIST_TIMETABLE_CACHE_MAX)) {
+    historicalTimetableCache.delete(k);
+  }
+}
+
+function getHistoricalTimetable(ymdDashed) {
+  const cached = historicalTimetableCache.get(ymdDashed);
+  const now = Date.now();
+  if (cached && now - (cached.loadedAtMs || 0) <= HIST_TIMETABLE_CACHE_TTL_MS) return cached;
+  const timetable = pickTimetableForDate(ymdDashed);
+  if (!timetable) return null;
+  const parsed = loadAllJourneysIndexedByTiploc(timetable);
+  const entry = { loadedAtMs: now, byRid: parsed.byRid, byTiploc: parsed.byTiploc };
+  historicalTimetableCache.set(ymdDashed, entry);
+  pruneHistoricalTimetableCache();
+  return entry;
+}
+
+function listHistorySnapshotsForDate(ymdDashed) {
+  if (!isIsoDate(ymdDashed)) return [];
+  const dayDir = resolve(STATE_HISTORY_DIR, ymdDashed);
+  let files = [];
+  try { files = readdirSync(dayDir); } catch { return []; }
+  const re = /^daemon-cache\.(.+)\.json$/;
+  return files
+    .filter((f) => re.test(f) && f !== 'daemon-cache.latest.json')
+    .map((f) => {
+      const m = f.match(re);
+      const stamp = m?.[1] || '';
+      const sm = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/.exec(stamp);
+      const iso = sm ? `${sm[1]}-${sm[2]}-${sm[3]}T${sm[4]}:${sm[5]}:${sm[6]}.${sm[7]}Z` : null;
+      const t = iso ? Date.parse(iso) : NaN;
+      return { file: f, path: resolve(dayDir, f), savedAt: Number.isFinite(t) ? new Date(t).toISOString() : null, ms: Number.isFinite(t) ? t : -1 };
+    })
+    .sort((a, b) => a.ms - b.ms);
+}
+
+function buildOverlayHistorySeries(hours = 36) {
+  const nowMs = Date.now();
+  const safeHours = Math.max(1, Math.min(168, Number(hours) || 36));
+  const cutoffMs = nowMs - (safeHours * 60 * 60 * 1000);
+  const points = [];
+  const dates = availableHistoryDates().filter((d) => {
+    const dayMs = Date.parse(`${d}T00:00:00Z`);
+    return Number.isFinite(dayMs) && dayMs >= (cutoffMs - 24 * 60 * 60 * 1000);
+  });
+
+  for (const d of dates) {
+    const snaps = listHistorySnapshotsForDate(d);
+    for (const s of snaps) {
+      if (!s.path || !Number.isFinite(s.ms) || s.ms < cutoffMs) continue;
+      try {
+        const raw = JSON.parse(readFileSync(s.path, 'utf8'));
+        points.push({
+          savedAt: raw.savedAt || (s.savedAt || null),
+          formations: Array.isArray(raw.formations) ? raw.formations.length : 0,
+          consists: Array.isArray(raw.consistByRid) ? raw.consistByRid.length : 0,
+          units: Array.isArray(raw.unitsById) ? raw.unitsById.length : 0,
+        });
+      } catch {}
+    }
+  }
+
+  points.sort((a, b) => String(a.savedAt || '').localeCompare(String(b.savedAt || '')));
+  return {
+    hours: safeHours,
+    count: points.length,
+    points,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function loadUnitCatalog() {
+  if (!existsSync(UNIT_CATALOG_FILE)) return;
+  try {
+    const raw = JSON.parse(readFileSync(UNIT_CATALOG_FILE, 'utf8'));
+    for (const [unitId, entry] of (raw.units || [])) {
+      if (!unitId || !entry) continue;
+      unitCatalogById.set(unitId, entry);
+    }
+    console.log(`[daemon] restored unit catalog: ${unitCatalogById.size} units.`);
+  } catch (e) {
+    console.warn(`[daemon] failed to load unit catalog: ${e.message}`);
+  }
+}
+
+function mergeUnitIntoCatalog(unitEntry) {
+  if (!unitEntry?.unitId) return;
+  const nowIso = new Date().toISOString();
+  const existing = unitCatalogById.get(unitEntry.unitId);
+  if (!existing) {
+    unitCatalogById.set(unitEntry.unitId, {
+      unitId: unitEntry.unitId,
+      fleetId: unitEntry.fleetId || null,
+      vehicles: unitEntry.vehicles || [],
+      services: unitEntry.services || [],
+      firstSeenAt: unitEntry.updatedAt || nowIso,
+      lastSeenAt: unitEntry.updatedAt || nowIso,
+      updatedAt: unitEntry.updatedAt || nowIso,
+    });
+    return;
+  }
+  existing.fleetId = unitEntry.fleetId || existing.fleetId || null;
+  if (Array.isArray(unitEntry.vehicles) && unitEntry.vehicles.length > 0) {
+    existing.vehicles = unitEntry.vehicles;
+  }
+  const seen = new Set((existing.services || []).map((s) => `${s.rid}|${s.start || ''}|${s.end || ''}`));
+  for (const svc of (unitEntry.services || [])) {
+    const key = `${svc.rid}|${svc.start || ''}|${svc.end || ''}`;
+    if (seen.has(key)) continue;
+    existing.services.push(svc);
+    seen.add(key);
+  }
+  existing.services.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  existing.lastSeenAt = unitEntry.updatedAt || nowIso;
+  existing.updatedAt = unitEntry.updatedAt || nowIso;
+}
+
+function persistUnitCatalog() {
+  try {
+    if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
+    const payload = {
+      savedAt: new Date().toISOString(),
+      units: [...unitCatalogById.entries()],
+    };
+    const tmp = UNIT_CATALOG_FILE + '.tmp';
+    writeFileSync(tmp, JSON.stringify(payload));
+    renameSync(tmp, UNIT_CATALOG_FILE);
+    lastUnitCatalogPersistAt = payload.savedAt;
+  } catch (e) {
+    console.warn(`[daemon] failed to persist unit catalog: ${e.message}`);
+  }
+}
+
+function historyFileForDate(ymdDashed) {
+  return resolve(STATE_HISTORY_DIR, ymdDashed, 'daemon-cache.latest.json');
+}
+
+function loadPersistedStateForDate(ymdDashed, at = null) {
+  if (!isIsoDate(ymdDashed)) return null;
+  const candidates = [];
+  const atMin = parseAtToMinutes(at);
+  if (at && atMin != null) {
+    const snaps = listHistorySnapshotsForDate(ymdDashed);
+    const cutoff = Date.parse(`${ymdDashed}T${String(Math.floor(atMin / 60)).padStart(2, '0')}:${String(atMin % 60).padStart(2, '0')}:59Z`);
+    const pick = [...snaps].reverse().find((s) => s.ms >= 0 && s.ms <= cutoff) || snaps[snaps.length - 1];
+    if (pick) candidates.push(pick.path);
+  }
+  candidates.push(
+    historyFileForDate(ymdDashed),
+    resolve(STATE_DIR, `daemon-cache.${ymdDashed}.json`),
+  );
+  if (ymdDashed === loadedDate) candidates.unshift(STATE_FILE);
+  for (const p of candidates) {
+    if (!existsSync(p)) continue;
+    try {
+      const raw = JSON.parse(readFileSync(p, 'utf8'));
+      return raw;
+    } catch {}
+  }
+  return null;
+}
+
+function getHistoricalContext(ymdDashed, at = null) {
+  if (!isIsoDate(ymdDashed)) return null;
+  const cacheKey = `${ymdDashed}|${at || ''}`;
+  const cached = historicalContextCache.get(cacheKey);
+  if (cached && Date.now() - cached.loadedAtMs < 60_000) return cached;
+
+  const histTimetable = getHistoricalTimetable(ymdDashed);
+  if (!histTimetable) return null;
+  const histByRid = histTimetable.byRid;
+  const histByTiploc = histTimetable.byTiploc;
+  const state = loadPersistedStateForDate(ymdDashed, at);
+  if (!state) return null;
+
+  const histOverlay = new Map();
+  for (const [rid, ov] of (state.liveOverlayByRid || [])) {
+    const locs = Array.isArray(ov?.locs) ? new Map(ov.locs) : (ov?.locs instanceof Map ? ov.locs : new Map());
+    histOverlay.set(rid, { ...(ov || {}), locs });
+  }
+
+  const ctx = {
+    loadedAtMs: Date.now(),
+    historicalDate: ymdDashed,
+    historicalAt: at || null,
+    byRid: histByRid,
+    byTiploc: histByTiploc,
+    liveOverlayByRid: histOverlay,
+    cancelled: toMap(state.cancelled || []),
+    delayReason: toMap(state.delayReason || []),
+    reverseFormation: new Set(state.reverseFormation || []),
+    formationsByRid: toMap(state.formations || []),
+    consistByRid: toMap(state.consistByRid || []),
+    associationsByRid: toMap(state.associations || []),
+    alertsByRid: toMap(state.alerts || []),
+    stateSavedAt: state.savedAt || null,
+  };
+  historicalContextCache.set(cacheKey, ctx);
+  return ctx;
+}
+
+function getTimetableOnlyContext(ymdDashed, at = null) {
+  if (!isIsoDate(ymdDashed)) return null;
+  const timetable = getHistoricalTimetable(ymdDashed);
+  if (!timetable) return null;
+  return {
+    loadedAtMs: Date.now(),
+    historicalDate: ymdDashed,
+    historicalAt: at || null,
+    byRid: timetable.byRid,
+    byTiploc: timetable.byTiploc,
+    liveOverlayByRid: new Map(),
+    cancelled: new Map(),
+    delayReason: new Map(),
+    reverseFormation: new Set(),
+    formationsByRid: new Map(),
+    consistByRid: new Map(),
+    associationsByRid: new Map(),
+    alertsByRid: new Map(),
+    stateSavedAt: null,
+  };
+}
 
 function loadPersistedState() {
   if (!existsSync(STATE_FILE)) {
@@ -425,13 +893,16 @@ function loadPersistedState() {
   }
   try {
     const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
-    // Stale guard: if the file is from a previous operating day, drop it.
-    // A "day" here is the daemon's local YMD, matching reloadReferenceData().
-    if (raw.savedDate && raw.savedDate !== todayYmd()) {
+    // By default we keep caches across days to preserve formation/PTAC state.
+    // Set KEEP_STATE_ACROSS_DAYS=false to restore strict day-boundary discard.
+    if (!KEEP_STATE_ACROSS_DAYS && raw.savedDate && raw.savedDate !== todayYmd()) {
       console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${todayYmd()} — discarding.`);
       return;
     }
     if (raw.formations)        for (const [k, v] of raw.formations)        formationsByRid.set(k, v);
+    if (raw.liveOverlayByRid)  restoreLiveOverlayEntries(raw.liveOverlayByRid);
+    if (raw.cancelled)         for (const [k, v] of raw.cancelled)         cancelled.set(k, v);
+    if (raw.delayReason)       for (const [k, v] of raw.delayReason)       delayReason.set(k, v);
     if (raw.messagesById) {
       let dropped = 0;
       for (const [k, v] of raw.messagesById) {
@@ -469,12 +940,15 @@ function loadPersistedState() {
 function persistState() {
   try {
     if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-    const payload = {
+    let payload = {
       savedAt:   new Date().toISOString(),
-      savedDate: todayYmd(),
+      savedDate: loadedDate || todayYmd(),
       // Convert Maps/Sets to JSON-serialisable arrays. Use [[k,v], ...] format
       // for Maps so order is preserved on round-trip.
       formations:       [...formationsByRid.entries()],
+      liveOverlayByRid: serializeLiveOverlayEntries(),
+      cancelled:        [...cancelled.entries()],
+      delayReason:      [...delayReason.entries()],
       messagesById:     [...messagesById.entries()],
       stationMessages:  [...stationMessages.entries()].map(([k, v]) => [k, [...v]]),
       associations:     [...associationsByRid.entries()],
@@ -485,11 +959,44 @@ function persistState() {
       unitsById:        [...unitsById.entries()],
       unmatchedConsists: [...unmatchedConsists.entries()],
     };
+    if (PROTECT_RICHER_STATE && existsSync(STATE_FILE)) {
+      try {
+        const currentOnDisk = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+        const diskScore = stateScore(currentOnDisk);
+        const nextScore = stateScore(payload);
+        if (diskScore > nextScore * 1.2) {
+          console.warn(`[daemon] skip persist: on-disk cache looks richer (${diskScore} > ${nextScore}).`);
+          payload = currentOnDisk;
+          if (!payload.savedAt) payload.savedAt = new Date().toISOString();
+          if (!payload.savedDate) payload.savedDate = loadedDate || todayYmd();
+        }
+      } catch {}
+    }
     // Atomic write: write to a tmp file, then rename. Avoids leaving a
     // half-written cache on disk if the process crashes mid-flush.
     const tmp = STATE_FILE + '.tmp';
-    writeFileSync(tmp, JSON.stringify(payload));
+    const payloadJson = JSON.stringify(payload);
+    writeFileSync(tmp, payloadJson);
     renameSync(tmp, STATE_FILE);
+    if (!existsSync(STATE_HISTORY_DIR)) mkdirSync(STATE_HISTORY_DIR, { recursive: true });
+    const dayDir = resolve(STATE_HISTORY_DIR, payload.savedDate);
+    if (!existsSync(dayDir)) mkdirSync(dayDir, { recursive: true });
+    const dayLatestTmp = resolve(dayDir, 'daemon-cache.latest.json.tmp');
+    const dayLatest = resolve(dayDir, 'daemon-cache.latest.json');
+    writeFileSync(dayLatestTmp, payloadJson);
+    renameSync(dayLatestTmp, dayLatest);
+    const dayStamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
+    const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json`);
+    try { writeFileSync(daySnap, payloadJson); } catch {}
+    pruneHistoryDirsByRetention();
+    if (STATE_SNAPSHOT_COUNT > 0) {
+      const stamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
+      const snap = resolve(STATE_DIR, `daemon-cache.${stamp}.json`);
+      try {
+        writeFileSync(snap, payloadJson);
+        pruneOldStateSnapshots();
+      } catch {}
+    }
     lastPersistAt = new Date().toISOString();
   } catch (e) {
     console.warn(`[daemon] failed to persist state: ${e.message}`);
@@ -882,6 +1389,7 @@ function applyConsistToRid(rid, parsed) {
       entry.services.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       entry.lastSeenRid = rid;
       entry.updatedAt   = new Date().toISOString();
+      mergeUnitIntoCatalog(entry);
     }
   }
 }
@@ -907,7 +1415,17 @@ function retryUnmatchedConsists() {
 }
 
 // ---------- snapshot builder (per-TIPLOC, on demand) -----------------------
-function buildDeparturesForTiplocs(tiplocs, windowHours) {
+function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
+  const byRidMap = ctx?.byRid || byRid;
+  const byTiplocMap = ctx?.byTiploc || byTiploc;
+  const liveOverlayMap = ctx?.liveOverlayByRid || liveOverlayByRid;
+  const cancelledMap = ctx?.cancelled || cancelled;
+  const delayMap = ctx?.delayReason || delayReason;
+  const reverseSet = ctx?.reverseFormation || reverseFormation;
+  const associationsMap = ctx?.associationsByRid || associationsByRid;
+  const alertsMap = ctx?.alertsByRid || alertsByRid;
+  const consistMap = ctx?.consistByRid || consistByRid;
+  const ssdTarget = ctx?.historicalDate || railwayDayYmd(new Date());
   // tiplocs is an array — large interchanges share a CRS across multiple
   // TIPLOCs (e.g. STP = STPX [plat 1-4] + STPANCI [plat 5-13] + STPXBOX
   // [Thameslink low-level plat A]); a single CRS query must return all of
@@ -920,24 +1438,33 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
   const entries = [];
   let anyKnown = false;
   for (const tip of upper) {
-    const list = byTiploc.get(tip);
+    const list = byTiplocMap.get(tip);
     if (!list) continue;
     anyKnown = true;
     for (const e of list) entries.push({ ...e, sourceTpl: tip });
   }
   if (!anyKnown) return null;
 
-  const now = new Date();
+  let now = new Date();
+  if (ctx?.historicalDate) {
+    const atMin = parseAtToMinutes(ctx.historicalAt || '');
+    if (atMin != null) {
+      const hh = String(Math.floor(atMin / 60)).padStart(2, '0');
+      const mm = String(atMin % 60).padStart(2, '0');
+      now = new Date(`${ctx.historicalDate}T${hh}:${mm}:00+01:00`);
+    } else {
+      now = new Date(`${ctx.historicalDate}T00:00:00+01:00`);
+    }
+  }
   const horizon = new Date(now.getTime() + windowHours * 3600_000);
-  const ssd = todayYmd(now);
   const rows = [];
   const seenRids = new Set();   // a service may appear at >1 TIPLOC of the
                                 // same station; emit it once.
 
   for (const { rid, stopIdx, sourceTpl } of entries) {
     if (seenRids.has(rid)) continue;     // de-dupe: a service shouldn't appear twice
-    const j = byRid.get(rid);
-    if (!j || j.ssd !== ssd) continue;
+    const j = byRidMap.get(rid);
+    if (!j || j.ssd !== ssdTarget) continue;
 
     const stop = j.slots[stopIdx];
     // Skip pure passing points — not a departure from this station.
@@ -948,8 +1475,16 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
     const scheduledTime = stop.ptd || stop.wtd;
     if (!scheduledTime || !scheduledTime.includes(':')) continue;
 
-    const scheduledAt = anchorTime(scheduledTime, j.ssd);
+    let scheduledAt = anchorTime(scheduledTime, j.ssd);
     if (!scheduledAt) continue;
+    // Overnight wrap support:
+    // Darwin schedules can include post-midnight departures as HH:MM values that
+    // are earlier than "now" while still belonging to the same service day.
+    // If a scheduled time appears to be far in the past (>12h), treat it as a
+    // next-day time so late-night boards can show after-midnight departures.
+    if ((now.getTime() - scheduledAt.getTime()) > 12 * 60 * 60_000) {
+      scheduledAt = new Date(scheduledAt.getTime() + 24 * 60 * 60_000);
+    }
     if (scheduledAt.getTime() < now.getTime() - 5 * 60_000) continue;  // small grace for just-departed
     if (scheduledAt > horizon) continue;
 
@@ -957,8 +1492,8 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
 
     // Live overlay: look up per-TIPLOC entry for this RID using the SOURCE
     // tiploc this row came from (Darwin keys live state by exact TIPLOC).
-    const ov = liveOverlayByRid.get(rid);
-    const liveLoc = ov?.locs?.get(sourceTpl) || null;
+    const ov = liveOverlayMap.get(rid);
+    const liveLoc = getOverlayLoc(ov, sourceTpl);
     const bestTime = liveLoc?.bestTime || scheduledTime;
     const bestKind = liveLoc?.bestKind || 'scheduled';
 
@@ -966,14 +1501,14 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
     // whole service is cancelled OR this individual calling point is
     // cancelled (partial cancellation, e.g. service runs A→B but is
     // cancelled B→F — for stops in B→F the train won't appear).
-    const wholeCancel = cancelled.get(rid) || null;
+    const wholeCancel = cancelledMap.get(rid) || null;
     const stopCancel  = liveLoc?.cancelled
       ? (liveLoc.cancelReason
           ? { ...liveLoc.cancelReason, source: 'ts-loc', scope: 'stop' }
           : { reason: 'Cancelled at this stop', source: 'ts-loc', scope: 'stop' })
       : null;
     const cancelInfo  = wholeCancel || stopCancel;
-    const delayInfo   = delayReason.get(rid) || null;
+    const delayInfo   = delayMap.get(rid) || null;
 
     // Calling pattern after this stop (only actual passenger stops, not PPs).
     const callingAfter = [];
@@ -983,12 +1518,22 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
       callingAfter.push(s.tpl);
     }
 
+    const serviceType = classifyServiceType({
+      trainCat: j.trainCat,
+      isPassenger: j.isPassenger,
+      trainId: j.trainId,
+      originName: resolve_.tiplocToName(j.origin),
+      destinationName: resolve_.tiplocToName(j.destination),
+    });
+
     rows.push({
       rid: j.rid,
       trainId: j.trainId,
       uid: j.uid,
       toc: j.toc,
       tocName: resolve_.tocToName(j.toc),
+      trainCat: j.trainCat || null,
+      serviceType,
       scheduledTime,
       scheduledAt: scheduledAt.toISOString(),
       liveTime: bestTime,
@@ -999,10 +1544,10 @@ function buildDeparturesForTiplocs(tiplocs, windowHours) {
       // coachLoading is 1-10 enum per coach.
       loadingPercentage: liveLoc?.loadPct ?? null,
       coachLoading: liveLoc?.coachLoading ?? null,
-      reverseFormation: reverseFormation.has(rid),
-      hasAssociations: (associationsByRid.get(rid)?.length ?? 0) > 0,
-      hasAlerts:       (alertsByRid.get(rid)?.length ?? 0) > 0,
-      hasConsist:      consistByRid.has(rid),
+      reverseFormation: reverseSet.has(rid),
+      hasAssociations: (associationsMap.get(rid)?.length ?? 0) > 0,
+      hasAlerts:       (alertsMap.get(rid)?.length ?? 0) > 0,
+      hasConsist:      consistMap.has(rid),
       // Which platform-group TIPLOC this row came from. Useful when a CRS
       // aggregates several (STP -> STPX | STPANCI | STPXBOX).
       sourceTiploc: sourceTpl,
@@ -1043,10 +1588,10 @@ function listMessagesForCrs(crs) {
   return out;
 }
 
-function buildSnapshot(tiplocs, windowHours, primaryTiploc) {
+function buildSnapshot(tiplocs, windowHours, primaryTiploc, ctx = null) {
   const all = Array.isArray(tiplocs) ? tiplocs : [tiplocs];
   const primary = (primaryTiploc || all[0]).toUpperCase();
-  const rows = buildDeparturesForTiplocs(all, windowHours);
+  const rows = buildDeparturesForTiplocs(all, windowHours, ctx);
   if (rows === null) return null;
   const stationCrs = resolve_.tiplocToCrs(primary);
   const messages = stationCrs ? listMessagesForCrs(stationCrs) : [];
@@ -1058,6 +1603,9 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc) {
     stationName: resolve_.tiplocToName(primary),
     stationCrs,
     updatedAt: new Date().toISOString(),
+    historicalDate: ctx?.historicalDate || null,
+    historicalAt: ctx?.historicalAt || null,
+    historicalSavedAt: ctx?.stateSavedAt || null,
     timetableFile: timetablePath.split('/').pop(),
     windowHours,
     counts: {
@@ -1135,12 +1683,21 @@ function resolveStationCode(rawCode) {
 }
 
 // ---------- service detail (full calling pattern) --------------------------
-function buildServiceDetail(rid) {
-  const j = byRid.get(rid);
+function buildServiceDetail(rid, ctx = null) {
+  const byRidMap = ctx?.byRid || byRid;
+  const liveOverlay = ctx?.liveOverlayByRid || liveOverlayByRid;
+  const cancelledMap = ctx?.cancelled || cancelled;
+  const delayMap = ctx?.delayReason || delayReason;
+  const reverseSet = ctx?.reverseFormation || reverseFormation;
+  const formationsMap = ctx?.formationsByRid || formationsByRid;
+  const consistMap = ctx?.consistByRid || consistByRid;
+  const assocMap = ctx?.associationsByRid || associationsByRid;
+  const alertsMap = ctx?.alertsByRid || alertsByRid;
+  const j = byRidMap.get(rid);
   if (!j) return null;
-  const ov = liveOverlayByRid.get(rid);
-  const cancelInfo = cancelled.get(rid) || null;
-  const delayInfo  = delayReason.get(rid) || null;
+  const ov = liveOverlay.get(rid);
+  const cancelInfo = cancelledMap.get(rid) || null;
+  const delayInfo  = delayMap.get(rid) || null;
 
   function resolveStopName(tpl, crs) {
     const direct = resolve_.tiplocToName(tpl);
@@ -1155,7 +1712,7 @@ function buildServiceDetail(rid) {
   }
 
   const baseStops = j.slots.map((s) => {
-    const live = ov?.locs?.get(s.tpl) || null;
+    const live = getOverlayLoc(ov, s.tpl);
     const crs = resolve_.tiplocToCrs(s.tpl);
     return {
       tpl: s.tpl,
@@ -1191,9 +1748,9 @@ function buildServiceDetail(rid) {
   // Resolve associated services to human-readable summaries. We only look up
   // basic info on the *other* RID — full traversal can be done by the client
   // by following the RID into another /api/service/:rid call.
-  const associations = (associationsByRid.get(rid) || []).map((a) => {
+  const associations = (assocMap.get(rid) || []).map((a) => {
     const otherRid = a.mainRid === rid ? a.assocRid : a.mainRid;
-    const other = byRid.get(otherRid);
+    const other = byRidMap.get(otherRid);
     return {
       ...a,
       role: a.mainRid === rid ? 'main' : 'associated',
@@ -1224,14 +1781,14 @@ function buildServiceDetail(rid) {
     cancellation: cancelInfo,
     partiallyCancelled,
     delayReason: delayInfo,
-    reverseFormation: reverseFormation.has(rid),
-    formation:    formationsByRid.get(rid) || null,
+    reverseFormation: reverseSet.has(rid),
+    formation:    formationsMap.get(rid) || null,
     // PTAC consist (physical reality view): unit numbers, vehicles, defects,
     // class identification. Null when no PTAC message has been received for
     // this RID yet (most regional services + LNER don't publish to PTAC).
-    consist:      consistByRid.get(rid) || null,
+    consist:      consistMap.get(rid) || null,
     associations,
-    alerts:       alertsByRid.get(rid) || [],
+    alerts:       alertsMap.get(rid) || [],
     stops,
     updatedAt: new Date().toISOString(),
   };
@@ -1344,6 +1901,18 @@ function handleRequest(req, res) {
       },
       memoryMB: { heap: +(mem.heapUsed/1024/1024).toFixed(1), rss: +(mem.rss/1024/1024).toFixed(1) },
       persistence: { stateFile: STATE_FILE, intervalSec: PERSIST_INTERVAL_SEC, lastPersistAt },
+      unitCatalog: { file: UNIT_CATALOG_FILE, size: unitCatalogById.size, lastPersistAt: lastUnitCatalogPersistAt },
+      history: {
+        dir: STATE_HISTORY_DIR,
+        dates: availableHistoryDates().slice(0, 30),
+        retentionDays: STATE_HISTORY_RETENTION_DAYS,
+        pruneOnPersist: STATE_HISTORY_PRUNE_ON_PERSIST,
+      },
+      rawArchive: {
+        enabled: cfg.rawArchiveEnabled,
+        dir: cfg.rawArchiveDir,
+        retentionDays: cfg.rawArchiveRetentionDays,
+      },
     }, req);
     return;
   }
@@ -1361,8 +1930,25 @@ function handleRequest(req, res) {
     const resolved = resolveStationCode(parts[2]);
     if (!resolved) { sendJson(res, 404, { error: `unknown station code "${parts[2]}"` }, req); return; }
     const hoursParam = url.searchParams.get('hours');
+    const dateParam = url.searchParams.get('date');
+    const atParam = url.searchParams.get('at');
     const hours = Math.max(0.25, Math.min(24, Number(hoursParam || cfg.windowHours)));
-    const cacheKey = `${resolved.tiplocs.join(',')}|${hours}`;
+    if (dateParam && !isIsoDate(dateParam)) {
+      sendJson(res, 400, { error: 'invalid date format', hint: 'use YYYY-MM-DD' }, req); return;
+    }
+    if (atParam && parseAtToMinutes(atParam) == null) {
+      sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
+    }
+    const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || todayYmd()) : 0;
+    const isHistorical = !!dateParam && dateComparison < 0;
+    const isFutureTimetable = !!dateParam && dateComparison > 0;
+    if (isFutureTimetable) {
+      const maxFutureDate = addDaysIsoDate(loadedDate || todayYmd(), 2);
+      if (compareIsoDate(dateParam, maxFutureDate) > 0) {
+        sendJson(res, 400, { error: 'future date out of range', hint: `max supported future date is ${maxFutureDate}` }, req); return;
+      }
+    }
+    const cacheKey = `${resolved.tiplocs.join(',')}|${hours}|${dateParam || ''}|${atParam || ''}`;
     const cached = getCachedSnapshot(cacheKey);
     if (cached) {
       sendJson(res, 200, cached, req);
@@ -1371,7 +1957,19 @@ function handleRequest(req, res) {
     // Pass the FULL set of TIPLOCs that share this CRS so a station with
     // multiple platform groups (St Pancras, Edinburgh, etc.) returns all
     // its departures, not just one platform group.
-    const snap = buildSnapshot(resolved.tiplocs, hours, resolved.tiploc);
+    let queryCtx = null;
+    if (isHistorical) {
+      queryCtx = getHistoricalContext(dateParam, atParam);
+      if (!queryCtx) {
+        sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req); return;
+      }
+    } else if (isFutureTimetable) {
+      queryCtx = getTimetableOnlyContext(dateParam, atParam);
+      if (!queryCtx) {
+        sendJson(res, 404, { error: `no timetable data for ${dateParam}` }, req); return;
+      }
+    }
+    const snap = buildSnapshot(resolved.tiplocs, hours, resolved.tiploc, queryCtx);
     if (!snap) { sendJson(res, 404, { error: `no services indexed for ${resolved.tiploc}` }, req); return; }
     snap.stationName = resolved.name || snap.stationName;
     snap.stationCrs  = resolved.crs  || snap.stationCrs;
@@ -1394,6 +1992,30 @@ function handleRequest(req, res) {
 
   // /api/service/:rid
   if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'service') {
+    const dateParam = url.searchParams.get('date');
+    const atParam = url.searchParams.get('at');
+    if (dateParam && (dateParam !== loadedDate || !!atParam)) {
+      if (!isIsoDate(dateParam)) {
+        sendJson(res, 400, { error: 'invalid date format', hint: 'use YYYY-MM-DD' }, req);
+        return;
+      }
+      if (atParam && parseAtToMinutes(atParam) == null) {
+        sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req);
+        return;
+      }
+      const histCtx = getHistoricalContext(dateParam, atParam);
+      if (!histCtx) {
+        sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req);
+        return;
+      }
+      const hist = buildServiceDetail(parts[2], histCtx);
+      if (!hist) {
+        sendJson(res, 404, { error: `rid not found for ${dateParam}: "${parts[2]}"` }, req);
+        return;
+      }
+      sendJson(res, 200, { ...hist, historicalDate: dateParam, historicalSavedAt: histCtx.stateSavedAt || null, historicalAt: atParam || null }, req);
+      return;
+    }
     const detail = buildServiceDetail(parts[2]);
     if (!detail) { sendJson(res, 404, { error: `rid not found: "${parts[2]}"` }, req); return; }
     sendJson(res, 200, detail, req);
@@ -1414,7 +2036,54 @@ function handleRequest(req, res) {
     return;
   }
 
-  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid, /api/unit/:id' }, req);
+  // /api/units/catalog?fleet=158
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'units' && parts[2] === 'catalog') {
+    const fleetFilter = (url.searchParams.get('fleet') || '').trim().toUpperCase();
+    const units = [...unitCatalogById.values()]
+      .filter((u) => !fleetFilter || String(u.fleetId || '').toUpperCase().includes(fleetFilter))
+      .sort((a, b) => String(a.unitId || '').localeCompare(String(b.unitId || '')));
+    const fleets = new Map();
+    for (const u of units) {
+      const f = (u.fleetId || 'unknown').toString();
+      if (!fleets.has(f)) fleets.set(f, { fleetId: f, unitCount: 0 });
+      fleets.get(f).unitCount += 1;
+    }
+    sendJson(res, 200, {
+      count: units.length,
+      fleetFilter: fleetFilter || null,
+      fleets: [...fleets.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId)),
+      units,
+      updatedAt: new Date().toISOString(),
+    }, req);
+    return;
+  }
+
+  // /api/history/dates
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'history' && parts[2] === 'dates') {
+    const dates = availableHistoryDates().map((d) => ({
+      date: d,
+      hasState: existsSync(historyFileForDate(d)),
+      hasTimetable: !!pickTimetableForDate(d),
+      snapshots: listHistorySnapshotsForDate(d).map((s) => s.savedAt).filter(Boolean).slice(-24),
+    }));
+    sendJson(res, 200, {
+      count: dates.length,
+      retentionDays: STATE_HISTORY_RETENTION_DAYS,
+      pruneOnPersist: STATE_HISTORY_PRUNE_ON_PERSIST,
+      dates,
+      updatedAt: new Date().toISOString(),
+    }, req);
+    return;
+  }
+
+  // /api/history/overlay-series?hours=36
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'history' && parts[2] === 'overlay-series') {
+    const hoursParam = Number(url.searchParams.get('hours') || '36');
+    sendJson(res, 200, buildOverlayHistorySeries(hoursParam), req);
+    return;
+  }
+
+  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid?date=YYYY-MM-DD, /api/unit/:id, /api/units/catalog, /api/history/dates, /api/history/overlay-series' }, req);
 }
 
 const server = createServer(handleRequest);
@@ -1447,6 +2116,7 @@ async function shutdown() {
   // Final flush so the latest accumulated state survives the restart.
   console.log('[daemon] persisting final state ...');
   persistState();
+  persistUnitCatalog();
   console.log('[daemon] bye.');
   process.exit(0);
 }
@@ -1501,6 +2171,7 @@ async function startPtacConsumer() {
 
   ptacConsumer.run({
     eachMessage: async ({ message }) => {
+      archiveRawFeed('ptac', message.value);
       try { processConsistMessage(message.value); }
       catch (e) { /* don't die on one bad message */ ptacStats.errors++; }
     },
@@ -1535,6 +2206,9 @@ async function start() {
   // formations / station messages / associations. Stale-day check happens
   // inside loadPersistedState().
   loadPersistedState();
+  loadUnitCatalog();
+  for (const unit of unitsById.values()) mergeUnitIntoCatalog(unit);
+  persistUnitCatalog();
 
   server.listen(cfg.port, () => {
     console.log(`[daemon] HTTP API listening on http://localhost:${cfg.port}`);
@@ -1544,6 +2218,7 @@ async function start() {
     console.log(`[daemon]   GET /api/messages/:crs`);
     console.log(`[daemon]   GET /api/service/:rid`);
     console.log(`[daemon]   GET /api/unit/:resourceGroupId`);
+    console.log(`[daemon]   GET /api/units/catalog?fleet=158`);
   });
 
   await consumer.connect();
@@ -1567,6 +2242,7 @@ async function start() {
   consumer.run({
     eachMessage: async ({ message }) => {
       stats.consumed++;
+      archiveRawFeed('darwin', message.value);
       let inner;
       try { inner = decodeKafkaJson(message.value); } catch { return; }
       const pport = inner.Pport || inner;
@@ -1601,6 +2277,7 @@ async function start() {
   // Persist long-lived caches on a regular timer so a crash or kill -9 still
   // leaves us at most PERSIST_INTERVAL_SEC of new data behind.
   setInterval(persistState, PERSIST_INTERVAL_SEC * 1000);
+  setInterval(persistUnitCatalog, PERSIST_INTERVAL_SEC * 1000);
 
   // Day rollover: every 5 min, check the date.
   setInterval(() => {

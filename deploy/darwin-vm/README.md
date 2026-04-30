@@ -54,3 +54,29 @@ Add a rewrite rule:
   - `cd /opt/railstats && npm --prefix darwin-local-test run fetch:daily-files`
 - Run backup:
   - `sudo /opt/railstats/deploy/darwin-vm/backup-state.sh`
+
+## Recommended cache durability settings
+
+In `/etc/darwin-daemon.env`:
+
+- `KEEP_STATE_ACROSS_DAYS=true`
+- `PROTECT_RICHER_STATE=true`
+- `STATE_SNAPSHOT_COUNT=24`
+
+This keeps Darwin/PTAC persisted cache across day rollovers, prevents obvious
+downgrades from overwriting richer state, and keeps rolling state snapshots for
+quick recovery.
+
+## Historical + unit cache files
+
+The daemon now writes:
+
+- `darwin-local-test/state/history/YYYY-MM-DD/daemon-cache.latest.json`
+  - latest persisted state snapshot for that operating day (used by `?date=` lookups)
+- `darwin-local-test/state/unit-catalog.json`
+  - cumulative unit catalogue across days (additive/merge behavior)
+
+API additions:
+
+- `GET /api/service/:rid?date=YYYY-MM-DD`
+- `GET /api/units/catalog?fleet=158`

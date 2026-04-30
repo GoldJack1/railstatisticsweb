@@ -26,6 +26,7 @@ function getHeaderPageTitle(pathname: string): string {
   if (pathname.startsWith('/design-system')) return 'Design system'
   if (pathname.startsWith('/admin/messages')) return 'Messages'
   if (pathname.startsWith('/units')) return 'Units'
+  if (pathname.startsWith('/api-status')) return 'API Status'
   return 'Rail Statistics'
 }
 
