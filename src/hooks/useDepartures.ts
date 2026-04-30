@@ -34,6 +34,13 @@ export interface UseDeparturesResult {
 const DEFAULT_POLL_MS  = 10_000
 const DEFAULT_STALE_MS = 30_000
 
+function userMessageForStatus(status: number): string {
+  if (status === 401 || status === 403) return 'Access to live data is currently restricted. Please try again shortly.'
+  if (status === 404) return 'Station not found.'
+  if (status >= 500) return 'Live departures are temporarily unavailable. Please try again in a minute.'
+  return `Request failed (${status}).`
+}
+
 export function useDepartures(opts: UseDeparturesOptions): UseDeparturesResult {
   const { code, hours, pollMs = DEFAULT_POLL_MS, staleAfterMs = DEFAULT_STALE_MS } = opts
 
@@ -63,11 +70,11 @@ export function useDepartures(opts: UseDeparturesOptions): UseDeparturesResult {
       if (res.status === 404) {
         const body = await res.json().catch(() => ({}))
         setData(null)
-        setError(body?.error || 'station not found')
+        setError(body?.error || userMessageForStatus(404))
         setStatus('not-found')
         return
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(userMessageForStatus(res.status))
       const snap: DeparturesSnapshot = await res.json()
       setData(snap)
       setError(null)
@@ -76,7 +83,7 @@ export function useDepartures(opts: UseDeparturesOptions): UseDeparturesResult {
       setStatus(age > staleAfterMs ? 'stale' : 'ok')
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
-      setError((e as Error)?.message || String(e))
+      setError((e as Error)?.message || 'Could not load live departures.')
       setStatus(prev => (prev === 'idle' || prev === 'loading' ? 'error' : prev))
       // Keep stale data visible if we had it; just flag the error.
     }

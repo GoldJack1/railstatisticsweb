@@ -26,6 +26,13 @@ export interface UseServiceDetailResult {
 const DEFAULT_POLL_MS  = 15_000
 const DEFAULT_STALE_MS = 60_000
 
+function userMessageForStatus(status: number): string {
+  if (status === 401 || status === 403) return 'Access to live service detail is currently restricted.'
+  if (status === 404) return 'Service not found.'
+  if (status >= 500) return 'Service detail is temporarily unavailable. Please try again shortly.'
+  return `Request failed (${status}).`
+}
+
 /**
  * Polls /api/darwin/service/:rid every `pollMs` ms while the tab is visible.
  * Mirrors the shape and behaviour of `useDepartures`.
@@ -54,11 +61,11 @@ export function useServiceDetail({
       if (res.status === 404) {
         const body = await res.json().catch(() => ({}))
         setData(null)
-        setError(body?.error || 'service not found')
+        setError(body?.error || userMessageForStatus(404))
         setStatus('not-found')
         return
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(userMessageForStatus(res.status))
       const detail: ServiceDetail = await res.json()
       setData(detail)
       setError(null)
@@ -67,7 +74,7 @@ export function useServiceDetail({
       setStatus(age > staleAfterMs ? 'stale' : 'ok')
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
-      setError((e as Error)?.message || String(e))
+      setError((e as Error)?.message || 'Could not load service detail.')
       setStatus(prev => (prev === 'idle' || prev === 'loading' ? 'error' : prev))
     }
   }, [rid, staleAfterMs])

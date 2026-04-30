@@ -18,9 +18,16 @@ export default async (request) => {
   }
 
   const reqUrl = new URL(request.url)
-  const marker = '/.netlify/functions/darwin-proxy/'
-  const idx = reqUrl.pathname.indexOf(marker)
-  const splat = idx >= 0 ? reqUrl.pathname.slice(idx + marker.length) : ''
+  const functionMarker = '/.netlify/functions/darwin-proxy/'
+  const publicMarker = '/api/darwin/'
+  let splat = ''
+  if (reqUrl.pathname.includes(functionMarker)) {
+    splat = reqUrl.pathname.slice(reqUrl.pathname.indexOf(functionMarker) + functionMarker.length)
+  } else if (reqUrl.pathname.startsWith(publicMarker)) {
+    splat = reqUrl.pathname.slice(publicMarker.length)
+  } else if (reqUrl.pathname === '/.netlify/functions/darwin-proxy' || reqUrl.pathname === '/api/darwin') {
+    splat = 'health'
+  }
   const upstream = new URL(`${origin.replace(/\/$/, '')}/api/${splat}${reqUrl.search}`)
 
   const headers = new Headers(request.headers)

@@ -19,6 +19,13 @@ export interface UseUnitDetailResult {
   refetch: () => void
 }
 
+function userMessageForStatus(status: number): string {
+  if (status === 401 || status === 403) return 'Access to unit data is currently restricted.'
+  if (status === 404) return 'Unit not found.'
+  if (status >= 500) return 'Unit data is temporarily unavailable. Please try again shortly.'
+  return `Request failed (${status}).`
+}
+
 export function useUnitDetail({ unitId }: UseUnitDetailOptions): UseUnitDetailResult {
   const [data, setData] = useState<UnitDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -44,17 +51,17 @@ export function useUnitDetail({ unitId }: UseUnitDetailOptions): UseUnitDetailRe
         const body = await res.json().catch(() => ({}))
         setStatus('not-found')
         setData(null)
-        setError(body?.error || 'unit not found')
+        setError(body?.error || userMessageForStatus(404))
         return
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(userMessageForStatus(res.status))
       const detail: UnitDetail = await res.json()
       setData(detail)
       setError(null)
       setStatus('ok')
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
-      setError((e as Error)?.message || String(e))
+      setError((e as Error)?.message || 'Could not load unit detail.')
       setStatus('error')
     }
   }, [unitId])

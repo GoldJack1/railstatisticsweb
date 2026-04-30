@@ -242,9 +242,6 @@ const DarwinDeparturesPage: React.FC = () => {
           <section className="dep-state-card dep-state-card--error">
             <h2>Departures unavailable</h2>
             <p>{error}</p>
-            <p className="dep-hint">
-              Is the daemon running? Start it with <code>npm run devdarwin</code> from the repo root.
-            </p>
           </section>
         )}
 

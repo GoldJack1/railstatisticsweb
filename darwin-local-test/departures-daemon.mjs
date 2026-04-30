@@ -64,7 +64,15 @@ const cfg = {
   initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 1080),
   heartbeat:       Number(process.env.HEARTBEAT_SEC || 60),
   departuresCacheMs: Number(process.env.DEPARTURES_CACHE_MS || 3000),
-  internalApiKey:  (process.env.INTERNAL_API_KEY || '').trim(),
+  internalApiKeys: (() => {
+    const list = (process.env.INTERNAL_API_KEYS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) return list;
+    const single = (process.env.INTERNAL_API_KEY || '').trim();
+    return single ? [single] : [];
+  })(),
   autoFetchFiles:  !['0', 'false', 'no'].includes(String(process.env.DARWIN_AUTO_FETCH_FILES || 'true').toLowerCase()),
   autoFetchTime:   process.env.DARWIN_AUTO_FETCH_TIME || '04:05',
 };
@@ -1294,11 +1302,11 @@ function handleRequest(req, res) {
 
   const url = new URL(req.url, `http://localhost:${cfg.port}`);
   const parts = url.pathname.split('/').filter(Boolean);
-  // Optional API-key auth guard. When INTERNAL_API_KEY is set, every /api/*
-  // request must include matching X-API-Key.
-  if (parts[0] === 'api' && cfg.internalApiKey) {
+  // Optional API-key auth guard. When INTERNAL_API_KEY is set, every request
+  // must include matching X-API-Key.
+  if (cfg.internalApiKeys.length > 0) {
     const presented = (req.headers['x-api-key'] || '').toString().trim();
-    if (presented !== cfg.internalApiKey) {
+    if (!cfg.internalApiKeys.includes(presented)) {
       sendJson(res, 401, { error: 'unauthorized' }, req);
       return;
     }
