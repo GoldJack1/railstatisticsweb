@@ -63,6 +63,8 @@ const cfg = {
   windowHours:     Number(process.env.DEFAULT_WINDOW_HOURS || 3),
   initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 1080),
   heartbeat:       Number(process.env.HEARTBEAT_SEC || 60),
+  departuresCacheMs: Number(process.env.DEPARTURES_CACHE_MS || 3000),
+  internalApiKey:  (process.env.INTERNAL_API_KEY || '').trim(),
   autoFetchFiles:  !['0', 'false', 'no'].includes(String(process.env.DARWIN_AUTO_FETCH_FILES || 'true').toLowerCase()),
   autoFetchTime:   process.env.DARWIN_AUTO_FETCH_TIME || '04:05',
 };
@@ -230,6 +232,7 @@ let timetablePath, loadedDate;
 // Plus a fallback "ssd|headcode|originTiploc" -> [rid, ...] for stop-time-only matches.
 let ptacJoinByTuple, ptacJoinByOrigin;
 let lastAutoFetchRunYmd = null;
+const departuresCache = new Map(); // key -> { expiresAtMs, snapshot }
 
 function runDailyFileFetch(reason = 'scheduled') {
   return new Promise((resolvePromise) => {
@@ -328,6 +331,7 @@ function reloadReferenceData() {
 function reloadAllDataAndResetLive(reason = 'manual') {
   console.log(`[daemon] reloading timetable/reference data (${reason}) ...`);
   reloadReferenceData();
+  departuresCache.clear();
   liveOverlayByRid.clear();
   cancelled.clear();
   delayReason.clear();
@@ -1065,6 +1069,24 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc) {
   };
 }
 
+function getCachedSnapshot(cacheKey) {
+  const hit = departuresCache.get(cacheKey);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAtMs) {
+    departuresCache.delete(cacheKey);
+    return null;
+  }
+  return hit.snapshot;
+}
+
+function putCachedSnapshot(cacheKey, snapshot) {
+  if (cfg.departuresCacheMs <= 0) return;
+  departuresCache.set(cacheKey, {
+    expiresAtMs: Date.now() + cfg.departuresCacheMs,
+    snapshot,
+  });
+}
+
 // ---------- CRS / TIPLOC resolution ---------------------------------------
 function resolveStationCode(rawCode) {
   if (!rawCode) return null;
@@ -1211,29 +1233,56 @@ function buildServiceDetail(rid) {
 function pickCorsOrigin(req) {
   if (cfg.corsOrigins.includes('*')) return '*';
   const origin = req.headers.origin;
-  if (origin && cfg.corsOrigins.includes(origin)) return origin;
+  if (origin) {
+    if (cfg.corsOrigins.includes(origin)) return origin;
+    // Allow controlled wildcard entries like https://*.railstatistics.co.uk
+    for (const allowed of cfg.corsOrigins) {
+      if (!allowed.includes('*')) continue;
+      const wildcard = allowed.match(/^(https?:\/\/)\*\.([^/:]+)(:\d+)?$/i);
+      if (!wildcard) continue;
+      const [, proto, rootHost, portPart = ''] = wildcard;
+      const originMatch = origin.match(/^(https?:\/\/)([^/:]+)(:\d+)?$/i);
+      if (!originMatch) continue;
+      const [, originProto, originHost, originPort = ''] = originMatch;
+      if (originProto.toLowerCase() !== proto.toLowerCase()) continue;
+      if (originPort !== portPart) continue;
+      if (originHost.toLowerCase() === rootHost.toLowerCase()) continue;
+      if (originHost.toLowerCase().endsWith(`.${rootHost.toLowerCase()}`)) return origin;
+    }
+    // Browser-origin request, but not allow-listed.
+    return null;
+  }
+  // Non-browser/no-origin requests (CLI/health checks).
   return cfg.corsOrigins[0] || 'http://localhost:3000';
 }
 function sendJson(res, status, body, req) {
   const json = JSON.stringify(body, null, 2);
-  res.writeHead(status, {
+  const cors = pickCorsOrigin(req);
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': pickCorsOrigin(req),
     'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+  };
+  if (cors) headers['Access-Control-Allow-Origin'] = cors;
+  res.writeHead(status, {
+    ...headers,
   });
   res.end(json);
 }
 
 function handleRequest(req, res) {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': pickCorsOrigin(req),
+    const cors = pickCorsOrigin(req);
+    const headers = {
       'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    if (cors) headers['Access-Control-Allow-Origin'] = cors;
+    res.writeHead(204, {
+      ...headers,
     });
     res.end();
     return;
@@ -1245,6 +1294,15 @@ function handleRequest(req, res) {
 
   const url = new URL(req.url, `http://localhost:${cfg.port}`);
   const parts = url.pathname.split('/').filter(Boolean);
+  // Optional API-key auth guard. When INTERNAL_API_KEY is set, every /api/*
+  // request must include matching X-API-Key.
+  if (parts[0] === 'api' && cfg.internalApiKey) {
+    const presented = (req.headers['x-api-key'] || '').toString().trim();
+    if (presented !== cfg.internalApiKey) {
+      sendJson(res, 401, { error: 'unauthorized' }, req);
+      return;
+    }
+  }
 
   // /api/health
   if (parts.length === 2 && parts[0] === 'api' && parts[1] === 'health') {
@@ -1296,6 +1354,12 @@ function handleRequest(req, res) {
     if (!resolved) { sendJson(res, 404, { error: `unknown station code "${parts[2]}"` }, req); return; }
     const hoursParam = url.searchParams.get('hours');
     const hours = Math.max(0.25, Math.min(24, Number(hoursParam || cfg.windowHours)));
+    const cacheKey = `${resolved.tiplocs.join(',')}|${hours}`;
+    const cached = getCachedSnapshot(cacheKey);
+    if (cached) {
+      sendJson(res, 200, cached, req);
+      return;
+    }
     // Pass the FULL set of TIPLOCs that share this CRS so a station with
     // multiple platform groups (St Pancras, Edinburgh, etc.) returns all
     // its departures, not just one platform group.
@@ -1305,6 +1369,7 @@ function handleRequest(req, res) {
     snap.stationCrs  = resolved.crs  || snap.stationCrs;
     snap.matchedAs   = resolved.matchedAs;
     if (resolved.alternates) snap.alternates = resolved.alternates;
+    putCachedSnapshot(cacheKey, snap);
     sendJson(res, 200, snap, req);
     return;
   }
