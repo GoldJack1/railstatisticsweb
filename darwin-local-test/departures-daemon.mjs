@@ -280,12 +280,56 @@ function anchorTime(hhmm, ssd) {
   const [, h, mn, s] = m;
   return new Date(`${ssd}T${h.padStart(2, '0')}:${mn}:${s || '00'}+01:00`);
 }
-function bestDepartureFromLiveLoc(loc) {
-  if (loc?.dep?.at) return { time: loc.dep.at, kind: 'actual' };
-  if (loc?.dep?.et) return { time: loc.dep.et, kind: 'est' };
-  if (loc?.arr?.at) return { time: loc.arr.at, kind: 'actual-arr' };
-  if (loc?.arr?.et) return { time: loc.arr.et, kind: 'est-arr' };
+function describeLiveTime(node, actualKind, estKind) {
+  if (!node || typeof node !== 'object') return null;
+  const source = node.src ? String(unwrap(node.src)) : null;
+  const sourceInstance = node.srcInst ? String(unwrap(node.srcInst)) : null;
+  const unknownDelay = node.delayed === true || node.delayed === 'true';
+  const manualUnknownDelay = node.etUnknown === true || node.etUnknown === 'true';
+  if (node.at) {
+    return { time: String(unwrap(node.at)), kind: actualKind, source, sourceInstance, unknownDelay, manualUnknownDelay };
+  }
+  if (node.et) {
+    return { time: String(unwrap(node.et)), kind: estKind, source, sourceInstance, unknownDelay, manualUnknownDelay };
+  }
+  if (unknownDelay || manualUnknownDelay) {
+    return { time: null, kind: estKind, source, sourceInstance, unknownDelay, manualUnknownDelay };
+  }
   return null;
+}
+
+function bestDepartureFromLiveLoc(loc) {
+  const dep = describeLiveTime(loc?.dep, 'actual', 'est');
+  if (dep) return dep;
+  // Passing points publish under `pass` (not `dep`/`arr`) in TS updates.
+  const pass = describeLiveTime(loc?.pass, 'actual', 'est');
+  if (pass) return pass;
+  const arr = describeLiveTime(loc?.arr, 'actual-arr', 'est-arr');
+  if (arr) return arr;
+  return null;
+}
+
+function parseHmToMinutes(hhmm) {
+  if (!hhmm || typeof hhmm !== 'string') return null;
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return h * 60 + mm;
+}
+
+function computeDelayMinutes(scheduledTime, liveTime, liveKind) {
+  if (!liveTime) return null;
+  if (liveKind === 'scheduled' || liveKind === 'working') return 0;
+  const sched = parseHmToMinutes(scheduledTime);
+  const live = parseHmToMinutes(liveTime);
+  if (sched == null || live == null) return null;
+  // Choose the closest same-day/overnight delta in range [-12h, +12h].
+  let diff = live - sched;
+  if (diff > 720) diff -= 1440;
+  if (diff < -720) diff += 1440;
+  return diff;
 }
 
 /**
@@ -1419,13 +1463,31 @@ function processMessage(pport) {
         if (!entry) { entry = {}; ov.locs.set(tpl, entry); }
 
         const dep = bestDepartureFromLiveLoc(loc);
-        if (dep) { entry.bestTime = dep.time; entry.bestKind = dep.kind; stats.updates++; }
+        if (dep) {
+          entry.bestTime = dep.time;
+          entry.bestKind = dep.kind;
+          entry.liveSource = dep.source || null;
+          entry.liveSourceInstance = dep.sourceInstance || null;
+          entry.unknownDelay = !!dep.unknownDelay;
+          entry.manualUnknownDelay = !!dep.manualUnknownDelay;
+          stats.updates++;
+        }
 
         // plat in JSON feed: { platsrc, conf, "": "3A" }
         if (loc.plat != null) {
           const platStr = typeof loc.plat === 'string' ? loc.plat
             : (loc.plat[''] || loc.plat['#text'] || loc.plat._);
           if (platStr && platStr !== entry.livePlat) { entry.livePlat = platStr; stats.updates++; }
+          const platSrc = typeof loc.plat === 'object' ? (loc.plat.platsrc ? String(unwrap(loc.plat.platsrc)) : null) : null;
+          const platConf = typeof loc.plat === 'object' ? (loc.plat.conf === true || loc.plat.conf === 'true') : false;
+          const platSupp = typeof loc.plat === 'object' ? ((loc.plat.platsup === true || loc.plat.platsup === 'true') || (loc.plat.cisPlatsup === true || loc.plat.cisPlatsup === 'true')) : false;
+          entry.platformSource = platSrc || null;
+          entry.platformConfirmed = platConf;
+          entry.platformSuppressed = platSupp;
+        }
+        if (loc.length != null) {
+          const length = Number(unwrap(loc.length));
+          entry.trainLength = Number.isFinite(length) && length > 0 ? length : null;
         }
         // PARTIAL CANCELLATION semantics: a `can="true"` or `cancelReason`
         // attribute on a single Location means *just this stop* is cancelled
@@ -1963,12 +2025,11 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
     if (!j || j.ssd !== ssdTarget) continue;
 
     const stop = j.slots[stopIdx];
-    // Skip pure passing points — not a departure from this station.
-    if (stop.slot === 'PP' || stop.slot === 'OPPP') continue;
+    const isPassing = stop.slot === 'PP' || stop.slot === 'OPPP';
     // Skip terminating arrivals (train ends here, not departing).
     if (stop.slot === 'DT' || stop.slot === 'OPDT' || stop.act === 'TF') continue;
 
-    const scheduledTime = stop.ptd || stop.wtd;
+    const scheduledTime = isPassing ? (stop.wtp || stop.wtd) : (stop.ptd || stop.wtd);
     if (!scheduledTime || !scheduledTime.includes(':')) continue;
 
     let scheduledAt = anchorTime(scheduledTime, j.ssd);
@@ -1990,8 +2051,11 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
     // tiploc this row came from (Darwin keys live state by exact TIPLOC).
     const ov = liveOverlayMap.get(rid);
     const liveLoc = getOverlayLoc(ov, sourceTpl);
+    const unknownDelay = !!liveLoc?.unknownDelay;
+    const manualUnknownDelay = !!liveLoc?.manualUnknownDelay;
     const bestTime = liveLoc?.bestTime || scheduledTime;
     const bestKind = liveLoc?.bestKind || 'scheduled';
+    const delayMinutes = unknownDelay ? null : computeDelayMinutes(scheduledTime, bestTime, bestKind);
 
     // Effective cancellation seen by *this row*: a row is cancelled if the
     // whole service is cancelled OR this individual calling point is
@@ -2030,12 +2094,22 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
       tocName: resolve_.tocToName(j.toc),
       trainCat: j.trainCat || null,
       serviceType,
+      isPassing,
       scheduledTime,
       scheduledAt: scheduledAt.toISOString(),
       liveTime: bestTime,
       liveKind: bestKind,
+      liveSource: liveLoc?.liveSource || null,
+      liveSourceInstance: liveLoc?.liveSourceInstance || null,
+      unknownDelay,
+      manualUnknownDelay,
+      delayMinutes,
+      trainLength: liveLoc?.trainLength ?? null,
       platform: stop.plat,
       livePlatform: liveLoc?.livePlat || null,
+      platformSource: liveLoc?.platformSource || null,
+      platformConfirmed: !!liveLoc?.platformConfirmed,
+      platformSuppressed: !!liveLoc?.platformSuppressed,
       // Loading at this stop, when published. loadPct is 0-100;
       // coachLoading is 1-10 enum per coach.
       loadingPercentage: liveLoc?.loadPct ?? null,
@@ -2062,8 +2136,11 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
       delayReason: delayInfo,
       status: cancelInfo
         ? 'CANCELLED'
-        : (bestKind === 'scheduled' || bestKind === 'working') ? 'on time'
-        : `${bestKind} ${bestTime}`,
+        : unknownDelay
+          ? 'delayed'
+        : delayMinutes == null
+          ? ((bestKind === 'scheduled' || bestKind === 'working') ? 'on time' : `${bestKind} ${bestTime}`)
+          : (delayMinutes === 0 ? 'on time' : `${bestKind} ${bestTime} (${delayMinutes > 0 ? '+' : ''}${delayMinutes}m)`),
     });
   }
   rows.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
@@ -2223,9 +2300,17 @@ function buildServiceDetail(rid, ctx = null) {
       wtp:  s.wtp,
       platform: s.plat,
       livePlatform: live?.livePlat || null,
+      platformSource: live?.platformSource || null,
+      platformConfirmed: !!live?.platformConfirmed,
+      platformSuppressed: !!live?.platformSuppressed,
       activity: s.act,
       liveTime: live?.bestTime || null,
       liveKind: live?.bestKind || null,
+      liveSource: live?.liveSource || null,
+      liveSourceInstance: live?.liveSourceInstance || null,
+      unknownDelay: !!live?.unknownDelay,
+      manualUnknownDelay: !!live?.manualUnknownDelay,
+      trainLength: live?.trainLength ?? null,
       cancelledAtStop: live?.cancelled || false,
       cancelReasonAtStop: live?.cancelReason || null,
       // Loading at this stop (if Darwin published it): overall % and/or

@@ -99,6 +99,38 @@ function isScheduleDeactivatedReason(reason: string | null | undefined): boolean
   return reason.trim().toLowerCase().includes('schedule deactivated')
 }
 
+function platformSourceLabel(src: string | null | undefined): string | null {
+  if (!src) return null
+  if (src === 'A') return 'auto'
+  if (src === 'M') return 'manual'
+  if (src === 'P') return 'planned'
+  return src
+}
+
+function parseHmToMinutes(value: string | null | undefined): number | null {
+  if (!value) return null
+  const m = /^(\d{1,2}):(\d{2})/.exec(value.trim())
+  if (!m) return null
+  const hh = Number(m[1])
+  const mm = Number(m[2])
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null
+  return hh * 60 + mm
+}
+
+function computeDeltaMinutes(
+  scheduled: string | null | undefined,
+  live: string | null | undefined
+): number | null {
+  const schedMins = parseHmToMinutes(scheduled)
+  const liveMins = parseHmToMinutes(live)
+  if (schedMins == null || liveMins == null) return null
+  let diff = liveMins - schedMins
+  // Prefer the shortest overnight-adjusted distance.
+  if (diff > 720) diff -= 1440
+  if (diff < -720) diff += 1440
+  return diff
+}
+
 /**
  * Collapsible "raw data" panel rendered at the bottom of the service detail
  * page. Shows the full ServiceDetail payload as pretty-printed JSON, plus a
@@ -327,8 +359,10 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
                 {viewMode === 'detailed' && (
                   <div className="svc-summary-item">
-                    <span className="svc-summary-label">Stops</span>
-                    <span className="svc-summary-value svc-mono">{data.stops.filter(s => SLOT_KIND[s.slot] !== 'pass').length}</span>
+                    <span className="svc-summary-label">Calling pattern</span>
+                    <span className="svc-summary-value svc-mono">
+                      {data.stops.filter((s) => SLOT_KIND[s.slot] !== 'pass').length} calling · {data.stops.filter((s) => SLOT_KIND[s.slot] === 'pass').length} passing
+                    </span>
                   </div>
                 )}
                 <div className="svc-summary-item">
@@ -451,6 +485,7 @@ const ServiceDetailPage: React.FC = () => {
                       {viewMode === 'detailed' && <th>PTD</th>}
                       <th>WTA</th>
                       <th>WTD/WTP</th>
+                      <th>Δ min</th>
                       <th>Platform</th>
                       <th>Live</th>
                     </tr>
@@ -458,7 +493,6 @@ const ServiceDetailPage: React.FC = () => {
                   <tbody>
                 {data.stops.map((s, idx) => {
                   const stopLabel = displayStopName(data.stops, idx)
-                  if (stopLabel === 'Passing point') return null
                   const kind = SLOT_KIND[s.slot] || 'stop'
                   if (viewMode === 'simple' && kind === 'pass') return null
                   const kindLabel = SLOT_KIND_LABEL[kind]
@@ -468,6 +502,12 @@ const ServiceDetailPage: React.FC = () => {
                   const wDep = trimSeconds(s.wtd) || null
                   const wPass = s.wtp ? trimSeconds(s.wtp) : null
                   const showLive = !!s.liveTime && (s.liveKind === 'actual' || s.liveKind === 'est' || s.liveKind === 'actual-arr' || s.liveKind === 'est-arr')
+                  const passFallback = kind === 'pass' ? (wPass || wDep || null) : null
+                  const platformMeta = [platformSourceLabel(s.platformSource), s.platformConfirmed ? 'confirmed' : null].filter(Boolean).join(', ')
+                  const scheduledForDelta = kind === 'pass'
+                    ? (wPass || wDep || wArr || null)
+                    : (pDep || pArr || wDep || wArr || null)
+                  const deltaMinutes = s.unknownDelay ? null : computeDeltaMinutes(scheduledForDelta, s.liveTime)
                   const isLate = showLive && (
                     (s.liveKind?.startsWith('actual') && s.liveTime !== (pDep || pArr || wPass || wDep || wArr)) ||
                     (s.liveKind?.startsWith('est')    && s.liveTime !== (pDep || pArr || wPass || wDep || wArr))
@@ -494,14 +534,44 @@ const ServiceDetailPage: React.FC = () => {
                       {viewMode === 'detailed' && <td className="svc-mono">{kind === 'pass' ? '—' : (pDep || '—')}</td>}
                       <td className="svc-mono">{kind === 'pass' ? '—' : (wArr || '—')}</td>
                       <td className="svc-mono">{kind === 'pass' ? (wPass || '—') : (wDep || '—')}</td>
-                      <td className="svc-mono">{s.livePlatform || s.platform || '—'}</td>
+                      <td
+                        className={[
+                          'svc-mono',
+                          deltaMinutes == null
+                            ? ''
+                            : deltaMinutes > 0
+                              ? 'svc-delta svc-delta--late'
+                              : deltaMinutes < 0
+                                ? 'svc-delta svc-delta--early'
+                                : 'svc-delta svc-delta--ontime',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        {deltaMinutes == null ? '—' : (deltaMinutes > 0 ? `+${deltaMinutes}` : String(deltaMinutes))}
+                      </td>
+                      <td className="svc-mono">
+                        {s.platformSuppressed
+                          ? 'Suppressed'
+                          : (s.livePlatform || s.platform || '—')}
+                        {(s.livePlatform || s.platform) && platformMeta ? ` (${platformMeta})` : ''}
+                      </td>
                       <td>
                         <div className="svc-stop-live">
                           {s.cancelledAtStop && <span className="svc-pill svc-pill--cancelled">Cancelled</span>}
-                          {!s.cancelledAtStop && showLive && s.liveKind === 'actual'      && <span className="svc-pill svc-pill--actual">Departed {s.liveTime}</span>}
+                          {!s.cancelledAtStop && s.unknownDelay && <span className="svc-pill svc-pill--late">Delayed{s.liveSource ? ` (${s.liveSource})` : ''}</span>}
+                          {!s.cancelledAtStop && showLive && s.liveKind === 'actual'      && kind !== 'pass' && <span className="svc-pill svc-pill--actual">Departed {s.liveTime}</span>}
+                          {!s.cancelledAtStop && showLive && s.liveKind === 'actual'      && kind === 'pass' && <span className="svc-pill svc-pill--actual">Passed {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'actual-arr'  && <span className="svc-pill svc-pill--actual">Arrived {s.liveTime}</span>}
-                          {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && s.liveTime !== pDep && <span className="svc-pill svc-pill--late">Expected {s.liveTime}</span>}
+                          {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && kind !== 'pass' && s.liveTime !== pDep && <span className="svc-pill svc-pill--late">Expected {s.liveTime}</span>}
+                          {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && kind === 'pass' && <span className="svc-pill svc-pill--late">Expected pass {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'est-arr'     && <span className="svc-pill">Expected arr {s.liveTime}</span>}
+                          {!s.cancelledAtStop && !s.unknownDelay && showLive && s.liveSource && (
+                            <span className="svc-pill" title={`Forecast source ${s.liveSource}${s.liveSourceInstance ? ` ${s.liveSourceInstance}` : ''}`}>
+                              Via {s.liveSource}
+                            </span>
+                          )}
+                          {!s.cancelledAtStop && !showLive && kind === 'pass' && passFallback && (
+                            <span className="svc-pill">Scheduled pass {passFallback}</span>
+                          )}
                           {!s.cancelledAtStop && !showLive && kind !== 'pass' && (idx === 0 || idx === data.stops.length - 1) && !data.historicalDate && (
                             <span className="svc-pill svc-pill--ontime">Scheduled</span>
                           )}

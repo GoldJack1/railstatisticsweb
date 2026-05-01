@@ -23,6 +23,8 @@ interface HistoryDatesResponse {
   }>
 }
 
+type StopModeFilter = 'calling' | 'passing'
+
 const WINDOW_OPTIONS = [
   { label: '1 hour',   value: 1 },
   { label: '3 hours',  value: 3 },
@@ -59,6 +61,14 @@ function formatHeaderDate(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00`)
   if (Number.isNaN(d.getTime())) return dateStr
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function platformSourceLabel(src: string | null | undefined): string | null {
+  if (!src) return null
+  if (src === 'A') return 'auto'
+  if (src === 'M') return 'manual'
+  if (src === 'P') return 'planned'
+  return src
 }
 
 function formatLiveNowUk(): string {
@@ -149,24 +159,31 @@ function addDaysIsoDate(dateStr: string, days: number): string {
 const StatusBadge: React.FC<{ row: DepartureRow; historicalMode: boolean }> = ({ row, historicalMode }) => {
   let cls = 'dep-badge'
   let text = 'On time'
+  const delayText = typeof row.delayMinutes === 'number'
+    ? ` (${row.delayMinutes > 0 ? '+' : ''}${row.delayMinutes}m)`
+    : ''
+  const sourceText = row.liveSource ? ` · ${row.liveSource}${row.liveSourceInstance ? ` ${row.liveSourceInstance}` : ''}` : ''
   if (row.cancelled) {
     cls += ' dep-badge--cancelled'
     text = 'Cancelled'
+  } else if (row.unknownDelay) {
+    cls += ' dep-badge--late'
+    text = `Delayed${sourceText}`
   } else if (historicalMode && (row.liveKind === 'scheduled' || row.liveKind === 'working')) {
     // Historical snapshots often have no meaningful live event at that minute.
     // Show a neutral marker instead of implying the service is "on time now".
     text = 'Snapshot'
   } else if (row.liveKind === 'actual') {
     cls += ' dep-badge--actual'
-    text = `Departed ${row.liveTime}`
+    text = `${row.isPassing ? 'Passed' : 'Departed'} ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'actual-arr') {
     cls += ' dep-badge--actual'
-    text = `Arrived ${row.liveTime}`
+    text = `Arrived ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'est' && row.liveTime !== row.scheduledTime) {
     cls += ' dep-badge--late'
-    text = `Exp ${row.liveTime}`
+    text = `${row.isPassing ? 'Exp pass' : 'Exp'} ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'est-arr') {
-    text = `Exp arr ${row.liveTime}`
+    text = `Exp arr ${row.liveTime}${delayText}${sourceText}`
   } else {
     cls += ' dep-badge--ontime'
   }
@@ -176,10 +193,19 @@ const StatusBadge: React.FC<{ row: DepartureRow; historicalMode: boolean }> = ({
 /** Build the description string for a TextCard from a departure row. */
 function buildDescription(row: DepartureRow): string {
   const platform = row.livePlatform || row.platform
-  const platLabel = platform ? `Plat ${platform}` : 'No platform'
+  const source = platformSourceLabel(row.platformSource)
+  const confirmed = row.platformConfirmed ? 'confirmed' : null
+  const sourceBits = [source, confirmed].filter(Boolean).join(', ')
+  const platLabel = row.platformSuppressed
+    ? 'Platform suppressed'
+    : platform
+      ? `Plat ${platform}${sourceBits ? ` (${sourceBits})` : ''}`
+      : 'No platform'
   const toc = row.tocName || row.toc
   const headcode = row.trainId
   const fromOrigin = row.originName ? `from ${row.originName}` : null
+  const passLabel = row.isPassing ? 'Passing through' : 'Calling'
+  const trainLength = row.trainLength && row.trainLength > 0 ? `${row.trainLength} coaches` : null
 
   if (row.cancelled && row.cancellation) {
     // Some feeds report generic "schedule deactivated", which is confusing
@@ -192,14 +218,14 @@ function buildDescription(row: DepartureRow): string {
     const code = row.delayReason.code ? ` (code ${row.delayReason.code})` : ''
     return `Delay reason: ${row.delayReason.reason}${code}`
   }
-  return [platLabel, toc, headcode, fromOrigin].filter(Boolean).join(' · ')
+  return [passLabel, platLabel, trainLength, toc, headcode, fromOrigin].filter(Boolean).join(' · ')
 }
 
 /** Build the title string. */
 function buildTitle(row: DepartureRow): string {
   const time = formatTime(row.scheduledAt)
   const dest = row.destinationName || row.destination
-  return `${time} · ${dest}`
+  return `${time} · ${dest}${row.isPassing ? ' (pass)' : ''}`
 }
 
 function normalizeStationText(value: string): string {
@@ -249,6 +275,11 @@ const SERVICE_TYPE_LABELS: Record<DepartureServiceType, string> = {
   'rail-replacement': 'Rail replacement',
   other: 'Other',
 }
+const STOP_MODE_OPTIONS: StopModeFilter[] = ['calling', 'passing']
+const STOP_MODE_LABELS: Record<StopModeFilter, string> = {
+  calling: 'Calling',
+  passing: 'Passing',
+}
 
 function buildStationNameSearchResults(rawInput: string, stations: Station[]): Station[] {
   const normalizedInput = normalizeStationText(rawInput)
@@ -280,6 +311,7 @@ const DarwinDeparturesPage: React.FC = () => {
   const [historyDateError, setHistoryDateError] = useState<string | null>(null)
   const [selectedTocs, setSelectedTocs] = useState<string[]>([])
   const [selectedServiceTypes, setSelectedServiceTypes] = useState<DepartureServiceType[]>([])
+  const [selectedStopModes, setSelectedStopModes] = useState<StopModeFilter[]>(STOP_MODE_OPTIONS)
   const [historyDates, setHistoryDates] = useState<string[]>([])
   const { stations } = useStations()
 
@@ -343,7 +375,7 @@ const DarwinDeparturesPage: React.FC = () => {
           .map((d) => d.date)
           .sort((a, b) => b.localeCompare(a))
         setHistoryDates(dates)
-      } catch (e) {
+      } catch {
         if (cancelled) return
         setHistoryDates([])
       }
@@ -399,6 +431,10 @@ const DarwinDeparturesPage: React.FC = () => {
     setSelectedServiceTypes(serviceTypeOptions)
   }, [serviceTypeOptions])
 
+  useEffect(() => {
+    setSelectedStopModes(STOP_MODE_OPTIONS)
+  }, [code])
+
   const filteredDepartures = useMemo(() => {
     if (!data) return []
     return data.departures.filter((row) => {
@@ -406,9 +442,11 @@ const DarwinDeparturesPage: React.FC = () => {
       const tocMatch = selectedTocs.includes(tocLabel)
       const rowServiceType = row.serviceType || 'other'
       const serviceTypeMatch = selectedServiceTypes.includes(rowServiceType)
-      return tocMatch && serviceTypeMatch
+      const stopMode: StopModeFilter = row.isPassing ? 'passing' : 'calling'
+      const stopModeMatch = selectedStopModes.includes(stopMode)
+      return tocMatch && serviceTypeMatch && stopModeMatch
     })
-  }, [data, selectedTocs, selectedServiceTypes])
+  }, [data, selectedTocs, selectedServiceTypes, selectedStopModes])
 
   const filteredCounts = useMemo(() => ({
     departures: filteredDepartures.length,
@@ -700,6 +738,25 @@ const DarwinDeparturesPage: React.FC = () => {
                       .map((label) => serviceTypeOptions.find((type) => SERVICE_TYPE_LABELS[type] === label))
                       .filter((value): value is DepartureServiceType => Boolean(value))
                     setSelectedServiceTypes(selected)
+                  }}
+                  colorVariant="primary"
+                />
+              </div>
+
+              <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Stop mode</h2>
+                <BUTDDMListActionDual
+                  items={STOP_MODE_OPTIONS.map((mode) => STOP_MODE_LABELS[mode])}
+                  filterName="Stop modes"
+                  selectionMode="multi"
+                  selectedPositions={selectedStopModes
+                    .map((mode) => STOP_MODE_OPTIONS.indexOf(mode))
+                    .filter((index) => index >= 0)}
+                  onSelectionChanged={(_, selectedItems) => {
+                    const selected = selectedItems
+                      .map((label) => STOP_MODE_OPTIONS.find((mode) => STOP_MODE_LABELS[mode] === label))
+                      .filter((value): value is StopModeFilter => Boolean(value))
+                    setSelectedStopModes(selected)
                   }}
                   colorVariant="primary"
                 />

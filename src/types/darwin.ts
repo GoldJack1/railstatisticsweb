@@ -50,14 +50,34 @@ export interface DepartureRow {
   trainCat: string | null;
   /** Normalised service type derived from Darwin feed metadata. */
   serviceType: DepartureServiceType;
+  /** True when this row is a pass-through point (PP/OPPP), not a calling stop. */
+  isPassing?: boolean;
 
   scheduledTime: string;       // "HH:MM"
   scheduledAt: string;         // ISO8601 anchored to today
   liveTime: string;
   liveKind: LiveTimeKind;
+  /** Forecast source code from Darwin TS (e.g. "TD", "CIS"). */
+  liveSource?: string | null;
+  /** Source instance (e.g. CIS code) when provided. */
+  liveSourceInstance?: string | null;
+  /** Unknown-delay forecast state (`delayed=true`). */
+  unknownDelay?: boolean;
+  /** Manual unknown-delay set (`etUnknown=true`). */
+  manualUnknownDelay?: boolean;
+  /** Positive = late, negative = early, zero = on time. */
+  delayMinutes?: number | null;
+  /** Train length in coaches at this location when supplied. */
+  trainLength?: number | null;
 
   platform: string | null;     // scheduled
   livePlatform: string | null; // overlaid
+  /** Platform source: P=planned, A=automatic, M=manual. */
+  platformSource?: string | null;
+  /** True when Darwin marks platform as confirmed. */
+  platformConfirmed?: boolean;
+  /** True when platform is suppressed by CIS/workstation. */
+  platformSuppressed?: boolean;
 
   /**
    * The exact TIPLOC this row was sourced from. For most rows this matches
@@ -197,6 +217,14 @@ export interface ServiceStop {
   /** Live time once available (Darwin TS forecast / actual). */
   liveTime: string | null;
   liveKind: LiveTimeKind | null;
+  liveSource?: string | null;
+  liveSourceInstance?: string | null;
+  unknownDelay?: boolean;
+  manualUnknownDelay?: boolean;
+  trainLength?: number | null;
+  platformSource?: string | null;
+  platformConfirmed?: boolean;
+  platformSuppressed?: boolean;
   /** True when this specific stop has been cancelled in the live overlay. */
   cancelledAtStop: boolean;
   /** Reason for the per-stop cancellation when one was supplied (partial cancellations). */
