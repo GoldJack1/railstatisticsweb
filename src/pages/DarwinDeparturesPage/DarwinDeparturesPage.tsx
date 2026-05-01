@@ -147,6 +147,19 @@ function getCurrentRailwayDayIsoUk(now = new Date()): string {
   return new Date(railwayDayUtc).toISOString().slice(0, 10)
 }
 
+/** Operating-day key matching `railwayDayYmd` in departures-daemon (04:30 Europe/London). */
+function railwayOperatingDayIsoUk(dateStr: string, timeHHMM: string): string {
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(timeHHMM.trim())
+  if (!tm) return dateStr
+  const h = Number(tm[1]); const mi = Number(tm[2])
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim())
+  if (!dm || !Number.isFinite(h) || !Number.isFinite(mi)) return dateStr
+  const y = Number(dm[1]); const mo = Number(dm[2]); const d = Number(dm[3])
+  const londonAsUtc = Date.UTC(y, mo - 1, d, h, mi)
+  const railwayDayUtc = londonAsUtc - ((4 * 60 + 30) * 60 * 1000)
+  return new Date(railwayDayUtc).toISOString().slice(0, 10)
+}
+
 function addDaysIsoDate(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`)
   if (Number.isNaN(d.getTime())) return dateStr
@@ -377,16 +390,23 @@ const DarwinDeparturesPage: React.FC = () => {
   const clickedLabel = query.get('label') || ''
   const historyDate = query.get('date') || ''
   const historyTime = query.get('at') || ''
-  const initialLiveNow = useMemo(() => getLiveNowPartsUk(), [])
-  const [historyDateDraft, setHistoryDateDraft] = useState<string>(historyDate || initialLiveNow.date)
-  const [historyTimeDraft, setHistoryTimeDraft] = useState<string>(historyTime || initialLiveNow.time)
-  const todayIsoDate = useMemo(() => getCurrentRailwayDayIsoUk(), [])
-  const maxFutureDateIso = useMemo(() => addDaysIsoDate(todayIsoDate, 2), [todayIsoDate])
+  const initialLiveWall = useMemo(() => getLiveNowPartsUk(), [])
+  const [historyDateDraft, setHistoryDateDraft] = useState<string>(historyDate || initialLiveWall.date)
+  const [historyTimeDraft, setHistoryTimeDraft] = useState<string>(historyTime || initialLiveWall.time)
+  const todayIsoDate = getCurrentRailwayDayIsoUk()
+  const maxFutureDateIso = addDaysIsoDate(getCurrentRailwayDayIsoUk(), 2)
+  const operatingDayForMode = useMemo(() => {
+    if (!historyDate) return todayIsoDate
+    if (historyTime && /^\d{1,2}:\d{2}$/.test(historyTime.trim())) {
+      return railwayOperatingDayIsoUk(historyDate, historyTime.trim())
+    }
+    return historyDate
+  }, [historyDate, historyTime, todayIsoDate])
   const hoursFromQuery = Number(query.get('hours') || WINDOW_OPTIONS[0].value)
   const hours = WINDOW_VALUES.has(hoursFromQuery) ? hoursFromQuery : WINDOW_OPTIONS[0].value
-  const historicalMode = Boolean(historyDate && historyDate < todayIsoDate)
-  const timedCurrentDayMode = Boolean(historyDate && historyDate === todayIsoDate && Boolean(historyTime))
-  const futureTimetableMode = Boolean(historyDate && historyDate > todayIsoDate)
+  const historicalMode = Boolean(historyDate && operatingDayForMode < todayIsoDate)
+  const timedCurrentDayMode = Boolean(historyDate && operatingDayForMode === todayIsoDate && Boolean(historyTime))
+  const futureTimetableMode = Boolean(historyDate && operatingDayForMode > todayIsoDate)
 
   useEffect(() => {
     if (historyDate) setHistoryDateDraft(historyDate)
@@ -588,8 +608,13 @@ const DarwinDeparturesPage: React.FC = () => {
       : null
 
     if (!hasStationSelected) return 'Search by station name, CRS, or TIPLOC'
-    const boardDate = historyDate || todayIsoDate
-    const boardDateText = `Board date: ${formatHeaderDate(boardDate)}${historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''}`
+    const modeSuffix = historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''
+    const operatingDayLabel = formatHeaderDate(
+      data?.historicalDate ?? (historyDate ? (historyTime ? operatingDayForMode : historyDate) : todayIsoDate),
+    )
+    const boardDateText = historyDate && historyTime
+      ? `Wall clock: ${formatHeaderDate(historyDate)} · ${historyTime} · Operating day: ${operatingDayLabel}${modeSuffix}`
+      : `Operating day: ${operatingDayLabel}${modeSuffix}`
     const liveNowText = historicalMode || futureTimetableMode ? null : `Live now: ${formatLiveNowUk()}`
 
     if (status === 'ok') {
@@ -644,7 +669,7 @@ const DarwinDeparturesPage: React.FC = () => {
     if (status === 'error')     return <span className="dep-subtitle__status">{error ? `Error: ${error}` : 'Departures unavailable'} · {boardDateText}</span>
     if (status === 'not-found') return <span className="dep-subtitle__status">Unknown station</span>
     return ''
-  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, timedCurrentDayMode, historyDate, historyTime, futureTimetableMode, todayIsoDate])
+  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, timedCurrentDayMode, historyDate, historyTime, futureTimetableMode, todayIsoDate, operatingDayForMode])
 
   const stationNameResults = useMemo(
     () => buildStationNameSearchResults(searchInput, stations),
@@ -652,9 +677,15 @@ const DarwinDeparturesPage: React.FC = () => {
   )
 
   const boardDateLabel = useMemo(() => {
-    const boardDate = historyDate || todayIsoDate
-    return `${formatHeaderDate(boardDate)}${historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''}`
-  }, [historicalMode, historyDate, futureTimetableMode, todayIsoDate])
+    const modeSuffix = historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''
+    const operatingDayDisplay = formatHeaderDate(
+      data?.historicalDate ?? (historyDate ? (historyTime ? operatingDayForMode : historyDate) : todayIsoDate),
+    )
+    if (historyDate && historyTime && data?.historicalDate && data.historicalDate !== historyDate) {
+      return `${formatHeaderDate(historyDate)} ${historyTime} → ${operatingDayDisplay}${modeSuffix}`
+    }
+    return `${operatingDayDisplay}${modeSuffix}`
+  }, [data?.historicalDate, historicalMode, historyDate, historyTime, futureTimetableMode, todayIsoDate, operatingDayForMode])
 
   const showStationNameResults = useMemo(() => {
     if (searchMode !== 'station-name') return false
@@ -723,8 +754,32 @@ const DarwinDeparturesPage: React.FC = () => {
           <aside className="dep-sidebar" aria-label="Departure controls">
             <section className="dep-controls-panel dep-sidebar-section" aria-label="Filters">
               <div className="dep-date-context" role="status" aria-live="polite">
-                <span><strong>Board date:</strong> {boardDateLabel}</span>
+                {historyDate ? (
+                  <>
+                    <span>
+                      <strong>Wall clock (London):</strong>{' '}
+                      {formatHeaderDate(historyDate)}{historyTime ? ` · ${historyTime}` : ''}
+                    </span>
+                    {data?.historicalDate ? (
+                      <span>
+                        <strong>Darwin operating day:</strong> {formatHeaderDate(data.historicalDate)}
+                        {historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span>
+                    <strong>Live board · operating day:</strong> {formatHeaderDate(todayIsoDate)}
+                  </span>
+                )}
                 <span><strong>Live now:</strong> {formatLiveNowUk()}</span>
+                <p className="dep-railway-day-note">
+                  UK railway operating day here follows Darwin and runs{' '}
+                  <strong>04:30</strong> one morning to <strong>04:29</strong> the next calendar morning (Europe/London).
+                  Between <strong>midnight and 04:29</strong>, departures still belong to the{' '}
+                  <strong>previous calendar date&apos;s</strong> timetable. Use the wall-clock date and time above for that period,
+                  so you see overnight trains for that operating day — not the following morning&apos;s first services.
+                </p>
               </div>
               <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Search</h2>
               <div className="dep-control-group">
@@ -832,7 +887,7 @@ const DarwinDeparturesPage: React.FC = () => {
                         setHistoryDateDraft(e.target.value)
                         if (historyDateError) setHistoryDateError(null)
                       }}
-                      placeholder={initialLiveNow.date}
+                      placeholder={initialLiveWall.date}
                       inputMode="numeric"
                     />
                   </div>
@@ -845,7 +900,7 @@ const DarwinDeparturesPage: React.FC = () => {
                         setHistoryTimeDraft(e.target.value)
                         if (historyDateError) setHistoryDateError(null)
                       }}
-                      placeholder={initialLiveNow.time}
+                      placeholder={initialLiveWall.time}
                       inputMode="numeric"
                     />
                   </div>

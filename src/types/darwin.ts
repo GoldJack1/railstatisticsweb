@@ -178,6 +178,13 @@ export interface DeparturesSnapshot {
   };
 
   departures: DepartureRow[];
+
+  /** Present when ?date= was used — Darwin service day / SSD for this board (may differ from wall-clock calendar date overnight). */
+  historicalDate?: string | null;
+  historicalAt?: string | null;
+  historicalSavedAt?: string | null;
+  /** Calendar date from the request when timed boards remap overnight (matches query ?date=). */
+  wallClockDate?: string | null;
 }
 
 /**

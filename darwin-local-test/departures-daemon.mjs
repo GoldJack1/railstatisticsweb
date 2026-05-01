@@ -821,6 +821,18 @@ function parseAtToMinutes(at) {
   return h * 60 + mm;
 }
 
+/** Wall-clock London instant for ?date=&at= — fixed +01:00 matches anchorTime(). */
+function londonWallInstantFromDateAt(dateStr, atStr) {
+  if (!dateStr || !isIsoDate(dateStr)) return null;
+  if (atStr != null && parseAtToMinutes(atStr) != null) {
+    const mins = parseAtToMinutes(atStr);
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    return new Date(`${dateStr}T${hh}:${mm}:00+01:00`);
+  }
+  return new Date(`${dateStr}T12:00:00+01:00`);
+}
+
 function normalizeCancellationInfo(info) {
   if (!info) return null;
   const reason = String(info.reason || '').trim().toLowerCase();
@@ -2027,7 +2039,6 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
   const associationsMap = ctx?.associationsByRid || associationsByRid;
   const alertsMap = ctx?.alertsByRid || alertsByRid;
   const consistMap = ctx?.consistByRid || consistByRid;
-  const ssdTarget = ctx?.historicalDate || railwayDayYmd(new Date());
   // tiplocs is an array — large interchanges share a CRS across multiple
   // TIPLOCs (e.g. STP = STPX [plat 1-4] + STPANCI [plat 5-13] + STPXBOX
   // [Thameslink low-level plat A]); a single CRS query must return all of
@@ -2049,15 +2060,27 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
 
   let now = new Date();
   if (ctx?.historicalDate) {
-    const atMin = parseAtToMinutes(ctx.historicalAt || '');
-    if (atMin != null) {
-      const hh = String(Math.floor(atMin / 60)).padStart(2, '0');
-      const mm = String(atMin % 60).padStart(2, '0');
-      now = new Date(`${ctx.historicalDate}T${hh}:${mm}:00+01:00`);
+    if (ctx.boardWallDate && parseAtToMinutes(ctx.historicalAt || '') != null) {
+      const w = londonWallInstantFromDateAt(ctx.boardWallDate, ctx.historicalAt);
+      if (w) now = w;
+    } else if (ctx.boardWallDate) {
+      const w = londonWallInstantFromDateAt(ctx.boardWallDate, null);
+      if (w) now = w;
     } else {
-      now = new Date(`${ctx.historicalDate}T00:00:00+01:00`);
+      const atMin = parseAtToMinutes(ctx.historicalAt || '');
+      if (atMin != null) {
+        const hh = String(Math.floor(atMin / 60)).padStart(2, '0');
+        const mm = String(atMin % 60).padStart(2, '0');
+        now = new Date(`${ctx.historicalDate}T${hh}:${mm}:00+01:00`);
+      } else {
+        now = new Date(`${ctx.historicalDate}T12:00:00+01:00`);
+      }
     }
   }
+  const ssdTarget =
+    ctx?.historicalDate && ctx.historicalAt != null && ctx.boardWallDate
+      ? railwayDayYmd(now)
+      : (ctx?.historicalDate || railwayDayYmd(new Date()));
   const horizon = new Date(now.getTime() + windowHours * 3600_000);
   const todayRailwaySsd = railwayDayYmd(new Date());
   const isFutureTimetableCtx =
@@ -2227,6 +2250,7 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc, ctx = null) {
     historicalDate: ctx?.historicalDate || null,
     historicalAt: ctx?.historicalAt || null,
     historicalSavedAt: ctx?.stateSavedAt || null,
+    wallClockDate: ctx?.boardWallDate || null,
     timetableFile: timetablePath.split('/').pop(),
     windowHours,
     counts: {
@@ -2594,13 +2618,16 @@ function handleRequest(req, res) {
     if (atParam && parseAtToMinutes(atParam) == null) {
       sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
     }
-    const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || railwayDayYmd(new Date())) : 0;
+    const loadedDay = loadedDate || railwayDayYmd(new Date());
+    const wallInstant = dateParam ? londonWallInstantFromDateAt(dateParam, atParam || null) : null;
+    const anchorDay = wallInstant ? railwayDayYmd(wallInstant) : null;
+    const dateComparison = anchorDay ? compareIsoDate(anchorDay, loadedDay) : 0;
     const isHistorical = !!dateParam && dateComparison < 0;
     const isTimedCurrentDay = !!dateParam && dateComparison === 0 && !!atParam;
     const isFutureTimetable = !!dateParam && dateComparison > 0;
     if (isFutureTimetable) {
-      const maxFutureDate = addDaysIsoDate(loadedDate || railwayDayYmd(new Date()), 2);
-      if (compareIsoDate(dateParam, maxFutureDate) > 0) {
+      const maxFutureDate = addDaysIsoDate(loadedDay, 2);
+      if (compareIsoDate(anchorDay || dateParam, maxFutureDate) > 0) {
         sendJson(res, 400, { error: 'future date out of range', hint: `max supported future date is ${maxFutureDate}` }, req); return;
       }
     }
@@ -2613,23 +2640,25 @@ function handleRequest(req, res) {
     // Pass the FULL set of TIPLOCs that share this CRS so a station with
     // multiple platform groups (St Pancras, Edinburgh, etc.) returns all
     // its departures, not just one platform group.
+    const loadDate = anchorDay || dateParam;
     let queryCtx = null;
     if (isHistorical) {
-      queryCtx = getHistoricalContext(dateParam, atParam);
+      queryCtx = getHistoricalContext(loadDate, atParam);
       if (!queryCtx) {
-        sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req); return;
+        sendJson(res, 404, { error: `no historical data for ${loadDate}` }, req); return;
       }
     } else if (isTimedCurrentDay) {
-      queryCtx = getLiveTimedContext(dateParam, atParam);
+      queryCtx = getLiveTimedContext(loadDate, atParam);
       if (!queryCtx) {
-        sendJson(res, 404, { error: `no live context for ${dateParam}` }, req); return;
+        sendJson(res, 404, { error: `no live context for ${loadDate}` }, req); return;
       }
     } else if (isFutureTimetable) {
-      queryCtx = getTimetableOnlyContext(dateParam, atParam);
+      queryCtx = getTimetableOnlyContext(loadDate, atParam);
       if (!queryCtx) {
-        sendJson(res, 404, { error: `no timetable data for ${dateParam}` }, req); return;
+        sendJson(res, 404, { error: `no timetable data for ${loadDate}` }, req); return;
       }
     }
+    if (queryCtx && dateParam) queryCtx.boardWallDate = dateParam;
     const snap = buildSnapshot(resolved.tiplocs, hours, resolved.tiploc, queryCtx);
     if (!snap) { sendJson(res, 404, { error: `no services indexed for ${resolved.tiploc}` }, req); return; }
     snap.stationName = resolved.name || snap.stationName;

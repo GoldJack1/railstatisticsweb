@@ -125,6 +125,13 @@
   font-weight: 700;
 }
 
+.dep-railway-day-note {
+  margin: var(--space-xs) 0 0;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
 .dep-control-group {
   display: flex;
   flex-direction: column;
