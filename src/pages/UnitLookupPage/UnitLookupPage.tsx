@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
@@ -77,6 +77,19 @@ function formatMilesDelta(value: number | null): string {
   return `${sign}${rounded.toLocaleString('en-GB')} mi`
 }
 
+function getTodayUkDateYmd(): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(new Date())
+  const day = parts.find((p) => p.type === 'day')?.value || '01'
+  const month = parts.find((p) => p.type === 'month')?.value || '01'
+  const year = parts.find((p) => p.type === 'year')?.value || '1970'
+  return `${year}-${month}-${day}`
+}
+
 const UnitLookupPage: React.FC = () => {
   const { unitId: routeUnitId } = useParams()
   const navigate = useNavigate()
@@ -85,12 +98,15 @@ const UnitLookupPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState<UnitDetailTab>('overview')
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
-  const selectedDay = query.get('unitDay') || 'all'
+  const todayUk = useMemo(() => getTodayUkDateYmd(), [])
+  const hasUnitDayQuery = query.has('unitDay')
+  const selectedDay = query.get('unitDay') || todayUk
   const { status, data, error } = useUnitDetail({ unitId })
   const [latestService, setLatestService] = useState<ServiceDetail | null>(null)
   const [latestServiceError, setLatestServiceError] = useState<string | null>(null)
   const [snapshotMileageByDay, setSnapshotMileageByDay] = useState<Record<string, number>>({})
   const [catalogUnit, setCatalogUnit] = useState<UnitCatalogItem | null>(null)
+  const snapshotPrefetchAttemptedDaysRef = useRef<Set<string>>(new Set())
 
   const updateQuery = (updater: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(location.search)
@@ -226,6 +242,11 @@ const UnitLookupPage: React.FC = () => {
     return byNewest[0]?.rid || null
   }, [data, filteredServices, selectedDay])
 
+  const shouldFetchLatestService = useMemo(() => {
+    if (!latestRidForSelection) return false
+    return activeTab === 'service' || activeTab === 'logs'
+  }, [latestRidForSelection, activeTab])
+
   const mileageRows = useMemo(() => {
     const merged = {
       ...(catalogUnit?.endOfDayMileageByDate || {}),
@@ -328,7 +349,7 @@ const UnitLookupPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    setLatestService(null)
+    if (!shouldFetchLatestService) return
     setLatestServiceError(null)
     const rid = latestRidForSelection
     if (!rid) return
@@ -352,32 +373,38 @@ const UnitLookupPage: React.FC = () => {
       })
 
     return () => ac.abort()
-  }, [latestRidForSelection, selectedDay])
+  }, [latestRidForSelection, selectedDay, shouldFetchLatestService])
 
   useEffect(() => {
     setActiveTab('overview')
     setSnapshotMileageByDay({})
     setCatalogUnit(null)
+    snapshotPrefetchAttemptedDaysRef.current = new Set()
   }, [unitId])
 
   useEffect(() => {
-    if (!unitId) return
+    if (!unitId || status !== 'ok' || !data) return
     const ac = new AbortController()
-    fetch('/api/darwin/units/catalog', { signal: ac.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((payload: UnitCatalogResponse) => {
-        const units = Array.isArray(payload.units) ? payload.units : []
-        const match = units.find((u) => (u.unitId || '').trim().toUpperCase() === unitId)
-        setCatalogUnit(match || null)
-      })
-      .catch((e) => {
-        if ((e as Error)?.name === 'AbortError') return
-      })
-    return () => ac.abort()
-  }, [unitId])
+    const t = window.setTimeout(() => {
+      fetch('/api/darwin/units/catalog', { signal: ac.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return res.json()
+        })
+        .then((payload: UnitCatalogResponse) => {
+          const units = Array.isArray(payload.units) ? payload.units : []
+          const match = units.find((u) => (u.unitId || '').trim().toUpperCase() === unitId)
+          setCatalogUnit(match || null)
+        })
+        .catch((e) => {
+          if ((e as Error)?.name === 'AbortError') return
+        })
+    }, 900)
+    return () => {
+      window.clearTimeout(t)
+      ac.abort()
+    }
+  }, [unitId, status, data])
 
   useEffect(() => {
     if (selectedDay === 'all') return
@@ -393,10 +420,12 @@ const UnitLookupPage: React.FC = () => {
     const knownCatalogDays = new Set(mileageRows.map((row) => row.day))
     const daysToFetch = availableDays.filter((day) => {
       if (knownCatalogDays.has(day)) return false
-      if (snapshotMileageByDay[day] != null) return false
+      if (snapshotPrefetchAttemptedDaysRef.current.has(day)) return false
       return latestRidByDay.has(day)
     })
     if (daysToFetch.length === 0) return
+
+    for (const day of daysToFetch) snapshotPrefetchAttemptedDaysRef.current.add(day)
 
     const ac = new AbortController()
     let cancelled = false
@@ -436,23 +465,27 @@ const UnitLookupPage: React.FC = () => {
       cancelled = true
       ac.abort()
     }
-  }, [data?.unitId, availableDays, mileageRows, snapshotMileageByDay, latestRidByDay])
+  }, [data?.unitId, availableDays, mileageRows, latestRidByDay])
 
   useEffect(() => {
     if (availableDays.length === 0) {
-      if (selectedDay !== 'all') {
-        updateQuery((next) => {
-          next.delete('unitDay')
-        })
-      }
       return
     }
+
+    if (!hasUnitDayQuery) {
+      if (availableDays.includes(todayUk)) return
+      updateQuery((next) => {
+        next.set('unitDay', 'all')
+      })
+      return
+    }
+
     if (selectedDay !== 'all' && !availableDays.includes(selectedDay)) {
       updateQuery((next) => {
-        next.delete('unitDay')
+        next.set('unitDay', 'all')
       })
     }
-  }, [availableDays, selectedDay])
+  }, [availableDays, selectedDay, hasUnitDayQuery, todayUk])
 
   return (
     <div className="container container--unit-details">
@@ -543,6 +576,14 @@ const UnitLookupPage: React.FC = () => {
               </section>
             )}
 
+            {status === 'loading' && !data && (
+              <section className="unit-state-card unit-loading-splash" aria-live="polite">
+                <div className="unit-loading-spinner" aria-hidden="true" />
+                <h2>Loading unit detail...</h2>
+                <p>Loading today first, then fetching other days in the background.</p>
+              </section>
+            )}
+
             {data && (
               <section className="unit-date-filter-card" aria-label="Unit day filter">
                 <label htmlFor="unit-detail-day-filter">Show unit data for day</label>
@@ -552,8 +593,7 @@ const UnitLookupPage: React.FC = () => {
                   onChange={(e) => {
                     const nextDay = e.target.value
                     updateQuery((next) => {
-                      if (nextDay === 'all') next.delete('unitDay')
-                      else next.set('unitDay', nextDay)
+                      next.set('unitDay', nextDay)
                     })
                   }}
                 >

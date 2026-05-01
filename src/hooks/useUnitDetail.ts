@@ -19,6 +19,14 @@ export interface UseUnitDetailResult {
   refetch: () => void
 }
 
+type UnitDetailCacheEntry = {
+  detail: UnitDetail
+  cachedAtMs: number
+}
+
+const unitDetailCache = new Map<string, UnitDetailCacheEntry>()
+const UNIT_DETAIL_CACHE_TTL_MS = 5 * 60_000
+
 function userMessageForStatus(status: number): string {
   if (status === 401 || status === 403) return 'Access to unit data is currently restricted.'
   if (status === 404) return 'Unit not found.'
@@ -40,6 +48,14 @@ export function useUnitDetail({ unitId }: UseUnitDetailOptions): UseUnitDetailRe
       return
     }
 
+    const cached = unitDetailCache.get(unitId)
+    if (cached && Date.now() - cached.cachedAtMs <= UNIT_DETAIL_CACHE_TTL_MS) {
+      setData(cached.detail)
+      setError(null)
+      setStatus('ok')
+      return
+    }
+
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
@@ -56,6 +72,7 @@ export function useUnitDetail({ unitId }: UseUnitDetailOptions): UseUnitDetailRe
       }
       if (!res.ok) throw new Error(userMessageForStatus(res.status))
       const detail: UnitDetail = await res.json()
+      unitDetailCache.set(unitId, { detail, cachedAtMs: Date.now() })
       setData(detail)
       setError(null)
       setStatus('ok')
