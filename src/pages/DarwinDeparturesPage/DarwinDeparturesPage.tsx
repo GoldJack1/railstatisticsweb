@@ -676,17 +676,6 @@ const DarwinDeparturesPage: React.FC = () => {
     [searchInput, stations]
   )
 
-  const boardDateLabel = useMemo(() => {
-    const modeSuffix = historicalMode ? ' (historical)' : futureTimetableMode ? ' (timetable)' : ''
-    const operatingDayDisplay = formatHeaderDate(
-      data?.historicalDate ?? (historyDate ? (historyTime ? operatingDayForMode : historyDate) : todayIsoDate),
-    )
-    if (historyDate && historyTime && data?.historicalDate && data.historicalDate !== historyDate) {
-      return `${formatHeaderDate(historyDate)} ${historyTime} → ${operatingDayDisplay}${modeSuffix}`
-    }
-    return `${operatingDayDisplay}${modeSuffix}`
-  }, [data?.historicalDate, historicalMode, historyDate, historyTime, futureTimetableMode, todayIsoDate, operatingDayForMode])
-
   const showStationNameResults = useMemo(() => {
     if (searchMode !== 'station-name') return false
     const trimmed = searchInput.trim()

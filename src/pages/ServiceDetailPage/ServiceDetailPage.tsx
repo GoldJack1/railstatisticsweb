@@ -772,6 +772,8 @@ const ServiceDetailPage: React.FC = () => {
             {/* Vehicle details and logs hidden by request; users can jump to
              * Unit detail from Coach formation actions above. */}
 
+            <RawDataDump data={data} />
+
             <footer className="svc-footer">
               <span>Source: Network Rail Darwin Push Port</span>
               <span className="svc-footer-sep" aria-hidden="true">·</span>
