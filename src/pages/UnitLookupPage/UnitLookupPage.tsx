@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
 import { TextCard } from '../../components/cards'
@@ -21,6 +21,14 @@ type UnitGroup = {
 }
 
 type UnitDetailTab = 'overview' | 'service' | 'logs' | 'services'
+type UnitCatalogItem = {
+  unitId: string
+  endOfDayMileageByDate?: Record<string, number>
+  services?: Array<{ rid?: string | null; start?: string | null }>
+}
+type UnitCatalogResponse = {
+  units: UnitCatalogItem[]
+}
 
 function formatDateOnly(date: string): string {
   const d = new Date(date)
@@ -32,15 +40,69 @@ function formatDateOnly(date: string): string {
   })
 }
 
+function formatTimeOnly(dateTime: string | null | undefined): string {
+  if (!dateTime) return '--:--'
+  const d = new Date(dateTime)
+  if (Number.isNaN(d.getTime())) return '--:--'
+  return d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/London',
+  })
+}
+
+function formatDateFromDateTime(dateTime: string | null | undefined): string {
+  if (!dateTime) return 'Unknown date'
+  const d = new Date(dateTime)
+  if (Number.isNaN(d.getTime())) return 'Unknown date'
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Europe/London',
+  })
+}
+
+function formatMiles(value: number): string {
+  if (!Number.isFinite(value)) return '-'
+  return `${Math.round(value).toLocaleString('en-GB')} mi`
+}
+
+function formatMilesDelta(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—'
+  const rounded = Math.round(value)
+  if (rounded === 0) return '0 mi'
+  const sign = rounded > 0 ? '+' : ''
+  return `${sign}${rounded.toLocaleString('en-GB')} mi`
+}
+
 const UnitLookupPage: React.FC = () => {
   const { unitId: routeUnitId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const unitId = (routeUnitId || '').trim().toUpperCase()
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState<UnitDetailTab>('overview')
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const selectedDay = query.get('unitDay') || 'all'
   const { status, data, error } = useUnitDetail({ unitId })
   const [latestService, setLatestService] = useState<ServiceDetail | null>(null)
   const [latestServiceError, setLatestServiceError] = useState<string | null>(null)
+  const [snapshotMileageByDay, setSnapshotMileageByDay] = useState<Record<string, number>>({})
+  const [catalogUnit, setCatalogUnit] = useState<UnitCatalogItem | null>(null)
+
+  const updateQuery = (updater: (next: URLSearchParams) => void) => {
+    const next = new URLSearchParams(location.search)
+    updater(next)
+    navigate(
+      {
+        pathname: location.pathname,
+        search: next.toString() ? `?${next.toString()}` : '',
+      },
+      { replace: true }
+    )
+  }
 
   const title = unitId ? `Unit ${unitId}` : 'Unit lookup'
   const subtitle = useMemo(() => {
@@ -110,6 +172,112 @@ const UnitLookupPage: React.FC = () => {
     return rows
   }, [latestServiceUnitGroups])
 
+  const availableDays = useMemo(() => {
+    const fromDetailServices = (data?.services || [])
+      .map((svc) => (svc.start ? svc.start.slice(0, 10) : null))
+      .filter((d): d is string => !!d)
+    const fromDetailMileage = Object.keys(data?.endOfDayMileageByDate || {})
+    const fromCatalogServices = (catalogUnit?.services || [])
+      .map((svc) => (svc.start ? svc.start.slice(0, 10) : null))
+      .filter((d): d is string => !!d)
+    const fromCatalogMileage = Object.keys(catalogUnit?.endOfDayMileageByDate || {})
+    return Array.from(
+      new Set([
+        ...fromDetailServices,
+        ...fromDetailMileage,
+        ...fromCatalogServices,
+        ...fromCatalogMileage,
+      ])
+    ).sort((a, b) => b.localeCompare(a))
+  }, [data, catalogUnit])
+
+  const filteredServices = useMemo(() => {
+    if (!data) return []
+    if (selectedDay === 'all') return data.services
+    return data.services.filter((svc) => (svc.start || '').slice(0, 10) === selectedDay)
+  }, [data, selectedDay])
+
+  const latestRidByDay = useMemo(() => {
+    const byDay = new Map<string, string>()
+    const allServices = [
+      ...(data?.services || []),
+      ...(catalogUnit?.services || []).map((svc) => ({
+        rid: svc.rid || null,
+        start: svc.start || null,
+      })),
+    ]
+    const servicesByNewest = allServices
+      .slice()
+      .sort((a, b) => String(b.start || '').localeCompare(String(a.start || '')))
+    for (const svc of servicesByNewest) {
+      const day = (svc.start || '').slice(0, 10)
+      if (!day || !svc.rid) continue
+      if (!byDay.has(day)) byDay.set(day, svc.rid)
+    }
+    return byDay
+  }, [data?.services, catalogUnit?.services])
+
+  const latestRidForSelection = useMemo(() => {
+    if (!data) return null
+    if (selectedDay === 'all') return data.lastSeenRid
+    const byNewest = filteredServices
+      .slice()
+      .sort((a, b) => String(b.start || '').localeCompare(String(a.start || '')))
+    return byNewest[0]?.rid || null
+  }, [data, filteredServices, selectedDay])
+
+  const mileageRows = useMemo(() => {
+    const merged = {
+      ...(catalogUnit?.endOfDayMileageByDate || {}),
+      ...(data?.endOfDayMileageByDate || {}),
+    }
+    return Object.entries(merged)
+      .filter(([day, miles]) => !!day && typeof miles === 'number' && Number.isFinite(miles))
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([day, miles]) => ({ day, miles }))
+  }, [data?.endOfDayMileageByDate, catalogUnit?.endOfDayMileageByDate])
+
+  const snapshotMileageFallback = useMemo(() => {
+    if (!data) return null
+    const matching = latestServiceUnitGroups
+      .filter((group) => (group.unitId || '').trim().toUpperCase() === data.unitId.trim().toUpperCase())
+      .map((group) => group.endOfDayMiles)
+      .filter((miles): miles is number => typeof miles === 'number' && Number.isFinite(miles))
+    if (matching.length === 0) return null
+    return matching[0]
+  }, [data, latestServiceUnitGroups])
+
+  const mileageRowsWithSnapshot = useMemo(() => {
+    const byDay = new Map<string, { day: string; miles: number; source: 'catalog' | 'snapshot' }>()
+    for (const row of mileageRows) {
+      byDay.set(row.day, { ...row, source: 'catalog' })
+    }
+    for (const [day, miles] of Object.entries(snapshotMileageByDay)) {
+      if (!day || typeof miles !== 'number' || !Number.isFinite(miles)) continue
+      if (!byDay.has(day)) byDay.set(day, { day, miles, source: 'snapshot' })
+    }
+    if (
+      selectedDay !== 'all' &&
+      snapshotMileageFallback != null &&
+      !byDay.has(selectedDay)
+    ) {
+      byDay.set(selectedDay, {
+        day: selectedDay,
+        miles: snapshotMileageFallback,
+        source: 'snapshot',
+      })
+    }
+    return [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day))
+  }, [mileageRows, snapshotMileageByDay, selectedDay, snapshotMileageFallback])
+
+  const mileageRowsWithDifference = useMemo(() => {
+    return mileageRowsWithSnapshot.map((row, idx, arr) => {
+      const olderDay = arr[idx + 1]
+      const delta = olderDay ? row.miles - olderDay.miles : null
+      return { ...row, delta }
+    })
+  }, [mileageRowsWithSnapshot])
+
   const renderDetailField = (
     label: string,
     value: string | number | null | undefined,
@@ -162,27 +330,129 @@ const UnitLookupPage: React.FC = () => {
   useEffect(() => {
     setLatestService(null)
     setLatestServiceError(null)
-    const rid = data?.lastSeenRid
+    const rid = latestRidForSelection
     if (!rid) return
 
     const ac = new AbortController()
-    fetch(`/api/darwin/service/${encodeURIComponent(rid)}`, { signal: ac.signal })
+    const qp = new URLSearchParams()
+    if (selectedDay !== 'all') qp.set('date', selectedDay)
+    const url = `/api/darwin/service/${encodeURIComponent(rid)}${qp.toString() ? `?${qp.toString()}` : ''}`
+    fetch(url, { signal: ac.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
       })
-      .then((detail: ServiceDetail) => setLatestService(detail))
+      .then((detail: ServiceDetail) => {
+        setLatestService(detail)
+        setLatestServiceError(null)
+      })
       .catch((e) => {
         if ((e as Error)?.name === 'AbortError') return
         setLatestServiceError((e as Error)?.message || String(e))
       })
 
     return () => ac.abort()
-  }, [data?.lastSeenRid])
+  }, [latestRidForSelection, selectedDay])
 
   useEffect(() => {
     setActiveTab('overview')
+    setSnapshotMileageByDay({})
+    setCatalogUnit(null)
   }, [unitId])
+
+  useEffect(() => {
+    if (!unitId) return
+    const ac = new AbortController()
+    fetch('/api/darwin/units/catalog', { signal: ac.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((payload: UnitCatalogResponse) => {
+        const units = Array.isArray(payload.units) ? payload.units : []
+        const match = units.find((u) => (u.unitId || '').trim().toUpperCase() === unitId)
+        setCatalogUnit(match || null)
+      })
+      .catch((e) => {
+        if ((e as Error)?.name === 'AbortError') return
+      })
+    return () => ac.abort()
+  }, [unitId])
+
+  useEffect(() => {
+    if (selectedDay === 'all') return
+    if (snapshotMileageFallback == null) return
+    setSnapshotMileageByDay((prev) => {
+      if (prev[selectedDay] === snapshotMileageFallback) return prev
+      return { ...prev, [selectedDay]: snapshotMileageFallback }
+    })
+  }, [selectedDay, snapshotMileageFallback])
+
+  useEffect(() => {
+    if (!data?.unitId) return
+    const knownCatalogDays = new Set(mileageRows.map((row) => row.day))
+    const daysToFetch = availableDays.filter((day) => {
+      if (knownCatalogDays.has(day)) return false
+      if (snapshotMileageByDay[day] != null) return false
+      return latestRidByDay.has(day)
+    })
+    if (daysToFetch.length === 0) return
+
+    const ac = new AbortController()
+    let cancelled = false
+    const unitKey = data.unitId.trim().toUpperCase()
+
+    const loadSnapshotMileage = async () => {
+      for (const day of daysToFetch) {
+        if (cancelled) return
+        const rid = latestRidByDay.get(day)
+        if (!rid) continue
+        try {
+          const qp = new URLSearchParams({ date: day })
+          const res = await fetch(
+            `/api/darwin/service/${encodeURIComponent(rid)}?${qp.toString()}`,
+            { signal: ac.signal }
+          )
+          if (!res.ok) continue
+          const detail = (await res.json()) as ServiceDetail
+          const miles = (detail.consist?.allocations || [])
+            .flatMap((a) => a.resourceGroups || [])
+            .filter((g) => (g.unitId || '').trim().toUpperCase() === unitKey)
+            .map((g) => g.endOfDayMiles)
+            .find((m): m is number => typeof m === 'number' && Number.isFinite(m))
+          if (miles == null) continue
+          setSnapshotMileageByDay((prev) => {
+            if (prev[day] === miles) return prev
+            return { ...prev, [day]: miles }
+          })
+        } catch (e) {
+          if ((e as Error)?.name === 'AbortError') return
+        }
+      }
+    }
+
+    void loadSnapshotMileage()
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
+  }, [data?.unitId, availableDays, mileageRows, snapshotMileageByDay, latestRidByDay])
+
+  useEffect(() => {
+    if (availableDays.length === 0) {
+      if (selectedDay !== 'all') {
+        updateQuery((next) => {
+          next.delete('unitDay')
+        })
+      }
+      return
+    }
+    if (selectedDay !== 'all' && !availableDays.includes(selectedDay)) {
+      updateQuery((next) => {
+        next.delete('unitDay')
+      })
+    }
+  }, [availableDays, selectedDay])
 
   return (
     <div className="container container--unit-details">
@@ -191,7 +461,11 @@ const UnitLookupPage: React.FC = () => {
         subtitle={subtitle}
         className={`unit-header unit-header--${status}`}
         actionContent={!isMobile ? (
-          <BUTWideButton width="hug" instantAction onClick={() => navigate('/units')}>
+          <BUTWideButton
+            width="hug"
+            instantAction
+            onClick={() => navigate(`/units${location.search || ''}`)}
+          >
             Back
           </BUTWideButton>
         ) : undefined}
@@ -200,7 +474,11 @@ const UnitLookupPage: React.FC = () => {
         <div className="unit-details-layout">
           <aside className="unit-details-sidebar">
             <div className="unit-details-sidebar-actions">
-              <BUTWideButton width="hug" instantAction onClick={() => navigate('/units')}>
+              <BUTWideButton
+                width="hug"
+                instantAction
+                onClick={() => navigate(`/units${location.search || ''}`)}
+              >
                 Back
               </BUTWideButton>
             </div>
@@ -265,6 +543,30 @@ const UnitLookupPage: React.FC = () => {
               </section>
             )}
 
+            {data && (
+              <section className="unit-date-filter-card" aria-label="Unit day filter">
+                <label htmlFor="unit-detail-day-filter">Show unit data for day</label>
+                <select
+                  id="unit-detail-day-filter"
+                  value={selectedDay}
+                  onChange={(e) => {
+                    const nextDay = e.target.value
+                    updateQuery((next) => {
+                      if (nextDay === 'all') next.delete('unitDay')
+                      else next.set('unitDay', nextDay)
+                    })
+                  }}
+                >
+                  <option value="all">All days in collection</option>
+                  {availableDays.map((d) => (
+                    <option key={d} value={d}>
+                      {formatDateOnly(d)}
+                    </option>
+                  ))}
+                </select>
+              </section>
+            )}
+
             {data && activeTab === 'overview' && (
               <>
                 <section className="unit-summary-card">
@@ -283,9 +585,56 @@ const UnitLookupPage: React.FC = () => {
                     </div>
                     <div className="unit-summary-item">
                       <span className="unit-summary-label">Services in diagram</span>
-                      <span className="unit-summary-value">{data.services.length}</span>
+                      <span className="unit-summary-value">{filteredServices.length}</span>
                     </div>
                   </div>
+                </section>
+
+                <section className="unit-list-card">
+                  <h2>Per-day unit mileage</h2>
+                  {mileageRowsWithDifference.length > 0 ? (
+                    <div className="unit-mileage-list" role="list" aria-label="Per-day unit mileage">
+                      {mileageRowsWithDifference.map((row) => (
+                        <div key={row.day} className="unit-mileage-row" role="listitem">
+                          <span className="unit-mileage-day">
+                            {formatDateOnly(row.day)}
+                            {row.source === 'snapshot' ? ' (snapshot)' : ''}
+                          </span>
+                          <span className="unit-mileage-value">{formatMiles(row.miles)}</span>
+                          <span
+                            className={`unit-mileage-delta ${
+                              row.delta == null
+                                ? 'is-neutral'
+                                : row.delta > 0
+                                  ? 'is-positive'
+                                  : row.delta < 0
+                                    ? 'is-negative'
+                                    : 'is-neutral'
+                            }`}
+                            title="Difference vs previous day in list"
+                          >
+                            {formatMilesDelta(row.delta)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : snapshotMileageFallback != null ? (
+                    <div className="unit-mileage-list" role="list" aria-label="Per-day unit mileage">
+                      <div className="unit-mileage-row" role="listitem">
+                        <span className="unit-mileage-day">
+                          Latest unit snapshot
+                        </span>
+                        <span className="unit-mileage-value">{formatMiles(snapshotMileageFallback)}</span>
+                      </div>
+                      <p className="unit-mileage-note">
+                        Mileage shown from latest unit snapshot (fallback), not catalog day totals.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="unit-muted">
+                      No end-of-day mileage published yet.
+                    </p>
+                  )}
                 </section>
 
                 <section className="unit-list-card">
@@ -334,7 +683,10 @@ const UnitLookupPage: React.FC = () => {
 
             {data && activeTab === 'service' && (
               <section className="unit-list-card">
-                <h2>Latest service snapshot ({data.lastSeenRid || 'no RID'})</h2>
+                <h2>
+                  Latest service snapshot ({latestRidForSelection || 'no RID'})
+                  {selectedDay !== 'all' ? ` · ${formatDateOnly(selectedDay)}` : ''}
+                </h2>
                 {latestServiceError && <p className="unit-muted">Could not load latest service detail: {latestServiceError}</p>}
                 {latestService ? (
                   <>
@@ -457,7 +809,9 @@ const UnitLookupPage: React.FC = () => {
                     </div>
                   </>
                 ) : (
-                  <p className="unit-muted">Loading latest service details...</p>
+                  <p className="unit-muted">
+                    {latestRidForSelection ? 'Loading latest service details...' : 'No service available for selected day.'}
+                  </p>
                 )}
               </section>
             )}
@@ -466,16 +820,24 @@ const UnitLookupPage: React.FC = () => {
               <section className="unit-list-card">
                 <h2>Services</h2>
                 <div className="unit-services">
-                  {data.services.map((svc, idx) => (
+                  {filteredServices.map((svc, idx) => (
                     <TextCard
                       key={`${svc.rid}-${idx}`}
-                      title={`${svc.headcode || 'Service'} · ${svc.startName || svc.startTpl || '-'} -> ${svc.endName || svc.endTpl || '-'}`}
-                      description={`RID ${svc.rid}${svc.position != null ? ` · Pos ${svc.position}` : ''}${svc.reversed ? ' · Reversed' : ''}`}
+                      title={`${svc.headcode || 'Service'} · ${formatTimeOnly(svc.start)} ${svc.startName || svc.startTpl || '-'} -> ${svc.endName || svc.endTpl || '-'} ${formatTimeOnly(svc.end)}`}
+                      description={`${selectedDay === 'all' ? `${formatDateFromDateTime(svc.start)} · ` : ''}RID ${svc.rid}${svc.position != null ? ` · Pos ${svc.position}` : ''}${svc.reversed ? ' · Reversed' : ''}`}
                       state="default"
-                      onClick={() => navigate(`/services/${encodeURIComponent(svc.rid)}`)}
+                      onClick={() => {
+                        const qp = new URLSearchParams()
+                        if (selectedDay && selectedDay !== 'all') qp.set('unitDay', selectedDay)
+                        qp.set('from', `${location.pathname}${location.search || ''}`)
+                        navigate(`/services/${encodeURIComponent(svc.rid)}${qp.toString() ? `?${qp.toString()}` : ''}`)
+                      }}
                       ariaLabel={`Open service ${svc.headcode || svc.rid}`}
                     />
                   ))}
+                  {filteredServices.length === 0 && (
+                    <p className="unit-muted">No services recorded for this day.</p>
+                  )}
                 </div>
               </section>
             )}

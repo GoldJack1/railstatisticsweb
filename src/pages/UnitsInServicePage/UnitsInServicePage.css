@@ -23,6 +23,45 @@
   min-width: 14rem;
 }
 
+.units-service-day-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.units-service-day-filter label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-disabled);
+  font-weight: 700;
+}
+
+.units-service-day-filter select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+}
+
+.units-service-total {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.units-service-total strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 .units-service-state,
 .units-service-layout {
   background-color: var(--bg-secondary);
@@ -150,6 +189,15 @@
   .units-service-search {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .units-service-day-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .units-service-total {
+    margin-left: 0;
   }
 
   .units-service-search .rs-button {

@@ -62,7 +62,8 @@
 
 .unit-details-main .unit-list-card,
 .unit-details-main .unit-summary-card,
-.unit-details-main .unit-state-card {
+.unit-details-main .unit-state-card,
+.unit-details-main .unit-date-filter-card {
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -71,12 +72,36 @@
 .unit-controls,
 .unit-summary-card,
 .unit-list-card,
-.unit-state-card {
+.unit-state-card,
+.unit-date-filter-card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-lg);
+}
+
+.unit-date-filter-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.unit-date-filter-card label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-disabled);
+  font-weight: 700;
+}
+
+.unit-date-filter-card select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.3rem 0.45rem;
+  font: inherit;
 }
 
 .unit-search-row {
@@ -157,6 +182,84 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.unit-mileage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.unit-mileage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.unit-mileage-day {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.unit-mileage-value {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.unit-mileage-delta {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.unit-mileage-delta.is-positive {
+  color: hsl(142 65% 38%);
+}
+
+.unit-mileage-delta.is-negative {
+  color: var(--accent-base);
+}
+
+.unit-mileage-delta.is-neutral {
+  color: var(--text-secondary);
+}
+
+.unit-mileage-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.unit-day-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.unit-day-filter label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-disabled);
+  font-weight: 700;
+}
+
+.unit-day-filter select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.3rem 0.45rem;
+  font: inherit;
 }
 
 .unit-log-count-item {
@@ -358,8 +461,14 @@
 
   .unit-summary-card,
   .unit-list-card,
-  .unit-state-card {
+  .unit-state-card,
+  .unit-date-filter-card {
     padding: var(--space-md);
+  }
+
+  .unit-date-filter-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .unit-services {

@@ -406,6 +406,8 @@ export interface UnitDetail {
   fleetId: string | null;
   vehicles: PtacVehicle[];
   lastSeenRid: string | null;
+  endOfDayMileageByDate?: Record<string, number>;
+  lastEndOfDayMiles?: number | null;
   updatedAt: string;
   services: Array<{
     rid: string;
