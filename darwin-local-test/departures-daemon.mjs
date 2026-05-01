@@ -95,8 +95,8 @@ const ptacCfg = {
 
 // ---------- pick today's timetable file ------------------------------------
 function pickTodaysTimetable() {
-  const d = new Date();
-  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  // Must match UK railway day (not UTC calendar date) so tt/YYYYMMDD aligns with journey SSD.
+  const ymd = railwayDayYmd(new Date()).replace(/-/g, '');
   const dirs = [
     resolve(__dirname, `./tt/${ymd}`),
     resolve(__dirname, '../docs/V8s'),
@@ -330,10 +330,22 @@ function runDailyFileFetch(reason = 'scheduled') {
   });
 }
 
+function londonHHMM(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const h = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const m = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  return `${h}:${m}`;
+}
+
 async function maybeRunScheduledAutoFetch(now = new Date()) {
   if (!cfg.autoFetchFiles) return;
-  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const today = todayYmdCompact(now);
+  const hhmm = londonHHMM(now);
+  const today = railwayDayYmd(now).replace(/-/g, '');
   if (hhmm !== cfg.autoFetchTime) return;
   if (lastAutoFetchRunYmd === today) return;
   lastAutoFetchRunYmd = today;
@@ -396,28 +408,70 @@ function reloadReferenceData() {
     arr.push(rid);
   }
 
-  loadedDate = todayYmd();
+  loadedDate = railwayDayYmd(new Date());
+}
+
+/**
+ * After a new timetable is loaded, drop RID-keyed state that no longer maps to
+ * a journey in `byRid`. Used on **day rollover** and **manual** reloads.
+ * Skipped for **`post-fetch`** (scheduled 04:05): PTAC/unit data often arrives
+ * hours earlier; we only reload timetable indexes and bust API caches then.
+ */
+function pruneMapsToValidRids() {
+  if (!byRid) return;
+  for (const rid of [...liveOverlayByRid.keys()]) {
+    if (!byRid.has(rid)) liveOverlayByRid.delete(rid);
+  }
+  for (const rid of [...cancelled.keys()]) {
+    if (!byRid.has(rid)) cancelled.delete(rid);
+  }
+  for (const rid of [...delayReason.keys()]) {
+    if (!byRid.has(rid)) delayReason.delete(rid);
+  }
+  for (const rid of [...reverseFormation]) {
+    if (!byRid.has(rid)) reverseFormation.delete(rid);
+  }
+  for (const rid of [...associationsByRid.keys()]) {
+    if (!byRid.has(rid)) associationsByRid.delete(rid);
+  }
+  for (const rid of [...alertsByRid.keys()]) {
+    if (!byRid.has(rid)) alertsByRid.delete(rid);
+  }
+  for (const rid of [...consistByRid.keys()]) {
+    if (!byRid.has(rid)) consistByRid.delete(rid);
+  }
+  for (const rid of [...formationsByRid.keys()]) {
+    if (!byRid.has(rid)) formationsByRid.delete(rid);
+  }
+  for (const [unitId, entry] of [...unitsById.entries()]) {
+    const svcs = (entry.services || []).filter((s) => s.rid && byRid.has(s.rid));
+    if (svcs.length === 0) unitsById.delete(unitId);
+    else unitsById.set(unitId, { ...entry, services: svcs });
+  }
 }
 
 function reloadAllDataAndResetLive(reason = 'manual') {
   console.log(`[daemon] reloading timetable/reference data (${reason}) ...`);
   reloadReferenceData();
   departuresCache.clear();
-  liveOverlayByRid.clear();
-  cancelled.clear();
-  delayReason.clear();
-  reverseFormation.clear();
-  formationsByRid.clear();
-  stationMessages.clear();
-  messagesById.clear();
-  associationsByRid.clear();
-  alertsByRid.clear();
-  consistByRid.clear();
-  unitsById.clear();
-  unmatchedConsists.clear();
+
+  const postFetchOnly = reason === 'post-fetch';
+  if (postFetchOnly) {
+    console.log(
+      '[daemon] post-fetch: keeping PTAC/consist/units/formations, live overlays, '
+      + 'and NRCC caches — timetable join indexes refreshed only.'
+    );
+  } else {
+    stationMessages.clear();
+    messagesById.clear();
+    pruneMapsToValidRids();
+  }
+
+  const retried = retryUnmatchedConsists();
+  if (retried > 0) {
+    console.log(`[daemon] PTAC retry after timetable reload: matched ${retried} previously-unmatched consists.`);
+  }
   historicalContextCache.clear();
-  // Flush the now-empty/live-reset caches to disk so an immediate restart
-  // doesn't restore stale data.
   persistState();
 }
 
@@ -895,8 +949,8 @@ function loadPersistedState() {
     const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
     // By default we keep caches across days to preserve formation/PTAC state.
     // Set KEEP_STATE_ACROSS_DAYS=false to restore strict day-boundary discard.
-    if (!KEEP_STATE_ACROSS_DAYS && raw.savedDate && raw.savedDate !== todayYmd()) {
-      console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${todayYmd()} — discarding.`);
+    if (!KEEP_STATE_ACROSS_DAYS && raw.savedDate && raw.savedDate !== railwayDayYmd(new Date())) {
+      console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${railwayDayYmd(new Date())} — discarding.`);
       return;
     }
     if (raw.formations)        for (const [k, v] of raw.formations)        formationsByRid.set(k, v);
@@ -942,7 +996,7 @@ function persistState() {
     if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
     let payload = {
       savedAt:   new Date().toISOString(),
-      savedDate: loadedDate || todayYmd(),
+      savedDate: loadedDate || railwayDayYmd(new Date()),
       // Convert Maps/Sets to JSON-serialisable arrays. Use [[k,v], ...] format
       // for Maps so order is preserved on round-trip.
       formations:       [...formationsByRid.entries()],
@@ -968,7 +1022,7 @@ function persistState() {
           console.warn(`[daemon] skip persist: on-disk cache looks richer (${diskScore} > ${nextScore}).`);
           payload = currentOnDisk;
           if (!payload.savedAt) payload.savedAt = new Date().toISOString();
-          if (!payload.savedDate) payload.savedDate = loadedDate || todayYmd();
+          if (!payload.savedDate) payload.savedDate = loadedDate || railwayDayYmd(new Date());
         }
       } catch {}
     }
@@ -1270,6 +1324,47 @@ const ptacStats = {
 };
 
 /**
+ * Convert a HH:MM string into minutes since midnight; returns null on bad input.
+ */
+function parseHHMM(s) {
+  if (!s) return null;
+  const m = /^(\d{1,2}):(\d{2})/.exec(s);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/**
+ * Map a parsed PTAC allocation message to a Darwin RID using the same join
+ * rules as live ingestion (exact tuple, then loose + origin-time proximity).
+ */
+function resolveRidForParsedConsist(parsed) {
+  const key = consistJoinKey(parsed);
+  if (!key) return { rid: null, exactKey: null };
+  const exact = `${key.ssd}|${key.headcode}|${key.originTpl}|${key.originHHMM}`;
+  const loose = `${key.ssd}|${key.headcode}|${key.originTpl}`;
+
+  let rid = ptacJoinByTuple?.get(exact);
+  if (!rid) {
+    const cands = ptacJoinByOrigin?.get(loose) || [];
+    if (cands.length === 1) rid = cands[0];
+    else if (cands.length > 1) {
+      const target = parseHHMM(key.originHHMM);
+      let best = null; let bestDelta = Infinity;
+      for (const r of cands) {
+        const j = byRid.get(r);
+        const o = j?.slots?.find((s) => s.slot === 'OR' || s.slot === 'OPOR');
+        const t = parseHHMM((o?.ptd || o?.wtd || '').slice(0, 5));
+        if (target == null || t == null) continue;
+        const delta = Math.abs(t - target);
+        if (delta < bestDelta) { bestDelta = delta; best = r; }
+      }
+      if (best && bestDelta <= 5) rid = best;
+    }
+  }
+  return { rid: rid || null, exactKey: exact };
+}
+
+/**
  * Process a single raw PTAC XML message off the Kafka topic. We:
  *   1. Parse the XML to a normalised JS object.
  *   2. Resolve to a Darwin RID via the (ssd, headcode, originTpl, originHHMM) join.
@@ -1290,32 +1385,8 @@ function processConsistMessage(rawXml) {
   // still drop any prior consist for this train if we can match it.
   if (!parsed.allocations || parsed.allocations.length === 0) return;
 
-  const key = consistJoinKey(parsed);
-  if (!key) { ptacStats.unmatched++; return; }
-
-  const exact = `${key.ssd}|${key.headcode}|${key.originTpl}|${key.originHHMM}`;
-  const loose = `${key.ssd}|${key.headcode}|${key.originTpl}`;
-
-  let rid = ptacJoinByTuple?.get(exact);
-  if (!rid) {
-    // Fall back to (ssd, headcode, originTpl) — disambiguate by picking the
-    // candidate whose origin time is closest to PTAC's HHMM (in minutes).
-    const cands = ptacJoinByOrigin?.get(loose) || [];
-    if (cands.length === 1) rid = cands[0];
-    else if (cands.length > 1) {
-      const target = parseHHMM(key.originHHMM);
-      let best = null, bestDelta = Infinity;
-      for (const r of cands) {
-        const j = byRid.get(r);
-        const o = j?.slots?.find((s) => s.slot === 'OR' || s.slot === 'OPOR');
-        const t = parseHHMM((o?.ptd || o?.wtd || '').slice(0, 5));
-        if (target == null || t == null) continue;
-        const delta = Math.abs(t - target);
-        if (delta < bestDelta) { bestDelta = delta; best = r; }
-      }
-      if (best && bestDelta <= 5) rid = best;
-    }
-  }
+  const { rid, exactKey } = resolveRidForParsedConsist(parsed);
+  if (!exactKey) { ptacStats.unmatched++; return; }
 
   if (!rid) {
     // Stash for later resolution — bounded to prevent unbounded growth.
@@ -1324,23 +1395,13 @@ function processConsistMessage(rawXml) {
       const firstKey = unmatchedConsists.keys().next().value;
       if (firstKey) unmatchedConsists.delete(firstKey);
     }
-    unmatchedConsists.set(exact, parsed);
+    unmatchedConsists.set(exactKey, parsed);
     ptacStats.unmatched++;
     return;
   }
 
   ptacStats.matched++;
   applyConsistToRid(rid, parsed);
-}
-
-/**
- * Convert a HH:MM string into minutes since midnight; returns null on bad input.
- */
-function parseHHMM(s) {
-  if (!s) return null;
-  const m = /^(\d{1,2}):(\d{2})/.exec(s);
-  if (!m) return null;
-  return Number(m[1]) * 60 + Number(m[2]);
 }
 
 /**
@@ -1402,9 +1463,7 @@ function retryUnmatchedConsists() {
   if (unmatchedConsists.size === 0) return 0;
   let resolved = 0;
   for (const [k, parsed] of [...unmatchedConsists]) {
-    const key = consistJoinKey(parsed);
-    if (!key) continue;
-    const rid = ptacJoinByTuple?.get(`${key.ssd}|${key.headcode}|${key.originTpl}|${key.originHHMM}`);
+    const { rid } = resolveRidForParsedConsist(parsed);
     if (rid) {
       applyConsistToRid(rid, parsed);
       unmatchedConsists.delete(k);
@@ -1939,11 +1998,11 @@ function handleRequest(req, res) {
     if (atParam && parseAtToMinutes(atParam) == null) {
       sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
     }
-    const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || todayYmd()) : 0;
+    const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || railwayDayYmd(new Date())) : 0;
     const isHistorical = !!dateParam && dateComparison < 0;
     const isFutureTimetable = !!dateParam && dateComparison > 0;
     if (isFutureTimetable) {
-      const maxFutureDate = addDaysIsoDate(loadedDate || todayYmd(), 2);
+      const maxFutureDate = addDaysIsoDate(loadedDate || railwayDayYmd(new Date()), 2);
       if (compareIsoDate(dateParam, maxFutureDate) > 0) {
         sendJson(res, 400, { error: 'future date out of range', hint: `max supported future date is ${maxFutureDate}` }, req); return;
       }
@@ -2281,7 +2340,7 @@ async function start() {
 
   // Day rollover: every 5 min, check the date.
   setInterval(() => {
-    const t = todayYmd();
+    const t = railwayDayYmd(new Date());
     if (t !== loadedDate) {
       console.log(`[daemon] day rollover detected (${loadedDate} → ${t}), reloading reference data ...`);
       try {
