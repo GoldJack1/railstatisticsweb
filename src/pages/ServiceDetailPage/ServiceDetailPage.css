@@ -299,6 +299,15 @@
   background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
 }
 
+.svc-stop--jump {
+  cursor: pointer;
+}
+
+.svc-stop--jump:focus-visible {
+  outline: 2px solid var(--accent-base);
+  outline-offset: -2px;
+}
+
 .svc-stop--cancelled td {
   background: color-mix(in srgb, var(--accent-base) 8%, transparent);
 }

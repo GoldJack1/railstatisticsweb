@@ -43,9 +43,6 @@ const Footer: React.FC = () => {
             <BUTFooterLink to="/units">
               Units
             </BUTFooterLink>
-            <BUTFooterLink to="/api-status">
-              API Status
-            </BUTFooterLink>
             <BUTFooterLink to="/migration">
               Migration
             </BUTFooterLink>
@@ -90,6 +87,9 @@ const Footer: React.FC = () => {
             <div className="site-footer-links site-footer-links--logged-in-row">
               <BUTFooterLink to="/stations">
                 Stations
+              </BUTFooterLink>
+              <BUTFooterLink to="/api-status">
+                API Status
               </BUTFooterLink>
               <BUTFooterLink to="/design-system">
                 Design System

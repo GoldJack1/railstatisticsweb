@@ -109,7 +109,7 @@ const App: React.FC = () => {
                 <Route path="/services/:rid" element={<ServiceDetailPage />} />
                 <Route path="/units" element={<UnitsInServicePage />} />
                 <Route path="/units/:unitId" element={<UnitLookupPage />} />
-                <Route path="/api-status" element={<ApiStatusPage />} />
+                <Route path="/api-status" element={<ProtectedRoute><ApiStatusPage /></ProtectedRoute>} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/eula" element={<EulaPage />} />
               </Routes>

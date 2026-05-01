@@ -280,6 +280,28 @@ function anchorTime(hhmm, ssd) {
   const [, h, mn, s] = m;
   return new Date(`${ssd}T${h.padStart(2, '0')}:${mn}:${s || '00'}+01:00`);
 }
+
+/** Minutes since midnight from a timetable HH:MM[:SS] field. */
+function scheduledMinutesFromMidnight(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(hhmm || '').trim());
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
+/** Aligns with railwayDayYmd(): segment before ~04:30 sits on the next calendar morning. */
+const UK_RAIL_ROLLOVER_MINUTES = 4 * 60 + 30;
+
+function adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime) {
+  const mins = scheduledMinutesFromMidnight(scheduledTime);
+  if (mins != null && mins < UK_RAIL_ROLLOVER_MINUTES) {
+    return new Date(scheduledAt.getTime() + 24 * 60 * 60_000);
+  }
+  return scheduledAt;
+}
 function describeLiveTime(node, actualKind, estKind) {
   if (!node || typeof node !== 'object') return null;
   const source = node.src ? String(unwrap(node.src)) : null;
@@ -1173,6 +1195,28 @@ function getTimetableOnlyContext(ymdDashed, at = null) {
   };
 }
 
+function getLiveTimedContext(ymdDashed, at = null) {
+  if (!isIsoDate(ymdDashed)) return null;
+  const liveDate = loadedDate || railwayDayYmd(new Date());
+  if (ymdDashed !== liveDate) return null;
+  return {
+    loadedAtMs: Date.now(),
+    historicalDate: ymdDashed,
+    historicalAt: at || null,
+    byRid,
+    byTiploc,
+    liveOverlayByRid,
+    cancelled,
+    delayReason,
+    reverseFormation,
+    formationsByRid,
+    consistByRid,
+    associationsByRid,
+    alertsByRid,
+    stateSavedAt: null,
+  };
+}
+
 // Read the persisted state file once and apply the freshness check that the
 // "discard stale-day" mode wants. Returns the parsed payload or null. We split
 // state restore into a fast "live subset" pass (so the API can answer real
@@ -2015,6 +2059,17 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
     }
   }
   const horizon = new Date(now.getTime() + windowHours * 3600_000);
+  const todayRailwaySsd = railwayDayYmd(new Date());
+  const isFutureTimetableCtx =
+    !!ctx?.historicalDate && compareIsoDate(ctx.historicalDate, todayRailwaySsd) > 0;
+  /** Historical snapshots pin one SSD; live boards may span into next Darwin SSD. */
+  const allowSpansNextSsd =
+    (!ctx || ctx.stateSavedAt == null) && !isFutureTimetableCtx;
+  const ssdsNeeded = new Set([ssdTarget]);
+  if (allowSpansNextSsd) {
+    const horizonSsd = railwayDayYmd(horizon);
+    if (horizonSsd !== ssdTarget) ssdsNeeded.add(horizonSsd);
+  }
   const rows = [];
   const seenRids = new Set();   // a service may appear at >1 TIPLOC of the
                                 // same station; emit it once.
@@ -2022,7 +2077,7 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
   for (const { rid, stopIdx, sourceTpl } of entries) {
     if (seenRids.has(rid)) continue;     // de-dupe: a service shouldn't appear twice
     const j = byRidMap.get(rid);
-    if (!j || j.ssd !== ssdTarget) continue;
+    if (!j || !ssdsNeeded.has(j.ssd)) continue;
 
     const stop = j.slots[stopIdx];
     const isPassing = stop.slot === 'PP' || stop.slot === 'OPPP';
@@ -2034,14 +2089,7 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
 
     let scheduledAt = anchorTime(scheduledTime, j.ssd);
     if (!scheduledAt) continue;
-    // Overnight wrap support:
-    // Darwin schedules can include post-midnight departures as HH:MM values that
-    // are earlier than "now" while still belonging to the same service day.
-    // If a scheduled time appears to be far in the past (>12h), treat it as a
-    // next-day time so late-night boards can show after-midnight departures.
-    if ((now.getTime() - scheduledAt.getTime()) > 12 * 60 * 60_000) {
-      scheduledAt = new Date(scheduledAt.getTime() + 24 * 60 * 60_000);
-    }
+    scheduledAt = adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime);
     if (scheduledAt.getTime() < now.getTime() - 5 * 60_000) continue;  // small grace for just-departed
     if (scheduledAt > horizon) continue;
 
@@ -2547,7 +2595,8 @@ function handleRequest(req, res) {
       sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
     }
     const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || railwayDayYmd(new Date())) : 0;
-    const isHistorical = !!dateParam && (dateComparison < 0 || (dateComparison === 0 && !!atParam));
+    const isHistorical = !!dateParam && dateComparison < 0;
+    const isTimedCurrentDay = !!dateParam && dateComparison === 0 && !!atParam;
     const isFutureTimetable = !!dateParam && dateComparison > 0;
     if (isFutureTimetable) {
       const maxFutureDate = addDaysIsoDate(loadedDate || railwayDayYmd(new Date()), 2);
@@ -2569,6 +2618,11 @@ function handleRequest(req, res) {
       queryCtx = getHistoricalContext(dateParam, atParam);
       if (!queryCtx) {
         sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req); return;
+      }
+    } else if (isTimedCurrentDay) {
+      queryCtx = getLiveTimedContext(dateParam, atParam);
+      if (!queryCtx) {
+        sendJson(res, 404, { error: `no live context for ${dateParam}` }, req); return;
       }
     } else if (isFutureTimetable) {
       queryCtx = getTimetableOnlyContext(dateParam, atParam);

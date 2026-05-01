@@ -43,6 +43,7 @@ const Header: React.FC = () => {
   const isMigrationActive = pathname === '/migration'
   const isStationsActive = pathname.startsWith('/stations')
   const isMessagesActive = pathname.startsWith('/admin/messages')
+  const isApiStatusActive = pathname.startsWith('/api-status')
 
   const pageTitle = getHeaderPageTitle(pathname)
 
@@ -51,6 +52,7 @@ const Header: React.FC = () => {
     { to: '/migration' as const, label: 'Migration', active: isMigrationActive, show: true },
     { to: '/stations' as const, label: 'Stations', active: isStationsActive, show: Boolean(user) },
     { to: '/admin/messages' as const, label: 'Messages', active: isMessagesActive, show: Boolean(user) },
+    { to: '/api-status' as const, label: 'API Status', active: isApiStatusActive, show: Boolean(user) },
   ].filter((item) => item.show)
 
   useEffect(() => {

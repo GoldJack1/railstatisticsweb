@@ -280,6 +280,12 @@ const STOP_MODE_LABELS: Record<StopModeFilter, string> = {
   calling: 'Stopping',
   passing: 'Passing',
 }
+const UNKNOWN_TOC_LABEL = 'Unknown'
+
+function tocFilterLabel(row: DepartureRow): string {
+  const label = row.tocName || row.toc
+  return label && label.trim() ? label : UNKNOWN_TOC_LABEL
+}
 
 function buildStationNameSearchResults(rawInput: string, stations: Station[]): Station[] {
   const normalizedInput = normalizeStationText(rawInput)
@@ -306,6 +312,49 @@ function normalizeSearchInputForMode(raw: string, mode: SearchMode): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
 }
 
+function titleCaseWord(word: string): string {
+  if (!word) return word
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+}
+
+function stationLikeNameFromTiploc(tpl: string): string | null {
+  const raw = (tpl || '').trim().toUpperCase()
+  if (!raw) return null
+  if (/^[A-Z0-9]{4,}$/.test(raw)) {
+    const expanded = raw
+      .replace(/JNCT$/g, ' JNCT')
+      .replace(/JCN$/g, ' JCN')
+      .replace(/JN$/g, ' JN')
+      .replace(/J$/g, ' JN')
+      .replace(/PASS$/g, ' PASS')
+      .replace(/PSS$/g, ' PSS')
+      .replace(/HALT$/g, ' HALT')
+      .replace(/(?:\d)(?=[A-Z])/g, '$& ')
+      .replace(/([A-Z])([0-9])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const words = expanded.split(' ')
+    return words.map((w) => {
+      if (w === 'JN') return 'Jn'
+      if (w === 'JCN') return 'Jcn'
+      if (w === 'JNCT') return 'Jnct'
+      if (w === 'PSS') return 'Pss'
+      return titleCaseWord(w)
+    }).join(' ')
+  }
+  return null
+}
+
+function isRawTiplocLikeName(name: string | null | undefined, fallbackCode: string): boolean {
+  if (!name) return true
+  const n = name.trim().toUpperCase()
+  const c = (fallbackCode || '').trim().toUpperCase()
+  if (!n) return true
+  if (n === c) return true
+  // Treat all-uppercase compact tokens as likely TIPLOC-style labels.
+  return /^[A-Z0-9]{4,}$/.test(n)
+}
+
 const DarwinDeparturesPage: React.FC = () => {
   const params = useParams()
   const location = useLocation()
@@ -324,6 +373,8 @@ const DarwinDeparturesPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const from = query.get('from') || ''
+  const clickedLabel = query.get('label') || ''
   const historyDate = query.get('date') || ''
   const historyTime = query.get('at') || ''
   const initialLiveNow = useMemo(() => getLiveNowPartsUk(), [])
@@ -333,7 +384,8 @@ const DarwinDeparturesPage: React.FC = () => {
   const maxFutureDateIso = useMemo(() => addDaysIsoDate(todayIsoDate, 2), [todayIsoDate])
   const hoursFromQuery = Number(query.get('hours') || WINDOW_OPTIONS[0].value)
   const hours = WINDOW_VALUES.has(hoursFromQuery) ? hoursFromQuery : WINDOW_OPTIONS[0].value
-  const historicalMode = Boolean(historyDate && (historyDate < todayIsoDate || Boolean(historyTime)))
+  const historicalMode = Boolean(historyDate && historyDate < todayIsoDate)
+  const timedCurrentDayMode = Boolean(historyDate && historyDate === todayIsoDate && Boolean(historyTime))
   const futureTimetableMode = Boolean(historyDate && historyDate > todayIsoDate)
 
   useEffect(() => {
@@ -454,11 +506,31 @@ const DarwinDeparturesPage: React.FC = () => {
 
   const stationLabel = useMemo(() => {
     if (!hasStationSelected) return 'Live departures'
-    if (data?.stationName) {
+    if (clickedLabel.trim()) return clickedLabel.trim()
+    if (data?.stationName && !isRawTiplocLikeName(data.stationName, code)) {
       return data.stationCrs ? `${data.stationName} (${data.stationCrs})` : data.stationName
     }
+    if (data?.stationName) {
+      const humanized = stationLikeNameFromTiploc(data.stationName)
+      if (humanized) return data.stationCrs ? `${humanized} (${data.stationCrs})` : humanized
+    }
+    const normalizedCode = code.toUpperCase()
+    const stationByCrs = stations.find((station) => station.crsCode?.toUpperCase() === normalizedCode)
+    if (stationByCrs?.stationName) {
+      return stationByCrs.crsCode
+        ? `${stationByCrs.stationName} (${stationByCrs.crsCode.toUpperCase()})`
+        : stationByCrs.stationName
+    }
+    const stationByTiploc = stations.find((station) => station.tiploc?.toUpperCase() === normalizedCode)
+    if (stationByTiploc?.stationName) {
+      return stationByTiploc.crsCode
+        ? `${stationByTiploc.stationName} (${stationByTiploc.crsCode.toUpperCase()})`
+        : stationByTiploc.stationName
+    }
+    const stationLikeFallback = stationLikeNameFromTiploc(normalizedCode)
+    if (stationLikeFallback) return stationLikeFallback
     return code
-  }, [code, data, hasStationSelected])
+  }, [code, data, hasStationSelected, clickedLabel, stations])
 
   const windowSelectedIndex = useMemo(() => {
     const idx = WINDOW_OPTIONS.findIndex((opt) => opt.value === hours)
@@ -467,7 +539,7 @@ const DarwinDeparturesPage: React.FC = () => {
 
   const tocOptions = useMemo(() => {
     if (!data) return []
-    return Array.from(new Set(data.departures.map((row) => row.tocName || row.toc).filter(Boolean)))
+    return Array.from(new Set(data.departures.map((row) => tocFilterLabel(row))))
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [data])
 
@@ -494,7 +566,7 @@ const DarwinDeparturesPage: React.FC = () => {
   const filteredDepartures = useMemo(() => {
     if (!data) return []
     return data.departures.filter((row) => {
-      const tocLabel = row.tocName || row.toc
+      const tocLabel = tocFilterLabel(row)
       const tocMatch = selectedTocs.includes(tocLabel)
       const rowServiceType = row.serviceType || 'other'
       const serviceTypeMatch = selectedServiceTypes.includes(rowServiceType)
@@ -523,6 +595,8 @@ const DarwinDeparturesPage: React.FC = () => {
     if (status === 'ok') {
       const statusText = historicalMode
         ? `Historical snapshot${historyTime ? ` at ${historyTime}` : ' (latest for selected date)'}`
+        : timedCurrentDayMode
+          ? `Timed board from ${historyTime}`
         : futureTimetableMode
           ? `Timetable view${historyTime ? ` at ${historyTime}` : ' for selected date'}`
         : `Live board · auto-refreshing · updated ${formatAge(ageMs)}`
@@ -545,6 +619,8 @@ const DarwinDeparturesPage: React.FC = () => {
     if (status === 'stale') {
       const statusText = historicalMode
         ? `Historical snapshot${historyTime ? ` at ${historyTime}` : ' (latest for selected date)'}`
+        : timedCurrentDayMode
+          ? `Timed board from ${historyTime}`
         : futureTimetableMode
           ? `Timetable view${historyTime ? ` at ${historyTime}` : ' for selected date'}`
         : `Stale live board · ${formatAge(ageMs)}`
@@ -568,7 +644,7 @@ const DarwinDeparturesPage: React.FC = () => {
     if (status === 'error')     return <span className="dep-subtitle__status">{error ? `Error: ${error}` : 'Departures unavailable'} · {boardDateText}</span>
     if (status === 'not-found') return <span className="dep-subtitle__status">Unknown station</span>
     return ''
-  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, historyDate, historyTime, futureTimetableMode, todayIsoDate])
+  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, timedCurrentDayMode, historyDate, historyTime, futureTimetableMode, todayIsoDate])
 
   const stationNameResults = useMemo(
     () => buildStationNameSearchResults(searchInput, stations),
@@ -636,6 +712,10 @@ const DarwinDeparturesPage: React.FC = () => {
         title={stationLabel}
         subtitle={subtitle}
         className={`darwin-departures-header darwin-departures-header--${status}`}
+        actionButton={from ? {
+          label: '← Back',
+          onClick: () => navigate(from),
+        } : undefined}
       />
 
       <div className="darwin-departures-page">

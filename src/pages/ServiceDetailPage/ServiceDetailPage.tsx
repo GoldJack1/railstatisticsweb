@@ -80,6 +80,31 @@ function formatDateOnly(date: string): string {
   })
 }
 
+function getCurrentRailwayDayIsoUk(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now)
+
+  const pick = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value || '00'
+
+  const year = Number(pick('year'))
+  const month = Number(pick('month'))
+  const day = Number(pick('day'))
+  const hour = Number(pick('hour'))
+  const minute = Number(pick('minute'))
+
+  const londonAsUtcMs = Date.UTC(year, month - 1, day, hour, minute)
+  const railwayDayUtcMs = londonAsUtcMs - ((4 * 60 + 30) * 60 * 1000)
+  return new Date(railwayDayUtcMs).toISOString().slice(0, 10)
+}
+
 function isRawTiplocName(name: string | null | undefined, tpl: string): boolean {
   if (!name) return true
   const trimmedName = name.trim()
@@ -98,11 +123,31 @@ function titleCaseWord(word: string): string {
 }
 
 function stationLikeNameFromTiploc(tpl: string): string | null {
-  const raw = (tpl || '').trim()
+  const raw = (tpl || '').trim().toUpperCase()
   if (!raw) return null
-  // Some TIPLOCs are already the station name in uppercase (e.g. FAREHAM).
-  // For those, present a readable station label rather than raw code.
-  if (/^[A-Z]{5,}$/.test(raw)) return titleCaseWord(raw)
+  // Humanise common TIPLOC forms for stations/passing/junction points.
+  // Examples:
+  //   FAREHAM   -> Fareham
+  //   EASTLEGHJN -> Eastlegh JN
+  //   BSKTBPSS  -> Bskt B Pss
+  if (/^[A-Z0-9]{4,}$/.test(raw)) {
+    const expanded = raw
+      .replace(/JNCT$/g, ' JNCT')
+      .replace(/JCN$/g, ' JCN')
+      .replace(/JN$/g, ' JN')
+      .replace(/PASS$/g, ' PASS')
+      .replace(/PSS$/g, ' PSS')
+      .replace(/HALT$/g, ' HALT')
+      .replace(/(?:\d)(?=[A-Z])/g, '$& ')
+      .replace(/([A-Z])([0-9])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const words = expanded.split(' ')
+    return words.map((w) => {
+      if (w === 'JN' || w === 'JCN' || w === 'JNCT' || w === 'PSS') return w
+      return titleCaseWord(w)
+    }).join(' ')
+  }
   return null
 }
 
@@ -124,7 +169,6 @@ function displayStopName(
   if (byCrsName) return byCrsName
   const stationLikeFallback = stationLikeNameFromTiploc(stop.tpl)
   if (stationLikeFallback) return stationLikeFallback
-  if (stop.slot === 'PP' || stop.slot === 'OPPP') return 'Passing point'
   return stop.tpl
 }
 
@@ -170,6 +214,17 @@ function computeDeltaMinutes(
   if (diff > 720) diff -= 1440
   if (diff < -720) diff += 1440
   return diff
+}
+
+function buildDeparturesAnchorTime(
+  stop: NonNullable<ServiceDetail['stops']>[number],
+  kind: 'origin' | 'stop' | 'pass' | 'destination'
+): string | null {
+  // Prefer live time, then public times, then working times. Keep HH:MM only.
+  const live = trimSeconds(stop.liveTime)
+  if (live) return live
+  if (kind === 'pass') return trimSeconds(stop.wtp || stop.wtd || stop.wta || stop.pta || stop.ptd || null) || null
+  return trimSeconds(stop.ptd || stop.pta || stop.wtd || stop.wta || stop.wtp || null) || null
 }
 
 /**
@@ -281,13 +336,15 @@ const ServiceDetailPage: React.FC = () => {
   const historicalDate = query.get('date') || undefined
   const historicalAt = query.get('at') || undefined
   const from = query.get('from') || ''
-  const historicalMode = !!historicalDate
+  const todayIsoDate = useMemo(() => getCurrentRailwayDayIsoUk(), [])
+  const historicalMode = !!historicalDate && historicalDate < todayIsoDate
+  const futureTimetableMode = !!historicalDate && historicalDate > todayIsoDate
 
   const { status, data, error, ageMs, refetch } = useServiceDetail({
     rid,
     date: historicalDate,
     at: historicalAt,
-    pollMs: historicalMode ? 0 : 15_000,
+    pollMs: historicalDate ? 0 : 15_000,
   })
   const { stations } = useStations()
 
@@ -319,13 +376,13 @@ const ServiceDetailPage: React.FC = () => {
       : serviceDate
         ? `Service date ${serviceDate}`
         : ''
-    if (status === 'ok')        return `${historicalMode ? 'Historical snapshot' : `Live · updated ${formatAge(ageMs)}`}${dateText ? `\n${dateText}` : ''}`
-    if (status === 'stale')     return `${historicalMode ? 'Historical snapshot' : `Stale · ${formatAge(ageMs)}`}${dateText ? `\n${dateText}` : ''}`
+    if (status === 'ok')        return `${historicalMode ? 'Historical snapshot' : (futureTimetableMode ? 'Timetable view' : `Live · updated ${formatAge(ageMs)}`)}${dateText ? `\n${dateText}` : ''}`
+    if (status === 'stale')     return `${historicalMode ? 'Historical snapshot' : (futureTimetableMode ? 'Timetable view' : `Stale · ${formatAge(ageMs)}`)}${dateText ? `\n${dateText}` : ''}`
     if (status === 'loading')   return `Loading service detail…${dateText ? `\n${dateText}` : ''}`
     if (status === 'error')     return error ? `Error: ${error}` : 'Service unavailable'
     if (status === 'not-found') return 'Service not found'
     return dateText
-  }, [status, error, ageMs, historicalMode, data])
+  }, [status, error, ageMs, historicalMode, futureTimetableMode, data])
 
   const viewModeSelectedIndex = viewMode === 'detailed' ? 0 : 1
 
@@ -604,15 +661,39 @@ const ServiceDetailPage: React.FC = () => {
                     (s.liveKind?.startsWith('actual') && s.liveTime !== (pDep || pArr || wPass || wDep || wArr)) ||
                     (s.liveKind?.startsWith('est')    && s.liveTime !== (pDep || pArr || wPass || wDep || wArr))
                   )
+                  const departuresTargetCode = (s.crs || s.tpl || '').toUpperCase()
+                  const departuresAnchorTime = buildDeparturesAnchorTime(s, kind)
+                  const onNavigateToDepartures = () => {
+                    if (!departuresTargetCode) return
+                    const next = new URLSearchParams()
+                    next.set('hours', '1')
+                    // `at` is honored by departures only when `date` is present.
+                    const targetDate = historicalDate || data.ssd || null
+                    if (targetDate) next.set('date', targetDate)
+                    if (departuresAnchorTime && targetDate) next.set('at', departuresAnchorTime)
+                    next.set('from', `/services/${encodeURIComponent(data.rid)}${location.search || ''}`)
+                    next.set('label', stopLabel)
+                    navigate(`/departures/${encodeURIComponent(departuresTargetCode)}${next.toString() ? `?${next.toString()}` : ''}`)
+                  }
                   return (
                     <tr
                       key={`${s.tpl}-${idx}`}
                       className={[
                         'svc-stop',
+                        'svc-stop--jump',
                         `svc-stop--${kind}`,
                         s.cancelledAtStop ? 'svc-stop--cancelled' : '',
                         isLate ? 'svc-stop--late' : '',
                       ].filter(Boolean).join(' ')}
+                      role="button"
+                      tabIndex={0}
+                      onClick={onNavigateToDepartures}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          onNavigateToDepartures()
+                        }
+                      }}
                     >
                       <td><span className={`svc-kind-badge svc-kind-badge--${kind}`}>{kindLabel}</span></td>
                       <td>
@@ -690,12 +771,6 @@ const ServiceDetailPage: React.FC = () => {
 
             {/* Vehicle details and logs hidden by request; users can jump to
              * Unit detail from Coach formation actions above. */}
-
-            {/* Raw-data dump for debugging / power users. Collapsed by
-             * default; expand to see every field the daemon returned for
-             * this RID. Useful for spotting fields the UI hasn't surfaced
-             * yet, or verifying which feed contributed which value. */}
-            {viewMode === 'detailed' && <RawDataDump data={data} />}
 
             <footer className="svc-footer">
               <span>Source: Network Rail Darwin Push Port</span>
