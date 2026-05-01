@@ -1,0 +1,33 @@
+{
+  "displayName": "Darwin VM — disk usage > 80% (root)",
+  "documentation": {
+    "content": "Persistent disk on darwin-vm is over 80% full. Prune state/history & state/raw-feed or expand disk.\n\nSee deploy/darwin-vm/monitoring/README.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Ops Agent disk percent_used > 80",
+      "conditionThreshold": {
+        "filter": "resource.type = \"gce_instance\" AND resource.labels.instance_id = \"REPLACE_INSTANCE_ID\" AND metric.type = \"agent.googleapis.com/disk/percent_used\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 80,
+        "duration": "300s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MEAN",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": []
+          }
+        ]
+      }
+    }
+  ],
+  "notificationChannels": [
+    "REPLACE_NOTIFICATION_CHANNEL"
+  ],
+  "alertStrategy": {
+    "autoClose": "86400s"
+  }
+}

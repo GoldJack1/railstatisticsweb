@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useDepartures } from '../../hooks/useDepartures'
 import type { DepartureRow, DepartureServiceType } from '../../types/darwin'
@@ -73,6 +73,43 @@ function formatLiveNowUk(): string {
   })
 }
 
+function getLiveNowPartsUk(now = new Date()): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now)
+  const pick = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value || '00'
+  return {
+    date: `${pick('year')}-${pick('month')}-${pick('day')}`,
+    time: `${pick('hour')}:${pick('minute')}`,
+  }
+}
+
+function normalizeTimeInput(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return ''
+  // Accept HHMM (e.g. 0920) or HMM (e.g. 920)
+  if (/^\d{3,4}$/.test(t)) {
+    const padded = t.padStart(4, '0')
+    const hh = Number(padded.slice(0, 2))
+    const mm = Number(padded.slice(2, 4))
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+    return null
+  }
+  // Accept HH:MM
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return null
+  const hh = Number(m[1]); const mm = Number(m[2])
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
 function getCurrentRailwayDayIsoUk(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/London',
@@ -109,12 +146,16 @@ function addDaysIsoDate(dateStr: string, days: number): string {
  * Compact pill rendered as the trailing element of each TextCard, replacing
  * the default chevron. Conveys live status at a glance.
  */
-const StatusBadge: React.FC<{ row: DepartureRow }> = ({ row }) => {
+const StatusBadge: React.FC<{ row: DepartureRow; historicalMode: boolean }> = ({ row, historicalMode }) => {
   let cls = 'dep-badge'
   let text = 'On time'
   if (row.cancelled) {
     cls += ' dep-badge--cancelled'
     text = 'Cancelled'
+  } else if (historicalMode && (row.liveKind === 'scheduled' || row.liveKind === 'working')) {
+    // Historical snapshots often have no meaningful live event at that minute.
+    // Show a neutral marker instead of implying the service is "on time now".
+    text = 'Snapshot'
   } else if (row.liveKind === 'actual') {
     cls += ' dep-badge--actual'
     text = `Departed ${row.liveTime}`
@@ -141,7 +182,9 @@ function buildDescription(row: DepartureRow): string {
   const fromOrigin = row.originName ? `from ${row.originName}` : null
 
   if (row.cancelled && row.cancellation) {
-    // Cancelled: lead with the reason — that's the most useful info.
+    // Some feeds report generic "schedule deactivated", which is confusing
+    // to passengers; show a clean cancellation label instead.
+    if (isScheduleDeactivatedReason(row.cancellation.reason)) return 'Cancelled'
     const code = row.cancellation.code ? ` (code ${row.cancellation.code})` : ''
     return `Cancelled — ${row.cancellation.reason}${code}`
   }
@@ -161,6 +204,11 @@ function buildTitle(row: DepartureRow): string {
 
 function normalizeStationText(value: string): string {
   return value.trim().toLowerCase().replace(/[\s\-_,.]+/g, ' ')
+}
+
+function isScheduleDeactivatedReason(reason?: string | null): boolean {
+  if (!reason) return false
+  return reason.trim().toLowerCase().includes('schedule deactivated')
 }
 
 function resolveSearchInput(rawInput: string, stations: Station[]): string | null {
@@ -234,18 +282,29 @@ const DarwinDeparturesPage: React.FC = () => {
   const [selectedServiceTypes, setSelectedServiceTypes] = useState<DepartureServiceType[]>([])
   const [historyDates, setHistoryDates] = useState<string[]>([])
   const { stations } = useStations()
-  const historyDateInputRef = useRef<HTMLInputElement | null>(null)
-  const historyTimeInputRef = useRef<HTMLInputElement | null>(null)
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
   const historyDate = query.get('date') || ''
   const historyTime = query.get('at') || ''
+  const initialLiveNow = useMemo(() => getLiveNowPartsUk(), [])
+  const [historyDateDraft, setHistoryDateDraft] = useState<string>(historyDate || initialLiveNow.date)
+  const [historyTimeDraft, setHistoryTimeDraft] = useState<string>(historyTime || initialLiveNow.time)
   const todayIsoDate = useMemo(() => getCurrentRailwayDayIsoUk(), [])
   const maxFutureDateIso = useMemo(() => addDaysIsoDate(todayIsoDate, 2), [todayIsoDate])
   const hoursFromQuery = Number(query.get('hours') || WINDOW_OPTIONS[0].value)
   const hours = WINDOW_VALUES.has(hoursFromQuery) ? hoursFromQuery : WINDOW_OPTIONS[0].value
-  const historicalMode = Boolean(historyDate && historyDate < todayIsoDate)
+  const historicalMode = Boolean(historyDate && (historyDate < todayIsoDate || Boolean(historyTime)))
   const futureTimetableMode = Boolean(historyDate && historyDate > todayIsoDate)
+
+  useEffect(() => {
+    if (historyDate) setHistoryDateDraft(historyDate)
+    if (historyTime) setHistoryTimeDraft(historyTime)
+    if (!historyDate && !historyTime) {
+      const now = getLiveNowPartsUk()
+      setHistoryDateDraft(now.date)
+      setHistoryTimeDraft(now.time)
+    }
+  }, [historyDate, historyTime])
 
   const updateQuery = (updater: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(location.search)
@@ -436,6 +495,46 @@ const DarwinDeparturesPage: React.FC = () => {
 
   const availableHistoryDatesSet = useMemo(() => new Set(historyDates), [historyDates])
 
+  const applyDateTimeFilter = () => {
+    const dateValue = historyDateDraft.trim()
+    const normalizedTime = normalizeTimeInput(historyTimeDraft)
+    const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+    const timeOk = normalizedTime !== null
+    if (!dateOk) {
+      setHistoryDateError('Use date format YYYY-MM-DD.')
+      return
+    }
+    if (!timeOk) {
+      setHistoryDateError('Use time format HH:MM, 0920, or 920.')
+      return
+    }
+    if (dateValue > maxFutureDateIso) {
+      setHistoryDateError(`Future timetable view currently supports up to ${formatHeaderDate(maxFutureDateIso)}.`)
+      return
+    }
+    if (dateValue < todayIsoDate && historyDates.length > 0 && !availableHistoryDatesSet.has(dateValue)) {
+      setHistoryDateError('That date is not available in historical snapshots.')
+      return
+    }
+    setHistoryDateError(null)
+    updateQuery((next) => {
+      next.set('date', dateValue)
+      if (normalizedTime) next.set('at', normalizedTime)
+      else next.delete('at')
+    })
+  }
+
+  const resetToLiveNow = () => {
+    const now = getLiveNowPartsUk()
+    setHistoryDateDraft(now.date)
+    setHistoryTimeDraft(now.time)
+    setHistoryDateError(null)
+    updateQuery((next) => {
+      next.delete('date')
+      next.delete('at')
+    })
+  }
+
   return (
     <div className="darwin-departures-shell">
       <PageTopHeader
@@ -511,79 +610,37 @@ const DarwinDeparturesPage: React.FC = () => {
               <div className="dep-control-group">
                 <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Date and time</h2>
                 <div className="dep-history-controls">
-                  <input
-                    ref={historyDateInputRef}
-                    className="dep-history-hidden-input"
-                    type="date"
-                    value={historyDate}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      if (value > maxFutureDateIso) {
-                        setHistoryDateError(`Future timetable view currently supports up to ${formatHeaderDate(maxFutureDateIso)}.`)
-                        return
-                      }
-                      if (value < todayIsoDate && historyDates.length > 0 && !availableHistoryDatesSet.has(value)) {
-                        setHistoryDateError('That date is not available in historical snapshots.')
-                        return
-                      }
-                      setHistoryDateError(null)
-                      updateQuery((next) => {
-                        if (value) next.set('date', value)
-                        else {
-                          next.delete('date')
-                          next.delete('at')
-                        }
-                      })
-                    }}
-                    min={historyDates.length ? historyDates[historyDates.length - 1] : undefined}
-                    max={maxFutureDateIso}
-                    aria-hidden="true"
-                    tabIndex={-1}
-                  />
-                  <BUTWideButton
-                    width="fill"
-                    instantAction
-                    colorVariant="primary"
-                    onClick={() => {
-                      const input = historyDateInputRef.current
-                      if (!input) return
-                      if (typeof input.showPicker === 'function') input.showPicker()
-                      else input.click()
-                    }}
-                  >
-                    {historyDate ? `Date: ${formatHeaderDate(historyDate)}` : 'Select date'}
+                  <div className="dep-history-field">
+                    <span>Date (YYYY-MM-DD)</span>
+                    <input
+                      type="text"
+                      value={historyDateDraft}
+                      onChange={(e) => {
+                        setHistoryDateDraft(e.target.value)
+                        if (historyDateError) setHistoryDateError(null)
+                      }}
+                      placeholder={initialLiveNow.date}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div className="dep-history-field">
+                    <span>Time (HH:MM)</span>
+                    <input
+                      type="text"
+                      value={historyTimeDraft}
+                      onChange={(e) => {
+                        setHistoryTimeDraft(e.target.value)
+                        if (historyDateError) setHistoryDateError(null)
+                      }}
+                      placeholder={initialLiveNow.time}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <BUTWideButton width="fill" instantAction colorVariant="primary" onClick={applyDateTimeFilter}>
+                    Apply date/time
                   </BUTWideButton>
-
-                  <input
-                    ref={historyTimeInputRef}
-                    className="dep-history-hidden-input"
-                    type="time"
-                    value={historyTime}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setHistoryDateError(null)
-                      updateQuery((next) => {
-                        if (value) next.set('at', value)
-                        else next.delete('at')
-                      })
-                    }}
-                    disabled={!historyDate}
-                    aria-hidden="true"
-                    tabIndex={-1}
-                  />
-                  <BUTWideButton
-                    width="fill"
-                    instantAction
-                    colorVariant="primary"
-                    disabled={!historyDate}
-                    onClick={() => {
-                      const input = historyTimeInputRef.current
-                      if (!input || !historyDate) return
-                      if (typeof input.showPicker === 'function') input.showPicker()
-                      else input.click()
-                    }}
-                  >
-                    {historyTime ? `Time: ${historyTime}` : 'Select time (optional)'}
+                  <BUTWideButton width="fill" instantAction colorVariant="primary" onClick={resetToLiveNow}>
+                    Live now
                   </BUTWideButton>
                   {historyDateError && (
                     <p className="dep-history-inline-error" role="alert">{historyDateError}</p>
@@ -720,7 +777,16 @@ const DarwinDeparturesPage: React.FC = () => {
 
             {hasStationSelected && status === 'loading' && !data && (
               <section className="dep-state-card">
-                <p>{historicalMode ? 'Loading historical departures…' : 'Loading live departures…'}</p>
+                <div className="dep-loading-state" role="status" aria-live="polite">
+                  <span className="dep-loading-spinner" aria-hidden="true" />
+                  <p>
+                    {historicalMode
+                      ? `Loading historical data${historyDate ? ` for ${formatHeaderDate(historyDate)}` : ''}…`
+                      : futureTimetableMode
+                        ? 'Loading timetable data…'
+                        : 'Loading live departures…'}
+                  </p>
+                </div>
               </section>
             )}
 
@@ -742,7 +808,7 @@ const DarwinDeparturesPage: React.FC = () => {
                           title={buildTitle(row)}
                           description={buildDescription(row)}
                           state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
-                          trailingIcon={<StatusBadge row={row} />}
+                          trailingIcon={<StatusBadge row={row} historicalMode={historicalMode} />}
                           onClick={() => {
                             const qp = new URLSearchParams()
                             if (historicalMode && historyDate) {
@@ -758,7 +824,7 @@ const DarwinDeparturesPage: React.FC = () => {
                             const suffix = qp.toString() ? `?${qp.toString()}` : ''
                             navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
                           }}
-                          ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : 'on time'}`}
+                          ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : (historicalMode ? 'historical snapshot' : 'on time')}`}
                         />
                       </div>
                     ))}

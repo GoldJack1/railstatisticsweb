@@ -94,6 +94,11 @@ function displayStopName(
   return stop.tpl
 }
 
+function isScheduleDeactivatedReason(reason: string | null | undefined): boolean {
+  if (!reason) return false
+  return reason.trim().toLowerCase().includes('schedule deactivated')
+}
+
 /**
  * Collapsible "raw data" panel rendered at the bottom of the service detail
  * page. Shows the full ServiceDetail payload as pretty-printed JSON, plus a
@@ -337,8 +342,14 @@ const ServiceDetailPage: React.FC = () => {
 
               {data.cancelled && data.cancellation && (
                 <div className="svc-banner svc-banner--cancel">
-                  <span className="svc-banner-label">Cancelled —</span> {data.cancellation.reason}
-                  {data.cancellation.code && <span className="svc-banner-code"> (code {data.cancellation.code})</span>}
+                  {isScheduleDeactivatedReason(data.cancellation.reason) ? (
+                    <span className="svc-banner-label">Cancelled</span>
+                  ) : (
+                    <>
+                      <span className="svc-banner-label">Cancelled —</span> {data.cancellation.reason}
+                      {data.cancellation.code && <span className="svc-banner-code"> (code {data.cancellation.code})</span>}
+                    </>
+                  )}
                 </div>
               )}
               {!data.cancelled && data.partiallyCancelled && (() => {

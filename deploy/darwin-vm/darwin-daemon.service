@@ -12,7 +12,8 @@ EnvironmentFile=/etc/darwin-daemon.env
 ExecStart=/usr/bin/npm --prefix darwin-local-test run daemon
 Restart=always
 RestartSec=5
-TimeoutStopSec=30
+# Large JSON persist on SIGTERM can exceed 30s; avoid systemd SIGKILL mid-flush.
+TimeoutStopSec=180
 
 [Install]
 WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
 import './ApiStatusPage.css'
@@ -7,19 +7,30 @@ type HealthPayload = {
   ok: boolean
   timetableFile?: string
   loadedDate?: string
+  startedAt?: string
+  uptimeSec?: number
+  uptimeMs?: number
   memoryMB?: { heap?: number; rss?: number }
   kafka?: { consumed?: number; updates?: number; startedAt?: string; lastKafkaMsgAt?: string }
   ptac?: { enabled?: boolean; consumed?: number; matched?: number; unmatched?: number; errors?: number; lastMessageAt?: string }
   overlaySize?: { live?: number; formations?: number; consists?: number; units?: number; unmatchedConsists?: number }
-  persistence?: { intervalSec?: number; lastPersistAt?: string }
-  unitCatalog?: { size?: number; lastPersistAt?: string }
+  persistence?: {
+    intervalSec?: number
+    lastPersistAt?: string
+    stateFile?: string
+    fileSizeBytes?: number
+    stateFileBytes?: number
+  }
+  unitCatalog?: {
+    size?: number
+    lastPersistAt?: string
+    file?: string
+    fileSizeBytes?: number
+    fileBytes?: number
+  }
   history?: { retentionDays?: number; dates?: string[] }
 }
 
-type LogLevel = 'info' | 'warn' | 'success'
-type ApiLog = { id: string; at: string; level: LogLevel; text: string }
-type OverlaySeriesPoint = { savedAt: string; formations: number; consists: number; units: number }
-type OverlaySeriesPayload = { hours: number; count: number; points: OverlaySeriesPoint[]; updatedAt: string }
 type HistoryDatesPayload = {
   count: number
   retentionDays: number
@@ -30,8 +41,6 @@ type HistoryDatesPayload = {
     snapshots: string[]
   }>
 }
-
-const API_STATUS_LOG_CACHE_KEY = 'api-status.logs.v1'
 
 function formatNum(v: unknown): string {
   return typeof v === 'number' ? v.toLocaleString('en-GB') : '-'
@@ -49,25 +58,44 @@ function displayDateTime(isoLike: string): string {
   })
 }
 
+function formatBytes(v: unknown): string {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return '-'
+  if (v < 1024) return `${Math.round(v)} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let size = v / 1024
+  let idx = 0
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024
+    idx += 1
+  }
+  const rounded = size >= 100 ? Math.round(size) : Number(size.toFixed(1))
+  return `${rounded.toLocaleString('en-GB')} ${units[idx]}`
+}
+
+function pickNumber(...values: Array<unknown>): number | null {
+  for (const v of values) {
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v
+  }
+  return null
+}
+
+function formatUptimeFromMs(v: unknown): string {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return '-'
+  const totalSec = Math.floor(v / 1000)
+  const days = Math.floor(totalSec / 86_400)
+  const hours = Math.floor((totalSec % 86_400) / 3600)
+  const mins = Math.floor((totalSec % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h ${mins}m`
+  if (hours > 0) return `${hours}h ${mins}m`
+  return `${mins}m`
+}
+
 const ApiStatusPage: React.FC = () => {
   const [health, setHealth] = useState<HealthPayload | null>(null)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
   const [error, setError] = useState<string | null>(null)
-  const [logs, setLogs] = useState<ApiLog[]>([])
-  const [series, setSeries] = useState<OverlaySeriesPayload | null>(null)
-  const [liveSeries, setLiveSeries] = useState<OverlaySeriesPoint[]>([])
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
   const [available, setAvailable] = useState<HistoryDatesPayload | null>(null)
-  const prevRef = useRef<HealthPayload | null>(null)
-
-  const appendLog = (level: LogLevel, text: string, atOverride?: string) => {
-    const entry: ApiLog = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      at: atOverride || displayDateTime(new Date().toISOString()),
-      level,
-      text,
-    }
-    setLogs((curr) => [entry, ...curr])
-  }
 
   const runFetch = async (isInitial = false) => {
     if (isInitial) setStatus('loading')
@@ -76,71 +104,14 @@ const ApiStatusPage: React.FC = () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const next: HealthPayload = await res.json()
       setHealth(next)
+      setLastUpdatedAt(new Date().toISOString())
       setStatus('ok')
       setError(null)
-      if (
-        typeof next.overlaySize?.formations === 'number' &&
-        typeof next.overlaySize?.consists === 'number' &&
-        typeof next.overlaySize?.units === 'number'
-      ) {
-        const point: OverlaySeriesPoint = {
-          savedAt: new Date().toISOString(),
-          formations: next.overlaySize.formations,
-          consists: next.overlaySize.consists,
-          units: next.overlaySize.units,
-        }
-        setLiveSeries((curr) => {
-          const last = curr[curr.length - 1]
-          if (
-            last &&
-            last.formations === point.formations &&
-            last.consists === point.consists &&
-            last.units === point.units
-          ) return curr
-          return [...curr, point].slice(-240)
-        })
-      }
-
-      const prev = prevRef.current
-      if (!prev) {
-        appendLog('success', `Connected to API health. Timetable: ${next.timetableFile || 'unknown'}`)
-      } else {
-        const prevKafka = prev.kafka?.consumed ?? 0
-        const nextKafka = next.kafka?.consumed ?? 0
-        const deltaKafka = nextKafka - prevKafka
-
-        const prevForms = prev.overlaySize?.formations ?? 0
-        const nextForms = next.overlaySize?.formations ?? 0
-        const deltaForms = nextForms - prevForms
-
-        if (deltaKafka > 0) appendLog('info', `Kafka +${deltaKafka.toLocaleString('en-GB')} messages`)
-        if (deltaForms > 0) appendLog('success', `Formations ${prevForms.toLocaleString('en-GB')} -> ${nextForms.toLocaleString('en-GB')} (+${deltaForms.toLocaleString('en-GB')})`)
-        const prevConsists = prev.overlaySize?.consists ?? 0
-        const nextConsists = next.overlaySize?.consists ?? 0
-        const deltaConsists = nextConsists - prevConsists
-        if (deltaConsists > 0) appendLog('success', `Consists ${prevConsists.toLocaleString('en-GB')} -> ${nextConsists.toLocaleString('en-GB')} (+${deltaConsists.toLocaleString('en-GB')})`)
-        const prevUnits = prev.overlaySize?.units ?? 0
-        const nextUnits = next.overlaySize?.units ?? 0
-        const deltaUnits = nextUnits - prevUnits
-        if (deltaUnits > 0) appendLog('success', `Units ${prevUnits.toLocaleString('en-GB')} -> ${nextUnits.toLocaleString('en-GB')} (+${deltaUnits.toLocaleString('en-GB')})`)
-        if ((next.ptac?.errors ?? 0) > (prev.ptac?.errors ?? 0)) appendLog('warn', 'PTAC error count increased')
-      }
-      prevRef.current = next
     } catch (e) {
       setStatus('error')
       const msg = (e as Error)?.message || 'Failed to load health.'
       setError(msg)
-      appendLog('warn', `Health fetch failed: ${msg}`)
     }
-  }
-
-  const fetchSeries = async () => {
-    try {
-      const res = await fetch('/api/darwin/history/overlay-series?hours=36')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const payload: OverlaySeriesPayload = await res.json()
-      setSeries(payload)
-    } catch {}
   }
 
   const fetchAvailable = async () => {
@@ -153,88 +124,37 @@ const ApiStatusPage: React.FC = () => {
   }
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(API_STATUS_LOG_CACHE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return
-      const cleaned = parsed
-        .filter((x) => x && typeof x === 'object')
-        .map((x) => ({
-          id: String(x.id || ''),
-          at: String(x.at || ''),
-          level: (x.level === 'warn' || x.level === 'success' || x.level === 'info') ? x.level : 'info',
-          text: String(x.text || ''),
-        }))
-        .filter((x) => x.id && x.at && x.text)
-      if (cleaned.length > 0) setLogs(cleaned)
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(API_STATUS_LOG_CACHE_KEY, JSON.stringify(logs))
-    } catch {}
-  }, [logs])
-
-  useEffect(() => {
-    if (!series?.points?.length) return
-    setLogs((curr) => {
-      if (curr.length > 0) return curr
-      const points = series.points
-      const generated: ApiLog[] = []
-      for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1]
-        const next = points[i]
-        const df = next.formations - prev.formations
-        const dc = next.consists - prev.consists
-        const du = next.units - prev.units
-        if (df > 0) {
-          generated.push({
-            id: `hist-f-${next.savedAt}-${i}`,
-            at: displayDateTime(next.savedAt),
-            level: 'success',
-            text: `Formations ${prev.formations.toLocaleString('en-GB')} -> ${next.formations.toLocaleString('en-GB')} (+${df.toLocaleString('en-GB')})`,
-          })
-        }
-        if (dc > 0) {
-          generated.push({
-            id: `hist-c-${next.savedAt}-${i}`,
-            at: displayDateTime(next.savedAt),
-            level: 'success',
-            text: `Consists ${prev.consists.toLocaleString('en-GB')} -> ${next.consists.toLocaleString('en-GB')} (+${dc.toLocaleString('en-GB')})`,
-          })
-        }
-        if (du > 0) {
-          generated.push({
-            id: `hist-u-${next.savedAt}-${i}`,
-            at: displayDateTime(next.savedAt),
-            level: 'success',
-            text: `Units ${prev.units.toLocaleString('en-GB')} -> ${next.units.toLocaleString('en-GB')} (+${du.toLocaleString('en-GB')})`,
-          })
-        }
-      }
-      return generated.reverse()
-    })
-  }, [series])
-
-  useEffect(() => {
     runFetch(true)
-    fetchSeries()
     fetchAvailable()
     const t = window.setInterval(() => void runFetch(false), 15000)
-    const s = window.setInterval(() => void fetchSeries(), 60000)
     const a = window.setInterval(() => void fetchAvailable(), 120000)
     return () => {
       window.clearInterval(t)
-      window.clearInterval(s)
       window.clearInterval(a)
     }
   }, [])
 
-  const summary = useMemo(() => ({
+  const summary = useMemo(() => {
+    const stateBytes = pickNumber(health?.persistence?.fileSizeBytes, health?.persistence?.stateFileBytes)
+    const unitCatalogBytes = pickNumber(health?.unitCatalog?.fileSizeBytes, health?.unitCatalog?.fileBytes)
+    const totalCacheBytes = stateBytes !== null && unitCatalogBytes !== null
+      ? stateBytes + unitCatalogBytes
+      : null
+    const uptimeFromNumericMs = pickNumber(
+      health?.uptimeMs,
+      typeof health?.uptimeSec === 'number' ? health.uptimeSec * 1000 : null
+    )
+    const startedAtIso = health?.startedAt || health?.kafka?.startedAt
+    const derivedFromStartedAtMs = startedAtIso
+      ? Math.max(0, Date.now() - new Date(startedAtIso).getTime())
+      : null
+    const uptimeMs = uptimeFromNumericMs ?? (Number.isFinite(derivedFromStartedAtMs) ? derivedFromStartedAtMs : null)
+
+    return {
+    daemonStatus: health?.ok ? 'Healthy' : 'Unavailable',
     timetable: health?.timetableFile || '-',
     loadedDate: health?.loadedDate || '-',
+    uptime: formatUptimeFromMs(uptimeMs),
     kafkaConsumed: formatNum(health?.kafka?.consumed),
     kafkaUpdates: formatNum(health?.kafka?.updates),
     formations: formatNum(health?.overlaySize?.formations),
@@ -246,41 +166,25 @@ const ApiStatusPage: React.FC = () => {
     persistEvery: `${formatNum(health?.persistence?.intervalSec)}s`,
     lastPersist: health?.persistence?.lastPersistAt || '-',
     ptac: health?.ptac?.enabled ? 'Enabled' : 'Disabled',
-  }), [health])
-
-  const chart = useMemo(() => {
-    const points = (series?.points && series.points.length > 0) ? series.points : liveSeries
-    if (points.length < 2) return null
-    const width = 860
-    const height = 240
-    const pad = { l: 44, r: 16, t: 16, b: 28 }
-    const maxY = Math.max(1, ...points.map((p) => Math.max(p.formations, p.consists, p.units)))
-    const minT = new Date(points[0].savedAt).getTime()
-    const maxT = new Date(points[points.length - 1].savedAt).getTime()
-    const spanT = Math.max(1, maxT - minT)
-    const x = (ms: number) => pad.l + ((ms - minT) / spanT) * (width - pad.l - pad.r)
-    const y = (v: number) => height - pad.b - (v / maxY) * (height - pad.t - pad.b)
-    const linePath = (pick: (p: OverlaySeriesPoint) => number) => points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(new Date(p.savedAt).getTime()).toFixed(2)},${y(pick(p)).toFixed(2)}`)
-      .join(' ')
-    return {
-      width,
-      height,
-      yTicks: [0, Math.round(maxY * 0.25), Math.round(maxY * 0.5), Math.round(maxY * 0.75), maxY],
-      pathFormations: linePath((p) => p.formations),
-      pathConsists: linePath((p) => p.consists),
-      pathUnits: linePath((p) => p.units),
-      xLeftLabel: new Date(points[0].savedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-      xRightLabel: new Date(points[points.length - 1].savedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-      yPos: y,
-      pad,
+    ptacErrors: formatNum(health?.ptac?.errors),
+    ptacMatched: formatNum(health?.ptac?.matched),
+    ptacUnmatched: formatNum(health?.ptac?.unmatched),
+    kafkaLastMessageAt: health?.kafka?.lastKafkaMsgAt || '-',
+    stateCacheFileName: health?.persistence?.stateFile || '-',
+    unitCatalogFileName: health?.unitCatalog?.file || '-',
+    stateCacheFileSize: formatBytes(stateBytes),
+    unitCatalogFileSize: formatBytes(unitCatalogBytes),
+    totalCacheSize: formatBytes(totalCacheBytes),
     }
-  }, [series, liveSeries])
+  }, [health])
 
-  const displayPoints = useMemo(
-    () => ((series?.points && series.points.length > 0) ? series.points : liveSeries),
-    [series, liveSeries]
-  )
+  const historyTotals = useMemo(() => {
+    const rows = available?.dates || []
+    const snapshots = rows.reduce((total, row) => total + row.snapshots.length, 0)
+    const withState = rows.filter((row) => row.hasState).length
+    const withTimetable = rows.filter((row) => row.hasTimetable).length
+    return { snapshots, withState, withTimetable }
+  }, [available])
 
   return (
     <div className="api-status-shell">
@@ -294,11 +198,14 @@ const ApiStatusPage: React.FC = () => {
             Refresh now
           </BUTWideButton>
           {status === 'error' && <p className="api-status-error">{error}</p>}
+          {status === 'ok' && <p className="api-status-meta">Last update: {lastUpdatedAt ? displayDateTime(lastUpdatedAt) : '-'}</p>}
         </section>
 
         <section className="api-status-grid" aria-label="API health summary">
+          <article className="api-status-card"><h3>Daemon status</h3><p>{summary.daemonStatus}</p></article>
           <article className="api-status-card"><h3>Timetable</h3><p>{summary.timetable}</p></article>
           <article className="api-status-card"><h3>Loaded date</h3><p>{summary.loadedDate}</p></article>
+          <article className="api-status-card"><h3>Uptime</h3><p>{summary.uptime}</p></article>
           <article className="api-status-card"><h3>Kafka consumed</h3><p>{summary.kafkaConsumed}</p></article>
           <article className="api-status-card"><h3>Kafka updates</h3><p>{summary.kafkaUpdates}</p></article>
           <article className="api-status-card"><h3>Formations</h3><p>{summary.formations}</p></article>
@@ -309,107 +216,37 @@ const ApiStatusPage: React.FC = () => {
           <article className="api-status-card"><h3>Heap MB</h3><p>{summary.heap}</p></article>
           <article className="api-status-card"><h3>RSS MB</h3><p>{summary.rss}</p></article>
           <article className="api-status-card"><h3>Persist</h3><p>{summary.persistEvery} · {summary.lastPersist}</p></article>
+          <article className="api-status-card"><h3>PTAC errors</h3><p>{summary.ptacErrors}</p></article>
+          <article className="api-status-card"><h3>PTAC matched</h3><p>{summary.ptacMatched}</p></article>
+          <article className="api-status-card"><h3>PTAC unmatched</h3><p>{summary.ptacUnmatched}</p></article>
+          <article className="api-status-card"><h3>Kafka last message</h3><p>{summary.kafkaLastMessageAt === '-' ? '-' : displayDateTime(summary.kafkaLastMessageAt)}</p></article>
         </section>
 
-        <section className="api-log-card" aria-label="Stylised API logs">
-          <h2>Live Event Logs</h2>
-          <div className="api-log-list">
-            {logs.length === 0 ? (
-              <p className="api-log-empty">Waiting for events...</p>
-            ) : logs.map((log) => (
-              <article key={log.id} className={`api-log-item api-log-item--${log.level}`}>
-                <span className="api-log-time">{log.at}</span>
-                <span className="api-log-text">{log.text}</span>
-              </article>
-            ))}
+        <section className="api-panel" aria-label="Cache file details">
+          <h2>Cache Files</h2>
+          <p className="api-panel-subtitle">Cache filenames and total on-disk footprint.</p>
+          <div className="api-status-grid">
+            <article className="api-status-card"><h3>State cache filename</h3><p>{summary.stateCacheFileName}</p></article>
+            <article className="api-status-card"><h3>Unit catalog filename</h3><p>{summary.unitCatalogFileName}</p></article>
+            <article className="api-status-card"><h3>State cache file</h3><p>{summary.stateCacheFileSize}</p></article>
+            <article className="api-status-card"><h3>Unit catalog file</h3><p>{summary.unitCatalogFileSize}</p></article>
+            <article className="api-status-card"><h3>Total cache size</h3><p>{summary.totalCacheSize}</p></article>
           </div>
         </section>
 
-        <section className="api-log-card" aria-label="Overlay cache trend chart">
-          <h2>Cache Trend (36h)</h2>
-          <p className="api-log-empty">
-            {series?.points?.length
-              ? 'Formations, Consists, Units from persisted cache snapshots.'
-              : 'No persisted snapshot series yet — showing live polled values captured in this page session.'}
-          </p>
-          {!chart && <p className="api-log-empty">Not enough history yet to render graph. Showing available points as text:</p>}
-          {chart && (
-            <div className="api-chart-wrap">
-              <svg viewBox={`0 0 ${chart.width} ${chart.height}`} className="api-chart" role="img" aria-label="Overlay cache trend chart">
-                {chart.yTicks.map((tick) => (
-                  <g key={`tick-${tick}`}>
-                    <line x1={chart.pad.l} x2={chart.width - chart.pad.r} y1={chart.yPos(tick)} y2={chart.yPos(tick)} className="api-chart-grid" />
-                    <text x={chart.pad.l - 8} y={chart.yPos(tick) + 4} className="api-chart-axis-label">{tick}</text>
-                  </g>
-                ))}
-                <path d={chart.pathFormations} className="api-chart-line api-chart-line--formations" />
-                <path d={chart.pathConsists} className="api-chart-line api-chart-line--consists" />
-                <path d={chart.pathUnits} className="api-chart-line api-chart-line--units" />
-                <text x={chart.pad.l} y={chart.height - 8} className="api-chart-axis-label">{chart.xLeftLabel}</text>
-                <text x={chart.width - chart.pad.r} y={chart.height - 8} textAnchor="end" className="api-chart-axis-label">{chart.xRightLabel}</text>
-              </svg>
-              <div className="api-chart-legend">
-                <span><i className="api-dot api-dot--formations" /> Formations</span>
-                <span><i className="api-dot api-dot--consists" /> Consists</span>
-                <span><i className="api-dot api-dot--units" /> Units</span>
-              </div>
-            </div>
-          )}
-          <div className="api-series-text">
-            {displayPoints.length === 0 ? (
-              <p className="api-log-empty">No persisted points available yet.</p>
-            ) : (
-              displayPoints
-                .slice(-12)
-                .reverse()
-                .map((p) => (
-                  <article key={p.savedAt} className="api-series-text-item">
-                    <span className="api-series-time">
-                      {new Date(p.savedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span className="api-series-values">
-                      F {formatNum(p.formations)} · C {formatNum(p.consists)} · U {formatNum(p.units)}
-                    </span>
-                  </article>
-                ))
-            )}
-          </div>
-        </section>
-
-        <section className="api-log-card" aria-label="Overlay history text values">
-          <h2>Overlay History (text)</h2>
-          <p className="api-log-empty">
-            {series?.points?.length
-              ? 'Cached snapshot values from the API history store (latest first).'
-              : 'Live values captured during this session (latest first).'}
-          </p>
-          <div className="api-overlay-history-list">
-            {displayPoints.length === 0 ? (
-              <p className="api-log-empty">No overlay history points available yet.</p>
-            ) : (
-              displayPoints
-                .slice()
-                .reverse()
-                .slice(0, 60)
-                .map((p, idx) => (
-                  <article key={`${p.savedAt}-${idx}`} className="api-overlay-history-item">
-                    <span className="api-overlay-history-time">{displayDateTime(p.savedAt)}</span>
-                    <span className="api-overlay-history-value">F {formatNum(p.formations)}</span>
-                    <span className="api-overlay-history-value">C {formatNum(p.consists)}</span>
-                    <span className="api-overlay-history-value">U {formatNum(p.units)}</span>
-                  </article>
-                ))
-            )}
-          </div>
-        </section>
-
-        <section className="api-log-card" aria-label="Available historical data">
+        <section className="api-panel" aria-label="Available historical data">
           <h2>Available Data</h2>
-          <p className="api-log-empty">
+          <p className="api-panel-subtitle">
             {available
               ? `${available.count} date(s) · retention ${available.retentionDays} days`
               : 'Loading available history dates...'}
           </p>
+          <div className="api-status-grid">
+            <article className="api-status-card"><h3>Total snapshots</h3><p>{formatNum(historyTotals.snapshots)}</p></article>
+            <article className="api-status-card"><h3>Dates with state</h3><p>{formatNum(historyTotals.withState)}</p></article>
+            <article className="api-status-card"><h3>Dates with timetable</h3><p>{formatNum(historyTotals.withTimetable)}</p></article>
+            <article className="api-status-card"><h3>History dates listed</h3><p>{formatNum(available?.count)}</p></article>
+          </div>
           <div className="api-available-list">
             {(available?.dates || []).slice(0, 10).map((d) => (
               <article key={d.date} className="api-available-item">

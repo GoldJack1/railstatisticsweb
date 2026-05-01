@@ -42,6 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import dotenv from 'dotenv';
 import { Kafka, logLevel } from 'kafkajs';
 import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
@@ -66,6 +67,9 @@ const cfg = {
   initialReplay:   Number(process.env.INITIAL_REPLAY_MIN || 1080),
   heartbeat:       Number(process.env.HEARTBEAT_SEC || 60),
   departuresCacheMs: Number(process.env.DEPARTURES_CACHE_MS || 3000),
+  // Historical ?date=&at= responses are expensive (gzip + full JSON). Keep
+  // the assembled snapshot longer than live boards (still seconds-level for live).
+  departuresHistCacheMs: Math.max(0, Number(process.env.DEPARTURES_HIST_CACHE_MS || 120_000)),
   internalApiKeys: (() => {
     const list = (process.env.INTERNAL_API_KEYS || '')
       .split(',')
@@ -78,8 +82,18 @@ const cfg = {
   autoFetchFiles:  !['0', 'false', 'no'].includes(String(process.env.DARWIN_AUTO_FETCH_FILES || 'true').toLowerCase()),
   autoFetchTime:   process.env.DARWIN_AUTO_FETCH_TIME || '04:05',
   rawArchiveEnabled: !['0', 'false', 'no'].includes(String(process.env.RAW_ARCHIVE_ENABLED || 'true').toLowerCase()),
+  rawArchiveCompress: !['0', 'false', 'no'].includes(String(process.env.RAW_ARCHIVE_COMPRESS || 'true').toLowerCase()),
   rawArchiveDir: process.env.RAW_ARCHIVE_DIR || resolve(__dirname, 'state/raw-feed'),
   rawArchiveRetentionDays: Math.max(1, Number(process.env.RAW_ARCHIVE_RETENTION_DAYS || 30)),
+  // Background day-by-day historical warmup. After the API is "live_ready",
+  // the daemon walks the most recent N days of state/history/<date>/ to prime
+  // historical timetable, snapshot-list and context caches without blocking
+  // live request handling. Guardrails skip a date if RSS or event-loop lag
+  // breach the configured ceilings.
+  warmupEnabled: !['0', 'false', 'no'].includes(String(process.env.WARMUP_ENABLED || 'true').toLowerCase()),
+  warmupDays: Math.max(0, Number(process.env.WARMUP_DAYS || 7)),
+  warmupMaxRssMb: Math.max(0, Number(process.env.WARMUP_MAX_RSS_MB || 4500)),
+  warmupLagMs: Math.max(0, Number(process.env.WARMUP_LAG_MS || 200)),
 };
 
 // PTAC (S506) feed config — separate creds and consumer group from Darwin.
@@ -507,7 +521,7 @@ const alertsByRid = new Map();        // rid -> Array<{ id, type, audience, text
 const consistByRid = new Map();       // rid -> { allocations: [...], parsedAt, ptacCompany, sourceCore }
 // Unit-tracking index: which RIDs has this physical unit worked today, in
 // chronological order. Useful for the "follow this unit" page.
-const unitsById    = new Map();       // unitId -> { fleetId, vehicles, lastSeenRid, services: [{rid, start, end, headcode}], updatedAt }
+const unitsById    = new Map();       // unitId -> { fleetId, vehicles, lastSeenRid, services, endOfDayMileageByDate, lastEndOfDayMiles, updatedAt }
 // Stash messages we couldn't immediately match — they may match after the
 // next timetable reload (overnight services published before midnight).
 // Keyed by the join tuple; value is the parsed message. Bounded to avoid
@@ -541,14 +555,45 @@ const PROTECT_RICHER_STATE = !['0', 'false', 'no'].includes(String(process.env.P
 const STATE_SNAPSHOT_COUNT = Math.max(0, Number(process.env.STATE_SNAPSHOT_COUNT || 24));
 const STATE_HISTORY_RETENTION_DAYS = Math.max(1, Number(process.env.STATE_HISTORY_RETENTION_DAYS || 90));
 const STATE_HISTORY_PRUNE_ON_PERSIST = !['0', 'false', 'no'].includes(String(process.env.STATE_HISTORY_PRUNE_ON_PERSIST || 'true').toLowerCase());
+const STATE_HISTORY_COMPRESS_SNAPSHOTS = !['0', 'false', 'no'].includes(String(process.env.STATE_HISTORY_COMPRESS_SNAPSHOTS || 'true').toLowerCase());
+const STATE_HISTORY_GZIP_LEVEL = Math.max(1, Math.min(9, Number(process.env.STATE_HISTORY_GZIP_LEVEL || 6)));
 let lastPersistAt = null;
 let lastUnitCatalogPersistAt = null;
 const unitCatalogById = new Map(); // unitId -> cumulative unit record across days
 const historicalContextCache = new Map(); // date -> { loadedAtMs, byRid, overlays }
 const historicalTimetableCache = new Map(); // date -> { loadedAtMs, byRid, byTiploc }
+const historicalStateFileCache = new Map(); // path -> { loadedAtMs, raw }
+const historySnapshotListCache = new Map(); // ymd -> { loadedAtMs, list }
+const snapshotIndexCache = new Map();       // ymd -> { loadedAtMs, list }
 const rawArchivePrunedYmd = new Set();
-const HIST_TIMETABLE_CACHE_TTL_MS = Number(process.env.HIST_TIMETABLE_CACHE_TTL_MS || 10 * 60_000);
-const HIST_TIMETABLE_CACHE_MAX = Math.max(1, Number(process.env.HIST_TIMETABLE_CACHE_MAX || 4));
+
+// ---------- daemon lifecycle mode + warmup tracking ----------------------
+// Surfaced in /api/health so callers can tell whether long-lived caches have
+// finished warming. Order of transitions:
+//   cold_starting -> live_ready -> warming_history -> fully_warm
+// The mode never goes backwards once advanced; if the warmup fails we still
+// land in fully_warm and surface the error in warmupState.errors.
+let daemonMode = 'cold_starting';
+const warmupState = {
+  enabled: !['0', 'false', 'no'].includes(String(process.env.WARMUP_ENABLED || 'true').toLowerCase()),
+  days: Math.max(0, Number(process.env.WARMUP_DAYS || 7)),
+  startedAt: null,
+  finishedAt: null,
+  current: null,
+  done: [],
+  skipped: [],
+  errors: [],
+};
+// Historical timetable XML parsing is ~20–30s per date on the VM — keep parsed
+// indexes hot for a full railway day so browsing ?date=&at= stays responsive
+// after idle gaps. (Still bounded by HIST_TIMETABLE_CACHE_MAX.)
+const HIST_TIMETABLE_CACHE_TTL_MS = Number(process.env.HIST_TIMETABLE_CACHE_TTL_MS || 24 * 60 * 60_000);
+const HIST_TIMETABLE_CACHE_MAX = Math.max(1, Number(process.env.HIST_TIMETABLE_CACHE_MAX || 14));
+const HIST_CONTEXT_CACHE_TTL_MS = Number(process.env.HIST_CONTEXT_CACHE_TTL_MS || 30 * 60_000);
+const HIST_CONTEXT_CACHE_MAX = Math.max(1, Number(process.env.HIST_CONTEXT_CACHE_MAX || 48));
+const HIST_STATE_FILE_CACHE_TTL_MS = Number(process.env.HIST_STATE_FILE_CACHE_TTL_MS || 60 * 60_000);
+const HIST_STATE_FILE_CACHE_MAX = Math.max(1, Number(process.env.HIST_STATE_FILE_CACHE_MAX || 32));
+const HIST_SNAPSHOT_LIST_CACHE_TTL_MS = Number(process.env.HIST_SNAPSHOT_LIST_CACHE_TTL_MS || 60_000);
 
 function isIsoDate(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
@@ -611,13 +656,14 @@ function archiveRawFeed(feed, rawBuf) {
     const hh = String(now.getUTCHours()).padStart(2, '0');
     const dayDir = resolve(cfg.rawArchiveDir, ymd);
     if (!existsSync(dayDir)) mkdirSync(dayDir, { recursive: true });
-    const out = resolve(dayDir, `${feed}-${hh}.ndjson`);
+    const out = resolve(dayDir, `${feed}-${hh}.ndjson${cfg.rawArchiveCompress ? '.gz' : ''}`);
     const line = JSON.stringify({
       ts: now.toISOString(),
       feed,
       payload: rawBuf.toString('utf8'),
     }) + '\n';
-    appendFileSync(out, line);
+    if (cfg.rawArchiveCompress) appendFileSync(out, gzipSync(line));
+    else appendFileSync(out, line);
     if (!rawArchivePrunedYmd.has(ymd)) {
       pruneRawArchiveByRetention();
       rawArchivePrunedYmd.add(ymd);
@@ -709,6 +755,15 @@ function parseAtToMinutes(at) {
   return h * 60 + mm;
 }
 
+function normalizeCancellationInfo(info) {
+  if (!info) return null;
+  const reason = String(info.reason || '').trim().toLowerCase();
+  // Darwin occasionally emits generic "schedule deactivated" cancellations
+  // that are not useful for passenger-facing history views.
+  if (reason.includes('schedule deactivated')) return null;
+  return info;
+}
+
 function pruneHistoricalTimetableCache() {
   const now = Date.now();
   for (const [k, v] of historicalTimetableCache.entries()) {
@@ -722,6 +777,11 @@ function pruneHistoricalTimetableCache() {
 }
 
 function getHistoricalTimetable(ymdDashed) {
+  // Same-day lookups should reuse already-loaded live timetable indexes to
+  // avoid expensive synchronous reparsing on request path.
+  if (ymdDashed === loadedDate && byRid && byTiploc) {
+    return { loadedAtMs: Date.now(), byRid, byTiploc };
+  }
   const cached = historicalTimetableCache.get(ymdDashed);
   const now = Date.now();
   if (cached && now - (cached.loadedAtMs || 0) <= HIST_TIMETABLE_CACHE_TTL_MS) return cached;
@@ -734,12 +794,20 @@ function getHistoricalTimetable(ymdDashed) {
   return entry;
 }
 
-function listHistorySnapshotsForDate(ymdDashed) {
-  if (!isIsoDate(ymdDashed)) return [];
+// state/history/<date>/snapshot-index.json. Stores a pre-computed sorted list
+// of [{ file, ms }] for every snapshot we've persisted on that day. Building
+// it once turns the per-request `readdirSync` + filename regex parsing into a
+// single fs.read + JSON.parse, which is materially faster on cold dates after
+// 24h of accumulated snapshots (~720 files at PERSIST_INTERVAL_SEC=120s).
+function snapshotIndexFile(ymdDashed) {
+  return resolve(STATE_HISTORY_DIR, ymdDashed, 'snapshot-index.json');
+}
+
+function snapshotsFromReaddir(ymdDashed) {
   const dayDir = resolve(STATE_HISTORY_DIR, ymdDashed);
   let files = [];
   try { files = readdirSync(dayDir); } catch { return []; }
-  const re = /^daemon-cache\.(.+)\.json$/;
+  const re = /^daemon-cache\.(.+)\.json(?:\.gz)?$/;
   return files
     .filter((f) => re.test(f) && f !== 'daemon-cache.latest.json')
     .map((f) => {
@@ -750,7 +818,114 @@ function listHistorySnapshotsForDate(ymdDashed) {
       const t = iso ? Date.parse(iso) : NaN;
       return { file: f, path: resolve(dayDir, f), savedAt: Number.isFinite(t) ? new Date(t).toISOString() : null, ms: Number.isFinite(t) ? t : -1 };
     })
+    .filter((e) => e.ms >= 0)
     .sort((a, b) => a.ms - b.ms);
+}
+
+function buildSnapshotIndexForDate(ymdDashed) {
+  if (!isIsoDate(ymdDashed)) return [];
+  const dayDir = resolve(STATE_HISTORY_DIR, ymdDashed);
+  if (!existsSync(dayDir)) return [];
+  const list = snapshotsFromReaddir(ymdDashed);
+  try {
+    const indexPath = snapshotIndexFile(ymdDashed);
+    const tmp = indexPath + '.tmp';
+    const payload = {
+      builtAt: new Date().toISOString(),
+      date: ymdDashed,
+      list: list.map((e) => ({ file: e.file, ms: e.ms, savedAt: e.savedAt })),
+    };
+    writeFileSync(tmp, JSON.stringify(payload));
+    renameSync(tmp, indexPath);
+  } catch (e) {
+    // Best-effort — failures here just mean we'll rebuild next request.
+  }
+  snapshotIndexCache.set(ymdDashed, { loadedAtMs: Date.now(), list });
+  historySnapshotListCache.set(ymdDashed, { loadedAtMs: Date.now(), list });
+  return list;
+}
+
+function readSnapshotIndexForDate(ymdDashed) {
+  const cached = snapshotIndexCache.get(ymdDashed);
+  if (cached && Date.now() - (cached.loadedAtMs || 0) <= HIST_SNAPSHOT_LIST_CACHE_TTL_MS) return cached.list;
+  const indexPath = snapshotIndexFile(ymdDashed);
+  if (!existsSync(indexPath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const dayDir = resolve(STATE_HISTORY_DIR, ymdDashed);
+    const list = (parsed.list || [])
+      .filter((e) => e && Number.isFinite(e.ms))
+      .map((e) => ({ file: e.file, ms: e.ms, savedAt: e.savedAt || null, path: resolve(dayDir, e.file) }))
+      .sort((a, b) => a.ms - b.ms);
+    snapshotIndexCache.set(ymdDashed, { loadedAtMs: Date.now(), list });
+    return list;
+  } catch {
+    return null;
+  }
+}
+
+// Binary search — return the latest snapshot whose ms <= cutoffMs, or null.
+function findSnapshotAtOrBefore(list, cutoffMs) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  let lo = 0, hi = list.length - 1, best = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const entry = list[mid];
+    if (entry.ms <= cutoffMs) { best = entry; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return best;
+}
+
+function listHistorySnapshotsForDate(ymdDashed) {
+  if (!isIsoDate(ymdDashed)) return [];
+  const now = Date.now();
+  const cached = historySnapshotListCache.get(ymdDashed);
+  if (cached && now - (cached.loadedAtMs || 0) <= HIST_SNAPSHOT_LIST_CACHE_TTL_MS) return cached.list;
+  // Phase 4: prefer the disk-backed snapshot-index.json. It's much cheaper
+  // than scanning the directory on dates with hundreds of snapshot files.
+  const indexed = readSnapshotIndexForDate(ymdDashed);
+  if (indexed) {
+    historySnapshotListCache.set(ymdDashed, { loadedAtMs: now, list: indexed });
+    return indexed;
+  }
+  // Fallback for dates that haven't been indexed yet — compute by readdir
+  // and build the index file so subsequent requests are fast.
+  const list = snapshotsFromReaddir(ymdDashed);
+  historySnapshotListCache.set(ymdDashed, { loadedAtMs: now, list });
+  if (historySnapshotListCache.size > HIST_CONTEXT_CACHE_MAX) {
+    const ordered = [...historySnapshotListCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
+    for (const [k] of ordered.slice(0, historySnapshotListCache.size - HIST_CONTEXT_CACHE_MAX)) historySnapshotListCache.delete(k);
+  }
+  // Persist the index asynchronously so we don't add latency to the current
+  // request. Best-effort.
+  setImmediate(() => {
+    try { buildSnapshotIndexForDate(ymdDashed); } catch {}
+  });
+  return list;
+}
+
+function readJsonMaybeGzip(path) {
+  if (!existsSync(path)) return null;
+  const now = Date.now();
+  const cached = historicalStateFileCache.get(path);
+  if (cached && now - (cached.loadedAtMs || 0) <= HIST_STATE_FILE_CACHE_TTL_MS) return cached.raw;
+  try {
+    let raw;
+    if (path.endsWith('.gz')) {
+      raw = JSON.parse(gunzipSync(readFileSync(path)).toString('utf8'));
+    } else {
+      raw = JSON.parse(readFileSync(path, 'utf8'));
+    }
+    historicalStateFileCache.set(path, { loadedAtMs: now, raw });
+    if (historicalStateFileCache.size > HIST_STATE_FILE_CACHE_MAX) {
+      const ordered = [...historicalStateFileCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
+      for (const [k] of ordered.slice(0, historicalStateFileCache.size - HIST_STATE_FILE_CACHE_MAX)) historicalStateFileCache.delete(k);
+    }
+    return raw;
+  } catch {
+    return null;
+  }
 }
 
 function buildOverlayHistorySeries(hours = 36) {
@@ -767,15 +942,14 @@ function buildOverlayHistorySeries(hours = 36) {
     const snaps = listHistorySnapshotsForDate(d);
     for (const s of snaps) {
       if (!s.path || !Number.isFinite(s.ms) || s.ms < cutoffMs) continue;
-      try {
-        const raw = JSON.parse(readFileSync(s.path, 'utf8'));
-        points.push({
-          savedAt: raw.savedAt || (s.savedAt || null),
-          formations: Array.isArray(raw.formations) ? raw.formations.length : 0,
-          consists: Array.isArray(raw.consistByRid) ? raw.consistByRid.length : 0,
-          units: Array.isArray(raw.unitsById) ? raw.unitsById.length : 0,
-        });
-      } catch {}
+      const raw = readJsonMaybeGzip(s.path);
+      if (!raw) continue;
+      points.push({
+        savedAt: raw.savedAt || (s.savedAt || null),
+        formations: Array.isArray(raw.formations) ? raw.formations.length : 0,
+        consists: Array.isArray(raw.consistByRid) ? raw.consistByRid.length : 0,
+        units: Array.isArray(raw.unitsById) ? raw.unitsById.length : 0,
+      });
     }
   }
 
@@ -806,12 +980,17 @@ function mergeUnitIntoCatalog(unitEntry) {
   if (!unitEntry?.unitId) return;
   const nowIso = new Date().toISOString();
   const existing = unitCatalogById.get(unitEntry.unitId);
+  const incomingMileageByDate = unitEntry.endOfDayMileageByDate && typeof unitEntry.endOfDayMileageByDate === 'object'
+    ? unitEntry.endOfDayMileageByDate
+    : {};
   if (!existing) {
     unitCatalogById.set(unitEntry.unitId, {
       unitId: unitEntry.unitId,
       fleetId: unitEntry.fleetId || null,
       vehicles: unitEntry.vehicles || [],
       services: unitEntry.services || [],
+      endOfDayMileageByDate: incomingMileageByDate,
+      lastEndOfDayMiles: unitEntry.lastEndOfDayMiles ?? null,
       firstSeenAt: unitEntry.updatedAt || nowIso,
       lastSeenAt: unitEntry.updatedAt || nowIso,
       updatedAt: unitEntry.updatedAt || nowIso,
@@ -830,6 +1009,11 @@ function mergeUnitIntoCatalog(unitEntry) {
     seen.add(key);
   }
   existing.services.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  existing.endOfDayMileageByDate = {
+    ...((existing.endOfDayMileageByDate && typeof existing.endOfDayMileageByDate === 'object') ? existing.endOfDayMileageByDate : {}),
+    ...incomingMileageByDate,
+  };
+  if (unitEntry.lastEndOfDayMiles != null) existing.lastEndOfDayMiles = unitEntry.lastEndOfDayMiles;
   existing.lastSeenAt = unitEntry.updatedAt || nowIso;
   existing.updatedAt = unitEntry.updatedAt || nowIso;
 }
@@ -861,20 +1045,21 @@ function loadPersistedStateForDate(ymdDashed, at = null) {
   if (at && atMin != null) {
     const snaps = listHistorySnapshotsForDate(ymdDashed);
     const cutoff = Date.parse(`${ymdDashed}T${String(Math.floor(atMin / 60)).padStart(2, '0')}:${String(atMin % 60).padStart(2, '0')}:59Z`);
-    const pick = [...snaps].reverse().find((s) => s.ms >= 0 && s.ms <= cutoff) || snaps[snaps.length - 1];
+    // Phase 4: binary search the sorted-by-ms list instead of linear scan.
+    // Falls through to the latest snapshot if no snapshot is older than the
+    // requested cutoff (preserves previous behaviour).
+    const pick = findSnapshotAtOrBefore(snaps, cutoff) || snaps[snaps.length - 1];
     if (pick) candidates.push(pick.path);
   }
   candidates.push(
     historyFileForDate(ymdDashed),
     resolve(STATE_DIR, `daemon-cache.${ymdDashed}.json`),
+    resolve(STATE_DIR, `daemon-cache.${ymdDashed}.json.gz`),
   );
   if (ymdDashed === loadedDate) candidates.unshift(STATE_FILE);
   for (const p of candidates) {
-    if (!existsSync(p)) continue;
-    try {
-      const raw = JSON.parse(readFileSync(p, 'utf8'));
-      return raw;
-    } catch {}
+    const raw = readJsonMaybeGzip(p);
+    if (raw) return raw;
   }
   return null;
 }
@@ -883,7 +1068,7 @@ function getHistoricalContext(ymdDashed, at = null) {
   if (!isIsoDate(ymdDashed)) return null;
   const cacheKey = `${ymdDashed}|${at || ''}`;
   const cached = historicalContextCache.get(cacheKey);
-  if (cached && Date.now() - cached.loadedAtMs < 60_000) return cached;
+  if (cached && Date.now() - cached.loadedAtMs <= HIST_CONTEXT_CACHE_TTL_MS) return cached;
 
   const histTimetable = getHistoricalTimetable(ymdDashed);
   if (!histTimetable) return null;
@@ -915,6 +1100,10 @@ function getHistoricalContext(ymdDashed, at = null) {
     stateSavedAt: state.savedAt || null,
   };
   historicalContextCache.set(cacheKey, ctx);
+  if (historicalContextCache.size > HIST_CONTEXT_CACHE_MAX) {
+    const ordered = [...historicalContextCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
+    for (const [k] of ordered.slice(0, historicalContextCache.size - HIST_CONTEXT_CACHE_MAX)) historicalContextCache.delete(k);
+  }
   return ctx;
 }
 
@@ -940,55 +1129,179 @@ function getTimetableOnlyContext(ymdDashed, at = null) {
   };
 }
 
-function loadPersistedState() {
+// Read the persisted state file once and apply the freshness check that the
+// "discard stale-day" mode wants. Returns the parsed payload or null. We split
+// state restore into a fast "live subset" pass (so the API can answer real
+// requests within a few seconds of restart) and a "rest" pass run in the
+// background. Both passes use the payload returned here, so the file is read
+// at most once per restart.
+function readPersistedStateRawIfFresh() {
   if (!existsSync(STATE_FILE)) {
     console.log(`[daemon] no persisted state at ${STATE_FILE} — starting fresh.`);
-    return;
+    return null;
   }
   try {
     const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
-    // By default we keep caches across days to preserve formation/PTAC state.
-    // Set KEEP_STATE_ACROSS_DAYS=false to restore strict day-boundary discard.
     if (!KEEP_STATE_ACROSS_DAYS && raw.savedDate && raw.savedDate !== railwayDayYmd(new Date())) {
       console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${railwayDayYmd(new Date())} — discarding.`);
-      return;
+      return null;
     }
-    if (raw.formations)        for (const [k, v] of raw.formations)        formationsByRid.set(k, v);
-    if (raw.liveOverlayByRid)  restoreLiveOverlayEntries(raw.liveOverlayByRid);
-    if (raw.cancelled)         for (const [k, v] of raw.cancelled)         cancelled.set(k, v);
-    if (raw.delayReason)       for (const [k, v] of raw.delayReason)       delayReason.set(k, v);
-    if (raw.messagesById) {
-      let dropped = 0;
-      for (const [k, v] of raw.messagesById) {
-        // Old cache entries may have lost link text from their plainMessage
-        // (the previous flattener didn't walk into nested anchor objects).
-        // Tidy up dangling ",.", ",," that came from that bug so the UI
-        // doesn't render "can be found in ,." until Darwin re-broadcasts.
-        if (v?.plainMessage)
-          v.plainMessage = v.plainMessage.replace(/\s*[,;]+\s*\.?\s*$/, '.').replace(/\s+/g, ' ').trim();
-        // Drop entries with no usable text — they were broken by the old
-        // flattener and will be re-populated correctly when NRCC re-issues.
-        if (!v?.plainMessage || v.plainMessage.length < 3) { dropped++; continue; }
-        messagesById.set(k, v);
-      }
-      if (dropped) console.log(`[daemon] dropped ${dropped} empty/broken cached messages from previous flattener.`);
-    }
-    if (raw.stationMessages)   for (const [k, v] of raw.stationMessages)   stationMessages.set(k, new Set(v));
-    if (raw.associations)      for (const [k, v] of raw.associations)      associationsByRid.set(k, v);
-    if (raw.alerts)            for (const [k, v] of raw.alerts)            alertsByRid.set(k, v);
-    if (raw.reverseFormation)  for (const r of raw.reverseFormation)       reverseFormation.add(r);
-    if (raw.consistByRid) for (const [k, v] of raw.consistByRid) consistByRid.set(k, v);
-    if (raw.unitsById)    for (const [k, v] of raw.unitsById)    unitsById.set(k, v);
-    if (raw.unmatchedConsists) for (const [k, v] of raw.unmatchedConsists) unmatchedConsists.set(k, v);
-    console.log(
-      `[daemon] restored persisted state: ${formationsByRid.size} formations, `
-      + `${consistByRid.size} consists, ${unitsById.size} units, `
-      + `${messagesById.size} messages, ${associationsByRid.size} associations, `
-      + `${alertsByRid.size} alerted services, ${reverseFormation.size} reverse formations.`
-    );
+    return raw;
   } catch (e) {
     console.warn(`[daemon] failed to load persisted state: ${e.message}`);
+    return null;
   }
+}
+
+// Restore only the small, high-value caches that affect /api/departures and
+// /api/service immediately on boot — predicted/actual times, cancellations
+// and delay reasons. Cheap (a few MB) and fast to apply.
+function applyPersistedStateLive(raw) {
+  if (!raw) return;
+  if (raw.liveOverlayByRid)  restoreLiveOverlayEntries(raw.liveOverlayByRid);
+  if (raw.cancelled)         for (const [k, v] of raw.cancelled)         cancelled.set(k, v);
+  if (raw.delayReason)       for (const [k, v] of raw.delayReason)       delayReason.set(k, v);
+}
+
+// Restore the larger long-lived caches (formations, NRCC messages, PTAC
+// consists & unit index, associations, alerts). These take longer to walk
+// because the per-RID payloads are richer — we run this *after* server.listen
+// returns, so the socket is already accepting requests.
+function applyPersistedStateRest(raw) {
+  if (!raw) return;
+  if (raw.formations)        for (const [k, v] of raw.formations)        formationsByRid.set(k, v);
+  if (raw.messagesById) {
+    let dropped = 0;
+    for (const [k, v] of raw.messagesById) {
+      // Old cache entries may have lost link text from their plainMessage
+      // (the previous flattener didn't walk into nested anchor objects).
+      // Tidy up dangling ",.", ",," that came from that bug so the UI
+      // doesn't render "can be found in ,." until Darwin re-broadcasts.
+      if (v?.plainMessage)
+        v.plainMessage = v.plainMessage.replace(/\s*[,;]+\s*\.?\s*$/, '.').replace(/\s+/g, ' ').trim();
+      // Drop entries with no usable text — they were broken by the old
+      // flattener and will be re-populated correctly when NRCC re-issues.
+      if (!v?.plainMessage || v.plainMessage.length < 3) { dropped++; continue; }
+      messagesById.set(k, v);
+    }
+    if (dropped) console.log(`[daemon] dropped ${dropped} empty/broken cached messages from previous flattener.`);
+  }
+  if (raw.stationMessages)   for (const [k, v] of raw.stationMessages)   stationMessages.set(k, new Set(v));
+  if (raw.associations)      for (const [k, v] of raw.associations)      associationsByRid.set(k, v);
+  if (raw.alerts)            for (const [k, v] of raw.alerts)            alertsByRid.set(k, v);
+  if (raw.reverseFormation)  for (const r of raw.reverseFormation)       reverseFormation.add(r);
+  if (raw.consistByRid) for (const [k, v] of raw.consistByRid) consistByRid.set(k, v);
+  if (raw.unitsById)    for (const [k, v] of raw.unitsById)    unitsById.set(k, v);
+  if (raw.unmatchedConsists) for (const [k, v] of raw.unmatchedConsists) unmatchedConsists.set(k, v);
+  console.log(
+    `[daemon] restored persisted state: ${formationsByRid.size} formations, `
+    + `${consistByRid.size} consists, ${unitsById.size} units, `
+    + `${messagesById.size} messages, ${associationsByRid.size} associations, `
+    + `${alertsByRid.size} alerted services, ${reverseFormation.size} reverse formations.`
+  );
+}
+
+function loadPersistedState() {
+  const raw = readPersistedStateRawIfFresh();
+  if (!raw) return;
+  applyPersistedStateLive(raw);
+  applyPersistedStateRest(raw);
+}
+
+// ---------- Phase 3: background day-by-day historical warmup ----------------
+// After /api/health is "live_ready" we walk the most recent N days of
+// state/history/<date>/ from newest to oldest. For each date we prime:
+//   - historicalTimetableCache (parsed timetable index)
+//   - historySnapshotListCache (per-day snapshot list)
+//   - historicalContextCache (final composed context for the latest snapshot)
+//   - state/history/<date>/snapshot-index.json (Phase 4 disk index)
+// We yield between dates and skip ahead if RSS or event-loop lag breach the
+// configured ceilings. Progress is written to state/warmup-progress.json.
+
+function sleepMs(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function measureLoopLag() {
+  return new Promise((resolve) => {
+    const t = Date.now();
+    setImmediate(() => resolve(Date.now() - t));
+  });
+}
+
+async function shouldSkipWarmupForGuardrails() {
+  const rssMb = process.memoryUsage().rss / 1024 / 1024;
+  if (cfg.warmupMaxRssMb > 0 && rssMb >= cfg.warmupMaxRssMb) {
+    return { skip: true, reason: `rss=${rssMb.toFixed(0)}MB >= cap ${cfg.warmupMaxRssMb}MB` };
+  }
+  const lagMs = await measureLoopLag();
+  if (cfg.warmupLagMs > 0 && lagMs >= cfg.warmupLagMs) {
+    return { skip: true, reason: `loop-lag=${lagMs}ms >= cap ${cfg.warmupLagMs}ms` };
+  }
+  return { skip: false };
+}
+
+function persistWarmupProgress() {
+  try {
+    if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
+    const file = resolve(STATE_DIR, 'warmup-progress.json');
+    const tmp = file + '.tmp';
+    writeFileSync(tmp, JSON.stringify({ ...warmupState, mode: daemonMode, persistedAt: new Date().toISOString() }));
+    renameSync(tmp, file);
+  } catch {}
+}
+
+async function runHistoricalWarmup() {
+  if (!cfg.warmupEnabled || cfg.warmupDays === 0) {
+    daemonMode = 'fully_warm';
+    return;
+  }
+  daemonMode = 'warming_history';
+  warmupState.startedAt = new Date().toISOString();
+  warmupState.done = [];
+  warmupState.skipped = [];
+  warmupState.errors = [];
+  persistWarmupProgress();
+
+  // availableHistoryDates() is sorted newest-first.
+  const dates = availableHistoryDates().filter((d) => d !== loadedDate).slice(0, cfg.warmupDays);
+  console.log(`[warmup] starting day-by-day historical warmup for ${dates.length} dates: ${dates.join(', ') || '(none)'}`);
+
+  for (const ymd of dates) {
+    const guard = await shouldSkipWarmupForGuardrails();
+    if (guard.skip) {
+      warmupState.skipped.push({ date: ymd, reason: guard.reason });
+      console.log(`[warmup] skip ${ymd}: ${guard.reason}`);
+      persistWarmupProgress();
+      // Wait before checking the next date so the system has a chance to
+      // recover (GC, message-loop drain) before we try again.
+      await sleepMs(2000);
+      continue;
+    }
+    warmupState.current = ymd;
+    persistWarmupProgress();
+    const t0 = Date.now();
+    try {
+      // Prime caches by calling the same code paths that historical requests
+      // hit. None of these throw on missing data — they just return null.
+      getHistoricalTimetable(ymd);
+      const snaps = listHistorySnapshotsForDate(ymd);
+      buildSnapshotIndexForDate(ymd);
+      getHistoricalContext(ymd);
+      warmupState.done.push({ date: ymd, snapshots: snaps.length, ms: Date.now() - t0 });
+      console.log(`[warmup] primed ${ymd} in ${Date.now() - t0}ms (${snaps.length} snapshots indexed)`);
+    } catch (e) {
+      warmupState.errors.push({ date: ymd, error: e.message });
+      console.warn(`[warmup] failed ${ymd}: ${e.message}`);
+    }
+    persistWarmupProgress();
+    // Yield generously between dates to keep the API responsive.
+    await sleepMs(250);
+  }
+
+  warmupState.current = null;
+  warmupState.finishedAt = new Date().toISOString();
+  daemonMode = 'fully_warm';
+  persistWarmupProgress();
+  console.log(`[warmup] complete: done=${warmupState.done.length} skipped=${warmupState.skipped.length} errors=${warmupState.errors.length}`);
 }
 
 function persistState() {
@@ -1040,9 +1353,18 @@ function persistState() {
     writeFileSync(dayLatestTmp, payloadJson);
     renameSync(dayLatestTmp, dayLatest);
     const dayStamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
-    const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json`);
-    try { writeFileSync(daySnap, payloadJson); } catch {}
+    if (STATE_HISTORY_COMPRESS_SNAPSHOTS) {
+      const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json.gz`);
+      try { writeFileSync(daySnap, gzipSync(payloadJson, { level: STATE_HISTORY_GZIP_LEVEL })); } catch {}
+    } else {
+      const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json`);
+      try { writeFileSync(daySnap, payloadJson); } catch {}
+    }
     pruneHistoryDirsByRetention();
+    // Phase 4: keep snapshot-index.json in sync with the new snapshot. Cheap
+    // (one readdir + JSON.stringify) and means historical lookups for today
+    // never have to fall back to the readdir path.
+    try { buildSnapshotIndexForDate(payload.savedDate); } catch {}
     if (STATE_SNAPSHOT_COUNT > 0) {
       const stamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
       const snap = resolve(STATE_DIR, `daemon-cache.${stamp}.json`);
@@ -1333,6 +1655,100 @@ function parseHHMM(s) {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
+function mergeDefects(existing = [], incoming = []) {
+  if (!Array.isArray(existing) || existing.length === 0) return Array.isArray(incoming) ? incoming : [];
+  if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+  const out = [...existing];
+  const seen = new Set(existing.map((d) => `${d?.code || ''}|${d?.description || ''}|${d?.status || ''}|${d?.location || ''}|${d?.maintenanceUid || ''}`));
+  for (const d of incoming) {
+    const key = `${d?.code || ''}|${d?.description || ''}|${d?.status || ''}|${d?.location || ''}|${d?.maintenanceUid || ''}`;
+    if (seen.has(key)) continue;
+    out.push(d);
+    seen.add(key);
+  }
+  return out;
+}
+
+function mergeVehicle(existing, incoming) {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  const merged = { ...existing };
+  for (const [k, v] of Object.entries(incoming)) {
+    if (k === 'defects') continue;
+    if (v !== null && v !== undefined && v !== '') merged[k] = v;
+  }
+  merged.defects = mergeDefects(existing.defects, incoming.defects);
+  return merged;
+}
+
+function mergeResourceGroups(existing = [], incoming = []) {
+  if (!Array.isArray(existing) || existing.length === 0) return Array.isArray(incoming) ? incoming : [];
+  if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+  const out = existing.map((g) => ({ ...(g || {}), vehicles: [...(g?.vehicles || [])] }));
+  const idxByKey = new Map();
+  out.forEach((g, i) => {
+    const key = `${g?.unitId || ''}|${g?.fleetId || ''}|${g?.position ?? ''}|${i}`;
+    idxByKey.set(key, i);
+  });
+  incoming.forEach((ng, ngIdx) => {
+    const key = `${ng?.unitId || ''}|${ng?.fleetId || ''}|${ng?.position ?? ''}|${ngIdx}`;
+    const i = idxByKey.get(key);
+    if (i == null) {
+      out.push({ ...(ng || {}), vehicles: [...(ng?.vehicles || [])] });
+      return;
+    }
+    const base = out[i] || {};
+    const merged = { ...base };
+    for (const [k, v] of Object.entries(ng || {})) {
+      if (k === 'vehicles') continue;
+      if (k === 'endOfDayMiles') {
+        // Only update mileage when new value is present.
+        if (v !== null && v !== undefined && v !== '') merged[k] = v;
+        continue;
+      }
+      if (v !== null && v !== undefined && v !== '') merged[k] = v;
+    }
+    const existingVehicles = Array.isArray(base.vehicles) ? base.vehicles : [];
+    const byVKey = new Map(existingVehicles.map((v, vi) => [`${v?.vehicleId || ''}|${v?.position ?? ''}|${vi}`, mergeVehicle(v, v)]));
+    (ng?.vehicles || []).forEach((nv, vi) => {
+      const vKey = `${nv?.vehicleId || ''}|${nv?.position ?? ''}|${vi}`;
+      const ev = byVKey.get(vKey);
+      byVKey.set(vKey, mergeVehicle(ev, nv));
+    });
+    merged.vehicles = [...byVKey.values()];
+    out[i] = merged;
+  });
+  return out;
+}
+
+function mergeAllocations(existing = [], incoming = []) {
+  if (!Array.isArray(existing) || existing.length === 0) return Array.isArray(incoming) ? incoming : [];
+  if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+  const out = existing.map((a) => ({ ...(a || {}), resourceGroups: [...(a?.resourceGroups || [])] }));
+  const idxByKey = new Map();
+  out.forEach((a, i) => {
+    const key = `${a?.allocationOriginDateTime || a?.trainOriginDateTime || ''}|${a?.allocationDestinationDateTime || a?.trainDestDateTime || ''}|${a?.resourceGroupPosition ?? ''}|${i}`;
+    idxByKey.set(key, i);
+  });
+  incoming.forEach((na, nai) => {
+    const key = `${na?.allocationOriginDateTime || na?.trainOriginDateTime || ''}|${na?.allocationDestinationDateTime || na?.trainDestDateTime || ''}|${na?.resourceGroupPosition ?? ''}|${nai}`;
+    const i = idxByKey.get(key);
+    if (i == null) {
+      out.push({ ...(na || {}), resourceGroups: [...(na?.resourceGroups || [])] });
+      return;
+    }
+    const base = out[i] || {};
+    const merged = { ...base };
+    for (const [k, v] of Object.entries(na || {})) {
+      if (k === 'resourceGroups') continue;
+      if (v !== null && v !== undefined && v !== '') merged[k] = v;
+    }
+    merged.resourceGroups = mergeResourceGroups(base.resourceGroups || [], na.resourceGroups || []);
+    out[i] = merged;
+  });
+  return out;
+}
+
 /**
  * Map a parsed PTAC allocation message to a Darwin RID using the same join
  * rules as live ingestion (exact tuple, then loose + origin-time proximity).
@@ -1410,13 +1826,17 @@ function processConsistMessage(rawXml) {
  * replace" semantics for repeated messages on the same train.
  */
 function applyConsistToRid(rid, parsed) {
+  const nowIso = new Date().toISOString();
+  const mileageDay = parsed.allocations?.[0]?.diagramDate || loadedDate || railwayDayYmd(new Date());
+  const prev = consistByRid.get(rid);
+  const mergedAllocations = mergeAllocations(prev?.allocations || [], parsed.allocations || []);
   consistByRid.set(rid, {
-    parsedAt:     new Date().toISOString(),
-    company:      parsed.company,
-    companyDarwin: parsed.companyDarwin,
-    core:         parsed.core,
-    diagramDate:  parsed.allocations[0]?.diagramDate || null,
-    allocations:  parsed.allocations,
+    parsedAt: nowIso,
+    company: parsed.company || prev?.company || null,
+    companyDarwin: parsed.companyDarwin || prev?.companyDarwin || null,
+    core: parsed.core || prev?.core || null,
+    diagramDate: parsed.allocations?.[0]?.diagramDate || prev?.diagramDate || null,
+    allocations: mergedAllocations,
   });
 
   // Refresh the unit-tracking index. Each unit (ResourceGroupId) gets a
@@ -1428,12 +1848,29 @@ function applyConsistToRid(rid, parsed) {
       seenUnits.add(rg.unitId);
       let entry = unitsById.get(rg.unitId);
       if (!entry) {
-        entry = { unitId: rg.unitId, fleetId: rg.fleetId, vehicles: rg.vehicles, services: [] };
+        entry = {
+          unitId: rg.unitId,
+          fleetId: rg.fleetId,
+          vehicles: rg.vehicles,
+          services: [],
+          endOfDayMileageByDate: {},
+          lastEndOfDayMiles: null,
+        };
         unitsById.set(rg.unitId, entry);
       } else {
-        // Refresh fleet + vehicles in case formation changed mid-day.
+        // Keep cached data and only patch in newly-seen fields/logs/vehicles.
         entry.fleetId = rg.fleetId || entry.fleetId;
-        entry.vehicles = rg.vehicles;
+        entry.vehicles = mergeResourceGroups(
+          [{ vehicles: entry.vehicles || [] }],
+          [{ vehicles: rg.vehicles || [], endOfDayMiles: rg.endOfDayMiles ?? null }]
+        )[0]?.vehicles || entry.vehicles;
+      }
+      if (rg.endOfDayMiles != null) {
+        if (!entry.endOfDayMileageByDate || typeof entry.endOfDayMileageByDate !== 'object') {
+          entry.endOfDayMileageByDate = {};
+        }
+        entry.endOfDayMileageByDate[mileageDay] = rg.endOfDayMiles;
+        entry.lastEndOfDayMiles = rg.endOfDayMiles;
       }
       // Replace any existing service entry for this RID.
       entry.services = entry.services.filter((s) => s.rid !== rid);
@@ -1449,7 +1886,7 @@ function applyConsistToRid(rid, parsed) {
       });
       entry.services.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       entry.lastSeenRid = rid;
-      entry.updatedAt   = new Date().toISOString();
+      entry.updatedAt   = nowIso;
       mergeUnitIntoCatalog(entry);
     }
   }
@@ -1560,13 +1997,13 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
     // whole service is cancelled OR this individual calling point is
     // cancelled (partial cancellation, e.g. service runs A→B but is
     // cancelled B→F — for stops in B→F the train won't appear).
-    const wholeCancel = cancelledMap.get(rid) || null;
+    const wholeCancel = normalizeCancellationInfo(cancelledMap.get(rid) || null);
     const stopCancel  = liveLoc?.cancelled
       ? (liveLoc.cancelReason
           ? { ...liveLoc.cancelReason, source: 'ts-loc', scope: 'stop' }
           : { reason: 'Cancelled at this stop', source: 'ts-loc', scope: 'stop' })
       : null;
-    const cancelInfo  = wholeCancel || stopCancel;
+    const cancelInfo  = normalizeCancellationInfo(wholeCancel || stopCancel);
     const delayInfo   = delayMap.get(rid) || null;
 
     // Calling pattern after this stop (only actual passenger stops, not PPs).
@@ -1694,10 +2131,11 @@ function getCachedSnapshot(cacheKey) {
   return hit.snapshot;
 }
 
-function putCachedSnapshot(cacheKey, snapshot) {
-  if (cfg.departuresCacheMs <= 0) return;
+function putCachedSnapshot(cacheKey, snapshot, ttlMs = null) {
+  const ttl = ttlMs ?? cfg.departuresCacheMs;
+  if (ttl <= 0) return;
   departuresCache.set(cacheKey, {
-    expiresAtMs: Date.now() + cfg.departuresCacheMs,
+    expiresAtMs: Date.now() + ttl,
     snapshot,
   });
 }
@@ -1755,7 +2193,7 @@ function buildServiceDetail(rid, ctx = null) {
   const j = byRidMap.get(rid);
   if (!j) return null;
   const ov = liveOverlay.get(rid);
-  const cancelInfo = cancelledMap.get(rid) || null;
+  const cancelInfo = normalizeCancellationInfo(cancelledMap.get(rid) || null);
   const delayInfo  = delayMap.get(rid) || null;
 
   function resolveStopName(tpl, crs) {
@@ -1933,6 +2371,7 @@ function handleRequest(req, res) {
     const mem = process.memoryUsage();
     sendJson(res, 200, {
       ok: true,
+      mode: daemonMode,
       tiplocsIndexed: byTiploc.size,
       journeysLoaded: byRid.size,
       timetableFile: timetablePath.split('/').pop(),
@@ -1966,11 +2405,35 @@ function handleRequest(req, res) {
         dates: availableHistoryDates().slice(0, 30),
         retentionDays: STATE_HISTORY_RETENTION_DAYS,
         pruneOnPersist: STATE_HISTORY_PRUNE_ON_PERSIST,
+        cacheTuning: {
+          timetableTtlMs: HIST_TIMETABLE_CACHE_TTL_MS,
+          timetableMax: HIST_TIMETABLE_CACHE_MAX,
+          contextTtlMs: HIST_CONTEXT_CACHE_TTL_MS,
+          contextMax: HIST_CONTEXT_CACHE_MAX,
+          stateFileTtlMs: HIST_STATE_FILE_CACHE_TTL_MS,
+          stateFileMax: HIST_STATE_FILE_CACHE_MAX,
+          snapshotListTtlMs: HIST_SNAPSHOT_LIST_CACHE_TTL_MS,
+        },
+      },
+      warmup: {
+        enabled: cfg.warmupEnabled,
+        days: cfg.warmupDays,
+        startedAt: warmupState.startedAt,
+        finishedAt: warmupState.finishedAt,
+        current: warmupState.current,
+        done: warmupState.done.length,
+        skipped: warmupState.skipped.length,
+        errors: warmupState.errors.length,
+        guardrails: { maxRssMb: cfg.warmupMaxRssMb, lagMs: cfg.warmupLagMs },
       },
       rawArchive: {
         enabled: cfg.rawArchiveEnabled,
         dir: cfg.rawArchiveDir,
         retentionDays: cfg.rawArchiveRetentionDays,
+      },
+      departuresCacheMs: {
+        live: cfg.departuresCacheMs,
+        historical: cfg.departuresHistCacheMs,
       },
     }, req);
     return;
@@ -1999,7 +2462,7 @@ function handleRequest(req, res) {
       sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
     }
     const dateComparison = dateParam ? compareIsoDate(dateParam, loadedDate || railwayDayYmd(new Date())) : 0;
-    const isHistorical = !!dateParam && dateComparison < 0;
+    const isHistorical = !!dateParam && (dateComparison < 0 || (dateComparison === 0 && !!atParam));
     const isFutureTimetable = !!dateParam && dateComparison > 0;
     if (isFutureTimetable) {
       const maxFutureDate = addDaysIsoDate(loadedDate || railwayDayYmd(new Date()), 2);
@@ -2034,7 +2497,8 @@ function handleRequest(req, res) {
     snap.stationCrs  = resolved.crs  || snap.stationCrs;
     snap.matchedAs   = resolved.matchedAs;
     if (resolved.alternates) snap.alternates = resolved.alternates;
-    putCachedSnapshot(cacheKey, snap);
+    const histTtl = isHistorical ? cfg.departuresHistCacheMs : cfg.departuresCacheMs;
+    putCachedSnapshot(cacheKey, snap, histTtl);
     sendJson(res, 200, snap, req);
     return;
   }
@@ -2252,6 +2716,7 @@ async function startPtacConsumer() {
 }
 
 async function start() {
+  daemonMode = 'cold_starting';
   if (cfg.autoFetchFiles) {
     await runDailyFileFetch('startup');
   } else {
@@ -2260,17 +2725,21 @@ async function start() {
 
   reloadReferenceData();
 
-  // Restore long-lived caches from the previous run *before* any messages are
-  // processed, so live updates can immediately layer on top of yesterday's
-  // formations / station messages / associations. Stale-day check happens
-  // inside loadPersistedState().
-  loadPersistedState();
+  // Live-first startup (Phase 2): apply only the small, high-value subset of
+  // persisted state synchronously so /api/departures and /api/service can
+  // give correct answers within seconds of restart. The larger long-lived
+  // caches (formations, NRCC messages, PTAC consists, units) are restored
+  // asynchronously after server.listen() completes, then the warmup task
+  // walks the last N days of history.
+  const persistedRaw = readPersistedStateRawIfFresh();
+  applyPersistedStateLive(persistedRaw);
   loadUnitCatalog();
   for (const unit of unitsById.values()) mergeUnitIntoCatalog(unit);
   persistUnitCatalog();
 
   server.listen(cfg.port, () => {
-    console.log(`[daemon] HTTP API listening on http://localhost:${cfg.port}`);
+    daemonMode = 'live_ready';
+    console.log(`[daemon] HTTP API listening on http://localhost:${cfg.port} (mode=${daemonMode})`);
     console.log(`[daemon]   GET /api/health`);
     console.log(`[daemon]   GET /api/station/:code`);
     console.log(`[daemon]   GET /api/departures/:code?hours=N   (default ${cfg.windowHours})`);
@@ -2278,6 +2747,24 @@ async function start() {
     console.log(`[daemon]   GET /api/service/:rid`);
     console.log(`[daemon]   GET /api/unit/:resourceGroupId`);
     console.log(`[daemon]   GET /api/units/catalog?fleet=158`);
+  });
+
+  // Background restore + warmup. setImmediate keeps the start() promise
+  // moving so consumer.connect() below can run in parallel.
+  setImmediate(async () => {
+    try {
+      const t0 = Date.now();
+      applyPersistedStateRest(persistedRaw);
+      console.log(`[daemon] background restore (rest of caches) finished in ${Date.now() - t0}ms`);
+    } catch (e) {
+      console.warn(`[daemon] background restore failed: ${e.message}`);
+    }
+    try {
+      await runHistoricalWarmup();
+    } catch (e) {
+      console.warn(`[daemon] background warmup failed: ${e.message}`);
+      daemonMode = 'fully_warm';
+    }
   });
 
   await consumer.connect();

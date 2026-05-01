@@ -22,6 +22,8 @@ Important:
 - `setup.sh` - initial VM bootstrap
 - `update.sh` - pull latest repo and restart service
 - `backup-state.sh` - backup state directory to GCS
+- `darwin-weekly-check.sh` + `darwin-weekly-check.cron` - weekly storage/daemon roll-up log (Phase 5)
+- `monitoring/` - Cloud Monitoring alert policy templates + `push-alert-policies.sh` (Phase 5)
 
 ## Phase 2/3 run order (on VM)
 

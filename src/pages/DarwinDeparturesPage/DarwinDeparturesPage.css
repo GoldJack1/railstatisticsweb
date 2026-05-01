@@ -329,6 +329,25 @@
 .dep-state-card p:last-child { margin-bottom: 0; }
 .dep-state-card--error h2 { color: var(--accent-base); }
 
+.dep-loading-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dep-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--text-secondary) 35%, transparent);
+  border-top-color: var(--text-secondary);
+  animation: dep-spin 0.8s linear infinite;
+}
+
+@keyframes dep-spin {
+  to { transform: rotate(360deg); }
+}
+
 .dep-state-card code,
 .dep-hint code {
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;

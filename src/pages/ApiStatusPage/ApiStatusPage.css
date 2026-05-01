@@ -14,7 +14,7 @@
 
 .api-status-controls,
 .api-status-card,
-.api-log-card {
+.api-panel {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -31,6 +31,12 @@
 .api-status-error {
   margin: 0;
   color: var(--accent-base);
+}
+
+.api-status-meta {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 .api-status-grid {
@@ -58,110 +64,18 @@
   font-variant-numeric: tabular-nums;
 }
 
-.api-log-card {
+.api-panel {
   padding: var(--space-md);
 }
 
-.api-log-card h2 {
+.api-panel h2 {
   margin: 0 0 var(--space-sm);
 }
 
-.api-log-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  max-height: 24rem;
-  overflow-y: auto;
-}
-
-.api-log-item {
-  display: grid;
-  grid-template-columns: 5.2rem 1fr;
-  gap: var(--space-sm);
-  align-items: start;
-  padding: 0.45rem 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  background: color-mix(in srgb, var(--bg-primary) 62%, transparent);
-}
-
-.api-log-item--warn {
-  border-color: color-mix(in srgb, var(--accent-base) 40%, var(--border-color));
-}
-
-.api-log-item--success {
-  border-color: color-mix(in srgb, #2dbf73 45%, var(--border-color));
-}
-
-.api-log-time {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-}
-
-.api-log-text {
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-}
-
-.api-log-empty {
+.api-panel-subtitle {
   margin: 0;
   color: var(--text-secondary);
 }
-
-.api-chart-wrap {
-  margin-top: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.api-chart {
-  width: 100%;
-  height: auto;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-primary) 60%, transparent);
-}
-
-.api-chart-grid {
-  stroke: color-mix(in srgb, var(--border-color) 70%, transparent);
-  stroke-width: 1;
-}
-
-.api-chart-axis-label {
-  fill: var(--text-secondary);
-  font-size: 10px;
-}
-
-.api-chart-line {
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.api-chart-line--formations { stroke: #5fa8ff; }
-.api-chart-line--consists { stroke: #f39c4a; }
-.api-chart-line--units { stroke: #36c58b; }
-
-.api-chart-legend {
-  display: flex;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-}
-
-.api-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  margin-right: 0.35rem;
-}
-
-.api-dot--formations { background: #5fa8ff; }
-.api-dot--consists { background: #f39c4a; }
-.api-dot--units { background: #36c58b; }
 
 .api-available-list {
   margin-top: var(--space-sm);
@@ -194,72 +108,4 @@
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.api-series-text {
-  margin-top: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.api-series-text-item {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.55rem;
-  background: color-mix(in srgb, var(--bg-primary) 62%, transparent);
-}
-
-.api-series-time {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-
-.api-series-values {
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.api-overlay-history-list {
-  margin-top: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  max-height: 22rem;
-  overflow-y: auto;
-}
-
-.api-overlay-history-item {
-  display: grid;
-  grid-template-columns: 13rem repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-  align-items: center;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.55rem;
-  background: color-mix(in srgb, var(--bg-primary) 62%, transparent);
-}
-
-.api-overlay-history-time {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-}
-
-.api-overlay-history-value {
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 639px) {
-  .api-overlay-history-item {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
 }
