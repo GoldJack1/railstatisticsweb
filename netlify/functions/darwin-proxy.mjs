@@ -10,11 +10,41 @@ function json(status, body) {
   })
 }
 
+function boolEnv(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase())
+}
+
+function detectCountryCode(headers) {
+  const candidates = [
+    headers.get('x-country'),
+    headers.get('cf-ipcountry'),
+    headers.get('x-vercel-ip-country'),
+    headers.get('x-nf-geo-country'),
+  ]
+  for (const raw of candidates) {
+    const code = String(raw || '').trim().toUpperCase()
+    if (code) return code
+  }
+  return null
+}
+
 export default async (request) => {
   const origin = process.env.DARWIN_API_ORIGIN || 'https://api-darwin.railstatistics.co.uk'
   const apiKey = process.env.DARWIN_API_KEY || ''
+  const ukOnly = boolEnv(process.env.DARWIN_UK_ONLY)
+  const ukAllowedCountries = new Set(['GB', 'UK'])
   if (!apiKey) {
     return json(500, { error: 'DARWIN_API_KEY is not configured' })
+  }
+  if (ukOnly) {
+    const country = detectCountryCode(request.headers)
+    if (!country || !ukAllowedCountries.has(country)) {
+      return json(451, {
+        error: 'regional_restriction',
+        message: 'Darwin realtime API is only available in the UK.',
+        country: country || 'unknown',
+      })
+    }
   }
 
   const reqUrl = new URL(request.url)

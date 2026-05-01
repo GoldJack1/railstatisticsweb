@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useServiceDetail } from '../../hooks/useServiceDetail'
+import { useStations } from '../../hooks/useStations'
 import { PageTopHeader } from '../../components/misc'
-import { BUTWideButton } from '../../components/buttons'
+import { BUTBaseButton, BUTCircleButton, BUTTwoButtonBar, BUTWideButton } from '../../components/buttons'
 import { ActivityPill } from '../../components/darwin/ActivityPill'
 import { CarriageMap } from '../../components/darwin/CarriageMap'
+import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import type { ServiceDetail } from '../../types/darwin'
 import './ServiceDetailPage.css'
 
@@ -38,6 +40,7 @@ function describeAssociation(a: NonNullable<ReturnType<typeof useServiceDetail>[
   const headcode  = a.otherTrainId ? ` (${a.otherTrainId})` : ''
   const time = a.role === 'main' ? a.assocTime : a.mainTime
   const timeText = time ? `${time.replace(/:00$/, '').replace(/(\d{2}:\d{2}).*/, '$1')} ` : ''
+  const trainRef = a.otherTrainId || `${a.otherRid}${headcode}`
   switch (a.category) {
     case 'VV':
       return `This train splits at ${where}. The other portion forms ${timeText}to ${otherDest}${headcode}.`
@@ -45,8 +48,8 @@ function describeAssociation(a: NonNullable<ReturnType<typeof useServiceDetail>[
       return `This train joins another at ${where}. The other portion is ${timeText}from ${otherOrig}${headcode}.`
     case 'NP':
       return a.role === 'main'
-        ? `This train continues as ${timeText}to ${otherDest}${headcode} from ${where}.`
-        : `This train forms from ${timeText}from ${otherOrig}${headcode} at ${where}.`
+        ? `This train will then form ${timeText}to ${otherDest} as ${trainRef} from ${where}.`
+        : `This train previously ran as ${timeText}from ${otherOrig} as ${trainRef} before ${where}.`
     default:
       return `Associated with ${a.otherTrainId || a.otherRid} at ${where}.`
   }
@@ -79,17 +82,48 @@ function formatDateOnly(date: string): string {
 
 function isRawTiplocName(name: string | null | undefined, tpl: string): boolean {
   if (!name) return true
-  return name.trim().toUpperCase() === tpl.trim().toUpperCase()
+  const trimmedName = name.trim()
+  const trimmedTpl = tpl.trim()
+  // Treat as "raw TIPLOC label" only when it is literally the TIPLOC, or a
+  // fully-uppercase TIPLOC-style form. This avoids false positives like
+  // station names such as "Ash" being mistaken for TIPLOC "ASH".
+  if (trimmedName === trimmedTpl) return true
+  return trimmedName === trimmedName.toUpperCase()
+    && trimmedName.toUpperCase() === trimmedTpl.toUpperCase()
+}
+
+function titleCaseWord(word: string): string {
+  if (!word) return word
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+}
+
+function stationLikeNameFromTiploc(tpl: string): string | null {
+  const raw = (tpl || '').trim()
+  if (!raw) return null
+  // Some TIPLOCs are already the station name in uppercase (e.g. FAREHAM).
+  // For those, present a readable station label rather than raw code.
+  if (/^[A-Z]{5,}$/.test(raw)) return titleCaseWord(raw)
+  return null
 }
 
 function displayStopName(
   stops: NonNullable<ServiceDetail['stops']>,
-  idx: number
+  idx: number,
+  fallbackNameLookup?: {
+    byTiploc: Map<string, string>
+    byCrs: Map<string, string>
+  }
 ): string {
   const stop = stops[idx]
   if (!stop) return ''
   const current = stop.name?.trim()
   if (current && !isRawTiplocName(current, stop.tpl)) return current
+  const byTiplocName = fallbackNameLookup?.byTiploc.get(stop.tpl.toUpperCase())
+  if (byTiplocName) return byTiplocName
+  const byCrsName = stop.crs ? fallbackNameLookup?.byCrs.get(stop.crs.toUpperCase()) : null
+  if (byCrsName) return byCrsName
+  const stationLikeFallback = stationLikeNameFromTiploc(stop.tpl)
+  if (stationLikeFallback) return stationLikeFallback
   if (stop.slot === 'PP' || stop.slot === 'OPPP') return 'Passing point'
   return stop.tpl
 }
@@ -105,6 +139,13 @@ function platformSourceLabel(src: string | null | undefined): string | null {
   if (src === 'M') return 'manual'
   if (src === 'P') return 'planned'
   return src
+}
+
+function platformSourceClass(label: string): string {
+  if (label === 'auto') return 'svc-platform-badge--auto'
+  if (label === 'manual') return 'svc-platform-badge--manual'
+  if (label === 'planned') return 'svc-platform-badge--planned'
+  return 'svc-platform-badge--default'
 }
 
 function parseHmToMinutes(value: string | null | undefined): number | null {
@@ -177,12 +218,17 @@ const RawDataDump: React.FC<{ data: ServiceDetail }> = ({ data }) => {
         ))}
       </div>
       <div className="svc-rawdump-actions">
-        <a
+        <BUTBaseButton
+          variant="chip"
+          width="hug"
+          colorVariant="accent"
           className="svc-rawdump-btn svc-rawdump-btn--link"
           href={apiUrl}
           target="_blank"
           rel="noopener"
-        >Open API URL ↗</a>
+        >
+          Open API URL ↗
+        </BUTBaseButton>
       </div>
       {/* Heavy JSON stringification + DOM is gated behind `open` so the
        * service-detail page doesn't pay the cost on every poll while the
@@ -204,11 +250,16 @@ const RawDataBody: React.FC<{ data: ServiceDetail }> = React.memo(
     return (
       <>
         <div className="svc-rawdump-actions">
-          <button
-            type="button"
+          <BUTBaseButton
+            variant="chip"
+            width="hug"
+            colorVariant="accent"
+            instantAction
             className="svc-rawdump-btn"
             onClick={() => navigator.clipboard?.writeText(json).catch(() => {})}
-          >Copy JSON</button>
+          >
+            Copy JSON
+          </BUTBaseButton>
           <span className="svc-rawdump-bytes">{(json.length / 1024).toFixed(1)} KB</span>
         </div>
         <pre className="svc-rawdump-pre"><code>{json}</code></pre>
@@ -238,6 +289,21 @@ const ServiceDetailPage: React.FC = () => {
     at: historicalAt,
     pollMs: historicalMode ? 0 : 15_000,
   })
+  const { stations } = useStations()
+
+  const fallbackStopNameLookup = useMemo(() => {
+    const byTiploc = new Map<string, string>()
+    const byCrs = new Map<string, string>()
+    for (const station of stations) {
+      const stationName = station.stationName?.trim()
+      if (!stationName) continue
+      const tiploc = station.tiploc?.trim().toUpperCase()
+      const crsCode = station.crsCode?.trim().toUpperCase()
+      if (tiploc && !byTiploc.has(tiploc)) byTiploc.set(tiploc, stationName)
+      if (crsCode && !byCrs.has(crsCode)) byCrs.set(crsCode, stationName)
+    }
+    return { byTiploc, byCrs }
+  }, [stations])
 
   const title = useMemo(() => {
     if (!data) return rid
@@ -261,20 +327,41 @@ const ServiceDetailPage: React.FC = () => {
     return dateText
   }, [status, error, ageMs, historicalMode, data])
 
+  const viewModeSelectedIndex = viewMode === 'detailed' ? 0 : 1
+
   return (
     <div className="service-detail-shell">
       <PageTopHeader
         title={title}
         subtitle={subtitle}
         className={`service-detail-header service-detail-header--${status}`}
-        actionButton={{
-          label: '← Back',
-          onClick: () => {
-            if (from) { navigate(from); return }
-            if (window.history.length > 1) { navigate(-1); return }
-            navigate('/departures')
-          },
-        }}
+        actionContent={(
+          <div className="svc-header-actions">
+            <BUTWideButton
+              width="hug"
+              onClick={() => {
+                if (from) { navigate(from); return }
+                if (window.history.length > 1) { navigate(-1); return }
+                navigate('/departures')
+              }}
+            >
+              ← Back
+            </BUTWideButton>
+            <BUTCircleButton
+              ariaLabel="Refresh service detail"
+              instantAction
+              colorVariant="primary"
+              onClick={refetch}
+              icon={(
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              )}
+            />
+          </div>
+        )}
       />
 
       <div className="service-detail-page">
@@ -304,24 +391,19 @@ const ServiceDetailPage: React.FC = () => {
         {data && (
           <>
             <section className="svc-viewmode-card" aria-label="View mode">
-              <div className="svc-viewmode-toggle" role="tablist" aria-label="Service detail view mode">
-                <button
-                  type="button"
-                  className={`svc-viewmode-btn${viewMode === 'detailed' ? ' is-active' : ''}`}
-                  onClick={() => setViewMode('detailed')}
-                  aria-pressed={viewMode === 'detailed'}
-                >
-                  Detailed
-                </button>
-                <button
-                  type="button"
-                  className={`svc-viewmode-btn${viewMode === 'simple' ? ' is-active' : ''}`}
-                  onClick={() => setViewMode('simple')}
-                  aria-pressed={viewMode === 'simple'}
-                >
-                  Simple
-                </button>
-              </div>
+              <BUTTwoButtonBar
+                className="svc-viewmode-toggle"
+                colorVariant="accent"
+                selectedIndex={viewModeSelectedIndex}
+                buttons={[
+                  { label: 'Detailed', value: 'detailed' },
+                  { label: 'Simple', value: 'simple' },
+                ]}
+                onChange={(index) => {
+                  if (index === 0) setViewMode('detailed')
+                  if (index === 1) setViewMode('simple')
+                }}
+              />
             </section>
 
             <section
@@ -329,26 +411,26 @@ const ServiceDetailPage: React.FC = () => {
               aria-label="Service summary"
             >
               <div className="svc-summary-grid">
+                <div className="svc-summary-item">
+                  <span className="svc-summary-label">Operator</span>
+                  <span className="svc-summary-value">{data.tocName || data.toc}</span>
+                </div>
+                <div className="svc-summary-item">
+                  <span className="svc-summary-label">Headcode</span>
+                  <span className="svc-summary-value svc-mono">{data.trainId}</span>
+                </div>
                 {viewMode === 'detailed' && (
                   <div className="svc-summary-item">
-                    <span className="svc-summary-label">Operator</span>
-                    <span className="svc-summary-value">{data.tocName || data.toc}</span>
+                    <span className="svc-summary-label">UID</span>
+                    <span className="svc-summary-value svc-mono">{data.uid}</span>
                   </div>
                 )}
                 {viewMode === 'detailed' && (
                   <div className="svc-summary-item">
-                    <span className="svc-summary-label">Headcode</span>
-                    <span className="svc-summary-value svc-mono">{data.trainId}</span>
+                    <span className="svc-summary-label">Service date</span>
+                    <span className="svc-summary-value svc-mono">{data.ssd}</span>
                   </div>
                 )}
-                <div className="svc-summary-item">
-                  <span className="svc-summary-label">UID</span>
-                  <span className="svc-summary-value svc-mono">{data.uid}</span>
-                </div>
-                <div className="svc-summary-item">
-                  <span className="svc-summary-label">Service date</span>
-                  <span className="svc-summary-value svc-mono">{data.ssd}</span>
-                </div>
                 <div className="svc-summary-item">
                   <span className="svc-summary-label">Origin</span>
                   <span className="svc-summary-value">{data.originName || data.origin}</span>
@@ -365,13 +447,15 @@ const ServiceDetailPage: React.FC = () => {
                     </span>
                   </div>
                 )}
-                <div className="svc-summary-item">
-                  <span className="svc-summary-label">Type</span>
-                  <span className="svc-summary-value">
-                    {data.isPassenger ? 'Passenger' : 'Non-passenger'}
-                    {data.trainCat ? ` · ${data.trainCat}` : ''}
-                  </span>
-                </div>
+                {viewMode === 'detailed' && (
+                  <div className="svc-summary-item">
+                    <span className="svc-summary-label">Type</span>
+                    <span className="svc-summary-value">
+                      {data.isPassenger ? 'Passenger' : 'Non-passenger'}
+                      {data.trainCat ? ` · ${data.trainCat}` : ''}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {data.cancelled && data.cancellation && (
@@ -390,7 +474,7 @@ const ServiceDetailPage: React.FC = () => {
                 const cancelledStops = data.stops.filter((s) => s.cancelledAtStop && s.slot !== 'PP' && s.slot !== 'OPPP');
                 const names = cancelledStops.map((s) => {
                   const i = data.stops.findIndex((x) => x.tpl === s.tpl && x.slot === s.slot)
-                  return i >= 0 ? displayStopName(data.stops, i) : (s.name || s.tpl)
+                  return i >= 0 ? displayStopName(data.stops, i, fallbackStopNameLookup) : (s.name || s.tpl)
                 }).filter(Boolean);
                 const summary = names.length === 0
                   ? 'Some calling points are not being served.'
@@ -412,30 +496,6 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Service associations: joins (JJ), divides (VV), next portions (NP).
-               * Each becomes a banner and a "View other portion" jump button so
-               * the user can navigate to the related service detail page. */}
-              {data.associations && data.associations.length > 0 && data.associations.map((a) => (
-                <div key={`${a.category}-${a.otherRid}-${a.tiploc}`} className={`svc-banner svc-banner--assoc${a.isCancelled ? ' svc-banner--assoc-cancelled' : ''}`}>
-                  <span className="svc-banner-label">
-                    {a.category === 'VV' ? 'Splits' : a.category === 'JJ' ? 'Joins' : a.category === 'NP' ? 'Continues' : 'Associated'}
-                    {a.isCancelled ? ' (cancelled)' : ''} —
-                  </span>{' '}
-                  {describeAssociation(a)}
-                  <button
-                    type="button"
-                    className="svc-banner-link"
-                    onClick={() => {
-                      const next = new URLSearchParams()
-                      if (historicalDate) next.set('date', historicalDate)
-                      if (historicalAt) next.set('at', historicalAt)
-                      if (from) next.set('from', from)
-                      navigate(`/services/${encodeURIComponent(a.otherRid)}${next.toString() ? `?${next.toString()}` : ''}`)
-                    }}
-                  >View other portion →</button>
-                </div>
-              ))}
-
               {/* Per-service text alerts (e.g. SN bus replacement notes). */}
               {data.alerts && data.alerts.length > 0 && data.alerts.map((al) => (
                 <div key={al.id} className="svc-banner svc-banner--alert">
@@ -445,16 +505,6 @@ const ServiceDetailPage: React.FC = () => {
                 </div>
               ))}
 
-              <div className="svc-summary-actions">
-                <BUTWideButton
-                  width="hug"
-                  instantAction
-                  colorVariant="primary"
-                  onClick={refetch}
-                >
-                  Refresh
-                </BUTWideButton>
-              </div>
             </section>
 
             {/* Live formation + per-coach loading. Sits above the calling
@@ -469,7 +519,42 @@ const ServiceDetailPage: React.FC = () => {
                 stops={data.stops}
                 reverse={data.reverseFormation}
                 initialTpl={data.origin}
+                onUnitClick={(unitId) => {
+                  const qp = new URLSearchParams()
+                  if (historicalDate) qp.set('unitDay', historicalDate)
+                  navigate(`/units/${encodeURIComponent(unitId)}${qp.toString() ? `?${qp.toString()}` : ''}`)
+                }}
               />
+              {/* Service associations: joins (JJ), divides (VV), next portions (NP).
+               * Rendered beneath coach formation so unit/portion context sits
+               * next to consist information. */}
+              {data.associations && data.associations.length > 0 && data.associations.map((a) => (
+                <div key={`${a.category}-${a.otherRid}-${a.tiploc}`} className={`svc-banner svc-banner--assoc${a.isCancelled ? ' svc-banner--assoc-cancelled' : ''}`}>
+                  {a.category !== 'NP' && (
+                    <span className="svc-banner-label">
+                      {a.category === 'VV' ? 'Splits' : a.category === 'JJ' ? 'Joins' : 'Associated'}
+                      {a.isCancelled ? ' (cancelled)' : ''} —
+                    </span>
+                  )}{' '}
+                  {describeAssociation(a)}
+                  <BUTBaseButton
+                    variant="chip"
+                    width="hug"
+                    colorVariant="accent"
+                    instantAction
+                    className="svc-banner-link"
+                    onClick={() => {
+                      const next = new URLSearchParams()
+                      if (historicalDate) next.set('date', historicalDate)
+                      if (historicalAt) next.set('at', historicalAt)
+                      if (from) next.set('from', from)
+                      navigate(`/services/${encodeURIComponent(a.otherRid)}${next.toString() ? `?${next.toString()}` : ''}`)
+                    }}
+                  >
+                    View service
+                  </BUTBaseButton>
+                </div>
+              ))}
             </section>
 
             {/* Calling pattern */}
@@ -492,7 +577,7 @@ const ServiceDetailPage: React.FC = () => {
                   </thead>
                   <tbody>
                 {data.stops.map((s, idx) => {
-                  const stopLabel = displayStopName(data.stops, idx)
+                  const stopLabel = displayStopName(data.stops, idx, fallbackStopNameLookup)
                   const kind = SLOT_KIND[s.slot] || 'stop'
                   if (viewMode === 'simple' && kind === 'pass') return null
                   const kindLabel = SLOT_KIND_LABEL[kind]
@@ -501,9 +586,16 @@ const ServiceDetailPage: React.FC = () => {
                   const wArr = trimSeconds(s.wta) || null
                   const wDep = trimSeconds(s.wtd) || null
                   const wPass = s.wtp ? trimSeconds(s.wtp) : null
+                  const platformValue = s.livePlatform || s.platform || '—'
                   const showLive = !!s.liveTime && (s.liveKind === 'actual' || s.liveKind === 'est' || s.liveKind === 'actual-arr' || s.liveKind === 'est-arr')
+                  const showExpectedDeparture =
+                    !s.cancelledAtStop
+                    && showLive
+                    && s.liveKind === 'est'
+                    && kind !== 'pass'
+                    && (viewMode === 'simple' || s.liveTime !== pDep)
                   const passFallback = kind === 'pass' ? (wPass || wDep || null) : null
-                  const platformMeta = [platformSourceLabel(s.platformSource), s.platformConfirmed ? 'confirmed' : null].filter(Boolean).join(', ')
+                  const platformSource = platformSourceLabel(s.platformSource)
                   const scheduledForDelta = kind === 'pass'
                     ? (wPass || wDep || wArr || null)
                     : (pDep || pArr || wDep || wArr || null)
@@ -549,10 +641,23 @@ const ServiceDetailPage: React.FC = () => {
                         {deltaMinutes == null ? '—' : (deltaMinutes > 0 ? `+${deltaMinutes}` : String(deltaMinutes))}
                       </td>
                       <td className="svc-mono">
-                        {s.platformSuppressed
-                          ? 'Suppressed'
-                          : (s.livePlatform || s.platform || '—')}
-                        {(s.livePlatform || s.platform) && platformMeta ? ` (${platformMeta})` : ''}
+                        <span className="svc-platform-cell">
+                          <span>{platformValue}</span>
+                          {platformValue !== '—' && viewMode === 'detailed' && (
+                            <span className="svc-platform-meta">
+                              {platformSource && (
+                                <span className={`svc-platform-badge ${platformSourceClass(platformSource)}`}>
+                                  {platformSource}
+                                </span>
+                              )}
+                              {s.platformConfirmed && (
+                                <span className="svc-platform-badge svc-platform-badge--confirmed">
+                                  confirmed
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td>
                         <div className="svc-stop-live">
@@ -561,14 +666,9 @@ const ServiceDetailPage: React.FC = () => {
                           {!s.cancelledAtStop && showLive && s.liveKind === 'actual'      && kind !== 'pass' && <span className="svc-pill svc-pill--actual">Departed {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'actual'      && kind === 'pass' && <span className="svc-pill svc-pill--actual">Passed {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'actual-arr'  && <span className="svc-pill svc-pill--actual">Arrived {s.liveTime}</span>}
-                          {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && kind !== 'pass' && s.liveTime !== pDep && <span className="svc-pill svc-pill--late">Expected {s.liveTime}</span>}
+                          {showExpectedDeparture && <span className="svc-pill svc-pill--late">Expected {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'est'         && kind === 'pass' && <span className="svc-pill svc-pill--late">Expected pass {s.liveTime}</span>}
                           {!s.cancelledAtStop && showLive && s.liveKind === 'est-arr'     && <span className="svc-pill">Expected arr {s.liveTime}</span>}
-                          {!s.cancelledAtStop && !s.unknownDelay && showLive && s.liveSource && (
-                            <span className="svc-pill" title={`Forecast source ${s.liveSource}${s.liveSourceInstance ? ` ${s.liveSourceInstance}` : ''}`}>
-                              Via {s.liveSource}
-                            </span>
-                          )}
                           {!s.cancelledAtStop && !showLive && kind === 'pass' && passFallback && (
                             <span className="svc-pill">Scheduled pass {passFallback}</span>
                           )}
@@ -588,218 +688,8 @@ const ServiceDetailPage: React.FC = () => {
               </div>
             </section>
 
-            {data.consist?.allocations?.length ? (() => {
-              type VehicleType = NonNullable<ServiceDetail['consist']>['allocations'][number]['resourceGroups'][number]['vehicles'][number]
-              const unitMap = new Map<string, {
-                unitKey: string
-                unitId: string | null
-                fleetId: string | null
-                resourceType: string | null
-                unitStatus: string | null
-                endOfDayMiles: number | null
-                reversed: boolean
-                vehicles: VehicleType[]
-              }>()
-
-              data.consist.allocations.forEach((a) => {
-                (a.resourceGroups || []).forEach((g, groupIdx) => {
-                  const unitKey = `unit-${g.unitId || 'unknown'}-${g.fleetId || 'unknown'}-${groupIdx}`
-                  const existing = unitMap.get(unitKey)
-                  if (!existing) {
-                    unitMap.set(unitKey, {
-                      unitKey,
-                      unitId: g.unitId || null,
-                      fleetId: g.fleetId || null,
-                      resourceType: g.typeOfResourceLabel || g.typeOfResource || null,
-                      unitStatus: g.status || null,
-                      endOfDayMiles: g.endOfDayMiles ?? null,
-                      reversed: !!a.reversed,
-                      vehicles: [...(g.vehicles || [])],
-                    })
-                  } else {
-                    const seen = new Set(existing.vehicles.map((v) => `${v.vehicleId || ''}-${v.position ?? ''}`))
-                    for (const v of g.vehicles || []) {
-                      const vk = `${v.vehicleId || ''}-${v.position ?? ''}`
-                      if (!seen.has(vk)) {
-                        existing.vehicles.push(v)
-                        seen.add(vk)
-                      }
-                    }
-                  }
-                })
-              })
-
-              const units = [...unitMap.values()]
-              if (units.length === 0) return null
-              return (
-                <details className="svc-collapsible-card svc-vehicle-card" aria-label="Vehicle details and logs" open>
-                  <summary className="svc-collapsible-summary">
-                    <span className="svc-pattern-title">Vehicle details & logs</span>
-                    <span className="svc-collapsible-hint">show or hide</span>
-                  </summary>
-                  <p className="svc-allocation-subtitle">Grouped by unit, then one section per vehicle.</p>
-                  <div className="svc-vehicle-list">
-                    {units.map((unit) => {
-                      const sortedVehicles = unit.vehicles
-                        .slice()
-                        .sort((a, b) => (a.position ?? 999) - (b.position ?? 999))
-                      const renderAllocationField = (
-                        label: string,
-                        value: string | number | null | undefined,
-                        opts?: { fullWidth?: boolean }
-                      ) => {
-                        if (value == null) return null
-                        const text = String(value).trim()
-                        if (!text || text === '—') return null
-                        return (
-                          <div className={`svc-allocation-field${opts?.fullWidth ? ' svc-allocation-field--block' : ''}`}>
-                            <span className="svc-allocation-label">{label}</span>
-                            <span className="svc-allocation-value">{text}</span>
-                          </div>
-                        )
-                      }
-                      const sharedFrom = (pick: (v: typeof sortedVehicles[number]) => string | null) => {
-                        if (sortedVehicles.length === 0) return null
-                        const first = pick(sortedVehicles[0])
-                        if (!first) return null
-                        return sortedVehicles.every((v) => pick(v) === first) ? first : null
-                      }
-                      const shared = {
-                        specificType: sharedFrom((v) => v.specificType || null),
-                        vehicleType: sharedFrom((v) => v.typeOfVehicle || null),
-                        plannedGroup: sharedFrom((v) => v.plannedGroupId || null),
-                        cabs: sharedFrom((v) => (v.cabs != null ? String(v.cabs) : null)),
-                        maxSpeed: sharedFrom((v) => (v.maximumSpeedMph != null ? `${v.maximumSpeedMph} mph` : null)),
-                        restrictiveSpeed: sharedFrom((v) => (v.restrictiveMaximumSpeedMph != null ? `${v.restrictiveMaximumSpeedMph} mph` : null)),
-                        brakeType: sharedFrom((v) => v.trainBrakeTypeLabel || v.trainBrakeType || null),
-                        status: sharedFrom((v) => v.vehicleStatus || null),
-                        category: sharedFrom((v) => v.registeredCategoryLabel || v.registeredCategory || null),
-                        special: sharedFrom((v) => v.specialCharacteristics || null),
-                        liveryDecor: sharedFrom((v) => ([v.livery, v.decor].filter(Boolean).join(' · ') || null)),
-                        entered: sharedFrom((v) => v.dateEnteredService || null),
-                      }
-                      const enteredByDate = new Map<string, string[]>()
-                      for (const v of sortedVehicles) {
-                        const date = v.dateEnteredService || 'Unknown date'
-                        const label = v.vehicleId || `Pos ${v.position ?? '—'}`
-                        const arr = enteredByDate.get(date) || []
-                        arr.push(label)
-                        enteredByDate.set(date, arr)
-                      }
-                      const enteredSummary = shared.entered
-                        ? formatDateOnly(shared.entered)
-                        : [...enteredByDate.entries()]
-                            .map(([date, vehicles]) => `${formatDateOnly(date)}: ${vehicles.join(', ')}`)
-                            .join(' | ')
-                      return (
-                      <article key={unit.unitKey} className="svc-unit-item">
-                        <header className="svc-vehicle-head">
-                          <h3 className="svc-vehicle-title">Unit {unit.unitId || 'Unknown'}</h3>
-                        </header>
-                        <div className="svc-unit-shared">
-                          <h4 className="svc-vehicle-logs-title">Whole unit (shared details)</h4>
-                          <div className="svc-allocation-grid">
-                            {renderAllocationField('Fleet', unit.fleetId)}
-                            {renderAllocationField('Resource type', unit.resourceType)}
-                            {renderAllocationField('Unit status', unit.unitStatus)}
-                            {renderAllocationField('End-of-day miles', unit.endOfDayMiles)}
-                            {renderAllocationField('Vehicle count', unit.vehicles.length)}
-                            {unit.reversed ? renderAllocationField('Formation direction', 'Reversed') : null}
-                            {renderAllocationField('Specific type', shared.specificType)}
-                            {renderAllocationField('Vehicle type', shared.vehicleType)}
-                            {renderAllocationField('Planned group', shared.plannedGroup)}
-                            {renderAllocationField('Cabs', shared.cabs)}
-                            {renderAllocationField('Max speed', shared.maxSpeed)}
-                            {renderAllocationField('Restrictive max speed', shared.restrictiveSpeed)}
-                            {renderAllocationField('Brake type', shared.brakeType)}
-                            {renderAllocationField('Status', shared.status)}
-                            {renderAllocationField('Category', shared.category)}
-                            {renderAllocationField('Special characteristics', shared.special)}
-                            {renderAllocationField('Livery / decor', shared.liveryDecor)}
-                            {renderAllocationField('Date entered service', enteredSummary, { fullWidth: true })}
-                          </div>
-                        </div>
-                        <div className="svc-unit-vehicles">
-                          {sortedVehicles.map((v, vehicleIdx) => {
-                              const defects = v.defects || []
-                              const specificType = shared.specificType ? null : (v.specificType || null)
-                              const vehicleType = shared.vehicleType ? null : (v.typeOfVehicle || null)
-                              const plannedGroup = shared.plannedGroup ? null : (v.plannedGroupId || null)
-                              const seats = v.numberOfSeats ?? null
-                              const cabs = shared.cabs ? null : (v.cabs ?? null)
-                              const maxSpeed = shared.maxSpeed ? null : (v.maximumSpeedMph != null ? `${v.maximumSpeedMph} mph` : null)
-                              const restrictiveMaxSpeed = shared.restrictiveSpeed ? null : (v.restrictiveMaximumSpeedMph != null ? `${v.restrictiveMaximumSpeedMph} mph` : null)
-                              const brakeType = shared.brakeType ? null : (v.trainBrakeTypeLabel || v.trainBrakeType || null)
-                              const status = shared.status ? null : (v.vehicleStatus || null)
-                              const category = shared.category ? null : (v.registeredCategoryLabel || v.registeredCategory || null)
-                              const lengthWeight = (v.lengthMm != null || v.weightTonnes != null)
-                                ? `${v.lengthMm != null ? `${v.lengthMm} mm` : '—'} / ${v.weightTonnes != null ? `${v.weightTonnes} t` : '—'}`
-                                : null
-                              const special = shared.special ? null : (v.specialCharacteristics || null)
-                              const liveryDecor = shared.liveryDecor ? null : ([v.livery, v.decor].filter(Boolean).join(' · ') || null)
-                              const vehicleName = v.vehicleName || null
-                              const enteredService = shared.entered
-                                ? null
-                                : (v.dateEnteredService ? formatDateOnly(v.dateEnteredService) : null)
-                              const radioNumbers = [v.radioNumberA, v.radioNumberB].filter(Boolean).join(' / ') || null
-                              return (
-                                <article key={`${unit.unitKey}-v-${v.vehicleId || vehicleIdx}`} className="svc-vehicle-item">
-                                  <header className="svc-vehicle-head">
-                                    <h4 className="svc-vehicle-title">{v.vehicleId || `Vehicle ${v.position ?? '—'}`}</h4>
-                                    <div className="svc-allocation-tags">
-                                      {v.position != null && <span className="svc-allocation-tag">Pos {v.position}</span>}
-                                      {defects.length > 0 && <span className="svc-allocation-tag svc-allocation-tag--warn">{defects.length} log{defects.length === 1 ? '' : 's'}</span>}
-                                    </div>
-                                  </header>
-                                  <div className="svc-allocation-grid">
-                                    {renderAllocationField('Specific type', specificType)}
-                                    {renderAllocationField('Vehicle type', vehicleType)}
-                                    {renderAllocationField('Planned group', plannedGroup)}
-                                    {renderAllocationField('Seats', seats)}
-                                    {renderAllocationField('Cabs', cabs)}
-                                    {renderAllocationField('Max speed', maxSpeed)}
-                                    {renderAllocationField('Restrictive max speed', restrictiveMaxSpeed)}
-                                    {renderAllocationField('Brake type', brakeType)}
-                                    {renderAllocationField('Status', status)}
-                                    {renderAllocationField('Category', category)}
-                                    {renderAllocationField('Length / weight', lengthWeight)}
-                                    {renderAllocationField('Special characteristics', special)}
-                                    {renderAllocationField('Livery / decor', liveryDecor)}
-                                    {renderAllocationField('Vehicle name', vehicleName)}
-                                    {renderAllocationField('Date entered service', enteredService)}
-                                    {renderAllocationField('Radio numbers', radioNumbers)}
-                                  </div>
-                                  {defects.length > 0 ? (
-                                    <div className="svc-vehicle-logs">
-                                      <h4 className="svc-vehicle-logs-title">Logs</h4>
-                                      <ul className="svc-vehicle-log-list">
-                                        {defects.map((d, dIdx) => (
-                                          <li key={`${unit.unitKey}-${v.vehicleId || vehicleIdx}-d-${dIdx}`} className="svc-vehicle-log-item">
-                                            <span className="svc-vehicle-log-main">
-                                              {d.code || 'No code'} — {d.description || 'No description'}
-                                            </span>
-                                            <span className="svc-vehicle-log-meta">
-                                              {d.statusLabel || d.status || 'Unknown status'}
-                                              {d.location ? ` · ${d.location}` : ''}
-                                              {d.maintenanceUid ? ` · ${d.maintenanceUid}` : ''}
-                                            </span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  ) : (
-                                    <p className="svc-vehicle-no-logs">No logs for this vehicle.</p>
-                                  )}
-                                </article>
-                              )
-                            })}
-                        </div>
-                      </article>
-                    )})}
-                  </div>
-                </details>
-              )
-            })() : null}
+            {/* Vehicle details and logs hidden by request; users can jump to
+             * Unit detail from Coach formation actions above. */}
 
             {/* Raw-data dump for debugging / power users. Collapsed by
              * default; expand to see every field the daemon returned for
@@ -809,6 +699,8 @@ const ServiceDetailPage: React.FC = () => {
 
             <footer className="svc-footer">
               <span>Source: Network Rail Darwin Push Port</span>
+              <span className="svc-footer-sep" aria-hidden="true">·</span>
+              <DataLicenceAttribution />
               <span className="svc-footer-sep" aria-hidden="true">·</span>
               <span>RID {data.rid}</span>
               <span className="svc-footer-sep" aria-hidden="true">·</span>

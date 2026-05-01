@@ -1,16 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useDepartures } from '../../hooks/useDepartures'
 import type { DepartureRow, DepartureServiceType } from '../../types/darwin'
 import type { Station } from '../../types'
 import { useStations } from '../../hooks/useStations'
 import { PageTopHeader } from '../../components/misc'
-import { BUTBaseButton, BUTWideButton } from '../../components/buttons'
+import { BUTBaseButton, BUTOperatorChip, BUTWideButton } from '../../components/buttons'
 import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import { TextCard } from '../../components/cards'
 import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
 import { StationMessages } from '../../components/darwin/StationMessages'
+import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import './DarwinDeparturesPage.css'
 
 interface HistoryDatesResponse {
@@ -24,6 +25,7 @@ interface HistoryDatesResponse {
 }
 
 type StopModeFilter = 'calling' | 'passing'
+type SearchMode = 'station-name' | 'crs' | 'tiploc'
 
 const WINDOW_OPTIONS = [
   { label: '1 hour',   value: 1 },
@@ -204,19 +206,17 @@ function buildDescription(row: DepartureRow): string {
   const toc = row.tocName || row.toc
   const headcode = row.trainId
   const fromOrigin = row.originName ? `from ${row.originName}` : null
-  const passLabel = row.isPassing ? 'Passing through' : 'Calling'
+  const passLabel = row.isPassing ? 'Passing through' : 'Stopping'
   const trainLength = row.trainLength && row.trainLength > 0 ? `${row.trainLength} coaches` : null
 
   if (row.cancelled && row.cancellation) {
     // Some feeds report generic "schedule deactivated", which is confusing
     // to passengers; show a clean cancellation label instead.
     if (isScheduleDeactivatedReason(row.cancellation.reason)) return 'Cancelled'
-    const code = row.cancellation.code ? ` (code ${row.cancellation.code})` : ''
-    return `Cancelled — ${row.cancellation.reason}${code}`
+    return `Cancelled — ${row.cancellation.reason}`
   }
   if (!row.cancelled && row.delayReason) {
-    const code = row.delayReason.code ? ` (code ${row.delayReason.code})` : ''
-    return `Delay reason: ${row.delayReason.reason}${code}`
+    return `Delay reason: ${row.delayReason.reason}`
   }
   return [passLabel, platLabel, trainLength, toc, headcode, fromOrigin].filter(Boolean).join(' · ')
 }
@@ -277,7 +277,7 @@ const SERVICE_TYPE_LABELS: Record<DepartureServiceType, string> = {
 }
 const STOP_MODE_OPTIONS: StopModeFilter[] = ['calling', 'passing']
 const STOP_MODE_LABELS: Record<StopModeFilter, string> = {
-  calling: 'Calling',
+  calling: 'Stopping',
   passing: 'Passing',
 }
 
@@ -300,6 +300,12 @@ function buildStationNameSearchResults(rawInput: string, stations: Station[]): S
   return [...exact, ...starts, ...includes].slice(0, 8).map((item) => item.station)
 }
 
+function normalizeSearchInputForMode(raw: string, mode: SearchMode): string {
+  if (mode === 'station-name') return raw
+  if (mode === 'crs') return raw.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+}
+
 const DarwinDeparturesPage: React.FC = () => {
   const params = useParams()
   const location = useLocation()
@@ -307,6 +313,7 @@ const DarwinDeparturesPage: React.FC = () => {
   const code = params.code?.toUpperCase() || ''
   const hasStationSelected = code.length > 0
   const [searchInput, setSearchInput] = useState<string>('')
+  const [searchMode, setSearchMode] = useState<SearchMode>('station-name')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [historyDateError, setHistoryDateError] = useState<string | null>(null)
   const [selectedTocs, setSelectedTocs] = useState<string[]>([])
@@ -314,6 +321,7 @@ const DarwinDeparturesPage: React.FC = () => {
   const [selectedStopModes, setSelectedStopModes] = useState<StopModeFilter[]>(STOP_MODE_OPTIONS)
   const [historyDates, setHistoryDates] = useState<string[]>([])
   const { stations } = useStations()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
   const historyDate = query.get('date') || ''
@@ -385,15 +393,63 @@ const DarwinDeparturesPage: React.FC = () => {
   }, [])
 
   const submitSearch = () => {
-    const next = resolveSearchInput(searchInput, stations)
-    if (!next) {
-      setSearchError('No station match found. Try station name, CRS, or TIPLOC.')
-      return
+    const normalizedInput = normalizeSearchInputForMode(searchInput, searchMode).trim()
+    let next: string | null = null
+    if (searchMode === 'station-name') {
+      next = resolveSearchInput(normalizedInput, stations)
+      if (!next) {
+        setSearchError('No station name match found. Try the full station name or switch mode.')
+        return
+      }
+    } else if (searchMode === 'crs') {
+      if (normalizedInput.length !== 3) {
+        setSearchError('CRS must be exactly 3 uppercase letters.')
+        return
+      }
+      const byCrs = stations.find((station) => station.crsCode?.toUpperCase() === normalizedInput)
+      if (!byCrs) {
+        setSearchError(`No station found for CRS "${normalizedInput}".`)
+        return
+      }
+      next = byCrs.crsCode || byCrs.tiploc
+    } else {
+      if (normalizedInput.length === 0) {
+        setSearchError('Enter a TIPLOC code (up to 10 uppercase characters).')
+        return
+      }
+      const byTiploc = stations.find((station) => station.tiploc?.toUpperCase() === normalizedInput)
+      if (!byTiploc) {
+        setSearchError(`No station found for TIPLOC "${normalizedInput}".`)
+        return
+      }
+      next = byTiploc.crsCode || byTiploc.tiploc
     }
-    const normalizedNext = next.toUpperCase()
+    const normalizedNext = String(next).toUpperCase()
     if (normalizedNext === code) return
     setSearchError(null)
     navigate(`/departures/${normalizedNext}${location.search}`)
+  }
+
+  const focusSearchInput = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus()
+      searchInputRef.current.select()
+      return
+    }
+    // TXTINPBUTIconWideButtonSearch renders an input with the provided id.
+    const el = document.getElementById('darwin-station-search')
+    if (el instanceof HTMLInputElement) {
+      searchInputRef.current = el
+      el.focus()
+      el.select()
+    }
+  }
+
+  const setSearchModeAndFocus = (nextMode: SearchMode) => {
+    setSearchError(null)
+    setSearchMode(nextMode)
+    setSearchInput((prev) => normalizeSearchInputForMode(prev, nextMode))
+    window.requestAnimationFrame(focusSearchInput)
   }
 
   const stationLabel = useMemo(() => {
@@ -525,11 +581,12 @@ const DarwinDeparturesPage: React.FC = () => {
   }, [historicalMode, historyDate, futureTimetableMode, todayIsoDate])
 
   const showStationNameResults = useMemo(() => {
+    if (searchMode !== 'station-name') return false
     const trimmed = searchInput.trim()
     if (trimmed.length < 2) return false
     if (trimmed === trimmed.toUpperCase() && trimmed.length <= 7) return false
     return stationNameResults.length > 0
-  }, [searchInput, stationNameResults])
+  }, [searchInput, searchMode, stationNameResults])
 
   const availableHistoryDatesSet = useMemo(() => new Set(historyDates), [historyDates])
 
@@ -597,15 +654,53 @@ const DarwinDeparturesPage: React.FC = () => {
                     icon={<SearchIcon />}
                     value={searchInput}
                     onChange={(value) => {
-                      setSearchInput(value)
+                      setSearchInput(normalizeSearchInputForMode(value, searchMode))
                       if (searchError) setSearchError(null)
                     }}
                     onSubmit={submitSearch}
                     enterKeyHint="search"
-                    placeholder="Station name, CRS or TIPLOC e.g. Leeds, KGX, LEEDS"
+                    placeholder={
+                      searchMode === 'station-name'
+                        ? 'Station name e.g. Leeds'
+                        : searchMode === 'crs'
+                          ? 'CRS (3 letters) e.g. LDS'
+                          : 'TIPLOC (max 10) e.g. LEEDS'
+                    }
                     className="dep-search-input"
                     colorVariant="primary"
                   />
+                </div>
+                <div className="dep-search-mode-chips" role="group" aria-label="Search mode">
+                  <BUTOperatorChip
+                    instantAction
+                    colorVariant="primary"
+                    width="hug"
+                    state={searchMode === 'station-name' ? 'pressed' : 'active'}
+                    onClick={() => setSearchModeAndFocus('station-name')}
+                    aria-label="Search by station name"
+                  >
+                    Station name
+                  </BUTOperatorChip>
+                  <BUTOperatorChip
+                    instantAction
+                    colorVariant="primary"
+                    width="hug"
+                    state={searchMode === 'crs' ? 'pressed' : 'active'}
+                    onClick={() => setSearchModeAndFocus('crs')}
+                    aria-label="Search by CRS code"
+                  >
+                    CRS
+                  </BUTOperatorChip>
+                  <BUTOperatorChip
+                    instantAction
+                    colorVariant="primary"
+                    width="hug"
+                    state={searchMode === 'tiploc' ? 'pressed' : 'active'}
+                    onClick={() => setSearchModeAndFocus('tiploc')}
+                    aria-label="Search by TIPLOC code"
+                  >
+                    TIPLOC
+                  </BUTOperatorChip>
                 </div>
                 {showStationNameResults && (
                   <div className="dep-search-results" role="listbox" aria-label="Station matches">
@@ -891,7 +986,7 @@ const DarwinDeparturesPage: React.FC = () => {
                 <footer className="dep-footer">
                   <span>Source: Network Rail Darwin Push Port</span>
                   <span className="dep-footer-sep" aria-hidden="true">·</span>
-                  <span>Timetable: {data.timetableFile}</span>
+                  <DataLicenceAttribution />
                   <span className="dep-footer-sep" aria-hidden="true">·</span>
                   <span>Updated {new Date(data.updatedAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span>
                 </footer>

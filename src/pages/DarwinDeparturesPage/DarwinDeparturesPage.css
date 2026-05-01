@@ -139,6 +139,11 @@
   align-items: center;
   flex-wrap: nowrap;
 }
+.dep-search-mode-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
 .dep-search-input {
   flex: 1 1 auto;
   min-width: 0;

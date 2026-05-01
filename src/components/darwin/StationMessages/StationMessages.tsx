@@ -5,6 +5,10 @@ import './StationMessages.css'
 const SEVERITY_LABELS = ['Info', 'Minor', 'Major', 'Severe']
 const COLLAPSE_THRESHOLD = 2
 const DISMISSED_KEY = 'rs.darwin.dismissedMessages'
+const STATUS_DISRUPTIONS_BOILERPLATE_RE =
+  /(?:^|\s)Latest information can be found in\s*\.?\s*Status and Disruptions\.?/gi
+const PROMOTE_TO_MAJOR_RE =
+  /\b(unable to run|no trains(?: are)? running|line (?:is )?closed|service(?:s)? suspended)\b/i
 
 /** Set of dismissed message ids, persisted in localStorage so a user's
  * dismissal sticks across reloads. The Darwin daemon only re-broadcasts a
@@ -19,6 +23,30 @@ function readDismissed(): Set<string> {
 }
 function writeDismissed(ids: Set<string>): void {
   try { window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids])) } catch {}
+}
+
+/**
+ * NRCC messages sometimes append a generic "Latest information can be found in
+ * Status and Disruptions" sentence. Hide this boilerplate so only actionable
+ * message content is shown in the banner.
+ */
+function sanitizeMessageText(text: string): string {
+  return text
+    .replace(STATUS_DISRUPTIONS_BOILERPLATE_RE, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
+ * Darwin/NRCC occasionally marks obviously high-impact text as severity=1.
+ * Promote those patterns to "Major" in presentation to avoid downplaying
+ * service-stopping disruptions (e.g. "Trains are unable to run between...").
+ */
+function deriveDisplaySeverity(message: StationMessage): number {
+  const feedSeverity = Math.max(0, Math.min(3, Math.floor(message.severity || 0)))
+  if (feedSeverity >= 2) return feedSeverity
+  if (PROMOTE_TO_MAJOR_RE.test(message.plainMessage || '')) return 2
+  return feedSeverity
 }
 
 export const StationMessages: React.FC<{
@@ -40,7 +68,10 @@ export const StationMessages: React.FC<{
   // Defence in depth: even if the daemon ever lets through an empty / very
   // short message (broken flatten, partial broadcast), don't render an
   // empty banner. The UI should never display a blank "MAJOR TRAIN" pill.
-  const visible = messages.filter((m) => !dismissed.has(m.id) && m.plainMessage && m.plainMessage.trim().length >= 3)
+  const visible = messages
+    .filter((m) => !dismissed.has(m.id) && m.plainMessage)
+    .map((m) => ({ ...m, plainMessage: sanitizeMessageText(m.plainMessage) }))
+    .filter((m) => m.plainMessage.length >= 3)
   if (visible.length === 0) return null
 
   const showAll = expanded || visible.length <= COLLAPSE_THRESHOLD
@@ -55,7 +86,7 @@ export const StationMessages: React.FC<{
   return (
     <div className="dep-msg-stack" role="region" aria-label="Station messages">
       {shown.map((m) => {
-        const sev = Math.max(0, Math.min(3, Math.floor(m.severity || 0)))
+        const sev = deriveDisplaySeverity(m)
         return (
           <div key={m.id} className={`dep-msg dep-msg--sev${sev}`} role="alert">
             <div className="dep-msg-header">

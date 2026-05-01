@@ -11,16 +11,29 @@
 
 .dep-msg {
   background-color: var(--bg-secondary);
-  border-left: 4px solid var(--text-secondary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
   box-shadow: var(--shadow-sm);
 }
 
-.dep-msg--sev0 { border-left-color: hsl(214 70% 50%); background-color: color-mix(in srgb, hsl(214 70% 50%) 6%, var(--bg-secondary)); }
-.dep-msg--sev1 { border-left-color: hsl(48 90% 50%);  background-color: color-mix(in srgb, hsl(48 90% 50%)  8%, var(--bg-secondary)); }
-.dep-msg--sev2 { border-left-color: hsl(28 90% 50%);  background-color: color-mix(in srgb, hsl(28 90% 50%)  8%, var(--bg-secondary)); }
-.dep-msg--sev3 { border-left-color: var(--accent-base); background-color: color-mix(in srgb, var(--accent-base) 8%, var(--bg-secondary)); }
+.dep-msg--sev0 {
+  border-color: color-mix(in srgb, hsl(214 70% 50%) 35%, var(--border-color));
+  background-color: color-mix(in srgb, hsl(214 70% 50%) 6%, var(--bg-secondary));
+}
+/* Minor = fav-action pressed state */
+.dep-msg--sev1 {
+  border-color: color-mix(in srgb, hsl(53 55% 50%) 45%, var(--border-color));
+  background-color: hsl(53 55% 50%);
+  color: hsl(0 0% 0%);
+}
+/* Major + severe = red-action pressed state */
+.dep-msg--sev2,
+.dep-msg--sev3 {
+  border-color: color-mix(in srgb, hsl(0 68% 48%) 45%, var(--border-color));
+  background-color: hsl(0 68% 48%);
+  color: hsl(0 0% 100%);
+}
 
 .dep-msg-header {
   display: flex;
@@ -74,6 +87,18 @@
   white-space: pre-wrap;
 }
 
+.dep-msg--sev1 .dep-msg-cat { color: color-mix(in srgb, #000 70%, transparent); }
+.dep-msg--sev1 .dep-msg-body { color: hsl(0 0% 0%); }
+.dep-msg--sev2 .dep-msg-cat,
+.dep-msg--sev3 .dep-msg-cat { color: rgba(255, 255, 255, 0.88); }
+.dep-msg--sev2 .dep-msg-body,
+.dep-msg--sev3 .dep-msg-body { color: hsl(0 0% 100%); }
+.dep-msg--sev1 .dep-msg-dismiss { color: rgba(0, 0, 0, 0.72); }
+.dep-msg--sev2 .dep-msg-dismiss,
+.dep-msg--sev3 .dep-msg-dismiss { color: rgba(255, 255, 255, 0.88); }
+.dep-msg--sev2 .dep-msg-dismiss:hover,
+.dep-msg--sev3 .dep-msg-dismiss:hover { background-color: rgba(255, 255, 255, 0.14); color: #fff; }
+
 .dep-msg-more {
   align-self: flex-start;
   background-color: transparent;
@@ -87,3 +112,18 @@
 .dep-msg-more:hover { background-color: color-mix(in srgb, var(--accent-base) 10%, transparent); }
 
 [data-theme="dark"] .dep-msg-sev { background-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .dep-msg--sev1 {
+  border-color: color-mix(in srgb, hsl(53 100% 12%) 55%, var(--border-color));
+  background-color: hsl(53 100% 12%);
+  color: hsl(0 0% 100%);
+}
+[data-theme="dark"] .dep-msg--sev1 .dep-msg-cat,
+[data-theme="dark"] .dep-msg--sev1 .dep-msg-body,
+[data-theme="dark"] .dep-msg--sev1 .dep-msg-dismiss {
+  color: rgba(255, 255, 255, 0.9);
+}
+[data-theme="dark"] .dep-msg--sev2,
+[data-theme="dark"] .dep-msg--sev3 {
+  border-color: color-mix(in srgb, hsl(359 100% 17%) 55%, var(--border-color));
+  background-color: hsl(359 100% 17%);
+}

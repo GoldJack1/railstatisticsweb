@@ -7,6 +7,7 @@ import type {
   PtacVehicle,
   ServiceStop,
 } from '../../../types/darwin'
+import { BUTOperatorChip } from '../../buttons'
 import './CarriageMap.css'
 
 /**
@@ -35,7 +36,8 @@ export const CarriageMap: React.FC<{
   stops: ServiceStop[]
   reverse: boolean
   initialTpl?: string | null
-}> = ({ formation, consist, stops, reverse, initialTpl }) => {
+  onUnitClick?: (unitId: string) => void
+}> = ({ formation, consist, stops, reverse, initialTpl, onUnitClick }) => {
   const loadingStops = useMemo(
     () => stops.filter((s) => (s.coachLoading && s.coachLoading.length > 0) || s.loadingPercentage != null),
     [stops]
@@ -94,8 +96,7 @@ export const CarriageMap: React.FC<{
     }
     if (allFleets.size) summaryBits.push({ label: 'Class', value: [...allFleets].join(' + ') })
     if (allUnits.size)  summaryBits.push({ label: 'Unit',  value: [...allUnits].join(' + ') })
-    if (stages.length > 1) summaryBits.push({ label: 'Stages', value: String(stages.length) })
-    if (consist?.companyDarwin) summaryBits.push({ label: 'TOC', value: consist.companyDarwin })
+    // Hide PTAC-only metadata ("Stages"/"TOC") from the user-facing summary.
   }
 
   return (
@@ -104,7 +105,6 @@ export const CarriageMap: React.FC<{
         <div className="cmap-title-group">
           <h3 className="cmap-title">Coach formation</h3>
           {reverse && <span className="cmap-tag">↻ Reversed</span>}
-          {havePtac && <span className="cmap-tag cmap-tag--source">PTAC</span>}
         </div>
         {loadingStops.length > 0 && (
           <label className="cmap-stop-picker">
@@ -137,8 +137,8 @@ export const CarriageMap: React.FC<{
       )}
 
       {havePtac
-        ? renderPtacStages(stages, formation, loadingByCoachNumber, tiplocName)
-        : renderDarwinOnly(formation!, loadingByCoachNumber)}
+        ? renderPtacStages(stages, formation, loadingByCoachNumber, tiplocName, onUnitClick)
+        : renderDarwinOnly(formation!, loadingByCoachNumber, reverse)}
 
       {/* Class legend — only show the abbreviations that actually appear
        * in the currently-rendered formation, so we're not teaching the
@@ -150,9 +150,6 @@ export const CarriageMap: React.FC<{
           Overall load at <strong>{selectedStop.name || selectedStop.tpl}</strong>:{' '}
           <strong>{selectedStop.loadingPercentage}%</strong>
         </p>
-      )}
-      {!selectedStop && (
-        <p className="cmap-note cmap-note--inline">Live loading not yet published for this service.</p>
       )}
     </div>
   )
@@ -464,11 +461,16 @@ function renderPtacStages(
   darwinFormation: FormationData | null,
   loadingByCoachNumber: Map<string, CoachLoadingValue>,
   tiplocName: Map<string, string>,
+  onUnitClick?: (unitId: string) => void,
 ): React.ReactNode {
   const darwinByPosition = new Map<number, FormationCoach>()
   if (darwinFormation) {
     darwinFormation.coaches.forEach((c, i) => darwinByPosition.set(i + 1, c))
   }
+  // Stable PTAC vehicle -> coach-number mapping. We seed this from the first
+  // rendered stage so a vehicle keeps its number if the formation reverses
+  // later (e.g. 123 becomes 321, rather than being renumbered 123 again).
+  const vehicleCoachLabelById = new Map<string, string>()
   return (
     <div className="cmap-stages">
       {stages.map((stage, sIdx) => {
@@ -522,14 +524,29 @@ function renderPtacStages(
                     <div className="cmap-unit-header">
                       <span className="cmap-unit-name">{g.unitId || '—'}</span>
                       {g.fleetId && <span className="cmap-unit-fleet">{g.fleetId}</span>}
-                      {g.position != null && <span className="cmap-unit-pos">pos {g.position}</span>}
-                      {g.reversed && <span className="cmap-unit-reversed">↻ rev</span>}
+                      {g.reversed && <span className="cmap-unit-reversed-chip">Runs in Reverse Formation</span>}
+                      {g.unitId && onUnitClick && (
+                        <BUTOperatorChip
+                          width="hug"
+                          instantAction
+                          colorVariant="primary"
+                          className="cmap-unit-link-btn"
+                          onClick={() => onUnitClick(g.unitId!)}
+                        >
+                          View unit
+                        </BUTOperatorChip>
+                      )}
                     </div>
                     <ol className="cmap-row cmap-row--unit" role="list">
-                      {g.vehicles.map((v) => {
+                      {(g.reversed ? [...g.vehicles].reverse() : g.vehicles).map((v) => {
                         running += 1
                         const darwinCoach = sIdx === 0 ? darwinByPosition.get(running) : undefined
-                        return renderVehicleCell(v, darwinCoach, loadingByCoachNumber, running)
+                        const mappedLabel = v.vehicleId ? vehicleCoachLabelById.get(v.vehicleId) : undefined
+                        const coachLabel = mappedLabel ?? darwinCoach?.number ?? String(running)
+                        if (!mappedLabel && sIdx === 0 && v.vehicleId) {
+                          vehicleCoachLabelById.set(v.vehicleId, coachLabel)
+                        }
+                        return renderVehicleCell(v, coachLabel, darwinCoach, loadingByCoachNumber, running)
                       })}
                     </ol>
                   </div>
@@ -548,10 +565,12 @@ function renderPtacStages(
 function renderDarwinOnly(
   formation: FormationData,
   loadingByCoachNumber: Map<string, CoachLoadingValue>,
+  reverseFormation: boolean,
 ): React.ReactNode {
+  const coaches = reverseFormation ? [...formation.coaches].reverse() : formation.coaches
   return (
     <ol className="cmap-row" role="list">
-      {formation.coaches.map((coach) => {
+      {coaches.map((coach) => {
         const v = loadingByCoachNumber.get(coach.number)
         const enumVal = v && Number.isFinite(v.value) ? v.value : null
         return (
@@ -583,11 +602,11 @@ function renderDarwinOnly(
  */
 function renderVehicleCell(
   v: PtacVehicle,
+  coachLabel: string,
   darwinCoach: FormationCoach | undefined,
   loadingByCoachNumber: Map<string, CoachLoadingValue>,
   runningPosition: number,
 ): React.ReactNode {
-  const coachLabel = darwinCoach?.number ?? String(runningPosition)
   const cls        = darwinCoach?.class ?? null
   const loadingVal = loadingByCoachNumber.get(coachLabel) ?? loadingByCoachNumber.get(String(runningPosition))
   const enumVal = loadingVal && Number.isFinite(loadingVal.value) ? loadingVal.value : null

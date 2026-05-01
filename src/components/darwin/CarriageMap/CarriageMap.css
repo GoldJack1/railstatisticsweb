@@ -132,12 +132,26 @@
   letter-spacing: 0;
   text-transform: none;
 }
-.cmap-unit-pos {
-  font-weight: 600;
+.cmap-unit-reversed-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  background-color: hsl(214 70% 44%);
+  border: 1px solid hsl(214 70% 38%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
-.cmap-unit-reversed {
-  font-weight: 600;
-  color: var(--accent-base);
+.cmap-unit-link-btn {
+  margin-left: auto;
+}
+
+[data-theme="dark"] .cmap-unit-reversed-chip {
+  background-color: hsl(214 62% 30%);
+  border-color: hsl(214 62% 38%);
 }
 .cmap-row--unit::before { content: ''; }       /* drop "Coach 1 →" hint inside unit rows */
 
@@ -187,28 +201,32 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  background-color: color-mix(in srgb, var(--accent-base) 6%, var(--bg-primary));
-  border: 1px solid color-mix(in srgb, var(--accent-base) 28%, var(--border-color));
-  border-radius: var(--radius-sm);
+  background-color: hsl(214 70% 44%);
+  border: 1px solid hsl(214 70% 38%);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  color: var(--text-primary);
+  color: #fff;
 }
 .cmap-stage-swap-icon {
   font-size: var(--text-lg);
-  color: var(--accent-base);
+  color: rgba(255, 255, 255, 0.96);
   line-height: 1;
 }
-.cmap-stage-swap-text strong { color: var(--accent-base); }
+.cmap-stage-swap-text strong { color: rgba(255, 255, 255, 0.96); }
 
 /* Reversal looks more benign than a unit swap — same physical train, just
  * changing direction at a junction. Use a calmer blue tone instead of the
  * accent red, with a different icon. */
 .cmap-stage-swap--reversal {
-  background-color: color-mix(in srgb, hsl(214 70% 50%) 8%, var(--bg-primary));
-  border-color: color-mix(in srgb, hsl(214 70% 50%) 40%, var(--border-color));
+  background-color: hsl(214 70% 44%);
+  border-color: hsl(214 70% 38%);
 }
-.cmap-stage-swap--reversal .cmap-stage-swap-icon { color: hsl(214 70% 45%); }
-.cmap-stage-swap--reversal .cmap-stage-swap-text strong { color: hsl(214 70% 45%); }
+
+[data-theme="dark"] .cmap-stage-swap,
+[data-theme="dark"] .cmap-stage-swap--reversal {
+  background-color: hsl(214 62% 30%);
+  border-color: hsl(214 62% 38%);
+}
 
 .cmap-stop-picker {
   display: flex;

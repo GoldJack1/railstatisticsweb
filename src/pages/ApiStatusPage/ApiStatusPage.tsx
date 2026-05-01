@@ -5,7 +5,6 @@ import './ApiStatusPage.css'
 
 type HealthPayload = {
   ok: boolean
-  timetableFile?: string
   loadedDate?: string
   startedAt?: string
   uptimeSec?: number
@@ -152,7 +151,6 @@ const ApiStatusPage: React.FC = () => {
 
     return {
     daemonStatus: health?.ok ? 'Healthy' : 'Unavailable',
-    timetable: health?.timetableFile || '-',
     loadedDate: health?.loadedDate || '-',
     uptime: formatUptimeFromMs(uptimeMs),
     kafkaConsumed: formatNum(health?.kafka?.consumed),
@@ -203,7 +201,6 @@ const ApiStatusPage: React.FC = () => {
 
         <section className="api-status-grid" aria-label="API health summary">
           <article className="api-status-card"><h3>Daemon status</h3><p>{summary.daemonStatus}</p></article>
-          <article className="api-status-card"><h3>Timetable</h3><p>{summary.timetable}</p></article>
           <article className="api-status-card"><h3>Loaded date</h3><p>{summary.loadedDate}</p></article>
           <article className="api-status-card"><h3>Uptime</h3><p>{summary.uptime}</p></article>
           <article className="api-status-card"><h3>Kafka consumed</h3><p>{summary.kafkaConsumed}</p></article>

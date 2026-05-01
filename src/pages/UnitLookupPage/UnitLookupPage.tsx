@@ -4,6 +4,7 @@ import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
 import { TextCard } from '../../components/cards'
 import { CarriageMap } from '../../components/darwin/CarriageMap'
+import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import { useUnitDetail } from '../../hooks/useUnitDetail'
 import type { PtacVehicle, ServiceDetail } from '../../types/darwin'
 import './UnitLookupPage.css'
@@ -879,6 +880,15 @@ const UnitLookupPage: React.FC = () => {
                     <p className="unit-muted">No services recorded for this day.</p>
                   )}
                 </div>
+              </section>
+            )}
+
+            {data && (
+              <section className="unit-list-card">
+                <p className="unit-muted">
+                  Source: Network Rail Darwin Push Port and PTAC feed.{' '}
+                  <DataLicenceAttribution />
+                </p>
               </section>
             )}
           </main>
