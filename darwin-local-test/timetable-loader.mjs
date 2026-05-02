@@ -41,11 +41,18 @@ const xmlParser = new XMLParser({
 
 /**
  * Gzipped JSON sidecars beside each `.xml.gz` — skips XML parse on cache hit.
- * v2: two gzipped JSONL streams (no monolithic JSON.stringify — avoids V8 max string length).
+ * jsonl v2/v3: two gzipped JSONL streams (no giant stringify / parse).
+ *   rid lines: [rid, schedule]; tpl v2 one batch line per TIPLOC [tpl, Array]; tpl v3 one row per calling point [tpl, {rid, stopIdx}] (bounds line size).
  * v1: legacy single `.jidx.json.gz` blob (still read if present and fresh).
  */
 const JIDX_VERSION_V1 = 1;
-const JIDX_VERSION = 2;
+/** Read-compatible JSONL envelope minor revisions (rid shares header.v). */
+const JIDX_JSONL_VER_BATCH = 2;
+const JIDX_JSONL_VER_TPL_ROWS = 3;
+const JIDX_JSONL_VER_MIN = JIDX_JSONL_VER_BATCH;
+const JIDX_JSONL_VER_MAX = JIDX_JSONL_VER_TPL_ROWS;
+/** Writer emits rid+jsonl tpl rows both at this revision. */
+const JIDX_JSONL_VER_WRITE = JIDX_JSONL_VER_TPL_ROWS;
 const JIDX_SUFFIX_V1 = '.jidx.json.gz';
 const JIDX_SUFFIX_RID = '.jidx.rid.jsonl.gz';
 const JIDX_SUFFIX_TPL = '.jidx.tpl.jsonl.gz';
@@ -113,9 +120,9 @@ function enqueueJidxWrite(fn) {
 }
 
 /**
- * @returns {Promise<{ byRid: Map, byTiploc: Map } | null>}
+ * @returns {Promise<{ header: object, map: Map } | null>}
  */
-async function readJidxJsonlGzToMap(filePath, expectedPart) {
+async function readJidxRidJsonlGzToMap(filePath) {
   const input = createReadStream(filePath).pipe(createGunzip());
   const rl = createInterface({ input, crlfDelay: Infinity });
   let lineNo = 0;
@@ -134,11 +141,63 @@ async function readJidxJsonlGzToMap(filePath, expectedPart) {
       }
       if (lineNo === 1) {
         header = row;
-        if (header?.v !== JIDX_VERSION || header.part !== expectedPart) return null;
+        if (header?.part !== 'rid') return null;
+        if (header.v < JIDX_JSONL_VER_MIN || header.v > JIDX_JSONL_VER_MAX) return null;
         continue;
       }
       if (!Array.isArray(row) || row.length !== 2) return null;
       map.set(row[0], row[1]);
+    }
+  } catch {
+    return null;
+  }
+  return { header, map };
+}
+
+/**
+ * @returns {Promise<{ header: object, map: Map<string, Array<{ rid: string, stopIdx: number }>> } | null>}
+ */
+async function readJidxTplJsonlGzToMap(filePath) {
+  const input = createReadStream(filePath).pipe(createGunzip());
+  const rl = createInterface({ input, crlfDelay: Infinity });
+  let lineNo = 0;
+  /** @type {object | null} */
+  let header = null;
+  const map = new Map();
+  try {
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      lineNo++;
+      let row;
+      try {
+        row = JSON.parse(line);
+      } catch {
+        return null;
+      }
+      if (lineNo === 1) {
+        header = row;
+        if (header?.part !== 'tpl') return null;
+        if (header.v < JIDX_JSONL_VER_MIN || header.v > JIDX_JSONL_VER_MAX) return null;
+        continue;
+      }
+      if (!Array.isArray(row) || row.length !== 2) return null;
+      const tpl = row[0];
+      const second = row[1];
+      if (header.v === JIDX_JSONL_VER_BATCH) {
+        if (!Array.isArray(second)) return null;
+        map.set(tpl, second);
+      } else {
+        if (!second || typeof second !== 'object' || Array.isArray(second)) return null;
+        const rid = second.rid;
+        const stopIdx = second.stopIdx;
+        if (typeof rid !== 'string' || !Number.isInteger(stopIdx)) return null;
+        let arr = map.get(tpl);
+        if (!arr) {
+          arr = [];
+          map.set(tpl, arr);
+        }
+        arr.push({ rid, stopIdx });
+      }
     }
   } catch {
     return null;
@@ -181,7 +240,7 @@ async function writeJidxV2Pair(xmlGzPath, stXml, byRid, byTiploc) {
   if (!paths) return;
   const { ridPath, tplPath } = paths;
   const meta = {
-    v: JIDX_VERSION,
+    v: JIDX_JSONL_VER_WRITE,
     savedAt: new Date().toISOString(),
     sourceXmlMtimeMs: stXml.mtimeMs,
   };
@@ -189,10 +248,14 @@ async function writeJidxV2Pair(xmlGzPath, stXml, byRid, byTiploc) {
     for (const [rid, schedule] of byRid) yield JSON.stringify([rid, schedule]);
   }
   async function* tplLines() {
-    for (const [tpl, arr] of byTiploc) yield JSON.stringify([tpl, arr]);
+    for (const [tpl, arr] of byTiploc) {
+      for (const p of arr) {
+        yield JSON.stringify([tpl, p]);
+      }
+    }
   }
   await streamWriteJidxJsonlGz(ridPath, { ...meta, part: 'rid' }, ridLines());
-  await streamWriteJidxJsonlGz(tplPath, { ...meta, part: 'tpl' }, tplLines());
+  await streamWriteJidxJsonlGz(tplPath, { ...meta, part: 'tpl', tplEncoding: 'rows' }, tplLines());
   try {
     const legacy = jidxV1PathForXmlGz(xmlGzPath);
     if (legacy && existsSync(legacy)) unlinkSync(legacy);
@@ -205,7 +268,7 @@ async function writeJidxV2Pair(xmlGzPath, stXml, byRid, byTiploc) {
   } catch {
     /* ignore */
   }
-  console.log(`[tt] ${basename(xmlGzPath)}: wrote jidx v2 (${(sz / 1024 / 1024).toFixed(1)} MiB gzip total)`);
+  console.log(`[tt] ${basename(xmlGzPath)}: wrote jidx jsonl v${JIDX_JSONL_VER_WRITE} (${(sz / 1024 / 1024).toFixed(1)} MiB gzip total)`);
 }
 
 /**
@@ -262,16 +325,17 @@ async function tryReadJourneyIndexCacheV2(xmlGzPath) {
   if (stRid.mtimeMs < stXml.mtimeMs || stTpl.mtimeMs < stXml.mtimeMs) return null;
   const t0 = Date.now();
   const [ridOut, tplOut] = await Promise.all([
-    readJidxJsonlGzToMap(ridPath, 'rid'),
-    readJidxJsonlGzToMap(tplPath, 'tpl'),
+    readJidxRidJsonlGzToMap(ridPath),
+    readJidxTplJsonlGzToMap(tplPath),
   ]);
   if (!ridOut?.map || !tplOut?.map || !ridOut.header || !tplOut.header) return null;
   if (ridOut.header.sourceXmlMtimeMs !== tplOut.header.sourceXmlMtimeMs) return null;
   const byRid = ridOut.map;
   const byTiploc = tplOut.map;
   const elapsed = Date.now() - t0;
+  const tplMode = tplOut.header.v === JIDX_JSONL_VER_BATCH ? 'batch' : 'rows';
   console.log(
-    `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx v2 (${elapsed}ms)`,
+    `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx jsonl (tpl=${tplMode}, ${elapsed}ms)`,
   );
   return { byRid, byTiploc };
 }
