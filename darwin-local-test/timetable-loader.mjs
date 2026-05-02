@@ -16,8 +16,9 @@
  *   5. Normalise schema differences and return.
  */
 
-import { readFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
+import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 
 const xmlParser = new XMLParser({
@@ -27,6 +28,85 @@ const xmlParser = new XMLParser({
   parseAttributeValue: false,
   trimValues: true,
 });
+
+/** Gzipped JSON sidecar next to each `.xml.gz` — skips XML parse on cache hit (near-instant historical loads). */
+const JIDX_VERSION = 1;
+const JIDX_SUFFIX = '.jidx.json.gz';
+
+function jidxDisabled() {
+  const v = String(process.env.TIMETABLE_JIDX_DISABLE || '').toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
+function jidxPathForXmlGz(xmlGzPath) {
+  if (!xmlGzPath || typeof xmlGzPath !== 'string') return null;
+  if (!xmlGzPath.endsWith('.xml.gz')) return null;
+  return `${xmlGzPath.slice(0, -'.xml.gz'.length)}${JIDX_SUFFIX}`;
+}
+
+/**
+ * @returns {{ byRid: Map, byTiploc: Map } | null}
+ */
+function tryReadJourneyIndexCache(xmlGzPath) {
+  const jidxPath = jidxPathForXmlGz(xmlGzPath);
+  if (!jidxPath || !existsSync(jidxPath)) return null;
+  let stXml;
+  let stJ;
+  try {
+    stXml = statSync(xmlGzPath);
+    stJ = statSync(jidxPath);
+  } catch {
+    return null;
+  }
+  if (stJ.mtimeMs < stXml.mtimeMs) return null;
+  const t0 = Date.now();
+  try {
+    const raw = JSON.parse(gunzipSync(readFileSync(jidxPath)).toString('utf8'));
+    if (raw.v !== JIDX_VERSION || !Array.isArray(raw.byRidEntries) || !Array.isArray(raw.byTiplocEntries)) {
+      return null;
+    }
+    const byRid = new Map(raw.byRidEntries);
+    const byTiploc = new Map(raw.byTiplocEntries);
+    const elapsed = Date.now() - t0;
+    console.log(
+      `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx (${elapsed}ms)`,
+    );
+    return { byRid, byTiploc };
+  } catch {
+    return null;
+  }
+}
+
+function writeJourneyIndexCache(xmlGzPath, byRid, byTiploc) {
+  const jidxPath = jidxPathForXmlGz(xmlGzPath);
+  if (!jidxPath) return;
+  let stXml;
+  try {
+    stXml = statSync(xmlGzPath);
+  } catch {
+    return;
+  }
+  const level = Math.max(1, Math.min(9, Number(process.env.TIMETABLE_JIDX_GZIP_LEVEL || 6)));
+  const payload = {
+    v: JIDX_VERSION,
+    savedAt: new Date().toISOString(),
+    sourceXmlMtimeMs: stXml.mtimeMs,
+    byRidEntries: [...byRid.entries()],
+    byTiplocEntries: [...byTiploc.entries()],
+  };
+  let json;
+  try {
+    json = JSON.stringify(payload);
+  } catch (e) {
+    console.warn(`[tt] jidx stringify skipped: ${e.message}`);
+    return;
+  }
+  const tmp = jidxPath + '.tmp';
+  const buf = gzipSync(json, { level });
+  writeFileSync(tmp, buf);
+  renameSync(tmp, jidxPath);
+  console.log(`[tt] ${basename(xmlGzPath)}: wrote jidx (${(buf.length / 1024 / 1024).toFixed(1)} MiB gzip)`);
+}
 
 const LOC_KEYS_BY_SLOT = ['OR', 'IP', 'PP', 'DT', 'OPOR', 'OPIP', 'OPPP', 'OPDT'];
 const ORIGIN_SLOTS = ['OR', 'OPOR'];
@@ -176,6 +256,11 @@ export function loadTimetableForTiploc(filePath, tiploc) {
  * @param {string} filePath absolute path to the .xml.gz timetable file
  */
 export function loadAllJourneysIndexedByTiploc(filePath) {
+  if (!jidxDisabled()) {
+    const fromIdx = tryReadJourneyIndexCache(filePath);
+    if (fromIdx) return fromIdx;
+  }
+
   const t0 = Date.now();
   const buf = readFileSync(filePath);
   const xml = gunzipSync(buf).toString('utf8');
@@ -282,5 +367,14 @@ export function loadAllJourneysIndexedByTiploc(filePath) {
 
   const elapsed = Date.now() - t0;
   console.log(`[tt] ${filePath.split('/').pop()}: parsed ${parsed} journeys, ${totalSlots} slots, indexed ${byTiploc.size} distinct TIPLOCs (${elapsed}ms)`);
+
+  if (!jidxDisabled()) {
+    try {
+      writeJourneyIndexCache(filePath, byRid, byTiploc);
+    } catch (e) {
+      console.warn(`[tt] jidx write failed: ${e.message}`);
+    }
+  }
+
   return { byRid, byTiploc };
 }

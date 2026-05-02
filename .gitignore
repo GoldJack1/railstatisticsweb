@@ -106,6 +106,8 @@ darwin-local-test/first-message.*
 darwin-local-test/raw-samples.json
 darwin-local-test/type-samples.json
 darwin-local-test/state/
+# Parsed timetable sidecars (large; regenerated from *.xml.gz)
+**/*.jidx.json.gz
 
 # Network Rail PTAC (S506) credentials and any other Cred.txt files
 # inside docs/. The accompanying spec docs and XSD files are public

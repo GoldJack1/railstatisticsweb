@@ -12,7 +12,8 @@
     "service": "node service-detail.mjs",
     "daemon": "node departures-daemon.mjs",
     "fetch:daily-files": "node fetch-daily-timetables.mjs",
-    "fetch:ptac-today": "node fetch-ptac-today.mjs"
+    "fetch:ptac-today": "node fetch-ptac-today.mjs",
+    "warm:jidx": "node warm-jidx.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
