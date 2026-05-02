@@ -48,7 +48,7 @@ import { execFile } from 'node:child_process';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import dotenv from 'dotenv';
 import { Kafka, logLevel } from 'kafkajs';
-import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
+import { flushJidxWriteQueue, loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
 import { loadTodaysReasons } from './reasons-loader.mjs';
 import { loadTodaysLocations, loadSupplementalNamesFromFile, makeResolvers } from './locations-loader.mjs';
 import { parseConsistMessage, consistJoinKey, KNOWN_PTAC_TOC } from './consist-parser.mjs';
@@ -481,17 +481,18 @@ async function maybeRunScheduledAutoFetch(now = new Date()) {
   const ok = await runDailyFileFetch('04:05 schedule');
   if (ok) {
     try {
-      reloadAllDataAndResetLive('post-fetch');
+      await reloadAllDataAndResetLive('post-fetch');
     } catch (e) {
       console.warn(`[daemon] post-fetch reload failed: ${e.message}`);
     }
   }
 }
 
-function reloadReferenceData() {
+async function reloadReferenceData() {
   timetablePath = pickTodaysTimetable();
   console.log(`[daemon] loading timetable ${timetablePath.split('/').pop()}`);
-  ({ byRid, byTiploc } = loadAllJourneysIndexedByTiploc(timetablePath));
+  ({ byRid, byTiploc } = await loadAllJourneysIndexedByTiploc(timetablePath));
+  await flushJidxWriteQueue();
   ({ lateReasons, cancelReasons } = loadTodaysReasons());
   ({ locations, tocs } = loadTodaysLocations());
   const supplementalPath = process.env.DARWIN_STATIONS_REF_XML
@@ -606,9 +607,9 @@ function pruneMapsToValidRids() {
   }
 }
 
-function reloadAllDataAndResetLive(reason = 'manual') {
+async function reloadAllDataAndResetLive(reason = 'manual') {
   console.log(`[daemon] reloading timetable/reference data (${reason}) ...`);
-  reloadReferenceData();
+  await reloadReferenceData();
   departuresCache.clear();
 
   const postFetchOnly = reason === 'post-fetch';
@@ -1054,7 +1055,7 @@ function pruneHistoricalTimetableCache() {
   }
 }
 
-function getHistoricalTimetable(ymdDashed) {
+async function getHistoricalTimetable(ymdDashed) {
   // Same-day lookups should reuse already-loaded live timetable indexes to
   // avoid expensive synchronous reparsing on request path.
   if (ymdDashed === loadedDate && byRid && byTiploc) {
@@ -1065,7 +1066,7 @@ function getHistoricalTimetable(ymdDashed) {
   if (cached && now - (cached.loadedAtMs || 0) <= HIST_TIMETABLE_CACHE_TTL_MS) return cached;
   const timetable = pickTimetableForDate(ymdDashed);
   if (!timetable) return null;
-  const parsed = loadAllJourneysIndexedByTiploc(timetable);
+  const parsed = await loadAllJourneysIndexedByTiploc(timetable);
   const entry = { loadedAtMs: now, byRid: parsed.byRid, byTiploc: parsed.byTiploc };
   historicalTimetableCache.set(ymdDashed, entry);
   pruneHistoricalTimetableCache();
@@ -1344,13 +1345,13 @@ function loadPersistedStateForDate(ymdDashed, at = null) {
   return null;
 }
 
-function getHistoricalContext(ymdDashed, at = null) {
+async function getHistoricalContext(ymdDashed, at = null) {
   if (!isIsoDate(ymdDashed)) return null;
   const cacheKey = `${ymdDashed}|${at || ''}`;
   const cached = historicalContextCache.get(cacheKey);
   if (cached && Date.now() - cached.loadedAtMs <= HIST_CONTEXT_CACHE_TTL_MS) return cached;
 
-  const histTimetable = getHistoricalTimetable(ymdDashed);
+  const histTimetable = await getHistoricalTimetable(ymdDashed);
   if (!histTimetable) return null;
   const histByRid = histTimetable.byRid;
   const histByTiploc = histTimetable.byTiploc;
@@ -1387,9 +1388,9 @@ function getHistoricalContext(ymdDashed, at = null) {
   return ctx;
 }
 
-function getTimetableOnlyContext(ymdDashed, at = null) {
+async function getTimetableOnlyContext(ymdDashed, at = null) {
   if (!isIsoDate(ymdDashed)) return null;
-  const timetable = getHistoricalTimetable(ymdDashed);
+  const timetable = await getHistoricalTimetable(ymdDashed);
   if (!timetable) return null;
   return {
     loadedAtMs: Date.now(),
@@ -1589,10 +1590,10 @@ async function runHistoricalWarmup() {
     try {
       // Prime caches by calling the same code paths that historical requests
       // hit. None of these throw on missing data — they just return null.
-      getHistoricalTimetable(ymd);
+      await getHistoricalTimetable(ymd);
       const snaps = listHistorySnapshotsForDate(ymd);
       buildSnapshotIndexForDate(ymd);
-      getHistoricalContext(ymd);
+      await getHistoricalContext(ymd);
       warmupState.done.push({ date: ymd, snapshots: snaps.length, ms: Date.now() - t0 });
       console.log(`[warmup] primed ${ymd} in ${Date.now() - t0}ms (${snaps.length} snapshots indexed)`);
     } catch (e) {
@@ -1603,6 +1604,8 @@ async function runHistoricalWarmup() {
     // Yield generously between dates to keep the API responsive.
     await sleepMs(250);
   }
+
+  await flushJidxWriteQueue();
 
   warmupState.current = null;
   warmupState.finishedAt = new Date().toISOString();
@@ -2838,7 +2841,7 @@ function sendJson(res, status, body, req) {
   res.end(json);
 }
 
-function handleRequest(req, res) {
+async function handleRequest(req, res) {
   if (req.method === 'OPTIONS') {
     const cors = pickCorsOrigin(req);
     const headers = {
@@ -3030,7 +3033,7 @@ function handleRequest(req, res) {
     const loadDate = anchorDay || dateParam;
     let queryCtx = null;
     if (isHistorical) {
-      queryCtx = getHistoricalContext(loadDate, atParam);
+      queryCtx = await getHistoricalContext(loadDate, atParam);
       if (!queryCtx) {
         sendJson(res, 404, { error: `no historical data for ${loadDate}` }, req); return;
       }
@@ -3040,7 +3043,7 @@ function handleRequest(req, res) {
         sendJson(res, 404, { error: `no live context for ${loadDate}` }, req); return;
       }
     } else if (isFutureTimetable) {
-      queryCtx = getTimetableOnlyContext(loadDate, atParam);
+      queryCtx = await getTimetableOnlyContext(loadDate, atParam);
       if (!queryCtx) {
         sendJson(res, 404, { error: `no timetable data for ${loadDate}` }, req); return;
       }
@@ -3081,7 +3084,7 @@ function handleRequest(req, res) {
         sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req);
         return;
       }
-      const histCtx = getHistoricalContext(dateParam, atParam);
+      const histCtx = await getHistoricalContext(dateParam, atParam);
       if (!histCtx) {
         sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req);
         return;
@@ -3173,7 +3176,17 @@ function handleRequest(req, res) {
   sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid?date=YYYY-MM-DD, /api/unit/:id, /api/units/catalog, /api/history/dates, /api/history/overlay-series' }, req);
 }
 
-const server = createServer(handleRequest);
+const server = createServer((req, res) => {
+  Promise.resolve(handleRequest(req, res)).catch((e) => {
+    console.error('[daemon] handleRequest error:', e);
+    try {
+      if (!res.headersSent) sendJson(res, 500, { error: 'internal error' }, req);
+      else res.destroy();
+    } catch {
+      /* ignore */
+    }
+  });
+});
 
 // ---------- Kafka loop -----------------------------------------------------
 /** Shared KafkaJS tuning — Confluent often resets TLS mid-handshake under burst connects at startup; retries recover. */
@@ -3320,7 +3333,7 @@ async function start() {
     console.log('[daemon] auto-fetch disabled (DARWIN_AUTO_FETCH_FILES=false).');
   }
 
-  reloadReferenceData();
+  await reloadReferenceData();
 
   // Live-first startup (Phase 2): apply only the small, high-value subset of
   // persisted state synchronously so /api/departures and /api/service can
@@ -3428,11 +3441,9 @@ async function start() {
     const t = railwayDayYmd(new Date());
     if (t !== loadedDate) {
       console.log(`[daemon] day rollover detected (${loadedDate} → ${t}), reloading reference data ...`);
-      try {
-        reloadAllDataAndResetLive('day rollover');
-      } catch (e) {
+      reloadAllDataAndResetLive('day rollover').catch((e) => {
         console.warn(`[daemon] reload failed (will retry in 5 min): ${e.message}`);
-      }
+      });
     }
   }, 5 * 60_000);
 

@@ -1,14 +1,14 @@
 /**
- * Build timetable *.jidx.json.gz sidecars for each tt/YYYYMMDD (highest v*.xml.gz).
- * First load still parses XML; subsequent daemon startups skip XML via jidx.
+ * Build timetable jidx v2 sidecars (*.jidx.rid.jsonl.gz + *.jidx.tpl.jsonl.gz) for each tt/YYYYMMDD.
+ * First load still parses XML; writes stream in the background — flush before exit.
  *
  * Usage: node warm-jidx.mjs [ttRoot]
  * Default ttRoot: $DARWIN_TIMETABLE_DIR or ./tt beside this script.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
+import { flushJidxWriteQueue, isJidxFreshForXmlGz, loadAllJourneysIndexedByTiploc } from './timetable-loader.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ttRoot = resolve(process.argv[2] || process.env.DARWIN_TIMETABLE_DIR || resolve(__dirname, 'tt'));
@@ -45,22 +45,15 @@ for (const ent of readdirSync(ttRoot, { withFileTypes: true })) {
     skippedNoXml++;
     continue;
   }
-  const jidxPath = `${xmlPath.slice(0, -'.xml.gz'.length)}.jidx.json.gz`;
-  try {
-    const stXml = statSync(xmlPath);
-    if (existsSync(jidxPath)) {
-      const stJ = statSync(jidxPath);
-      if (stJ.mtimeMs >= stXml.mtimeMs) {
-        skippedFreshJidx++;
-        continue;
-      }
-    }
-  } catch {
+  if (isJidxFreshForXmlGz(xmlPath)) {
+    skippedFreshJidx++;
     continue;
   }
-  loadAllJourneysIndexedByTiploc(xmlPath);
+  await loadAllJourneysIndexedByTiploc(xmlPath);
   processed++;
 }
+
+await flushJidxWriteQueue();
 
 console.log(
   `[warm-jidx] ttRoot=${ttRoot} processed=${processed} skipped(no_xml)=${skippedNoXml} skipped(already_fresh)=${skippedFreshJidx}`,

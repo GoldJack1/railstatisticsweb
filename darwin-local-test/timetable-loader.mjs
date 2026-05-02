@@ -16,9 +16,19 @@
  *   5. Normalise schema differences and return.
  */
 
-import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+} from 'node:fs';
 import { basename } from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { createInterface } from 'node:readline';
+import { finished } from 'node:stream/promises';
+import { createGunzip, createGzip, gunzipSync } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 
 const xmlParser = new XMLParser({
@@ -29,26 +39,180 @@ const xmlParser = new XMLParser({
   trimValues: true,
 });
 
-/** Gzipped JSON sidecar next to each `.xml.gz` — skips XML parse on cache hit (near-instant historical loads). */
-const JIDX_VERSION = 1;
-const JIDX_SUFFIX = '.jidx.json.gz';
+/**
+ * Gzipped JSON sidecars beside each `.xml.gz` — skips XML parse on cache hit.
+ * v2: two gzipped JSONL streams (no monolithic JSON.stringify — avoids V8 max string length).
+ * v1: legacy single `.jidx.json.gz` blob (still read if present and fresh).
+ */
+const JIDX_VERSION_V1 = 1;
+const JIDX_VERSION = 2;
+const JIDX_SUFFIX_V1 = '.jidx.json.gz';
+const JIDX_SUFFIX_RID = '.jidx.rid.jsonl.gz';
+const JIDX_SUFFIX_TPL = '.jidx.tpl.jsonl.gz';
 
 function jidxDisabled() {
   const v = String(process.env.TIMETABLE_JIDX_DISABLE || '').toLowerCase();
   return v === '1' || v === 'true' || v === 'yes';
 }
 
-function jidxPathForXmlGz(xmlGzPath) {
+function jidxStemForXmlGz(xmlGzPath) {
   if (!xmlGzPath || typeof xmlGzPath !== 'string') return null;
   if (!xmlGzPath.endsWith('.xml.gz')) return null;
-  return `${xmlGzPath.slice(0, -'.xml.gz'.length)}${JIDX_SUFFIX}`;
+  return xmlGzPath.slice(0, -'.xml.gz'.length);
+}
+
+function jidxV1PathForXmlGz(xmlGzPath) {
+  const stem = jidxStemForXmlGz(xmlGzPath);
+  return stem ? `${stem}${JIDX_SUFFIX_V1}` : null;
+}
+
+function jidxV2PathsForXmlGz(xmlGzPath) {
+  const stem = jidxStemForXmlGz(xmlGzPath);
+  if (!stem) return null;
+  return { ridPath: `${stem}${JIDX_SUFFIX_RID}`, tplPath: `${stem}${JIDX_SUFFIX_TPL}` };
+}
+
+/** True when v2 pair or legacy v1 sidecar is present and not older than the source timetable file. */
+export function isJidxFreshForXmlGz(xmlGzPath) {
+  if (jidxDisabled()) return false;
+  let stXml;
+  try {
+    stXml = statSync(xmlGzPath);
+  } catch {
+    return false;
+  }
+  const v2 = jidxV2PathsForXmlGz(xmlGzPath);
+  if (v2 && existsSync(v2.ridPath) && existsSync(v2.tplPath)) {
+    try {
+      const stR = statSync(v2.ridPath);
+      const stT = statSync(v2.tplPath);
+      return stR.mtimeMs >= stXml.mtimeMs && stT.mtimeMs >= stXml.mtimeMs;
+    } catch {
+      return false;
+    }
+  }
+  const v1 = jidxV1PathForXmlGz(xmlGzPath);
+  if (!v1 || !existsSync(v1)) return false;
+  try {
+    return statSync(v1).mtimeMs >= stXml.mtimeMs;
+  } catch {
+    return false;
+  }
+}
+
+/** Resolves when queued jidx v2 writes have finished (for scripts such as warm-jidx). */
+let jidxWriteTail = Promise.resolve();
+export function flushJidxWriteQueue() {
+  return jidxWriteTail;
+}
+
+function enqueueJidxWrite(fn) {
+  jidxWriteTail = jidxWriteTail.then(fn).catch((e) => {
+    console.warn(`[tt] jidx write failed: ${e.message}`);
+  });
+}
+
+/**
+ * @returns {Promise<{ byRid: Map, byTiploc: Map } | null>}
+ */
+async function readJidxJsonlGzToMap(filePath, expectedPart) {
+  const input = createReadStream(filePath).pipe(createGunzip());
+  const rl = createInterface({ input, crlfDelay: Infinity });
+  let lineNo = 0;
+  /** @type {object | null} */
+  let header = null;
+  const map = new Map();
+  try {
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      lineNo++;
+      let row;
+      try {
+        row = JSON.parse(line);
+      } catch {
+        return null;
+      }
+      if (lineNo === 1) {
+        header = row;
+        if (header?.v !== JIDX_VERSION || header.part !== expectedPart) return null;
+        continue;
+      }
+      if (!Array.isArray(row) || row.length !== 2) return null;
+      map.set(row[0], row[1]);
+    }
+  } catch {
+    return null;
+  }
+  return { header, map };
+}
+
+async function streamWriteJidxJsonlGz(outPath, header, asyncIterable) {
+  const tmp = `${outPath}.tmp`;
+  const level = Math.max(1, Math.min(9, Number(process.env.TIMETABLE_JIDX_GZIP_LEVEL || 6)));
+  const gz = createGzip({ level });
+  const out = createWriteStream(tmp);
+  gz.pipe(out);
+  const writeChunk = (chunk) =>
+    new Promise((resolve, reject) => {
+      gz.write(chunk, (err) => (err ? reject(err) : resolve()));
+    });
+  try {
+    await writeChunk(JSON.stringify(header) + '\n');
+    for await (const line of asyncIterable) {
+      await writeChunk(line + '\n');
+    }
+    await new Promise((resolve, reject) => {
+      gz.end((err) => (err ? reject(err) : resolve()));
+    });
+    await finished(out);
+    renameSync(tmp, outPath);
+  } catch (e) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  }
+}
+
+async function writeJidxV2Pair(xmlGzPath, stXml, byRid, byTiploc) {
+  const paths = jidxV2PathsForXmlGz(xmlGzPath);
+  if (!paths) return;
+  const { ridPath, tplPath } = paths;
+  const meta = {
+    v: JIDX_VERSION,
+    savedAt: new Date().toISOString(),
+    sourceXmlMtimeMs: stXml.mtimeMs,
+  };
+  async function* ridLines() {
+    for (const [rid, schedule] of byRid) yield JSON.stringify([rid, schedule]);
+  }
+  async function* tplLines() {
+    for (const [tpl, arr] of byTiploc) yield JSON.stringify([tpl, arr]);
+  }
+  await streamWriteJidxJsonlGz(ridPath, { ...meta, part: 'rid' }, ridLines());
+  await streamWriteJidxJsonlGz(tplPath, { ...meta, part: 'tpl' }, tplLines());
+  try {
+    const legacy = jidxV1PathForXmlGz(xmlGzPath);
+    if (legacy && existsSync(legacy)) unlinkSync(legacy);
+  } catch {
+    /* ignore */
+  }
+  let sz = 0;
+  try {
+    sz = statSync(ridPath).size + statSync(tplPath).size;
+  } catch {
+    /* ignore */
+  }
+  console.log(`[tt] ${basename(xmlGzPath)}: wrote jidx v2 (${(sz / 1024 / 1024).toFixed(1)} MiB gzip total)`);
 }
 
 /**
  * @returns {{ byRid: Map, byTiploc: Map } | null}
  */
-function tryReadJourneyIndexCache(xmlGzPath) {
-  const jidxPath = jidxPathForXmlGz(xmlGzPath);
+function tryReadJourneyIndexCacheV1(xmlGzPath) {
+  const jidxPath = jidxV1PathForXmlGz(xmlGzPath);
   if (!jidxPath || !existsSync(jidxPath)) return null;
   let stXml;
   let stJ;
@@ -62,14 +226,14 @@ function tryReadJourneyIndexCache(xmlGzPath) {
   const t0 = Date.now();
   try {
     const raw = JSON.parse(gunzipSync(readFileSync(jidxPath)).toString('utf8'));
-    if (raw.v !== JIDX_VERSION || !Array.isArray(raw.byRidEntries) || !Array.isArray(raw.byTiplocEntries)) {
+    if (raw.v !== JIDX_VERSION_V1 || !Array.isArray(raw.byRidEntries) || !Array.isArray(raw.byTiplocEntries)) {
       return null;
     }
     const byRid = new Map(raw.byRidEntries);
     const byTiploc = new Map(raw.byTiplocEntries);
     const elapsed = Date.now() - t0;
     console.log(
-      `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx (${elapsed}ms)`,
+      `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx v1 (${elapsed}ms)`,
     );
     return { byRid, byTiploc };
   } catch {
@@ -77,35 +241,48 @@ function tryReadJourneyIndexCache(xmlGzPath) {
   }
 }
 
-function writeJourneyIndexCache(xmlGzPath, byRid, byTiploc) {
-  const jidxPath = jidxPathForXmlGz(xmlGzPath);
-  if (!jidxPath) return;
+/**
+ * @returns {Promise<{ byRid: Map, byTiploc: Map } | null>}
+ */
+async function tryReadJourneyIndexCacheV2(xmlGzPath) {
+  const paths = jidxV2PathsForXmlGz(xmlGzPath);
+  if (!paths) return null;
+  const { ridPath, tplPath } = paths;
+  if (!existsSync(ridPath) || !existsSync(tplPath)) return null;
   let stXml;
+  let stRid;
+  let stTpl;
   try {
     stXml = statSync(xmlGzPath);
+    stRid = statSync(ridPath);
+    stTpl = statSync(tplPath);
   } catch {
-    return;
+    return null;
   }
-  const level = Math.max(1, Math.min(9, Number(process.env.TIMETABLE_JIDX_GZIP_LEVEL || 6)));
-  const payload = {
-    v: JIDX_VERSION,
-    savedAt: new Date().toISOString(),
-    sourceXmlMtimeMs: stXml.mtimeMs,
-    byRidEntries: [...byRid.entries()],
-    byTiplocEntries: [...byTiploc.entries()],
-  };
-  let json;
-  try {
-    json = JSON.stringify(payload);
-  } catch (e) {
-    console.warn(`[tt] jidx stringify skipped: ${e.message}`);
-    return;
-  }
-  const tmp = jidxPath + '.tmp';
-  const buf = gzipSync(json, { level });
-  writeFileSync(tmp, buf);
-  renameSync(tmp, jidxPath);
-  console.log(`[tt] ${basename(xmlGzPath)}: wrote jidx (${(buf.length / 1024 / 1024).toFixed(1)} MiB gzip)`);
+  if (stRid.mtimeMs < stXml.mtimeMs || stTpl.mtimeMs < stXml.mtimeMs) return null;
+  const t0 = Date.now();
+  const [ridOut, tplOut] = await Promise.all([
+    readJidxJsonlGzToMap(ridPath, 'rid'),
+    readJidxJsonlGzToMap(tplPath, 'tpl'),
+  ]);
+  if (!ridOut?.map || !tplOut?.map || !ridOut.header || !tplOut.header) return null;
+  if (ridOut.header.sourceXmlMtimeMs !== tplOut.header.sourceXmlMtimeMs) return null;
+  const byRid = ridOut.map;
+  const byTiploc = tplOut.map;
+  const elapsed = Date.now() - t0;
+  console.log(
+    `[tt] ${basename(xmlGzPath)}: loaded ${byRid.size} journeys, ${byTiploc.size} TIPLOCs from jidx v2 (${elapsed}ms)`,
+  );
+  return { byRid, byTiploc };
+}
+
+/**
+ * @returns {Promise<{ byRid: Map, byTiploc: Map } | null>}
+ */
+async function tryReadAnyJourneyIndexCache(xmlGzPath) {
+  const v2 = await tryReadJourneyIndexCacheV2(xmlGzPath);
+  if (v2) return v2;
+  return tryReadJourneyIndexCacheV1(xmlGzPath);
 }
 
 const LOC_KEYS_BY_SLOT = ['OR', 'IP', 'PP', 'DT', 'OPOR', 'OPIP', 'OPPP', 'OPDT'];
@@ -255,18 +432,13 @@ export function loadTimetableForTiploc(filePath, tiploc) {
  *
  * @param {string} filePath absolute path to the .xml.gz timetable file
  */
-export function loadAllJourneysIndexedByTiploc(filePath) {
-  if (!jidxDisabled()) {
-    const fromIdx = tryReadJourneyIndexCache(filePath);
-    if (fromIdx) return fromIdx;
-  }
-
+function parseAllJourneysIndexedFromXmlSync(filePath) {
   const t0 = Date.now();
   const buf = readFileSync(filePath);
   const xml = gunzipSync(buf).toString('utf8');
   const chunks = xml.split('</Journey>');
 
-  const byRid    = new Map();
+  const byRid = new Map();
   const byTiploc = new Map();
   let parsed = 0;
   let totalSlots = 0;
@@ -368,13 +540,28 @@ export function loadAllJourneysIndexedByTiploc(filePath) {
   const elapsed = Date.now() - t0;
   console.log(`[tt] ${filePath.split('/').pop()}: parsed ${parsed} journeys, ${totalSlots} slots, indexed ${byTiploc.size} distinct TIPLOCs (${elapsed}ms)`);
 
+  return { byRid, byTiploc };
+}
+
+export async function loadAllJourneysIndexedByTiploc(filePath) {
   if (!jidxDisabled()) {
+    const fromIdx = await tryReadAnyJourneyIndexCache(filePath);
+    if (fromIdx) return fromIdx;
+  }
+
+  const result = parseAllJourneysIndexedFromXmlSync(filePath);
+
+  if (!jidxDisabled()) {
+    let stXml;
     try {
-      writeJourneyIndexCache(filePath, byRid, byTiploc);
-    } catch (e) {
-      console.warn(`[tt] jidx write failed: ${e.message}`);
+      stXml = statSync(filePath);
+    } catch {
+      stXml = null;
+    }
+    if (stXml) {
+      enqueueJidxWrite(() => writeJidxV2Pair(filePath, stXml, result.byRid, result.byTiploc));
     }
   }
 
-  return { byRid, byTiploc };
+  return result;
 }
