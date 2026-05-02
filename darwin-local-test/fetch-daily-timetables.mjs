@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * Downloads today's Darwin PPTimetable files into ./tt/YYYYMMDD/
+ * When scheduled from cron, run as the same UNIX user as darwin-daemon (railstats)
+ * so the daemon can read the files; root cron causes permission failures at rollover.
+ */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { basename, resolve } from 'node:path';

@@ -8,6 +8,7 @@ import { ActivityPill } from '../../components/darwin/ActivityPill'
 import { CarriageMap } from '../../components/darwin/CarriageMap'
 import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import type { ServiceDetail } from '../../types/darwin'
+import { railwayOperatingDayIsoFromLondonParts } from '../../utils/railwayOperatingDayUk'
 import './ServiceDetailPage.css'
 
 const SLOT_KIND: Record<string, 'origin' | 'stop' | 'pass' | 'destination'> = {
@@ -100,9 +101,7 @@ function getCurrentRailwayDayIsoUk(now = new Date()): string {
   const hour = Number(pick('hour'))
   const minute = Number(pick('minute'))
 
-  const londonAsUtcMs = Date.UTC(year, month - 1, day, hour, minute)
-  const railwayDayUtcMs = londonAsUtcMs - ((4 * 60 + 30) * 60 * 1000)
-  return new Date(railwayDayUtcMs).toISOString().slice(0, 10)
+  return railwayOperatingDayIsoFromLondonParts(year, month, day, hour, minute)
 }
 
 function isRawTiplocName(name: string | null | undefined, tpl: string): boolean {

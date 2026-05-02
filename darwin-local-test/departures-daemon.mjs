@@ -248,6 +248,10 @@ function escapeAttr(s) {
 function todayYmd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/** London wall-clock minute-of-day when the labelled operating day advances (02:00 → previous segment ends 01:59). */
+const UK_RAILWAY_DAY_START_MINUTES = 2 * 60;
+
 function railwayDayYmd(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/London',
@@ -267,7 +271,7 @@ function railwayDayYmd(now = new Date()) {
   const minute = Number(pick('minute'));
 
   const londonAsUtcMs = Date.UTC(year, month - 1, day, hour, minute);
-  const railwayDayUtcMs = londonAsUtcMs - ((4 * 60 + 30) * 60 * 1000);
+  const railwayDayUtcMs = londonAsUtcMs - (UK_RAILWAY_DAY_START_MINUTES * 60 * 1000);
   return new Date(railwayDayUtcMs).toISOString().slice(0, 10);
 }
 function todayYmdCompact(d = new Date()) {
@@ -292,8 +296,8 @@ function scheduledMinutesFromMidnight(hhmm) {
   return hh * 60 + mm;
 }
 
-/** Aligns with railwayDayYmd(): segment before ~04:30 sits on the next calendar morning. */
-const UK_RAIL_ROLLOVER_MINUTES = 4 * 60 + 30;
+/** Aligns with railwayDayYmd(): times before 02:00 on the SSD calendar roll +24h for overnight display. */
+const UK_RAIL_ROLLOVER_MINUTES = UK_RAILWAY_DAY_START_MINUTES;
 
 function adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime) {
   const mins = scheduledMinutesFromMidnight(scheduledTime);
@@ -1529,6 +1533,17 @@ function processMessage(pport) {
           stats.updates++;
         }
 
+        const arrTs = describeLiveTime(loc?.arr, 'actual-arr', 'est-arr');
+        if (arrTs) {
+          entry.arrLiveTime = arrTs.time;
+          entry.arrLiveKind = arrTs.kind;
+          entry.arrLiveSource = arrTs.source || null;
+          entry.arrLiveSourceInstance = arrTs.sourceInstance || null;
+          entry.arrUnknownDelay = !!arrTs.unknownDelay;
+          entry.arrManualUnknownDelay = !!arrTs.manualUnknownDelay;
+          stats.updates++;
+        }
+
         // plat in JSON feed: { platsrc, conf, "": "3A" }
         if (loc.plat != null) {
           const platStr = typeof loc.plat === 'string' ? loc.plat
@@ -2029,7 +2044,7 @@ function retryUnmatchedConsists() {
 }
 
 // ---------- snapshot builder (per-TIPLOC, on demand) -----------------------
-function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
+function buildDeparturesAndArrivalsForTiplocs(tiplocs, windowHours, ctx = null) {
   const byRidMap = ctx?.byRid || byRid;
   const byTiplocMap = ctx?.byTiploc || byTiploc;
   const liveOverlayMap = ctx?.liveOverlayByRid || liveOverlayByRid;
@@ -2046,8 +2061,6 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
   if (!Array.isArray(tiplocs) || tiplocs.length === 0) return null;
 
   const upper = tiplocs.map((t) => t.toUpperCase());
-  // Build the combined entry list, tagging each entry with its source TIPLOC
-  // so the snapshot row records WHICH platform group it came from.
   const entries = [];
   let anyKnown = false;
   for (const tip of upper) {
@@ -2085,7 +2098,6 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
   const todayRailwaySsd = railwayDayYmd(new Date());
   const isFutureTimetableCtx =
     !!ctx?.historicalDate && compareIsoDate(ctx.historicalDate, todayRailwaySsd) > 0;
-  /** Historical snapshots pin one SSD; live boards may span into next Darwin SSD. */
   const allowSpansNextSsd =
     (!ctx || ctx.stateSavedAt == null) && !isFutureTimetableCtx;
   const ssdsNeeded = new Set([ssdTarget]);
@@ -2093,55 +2105,28 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
     const horizonSsd = railwayDayYmd(horizon);
     if (horizonSsd !== ssdTarget) ssdsNeeded.add(horizonSsd);
   }
-  const rows = [];
-  const seenRids = new Set();   // a service may appear at >1 TIPLOC of the
-                                // same station; emit it once.
+
+  const departures = [];
+  const arrivals = [];
+  const seenDepRid = new Set();
+  const seenArrRid = new Set();
 
   for (const { rid, stopIdx, sourceTpl } of entries) {
-    if (seenRids.has(rid)) continue;     // de-dupe: a service shouldn't appear twice
     const j = byRidMap.get(rid);
     if (!j || !ssdsNeeded.has(j.ssd)) continue;
-
     const stop = j.slots[stopIdx];
-    const isPassing = stop.slot === 'PP' || stop.slot === 'OPPP';
-    // Skip terminating arrivals (train ends here, not departing).
-    if (stop.slot === 'DT' || stop.slot === 'OPDT' || stop.act === 'TF') continue;
 
-    const scheduledTime = isPassing ? (stop.wtp || stop.wtd) : (stop.ptd || stop.wtd);
-    if (!scheduledTime || !scheduledTime.includes(':')) continue;
-
-    let scheduledAt = anchorTime(scheduledTime, j.ssd);
-    if (!scheduledAt) continue;
-    scheduledAt = adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime);
-    if (scheduledAt.getTime() < now.getTime() - 5 * 60_000) continue;  // small grace for just-departed
-    if (scheduledAt > horizon) continue;
-
-    seenRids.add(rid);
-
-    // Live overlay: look up per-TIPLOC entry for this RID using the SOURCE
-    // tiploc this row came from (Darwin keys live state by exact TIPLOC).
     const ov = liveOverlayMap.get(rid);
     const liveLoc = getOverlayLoc(ov, sourceTpl);
-    const unknownDelay = !!liveLoc?.unknownDelay;
-    const manualUnknownDelay = !!liveLoc?.manualUnknownDelay;
-    const bestTime = liveLoc?.bestTime || scheduledTime;
-    const bestKind = liveLoc?.bestKind || 'scheduled';
-    const delayMinutes = unknownDelay ? null : computeDelayMinutes(scheduledTime, bestTime, bestKind);
-
-    // Effective cancellation seen by *this row*: a row is cancelled if the
-    // whole service is cancelled OR this individual calling point is
-    // cancelled (partial cancellation, e.g. service runs A→B but is
-    // cancelled B→F — for stops in B→F the train won't appear).
     const wholeCancel = normalizeCancellationInfo(cancelledMap.get(rid) || null);
-    const stopCancel  = liveLoc?.cancelled
+    const stopCancel = liveLoc?.cancelled
       ? (liveLoc.cancelReason
           ? { ...liveLoc.cancelReason, source: 'ts-loc', scope: 'stop' }
           : { reason: 'Cancelled at this stop', source: 'ts-loc', scope: 'stop' })
       : null;
-    const cancelInfo  = normalizeCancellationInfo(wholeCancel || stopCancel);
-    const delayInfo   = delayMap.get(rid) || null;
+    const cancelInfo = normalizeCancellationInfo(wholeCancel || stopCancel);
+    const delayInfo = delayMap.get(rid) || null;
 
-    // Calling pattern after this stop (only actual passenger stops, not PPs).
     const callingAfter = [];
     for (let i = stopIdx + 1; i < j.slots.length; i++) {
       const s = j.slots[i];
@@ -2157,7 +2142,7 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
       destinationName: resolve_.tiplocToName(j.destination),
     });
 
-    rows.push({
+    const baseRow = () => ({
       rid: j.rid,
       trainId: j.trainId,
       uid: j.uid,
@@ -2165,33 +2150,6 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
       tocName: resolve_.tocToName(j.toc),
       trainCat: j.trainCat || null,
       serviceType,
-      isPassing,
-      scheduledTime,
-      scheduledAt: scheduledAt.toISOString(),
-      liveTime: bestTime,
-      liveKind: bestKind,
-      liveSource: liveLoc?.liveSource || null,
-      liveSourceInstance: liveLoc?.liveSourceInstance || null,
-      unknownDelay,
-      manualUnknownDelay,
-      delayMinutes,
-      trainLength: liveLoc?.trainLength ?? null,
-      platform: stop.plat,
-      livePlatform: liveLoc?.livePlat || null,
-      platformSource: liveLoc?.platformSource || null,
-      platformConfirmed: !!liveLoc?.platformConfirmed,
-      platformSuppressed: !!liveLoc?.platformSuppressed,
-      // Loading at this stop, when published. loadPct is 0-100;
-      // coachLoading is 1-10 enum per coach.
-      loadingPercentage: liveLoc?.loadPct ?? null,
-      coachLoading: liveLoc?.coachLoading ?? null,
-      reverseFormation: reverseSet.has(rid),
-      hasAssociations: (associationsMap.get(rid)?.length ?? 0) > 0,
-      hasAlerts:       (alertsMap.get(rid)?.length ?? 0) > 0,
-      hasConsist:      consistMap.has(rid),
-      // Which platform-group TIPLOC this row came from. Useful when a CRS
-      // aggregates several (STP -> STPX | STPANCI | STPXBOX).
-      sourceTiploc: sourceTpl,
       origin: j.origin,
       originName: resolve_.tiplocToName(j.origin),
       originCrs: resolve_.tiplocToCrs(j.origin),
@@ -2200,22 +2158,124 @@ function buildDeparturesForTiplocs(tiplocs, windowHours, ctx = null) {
       destinationCrs: resolve_.tiplocToCrs(j.destination),
       callingAfter,
       callingAfterNames: callingAfter.map(resolve_.tiplocToName),
-      callingAfterCrs:   callingAfter.map(resolve_.tiplocToCrs),
+      callingAfterCrs: callingAfter.map(resolve_.tiplocToCrs),
       isPassenger: j.isPassenger,
       cancelled: cancelInfo ? true : false,
       cancellation: cancelInfo,
       delayReason: delayInfo,
-      status: cancelInfo
-        ? 'CANCELLED'
-        : unknownDelay
-          ? 'delayed'
-        : delayMinutes == null
-          ? ((bestKind === 'scheduled' || bestKind === 'working') ? 'on time' : `${bestKind} ${bestTime}`)
-          : (delayMinutes === 0 ? 'on time' : `${bestKind} ${bestTime} (${delayMinutes > 0 ? '+' : ''}${delayMinutes}m)`),
+      trainLength: liveLoc?.trainLength ?? null,
+      platform: stop.plat,
+      livePlatform: liveLoc?.livePlat || null,
+      platformSource: liveLoc?.platformSource || null,
+      platformConfirmed: !!liveLoc?.platformConfirmed,
+      platformSuppressed: !!liveLoc?.platformSuppressed,
+      loadingPercentage: liveLoc?.loadPct ?? null,
+      coachLoading: liveLoc?.coachLoading ?? null,
+      reverseFormation: reverseSet.has(rid),
+      hasAssociations: (associationsMap.get(rid)?.length ?? 0) > 0,
+      hasAlerts: (alertsMap.get(rid)?.length ?? 0) > 0,
+      hasConsist: consistMap.has(rid),
+      sourceTiploc: sourceTpl,
     });
+
+    // ----- Departures (skip pure terminating stops; TF marks termination) -----
+    if (!seenDepRid.has(rid)) {
+      const isPassing = stop.slot === 'PP' || stop.slot === 'OPPP';
+      const skipDep = stop.slot === 'DT' || stop.slot === 'OPDT' || stop.act === 'TF';
+      if (!skipDep) {
+        const scheduledTime = isPassing ? (stop.wtp || stop.wtd) : (stop.ptd || stop.wtd);
+        if (scheduledTime && scheduledTime.includes(':')) {
+          let scheduledAt = anchorTime(scheduledTime, j.ssd);
+          if (scheduledAt) {
+            scheduledAt = adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime);
+            if (scheduledAt.getTime() >= now.getTime() - 5 * 60_000 && scheduledAt <= horizon) {
+              seenDepRid.add(rid);
+              const unknownDelay = !!liveLoc?.unknownDelay;
+              const manualUnknownDelay = !!liveLoc?.manualUnknownDelay;
+              const bestTime = liveLoc?.bestTime || scheduledTime;
+              const bestKind = liveLoc?.bestKind || 'scheduled';
+              const delayMinutes = unknownDelay ? null : computeDelayMinutes(scheduledTime, bestTime, bestKind);
+              departures.push({
+                ...baseRow(),
+                movement: 'departure',
+                isPassing,
+                scheduledTime,
+                scheduledAt: scheduledAt.toISOString(),
+                liveTime: bestTime,
+                liveKind: bestKind,
+                liveSource: liveLoc?.liveSource || null,
+                liveSourceInstance: liveLoc?.liveSourceInstance || null,
+                unknownDelay,
+                manualUnknownDelay,
+                delayMinutes,
+                status: cancelInfo
+                  ? 'CANCELLED'
+                  : unknownDelay
+                    ? 'delayed'
+                    : delayMinutes == null
+                      ? ((bestKind === 'scheduled' || bestKind === 'working') ? 'on time' : `${bestKind} ${bestTime}`)
+                      : (delayMinutes === 0 ? 'on time' : `${bestKind} ${bestTime} (${delayMinutes > 0 ? '+' : ''}${delayMinutes}m)`),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // ----- Arrivals (terminators + intermediate stops with public/working arr) -----
+    if (!seenArrRid.has(rid)) {
+      const slot = stop.slot;
+      const arrivalEligible =
+        slot === 'DT' || slot === 'OPDT'
+        || slot === 'IP' || slot === 'OPIP';
+      if (arrivalEligible) {
+        const scheduledTime = (slot === 'DT' || slot === 'OPDT')
+          ? (stop.pta || stop.wta || stop.ptd || stop.wtd)
+          : (stop.pta || stop.wta || stop.ptd || stop.wtd);
+        if (scheduledTime && scheduledTime.includes(':')) {
+          let scheduledAt = anchorTime(scheduledTime, j.ssd);
+          if (scheduledAt) {
+            scheduledAt = adjustScheduledInstantForRailwayOvernight(scheduledAt, scheduledTime);
+            if (scheduledAt.getTime() >= now.getTime() - 5 * 60_000 && scheduledAt <= horizon) {
+              seenArrRid.add(rid);
+              const unknownDelay = !!(liveLoc?.arrUnknownDelay ?? liveLoc?.unknownDelay);
+              const manualUnknownDelay = !!(liveLoc?.arrManualUnknownDelay ?? liveLoc?.manualUnknownDelay);
+              const bestTime = (liveLoc?.arrLiveTime != null && liveLoc.arrLiveTime !== '')
+                ? liveLoc.arrLiveTime
+                : scheduledTime;
+              const bestKind = liveLoc?.arrLiveKind || 'scheduled';
+              const delayMinutes = unknownDelay ? null : computeDelayMinutes(scheduledTime, bestTime, bestKind);
+              arrivals.push({
+                ...baseRow(),
+                movement: 'arrival',
+                isPassing: false,
+                scheduledTime,
+                scheduledAt: scheduledAt.toISOString(),
+                liveTime: bestTime,
+                liveKind: bestKind,
+                liveSource: liveLoc?.arrLiveSource ?? liveLoc?.liveSource ?? null,
+                liveSourceInstance: liveLoc?.arrLiveSourceInstance ?? liveLoc?.liveSourceInstance ?? null,
+                unknownDelay,
+                manualUnknownDelay,
+                delayMinutes,
+                status: cancelInfo
+                  ? 'CANCELLED'
+                  : unknownDelay
+                    ? 'delayed'
+                    : delayMinutes == null
+                      ? ((bestKind === 'scheduled' || bestKind === 'working') ? 'on time' : `${bestKind} ${bestTime}`)
+                      : (delayMinutes === 0 ? 'on time' : `${bestKind} ${bestTime} (${delayMinutes > 0 ? '+' : ''}${delayMinutes}m)`),
+              });
+            }
+          }
+        }
+      }
+    }
   }
-  rows.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  return rows;
+
+  departures.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  arrivals.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  return { departures, arrivals };
 }
 
 // All currently-known NRCC messages for a CRS, freshest first within each
@@ -2235,10 +2295,12 @@ function listMessagesForCrs(crs) {
 function buildSnapshot(tiplocs, windowHours, primaryTiploc, ctx = null) {
   const all = Array.isArray(tiplocs) ? tiplocs : [tiplocs];
   const primary = (primaryTiploc || all[0]).toUpperCase();
-  const rows = buildDeparturesForTiplocs(all, windowHours, ctx);
-  if (rows === null) return null;
+  const built = buildDeparturesAndArrivalsForTiplocs(all, windowHours, ctx);
+  if (built === null) return null;
+  const { departures: rows, arrivals: arrRows } = built;
   const stationCrs = resolve_.tiplocToCrs(primary);
   const messages = stationCrs ? listMessagesForCrs(stationCrs) : [];
+  const combined = [...rows, ...arrRows];
   return {
     tiploc: primary,
     // When the station spans several TIPLOCs, expose the full set so the
@@ -2255,9 +2317,10 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc, ctx = null) {
     windowHours,
     counts: {
       departures: rows.length,
-      cancelled:  rows.filter((r) => r.cancelled).length,
-      withDelay:  rows.filter((r) => r.delayReason).length,
-      messages:   messages.length,
+      arrivals: arrRows.length,
+      cancelled: combined.filter((r) => r.cancelled).length,
+      withDelay: combined.filter((r) => r.delayReason).length,
+      messages: messages.length,
     },
     messages,
     kafka: {
@@ -2267,6 +2330,7 @@ function buildSnapshot(tiplocs, windowHours, primaryTiploc, ctx = null) {
       lastMessageAt: stats.lastKafkaMsgAt,
     },
     departures: rows,
+    arrivals: arrRows,
   };
 }
 

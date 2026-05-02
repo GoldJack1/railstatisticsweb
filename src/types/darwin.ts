@@ -43,6 +43,8 @@ export interface DepartureRow {
   rid: string;
   trainId: string;
   uid: string;
+  /** Present when the daemon emits separate arrival rows (`buildDeparturesAndArrivalsForTiplocs`). */
+  movement?: 'departure' | 'arrival';
 
   toc: string;
   tocName: string | null;
@@ -162,6 +164,7 @@ export interface DeparturesSnapshot {
 
   counts: {
     departures: number;
+    arrivals: number;
     cancelled: number;
     withDelay: number;
     messages: number;
@@ -178,6 +181,8 @@ export interface DeparturesSnapshot {
   };
 
   departures: DepartureRow[];
+  /** Trains arriving at this station in the window (terminators and calling arrivals). */
+  arrivals?: DepartureRow[];
 
   /** Present when ?date= was used — Darwin service day / SSD for this board (may differ from wall-clock calendar date overnight). */
   historicalDate?: string | null;

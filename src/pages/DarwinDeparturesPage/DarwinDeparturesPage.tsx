@@ -12,6 +12,7 @@ import { TextCard } from '../../components/cards'
 import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
 import { StationMessages } from '../../components/darwin/StationMessages'
 import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
+import { railwayOperatingDayIsoFromLondonParts } from '../../utils/railwayOperatingDayUk'
 import './DarwinDeparturesPage.css'
 
 interface HistoryDatesResponse {
@@ -26,6 +27,7 @@ interface HistoryDatesResponse {
 
 type StopModeFilter = 'calling' | 'passing'
 type SearchMode = 'station-name' | 'crs' | 'tiploc'
+type BoardModeFilter = 'departures' | 'arrivals'
 
 const WINDOW_OPTIONS = [
   { label: '1 hour',   value: 1 },
@@ -142,12 +144,10 @@ function getCurrentRailwayDayIsoUk(now = new Date()): string {
   const hour = Number(pick('hour'))
   const minute = Number(pick('minute'))
 
-  const londonAsUtc = Date.UTC(year, month - 1, day, hour, minute)
-  const railwayDayUtc = londonAsUtc - ((4 * 60 + 30) * 60 * 1000)
-  return new Date(railwayDayUtc).toISOString().slice(0, 10)
+  return railwayOperatingDayIsoFromLondonParts(year, month, day, hour, minute)
 }
 
-/** Operating-day key matching `railwayDayYmd` in departures-daemon (04:30 Europe/London). */
+/** Operating-day key matching `railwayDayYmd` in departures-daemon (02:00 Europe/London). */
 function railwayOperatingDayIsoUk(dateStr: string, timeHHMM: string): string {
   const tm = /^(\d{1,2}):(\d{2})$/.exec(timeHHMM.trim())
   if (!tm) return dateStr
@@ -155,9 +155,7 @@ function railwayOperatingDayIsoUk(dateStr: string, timeHHMM: string): string {
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim())
   if (!dm || !Number.isFinite(h) || !Number.isFinite(mi)) return dateStr
   const y = Number(dm[1]); const mo = Number(dm[2]); const d = Number(dm[3])
-  const londonAsUtc = Date.UTC(y, mo - 1, d, h, mi)
-  const railwayDayUtc = londonAsUtc - ((4 * 60 + 30) * 60 * 1000)
-  return new Date(railwayDayUtc).toISOString().slice(0, 10)
+  return railwayOperatingDayIsoFromLondonParts(y, mo, d, h, mi)
 }
 
 function addDaysIsoDate(dateStr: string, days: number): string {
@@ -178,6 +176,7 @@ const StatusBadge: React.FC<{ row: DepartureRow; historicalMode: boolean }> = ({
     ? ` (${row.delayMinutes > 0 ? '+' : ''}${row.delayMinutes}m)`
     : ''
   const sourceText = row.liveSource ? ` · ${row.liveSource}${row.liveSourceInstance ? ` ${row.liveSourceInstance}` : ''}` : ''
+  const isArrivalRow = row.movement === 'arrival'
   if (row.cancelled) {
     cls += ' dep-badge--cancelled'
     text = 'Cancelled'
@@ -190,13 +189,13 @@ const StatusBadge: React.FC<{ row: DepartureRow; historicalMode: boolean }> = ({
     text = 'Snapshot'
   } else if (row.liveKind === 'actual') {
     cls += ' dep-badge--actual'
-    text = `${row.isPassing ? 'Passed' : 'Departed'} ${row.liveTime}${delayText}${sourceText}`
+    text = `${row.isPassing ? 'Passed' : isArrivalRow ? 'Arrived' : 'Departed'} ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'actual-arr') {
     cls += ' dep-badge--actual'
     text = `Arrived ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'est' && row.liveTime !== row.scheduledTime) {
     cls += ' dep-badge--late'
-    text = `${row.isPassing ? 'Exp pass' : 'Exp'} ${row.liveTime}${delayText}${sourceText}`
+    text = `${row.isPassing ? 'Exp pass' : isArrivalRow ? 'Exp arr' : 'Exp'} ${row.liveTime}${delayText}${sourceText}`
   } else if (row.liveKind === 'est-arr') {
     text = `Exp arr ${row.liveTime}${delayText}${sourceText}`
   } else {
@@ -218,8 +217,13 @@ function buildDescription(row: DepartureRow): string {
       : 'No platform'
   const toc = row.tocName || row.toc
   const headcode = row.trainId
-  const fromOrigin = row.originName ? `from ${row.originName}` : null
-  const passLabel = row.isPassing ? 'Passing through' : 'Stopping'
+  const terminatesHere = row.movement === 'arrival' && row.callingAfter.length === 0
+  const passLabel = row.movement === 'arrival'
+    ? (terminatesHere ? 'Terminates here' : 'Calling')
+    : (row.isPassing ? 'Passing through' : 'Stopping')
+  const routeHint = row.movement === 'arrival'
+    ? (terminatesHere ? null : (`to ${row.destinationName || row.destination}`))
+    : (row.originName ? `from ${row.originName}` : null)
   const trainLength = row.trainLength && row.trainLength > 0 ? `${row.trainLength} coaches` : null
 
   if (row.cancelled && row.cancellation) {
@@ -231,12 +235,16 @@ function buildDescription(row: DepartureRow): string {
   if (!row.cancelled && row.delayReason) {
     return `Delay reason: ${row.delayReason.reason}`
   }
-  return [passLabel, platLabel, trainLength, toc, headcode, fromOrigin].filter(Boolean).join(' · ')
+  return [passLabel, platLabel, trainLength, toc, headcode, routeHint].filter(Boolean).join(' · ')
 }
 
 /** Build the title string. */
 function buildTitle(row: DepartureRow): string {
   const time = formatTime(row.scheduledAt)
+  if (row.movement === 'arrival') {
+    const origin = row.originName || row.origin
+    return `${time} · from ${origin}`
+  }
   const dest = row.destinationName || row.destination
   return `${time} · ${dest}${row.isPassing ? ' (pass)' : ''}`
 }
@@ -292,6 +300,11 @@ const STOP_MODE_OPTIONS: StopModeFilter[] = ['calling', 'passing']
 const STOP_MODE_LABELS: Record<StopModeFilter, string> = {
   calling: 'Stopping',
   passing: 'Passing',
+}
+const BOARD_MODE_OPTIONS: BoardModeFilter[] = ['departures', 'arrivals']
+const BOARD_MODE_LABELS: Record<BoardModeFilter, string> = {
+  departures: 'Departures',
+  arrivals: 'Arrivals',
 }
 const UNKNOWN_TOC_LABEL = 'Unknown'
 
@@ -381,6 +394,7 @@ const DarwinDeparturesPage: React.FC = () => {
   const [selectedTocs, setSelectedTocs] = useState<string[]>([])
   const [selectedServiceTypes, setSelectedServiceTypes] = useState<DepartureServiceType[]>([])
   const [selectedStopModes, setSelectedStopModes] = useState<StopModeFilter[]>(STOP_MODE_OPTIONS)
+  const [boardMode, setBoardMode] = useState<BoardModeFilter>('departures')
   const [historyDates, setHistoryDates] = useState<string[]>([])
   const { stations } = useStations()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -440,6 +454,7 @@ const DarwinDeparturesPage: React.FC = () => {
   useEffect(() => {
     setSearchInput('')
     setSearchError(null)
+    setBoardMode('departures')
   }, [code])
 
   useEffect(() => {
@@ -557,19 +572,24 @@ const DarwinDeparturesPage: React.FC = () => {
     return idx >= 0 ? idx : 0
   }, [hours])
 
+  const snapshotMovementRows = useMemo(() => {
+    if (!data) return []
+    return [...data.departures, ...(data.arrivals ?? [])]
+  }, [data])
+
   const tocOptions = useMemo(() => {
     if (!data) return []
-    return Array.from(new Set(data.departures.map((row) => tocFilterLabel(row))))
+    return Array.from(new Set(snapshotMovementRows.map((row) => tocFilterLabel(row))))
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-  }, [data])
+  }, [data, snapshotMovementRows])
 
   const serviceTypeOptions = useMemo(() => {
     if (!data) return []
-    const inFeedOrder = data.departures
+    const inFeedOrder = snapshotMovementRows
       .map((row) => row.serviceType || 'other')
       .filter((value, index, arr): value is DepartureServiceType => arr.indexOf(value) === index)
     return inFeedOrder.sort((a, b) => SERVICE_TYPE_LABELS[a].localeCompare(SERVICE_TYPE_LABELS[b]))
-  }, [data])
+  }, [data, snapshotMovementRows])
 
   useEffect(() => {
     setSelectedTocs(tocOptions)
@@ -596,15 +616,31 @@ const DarwinDeparturesPage: React.FC = () => {
     })
   }, [data, selectedTocs, selectedServiceTypes, selectedStopModes])
 
+  const filteredArrivals = useMemo(() => {
+    if (!data) return []
+    const arrivals = data.arrivals ?? []
+    return arrivals.filter((row) => {
+      const tocLabel = tocFilterLabel(row)
+      const tocMatch = selectedTocs.includes(tocLabel)
+      const rowServiceType = row.serviceType || 'other'
+      const serviceTypeMatch = selectedServiceTypes.includes(rowServiceType)
+      return tocMatch && serviceTypeMatch
+    })
+  }, [data, selectedTocs, selectedServiceTypes])
+
+  const activeFilteredRows =
+    boardMode === 'departures' ? filteredDepartures : filteredArrivals
+
   const filteredCounts = useMemo(() => ({
-    departures: filteredDepartures.length,
-    cancelled: filteredDepartures.filter((row) => row.cancelled).length,
-    withDelay: filteredDepartures.filter((row) => row.delayReason).length,
-  }), [filteredDepartures])
+    rows: activeFilteredRows.length,
+    cancelled: activeFilteredRows.filter((row) => row.cancelled).length,
+    withDelay: activeFilteredRows.filter((row) => row.delayReason).length,
+  }), [activeFilteredRows])
 
   const subtitle = useMemo<React.ReactNode>(() => {
+    const movementWord = boardMode === 'departures' ? 'departures' : 'arrivals'
     const countPrefix = data
-      ? `${filteredCounts.departures} departures in the next ${data.windowHours} hour${data.windowHours === 1 ? '' : 's'}`
+      ? `${filteredCounts.rows} ${movementWord} in the next ${data.windowHours} hour${data.windowHours === 1 ? '' : 's'}`
       : null
 
     if (!hasStationSelected) return 'Search by station name, CRS, or TIPLOC'
@@ -665,11 +701,17 @@ const DarwinDeparturesPage: React.FC = () => {
         </>
       ) : <span className="dep-subtitle__status">{statusText}</span>
     }
-    if (status === 'loading')   return <span className="dep-subtitle__status">Loading departures for {boardDateText.toLowerCase()}…</span>
-    if (status === 'error')     return <span className="dep-subtitle__status">{error ? `Error: ${error}` : 'Departures unavailable'} · {boardDateText}</span>
+    if (status === 'loading') {
+      return (
+        <span className="dep-subtitle__status">
+          Loading {boardMode === 'departures' ? 'departures' : 'arrivals'} for {boardDateText.toLowerCase()}…
+        </span>
+      )
+    }
+    if (status === 'error')     return <span className="dep-subtitle__status">{error ? `Error: ${error}` : 'Board data unavailable'} · {boardDateText}</span>
     if (status === 'not-found') return <span className="dep-subtitle__status">Unknown station</span>
     return ''
-  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.departures, historicalMode, timedCurrentDayMode, historyDate, historyTime, futureTimetableMode, todayIsoDate, operatingDayForMode])
+  }, [status, error, ageMs, hasStationSelected, data, filteredCounts.rows, boardMode, historicalMode, timedCurrentDayMode, historyDate, historyTime, futureTimetableMode, todayIsoDate, operatingDayForMode])
 
   const stationNameResults = useMemo(
     () => buildStationNameSearchResults(searchInput, stations),
@@ -740,7 +782,7 @@ const DarwinDeparturesPage: React.FC = () => {
 
       <div className="darwin-departures-page">
         <div className="dep-content">
-          <aside className="dep-sidebar" aria-label="Departure controls">
+          <aside className="dep-sidebar" aria-label="Board controls">
             <section className="dep-controls-panel dep-sidebar-section" aria-label="Filters">
               <div className="dep-date-context" role="status" aria-live="polite">
                 {historyDate ? (
@@ -763,9 +805,9 @@ const DarwinDeparturesPage: React.FC = () => {
                 )}
                 <span><strong>Live now:</strong> {formatLiveNowUk()}</span>
                 <p className="dep-railway-day-note">
-                  UK railway operating day here follows Darwin and runs{' '}
-                  <strong>04:30</strong> one morning to <strong>04:29</strong> the next calendar morning (Europe/London).
-                  Between <strong>midnight and 04:29</strong>, departures still belong to the{' '}
+                  UK railway operating day here runs{' '}
+                  <strong>02:00</strong> one morning to <strong>01:59</strong> the next calendar morning (Europe/London).
+                  Between <strong>midnight and 01:59</strong>, departures still belong to the{' '}
                   <strong>previous calendar date&apos;s</strong> timetable. Use the wall-clock date and time above for that period,
                   so you see overnight trains for that operating day — not the following morning&apos;s first services.
                 </p>
@@ -928,6 +970,25 @@ const DarwinDeparturesPage: React.FC = () => {
               </div>
 
               <div className="dep-control-group">
+                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Board</h2>
+                <div className="dep-search-mode-chips" role="group" aria-label="Departures or arrivals">
+                  {BOARD_MODE_OPTIONS.map((mode) => (
+                    <BUTOperatorChip
+                      key={mode}
+                      instantAction
+                      colorVariant="primary"
+                      width="hug"
+                      state={boardMode === mode ? 'pressed' : 'active'}
+                      onClick={() => setBoardMode(mode)}
+                      aria-label={`Show ${BOARD_MODE_LABELS[mode]}`}
+                    >
+                      {BOARD_MODE_LABELS[mode]}
+                    </BUTOperatorChip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="dep-control-group">
                 <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">TOC</h2>
                 <BUTDDMListActionDual
                   items={tocOptions}
@@ -962,24 +1023,26 @@ const DarwinDeparturesPage: React.FC = () => {
                 />
               </div>
 
-              <div className="dep-control-group">
-                <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Stop mode</h2>
-                <BUTDDMListActionDual
-                  items={STOP_MODE_OPTIONS.map((mode) => STOP_MODE_LABELS[mode])}
-                  filterName="Stop modes"
-                  selectionMode="multi"
-                  selectedPositions={selectedStopModes
-                    .map((mode) => STOP_MODE_OPTIONS.indexOf(mode))
-                    .filter((index) => index >= 0)}
-                  onSelectionChanged={(_, selectedItems) => {
-                    const selected = selectedItems
-                      .map((label) => STOP_MODE_OPTIONS.find((mode) => STOP_MODE_LABELS[mode] === label))
-                      .filter((value): value is StopModeFilter => Boolean(value))
-                    setSelectedStopModes(selected)
-                  }}
-                  colorVariant="primary"
-                />
-              </div>
+              {boardMode === 'departures' && (
+                <div className="dep-control-group">
+                  <h2 className="dep-sidebar-section-title dep-sidebar-section-title--subsection">Stop mode</h2>
+                  <BUTDDMListActionDual
+                    items={STOP_MODE_OPTIONS.map((mode) => STOP_MODE_LABELS[mode])}
+                    filterName="Stop modes"
+                    selectionMode="multi"
+                    selectedPositions={selectedStopModes
+                      .map((mode) => STOP_MODE_OPTIONS.indexOf(mode))
+                      .filter((index) => index >= 0)}
+                    onSelectionChanged={(_, selectedItems) => {
+                      const selected = selectedItems
+                        .map((label) => STOP_MODE_OPTIONS.find((mode) => STOP_MODE_LABELS[mode] === label))
+                        .filter((value): value is StopModeFilter => Boolean(value))
+                      setSelectedStopModes(selected)
+                    }}
+                    colorVariant="primary"
+                  />
+                </div>
+              )}
 
               <div className="dep-control-group dep-control-group--actions">
                 <BUTWideButton
@@ -1046,7 +1109,7 @@ const DarwinDeparturesPage: React.FC = () => {
 
             {hasStationSelected && status === 'error' && !data && (
               <section className="dep-state-card dep-state-card--error">
-                <h2>Departures unavailable</h2>
+                <h2>Live board unavailable</h2>
                 <p>{error}</p>
               </section>
             )}
@@ -1060,7 +1123,7 @@ const DarwinDeparturesPage: React.FC = () => {
                       ? `Loading historical data${historyDate ? ` for ${formatHeaderDate(historyDate)}` : ''}…`
                       : futureTimetableMode
                         ? 'Loading timetable data…'
-                        : 'Loading live departures…'}
+                        : `Loading live ${boardMode === 'departures' ? 'departures' : 'arrivals'}…`}
                   </p>
                 </div>
               </section>
@@ -1072,38 +1135,48 @@ const DarwinDeparturesPage: React.FC = () => {
                  * Renders nothing when no messages are in flight. */}
                 <StationMessages messages={data.messages || []} />
 
-                {filteredDepartures.length === 0 ? (
+                {activeFilteredRows.length === 0 ? (
                   <section className="dep-state-card">
-                    <p>No departures match the selected filters in the next {data.windowHours} hour{data.windowHours === 1 ? '' : 's'}.</p>
+                    <p>
+                      {boardMode === 'departures'
+                        ? `No departures match the selected filters in the next ${data.windowHours} hour${data.windowHours === 1 ? '' : 's'}.`
+                        : `No arrivals match the selected filters in the next ${data.windowHours} hour${data.windowHours === 1 ? '' : 's'}.`}
+                    </p>
                   </section>
                 ) : (
                   <div className="dep-cards" role="list">
-                    {filteredDepartures.map((row) => (
-                      <div role="listitem" key={row.rid}>
-                        <TextCard
-                          title={buildTitle(row)}
-                          description={buildDescription(row)}
-                          state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
-                          trailingIcon={<StatusBadge row={row} historicalMode={historicalMode} />}
-                          onClick={() => {
-                            const qp = new URLSearchParams()
-                            if (historicalMode && historyDate) {
-                              qp.set('date', historyDate)
-                              if (historyTime) qp.set('at', historyTime)
-                            }
-                            const backQs = new URLSearchParams()
-                            backQs.set('hours', String(hours))
-                            if (historicalMode && historyDate) backQs.set('date', historyDate)
-                            if (historicalMode && historyTime) backQs.set('at', historyTime)
-                            const backTo = `/departures/${encodeURIComponent(code)}${backQs.toString() ? `?${backQs.toString()}` : ''}`
-                            qp.set('from', backTo)
-                            const suffix = qp.toString() ? `?${qp.toString()}` : ''
-                            navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
-                          }}
-                          ariaLabel={`View details for ${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}, ${row.cancelled ? 'cancelled' : (historicalMode ? 'historical snapshot' : 'on time')}`}
-                        />
-                      </div>
-                    ))}
+                    {activeFilteredRows.map((row) => {
+                      const rowKey = `${row.rid}-${row.movement ?? 'departure'}`
+                      const detailPhrase = row.movement === 'arrival'
+                        ? `arrival ${formatTime(row.scheduledAt)} from ${row.originName || row.origin}`
+                        : `${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}`
+                      return (
+                        <div role="listitem" key={rowKey}>
+                          <TextCard
+                            title={buildTitle(row)}
+                            description={buildDescription(row)}
+                            state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
+                            trailingIcon={<StatusBadge row={row} historicalMode={historicalMode} />}
+                            onClick={() => {
+                              const qp = new URLSearchParams()
+                              if (historicalMode && historyDate) {
+                                qp.set('date', historyDate)
+                                if (historyTime) qp.set('at', historyTime)
+                              }
+                              const backQs = new URLSearchParams()
+                              backQs.set('hours', String(hours))
+                              if (historicalMode && historyDate) backQs.set('date', historyDate)
+                              if (historicalMode && historyTime) backQs.set('at', historyTime)
+                              const backTo = `/departures/${encodeURIComponent(code)}${backQs.toString() ? `?${backQs.toString()}` : ''}`
+                              qp.set('from', backTo)
+                              const suffix = qp.toString() ? `?${qp.toString()}` : ''
+                              navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
+                            }}
+                            ariaLabel={`View details for ${detailPhrase}, ${row.cancelled ? 'cancelled' : (historicalMode ? 'historical snapshot' : 'on time')}`}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 

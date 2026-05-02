@@ -62,6 +62,10 @@ install -m 0644 "${REPO_DIR}/deploy/darwin-vm/darwin-daemon.service" "${SYSTEMD_
 install -m 0644 "${CADDY_SRC}" /etc/caddy/Caddyfile
 chown -R railstats:railstats "${REPO_DIR}"
 
+echo "[cron] Installing /etc/cron.d/darwin-fetch (user railstats, matches daemon)"
+install -d -o railstats -g railstats -m 0755 "${REPO_DIR}/darwin-local-test/logs"
+install -m 0644 "${REPO_DIR}/deploy/darwin-vm/darwin-fetch.cron" /etc/cron.d/darwin-fetch
+
 echo "[8/8] Enabling services"
 systemctl daemon-reload
 systemctl enable --now "${SERVICE_NAME}"

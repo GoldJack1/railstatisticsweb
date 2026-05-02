@@ -17,7 +17,8 @@ Important:
 
 - `env.example` - Environment template for `/etc/darwin-daemon.env`
 - `darwin-daemon.service` - systemd unit
-- `darwin-fetch.cron` - daily fetch cron
+- `darwin-fetch.cron` - daily fetch job for `/etc/cron.d/darwin-fetch` (runs as **`railstats`**, not root)
+- `repair-timetable-dir-perms.sh` - one-time `chown` of `tt/` if files were created by root cron
 - `Caddyfile` - TLS reverse proxy to local daemon port
 - `setup.sh` - initial VM bootstrap
 - `update.sh` - pull latest repo and restart service
@@ -52,8 +53,12 @@ Add a rewrite rule:
   - `sudo systemctl restart darwin-daemon`
 - Tail daemon logs:
   - `sudo journalctl -u darwin-daemon -f`
-- Run manual fetch:
-  - `cd /opt/railstats && npm --prefix darwin-local-test run fetch:daily-files`
+- Run manual fetch (same user as the daemon — avoids root-owned `tt/` files):
+  - `sudo -u railstats -H bash -lc 'cd /opt/railstats && npm --prefix darwin-local-test run fetch:daily-files'`
+- If rollover failed because old cron ran as root, fix ownership once (no download):
+  - `sudo /opt/railstats/deploy/darwin-vm/repair-timetable-dir-perms.sh`
+- Fetch log (after deploy): `/opt/railstats/darwin-local-test/logs/darwin-fetch.log`
+- If you ever installed the same fetch line in **root’s** `crontab -e`, remove it so only `/etc/cron.d/darwin-fetch` runs (otherwise root may still overwrite permissions nightly).
 - Run backup:
   - `sudo /opt/railstats/deploy/darwin-vm/backup-state.sh`
 
