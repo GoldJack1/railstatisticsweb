@@ -51,6 +51,7 @@ Add a rewrite rule:
 
 - Restart daemon:
   - `sudo systemctl restart darwin-daemon`
+- PTAC backfill after overnight errors (replay Kafka from **00:01 London on today’s timetable SSD** into `consistByRid`): add `PTAC_REPLAY_ANCHOR=ssd_0001` to `/etc/darwin-daemon.env`, restart the daemon, confirm `[ptac] will replay (anchor=ssd_0001 …)` in logs, then **remove** that line (or set back to `rolling`) on the next restart so normal startup stays a shorter rolling window.
 - Tail daemon logs:
   - `sudo journalctl -u darwin-daemon -f`
 - Run manual fetch (same user as the daemon — avoids root-owned `tt/` files):

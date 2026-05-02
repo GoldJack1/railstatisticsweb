@@ -107,6 +107,11 @@ const ptacCfg = {
   groupId:      process.env.PTAC_GROUP_ID,
   // Default 12h replay window; override with PTAC_INITIAL_REPLAY_MIN if retention allows.
   initialReplay: Number(process.env.PTAC_INITIAL_REPLAY_MIN || 720),
+  /**
+   * rolling (default): replay last PTAC_INITIAL_REPLAY_MIN minutes from now.
+   * ssd_0001: replay from 00:01 Europe/London on the current timetable SSD — use once to backfill after outages.
+   */
+  replayAnchor: (process.env.PTAC_REPLAY_ANCHOR || 'rolling').toLowerCase().trim(),
 };
 
 // ---------- pick today's timetable file ------------------------------------
@@ -276,6 +281,42 @@ function railwayDayYmd(now = new Date()) {
   const railwayDayUtcMs = londonAsUtcMs - (UK_RAILWAY_DAY_START_MINUTES * 60 * 1000);
   return new Date(railwayDayUtcMs).toISOString().slice(0, 10);
 }
+
+function londonWallPartsAtUtcMs(ms) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(ms));
+  const pick = (t) => Number(parts.find((p) => p.type === t)?.value || 0);
+  return { y: pick('year'), mo: pick('month'), d: pick('day'), h: pick('hour'), mi: pick('minute'), s: pick('second') };
+}
+
+/** First UTC ms where Europe/London is calendar date `ssd` (YYYY-MM-DD) and local time ≥ 00:01:00. */
+function ssdLondonCalendar001UtcMs(ssd) {
+  const [Y, M, D] = ssd.split('-').map(Number);
+  let lo = Date.UTC(Y, M - 1, D - 1, 12, 0, 0);
+  let hi = Date.UTC(Y, M - 1, D + 1, 12, 0, 0);
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    const p = londonWallPartsAtUtcMs(mid);
+    const dayMs = Date.UTC(p.y, p.mo - 1, p.d);
+    const targetMs = Date.UTC(Y, M - 1, D);
+    let ok = false;
+    if (dayMs > targetMs) ok = true;
+    else if (dayMs < targetMs) ok = false;
+    else ok = p.h > 0 || (p.h === 0 && p.mi >= 1);
+    if (ok) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+}
+
 function todayYmdCompact(d = new Date()) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -3119,17 +3160,24 @@ async function startPtacConsumer() {
     return;
   }
 
-  // Replay window — fetch offsets for (now − initialReplay). Seek runs once the
-  // consumer group has partitions assigned; a fixed delay often fires too early
-  // and silently skips replay (especially after overnight PTAC traffic).
+  // Replay window — rolling minutes from now, or SSD-calendar 00:01 London for backfill (PTAC_REPLAY_ANCHOR).
   let replayOffsets = null;
-  if (ptacCfg.initialReplay > 0) {
+  let sinceMs = null;
+  let replayLabel = '';
+  if (ptacCfg.replayAnchor === 'ssd_0001') {
+    const ssd = railwayDayYmd(new Date());
+    sinceMs = ssdLondonCalendar001UtcMs(ssd);
+    replayLabel = `anchor=ssd_0001 SSD=${ssd} since=${new Date(sinceMs).toISOString()}`;
+  } else if (ptacCfg.initialReplay > 0) {
+    sinceMs = Date.now() - ptacCfg.initialReplay * 60_000;
+    replayLabel = `anchor=rolling -${ptacCfg.initialReplay} min since=${new Date(sinceMs).toISOString()}`;
+  }
+  if (sinceMs != null) {
     const admin = ptacKafka.admin();
     try {
       await admin.connect();
-      const sinceMs = Date.now() - ptacCfg.initialReplay * 60_000;
       replayOffsets = await admin.fetchTopicOffsetsByTimestamp(ptacCfg.topic, sinceMs);
-      console.log(`[ptac] will replay -${ptacCfg.initialReplay} min across ${replayOffsets.length} partition(s).`);
+      console.log(`[ptac] will replay (${replayLabel}) across ${replayOffsets.length} partition(s).`);
     } catch (e) { console.warn(`[ptac] offset fetch failed: ${e.message}`); }
     finally { await admin.disconnect(); }
   }
