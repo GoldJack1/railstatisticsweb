@@ -841,10 +841,41 @@ function writeHeavyShardsAtomic(stem, formations, consistByRid, unitsById, liveO
   for (const [label, arr] of chunks) {
     const finalPath = `${stem}.${label}.json.gz`;
     const tmpPath = `${finalPath}.tmp`;
-    const buf = gzipSync(JSON.stringify(Array.isArray(arr) ? arr : []), { level: STATE_HEAVY_GZIP_LEVEL });
+    const data = Array.isArray(arr) ? arr : [];
+    // Never leave an empty overlay shard on disk — restore would treat it as authoritative and
+    // clobber legacy inline overlays / poison cold-start persists before Kafka fills maps.
+    if (label === 'overlay' && data.length === 0) {
+      try { unlinkSync(finalPath); } catch {}
+      continue;
+    }
+    const buf = gzipSync(JSON.stringify(data), { level: STATE_HEAVY_GZIP_LEVEL });
     writeFileSync(tmpPath, buf);
     renameSync(tmpPath, finalPath);
   }
+}
+
+function heavyShardArrayLen(v) {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+/**
+ * Merge one gzip shard array into `raw[field]`.
+ * If the shard parses empty but the core still has a richer inline array (legacy / crash ordering),
+ * keep inline — empty shards often come from PROTECT splits or partial writes and must not wipe PTAC/units.
+ */
+function attachHeavyArrayShard(raw, field, gzPath) {
+  if (!existsSync(gzPath)) return;
+  let fromShard;
+  try {
+    fromShard = JSON.parse(gunzipSync(readFileSync(gzPath)).toString('utf8'));
+  } catch {
+    return;
+  }
+  const prev = raw[field];
+  const prevN = heavyShardArrayLen(prev);
+  const shN = heavyShardArrayLen(fromShard);
+  if (shN > 0) raw[field] = fromShard;
+  else if (prevN === 0) raw[field] = fromShard;
 }
 
 /** Merge gzip shards written beside core JSON (schema v2). Legacy cores still carry inline arrays. */
@@ -853,22 +884,10 @@ function attachHeavyShards(raw, corePath) {
   const stem = heavyStemForCore(corePath);
   if (!stem) return raw;
   try {
-    const fpForm = `${stem}.formations.json.gz`;
-    const fpCons = `${stem}.consist.json.gz`;
-    const fpUnits = `${stem}.units.json.gz`;
-    const fpOv = `${stem}.overlay.json.gz`;
-    if (existsSync(fpForm)) {
-      raw.formations = JSON.parse(gunzipSync(readFileSync(fpForm)).toString('utf8'));
-    }
-    if (existsSync(fpCons)) {
-      raw.consistByRid = JSON.parse(gunzipSync(readFileSync(fpCons)).toString('utf8'));
-    }
-    if (existsSync(fpUnits)) {
-      raw.unitsById = JSON.parse(gunzipSync(readFileSync(fpUnits)).toString('utf8'));
-    }
-    if (existsSync(fpOv)) {
-      raw.liveOverlayByRid = JSON.parse(gunzipSync(readFileSync(fpOv)).toString('utf8'));
-    }
+    attachHeavyArrayShard(raw, 'formations', `${stem}.formations.json.gz`);
+    attachHeavyArrayShard(raw, 'consistByRid', `${stem}.consist.json.gz`);
+    attachHeavyArrayShard(raw, 'unitsById', `${stem}.units.json.gz`);
+    attachHeavyArrayShard(raw, 'liveOverlayByRid', `${stem}.overlay.json.gz`);
   } catch (e) {
     console.warn(`[daemon] failed to merge heavy state shards for ${corePath}: ${e.message}`);
   }
