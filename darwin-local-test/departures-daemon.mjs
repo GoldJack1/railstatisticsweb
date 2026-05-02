@@ -105,6 +105,7 @@ const ptacCfg = {
   password:     process.env.PTAC_PASSWORD,
   topic:        process.env.PTAC_TOPIC || 'prod-1033-Passenger-Train-Allocation-and-Consist-1_0',
   groupId:      process.env.PTAC_GROUP_ID,
+  // Default 12h replay window; override with PTAC_INITIAL_REPLAY_MIN if retention allows.
   initialReplay: Number(process.env.PTAC_INITIAL_REPLAY_MIN || 720),
 };
 
@@ -1398,6 +1399,10 @@ function applyPersistedStateRest(raw) {
   if (raw.consistByRid) for (const [k, v] of raw.consistByRid) consistByRid.set(k, v);
   if (raw.unitsById)    for (const [k, v] of raw.unitsById)    unitsById.set(k, v);
   if (raw.unmatchedConsists) for (const [k, v] of raw.unmatchedConsists) unmatchedConsists.set(k, v);
+  const retriedAfterRestore = retryUnmatchedConsists();
+  if (retriedAfterRestore > 0) {
+    console.log(`[daemon] PTAC retry after persisted restore: matched ${retriedAfterRestore} queued consists.`);
+  }
   console.log(
     `[daemon] restored persisted state: ${formationsByRid.size} formations, `
     + `${consistByRid.size} consists, ${unitsById.size} units, `
@@ -1561,12 +1566,26 @@ function persistState() {
       } catch {}
     }
 
-    const coreJson = JSON.stringify(corePayload);
+    // Write formations/consist/units shards before stringifying the core. The core
+    // still embeds liveOverlayByRid and can hit V8's max string length; if
+    // JSON.stringify throws we previously skipped shards entirely and coach data
+    // vanished from disk until the next successful persist.
+    const mainHeavyStem = heavyStemForCore(STATE_FILE);
+    writeHeavyShardsAtomic(mainHeavyStem, formations, consistByRidArr, unitsByIdArr);
+
+    let coreJson;
+    try {
+      coreJson = JSON.stringify(corePayload);
+    } catch (e) {
+      console.warn(`[daemon] failed to stringify core state (${e.message}); heavy shards updated, core/history snapshots skipped`);
+      historicalStateFileCache.clear();
+      lastPersistAt = new Date().toISOString();
+      return;
+    }
 
     const tmpMain = STATE_FILE + '.tmp';
     writeFileSync(tmpMain, coreJson);
     renameSync(tmpMain, STATE_FILE);
-    writeHeavyShardsAtomic(heavyStemForCore(STATE_FILE), formations, consistByRidArr, unitsByIdArr);
 
     if (!existsSync(STATE_HISTORY_DIR)) mkdirSync(STATE_HISTORY_DIR, { recursive: true });
     const dayDir = resolve(STATE_HISTORY_DIR, corePayload.savedDate);
@@ -2180,6 +2199,22 @@ function retryUnmatchedConsists() {
   return resolved;
 }
 
+/** PTAC unit numbers for departures-board hints (no extra /api/service round-trip). */
+function ptacUnitIdsFromConsist(consist) {
+  if (!consist?.allocations?.length) return null;
+  const ids = [];
+  const seen = new Set();
+  for (const a of consist.allocations) {
+    for (const rg of a.resourceGroups || []) {
+      const u = rg.unitId != null && String(rg.unitId).trim();
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      ids.push(u);
+    }
+  }
+  return ids.length ? ids : null;
+}
+
 // ---------- snapshot builder (per-TIPLOC, on demand) -----------------------
 function buildDeparturesAndArrivalsForTiplocs(tiplocs, windowHours, ctx = null) {
   const byRidMap = ctx?.byRid || byRid;
@@ -2191,6 +2226,7 @@ function buildDeparturesAndArrivalsForTiplocs(tiplocs, windowHours, ctx = null) 
   const associationsMap = ctx?.associationsByRid || associationsByRid;
   const alertsMap = ctx?.alertsByRid || alertsByRid;
   const consistMap = ctx?.consistByRid || consistByRid;
+  const formationsMap = ctx?.formationsByRid || formationsByRid;
   // tiplocs is an array — large interchanges share a CRS across multiple
   // TIPLOCs (e.g. STP = STPX [plat 1-4] + STPANCI [plat 5-13] + STPXBOX
   // [Thameslink low-level plat A]); a single CRS query must return all of
@@ -2312,6 +2348,9 @@ function buildDeparturesAndArrivalsForTiplocs(tiplocs, windowHours, ctx = null) 
       hasAssociations: (associationsMap.get(rid)?.length ?? 0) > 0,
       hasAlerts: (alertsMap.get(rid)?.length ?? 0) > 0,
       hasConsist: consistMap.has(rid),
+      hasFormation: formationsMap.has(rid),
+      formation: formationsMap.get(rid) || null,
+      unitIds: ptacUnitIdsFromConsist(consistMap.get(rid)),
       sourceTiploc: sourceTpl,
     });
 
@@ -3080,9 +3119,9 @@ async function startPtacConsumer() {
     return;
   }
 
-  // Replay window — same pattern as Darwin: fetch offsets corresponding to
-  // (now − initialReplay) so a fresh start picks up the broker's full
-  // retention without reprocessing already-consumed data.
+  // Replay window — fetch offsets for (now − initialReplay). Seek runs once the
+  // consumer group has partitions assigned; a fixed delay often fires too early
+  // and silently skips replay (especially after overnight PTAC traffic).
   let replayOffsets = null;
   if (ptacCfg.initialReplay > 0) {
     const admin = ptacKafka.admin();
@@ -3095,6 +3134,23 @@ async function startPtacConsumer() {
     finally { await admin.disconnect(); }
   }
 
+  let pendingReplaySeek = replayOffsets;
+  ptacConsumer.on(ptacConsumer.events.GROUP_JOIN, () => {
+    if (!pendingReplaySeek?.length) return;
+    const toSeek = pendingReplaySeek;
+    pendingReplaySeek = null;
+    setImmediate(() => {
+      for (const o of toSeek) {
+        try {
+          ptacConsumer.seek({ topic: ptacCfg.topic, partition: o.partition, offset: o.offset });
+        } catch (e) {
+          console.warn(`[ptac] seek p${o.partition} failed: ${e.message}`);
+        }
+      }
+      console.log('[ptac] startup replay seek applied.');
+    });
+  });
+
   ptacConsumer.run({
     eachMessage: async ({ message }) => {
       archiveRawFeed('ptac', message.value);
@@ -3106,14 +3162,6 @@ async function startPtacConsumer() {
     // Don't shutdown — keep Darwin running even if PTAC dies.
     ptacConsumer = null;
   });
-
-  if (replayOffsets) {
-    await new Promise((r) => setTimeout(r, 2000));
-    for (const o of replayOffsets) {
-      try { ptacConsumer.seek({ topic: ptacCfg.topic, partition: o.partition, offset: o.offset }); }
-      catch (e) { console.warn(`[ptac] seek p${o.partition} failed: ${e.message}`); }
-    }
-  }
 
   console.log('[ptac] consumer running.');
 }
@@ -3164,6 +3212,9 @@ async function start() {
     } finally {
       liveCachesReady = true;
     }
+    // PTAC after disk restore so replay isn't overwritten by persisted consists,
+    // and join keys from timetable are already loaded.
+    startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
     try {
       await runHistoricalWarmup();
     } catch (e) {
@@ -3211,10 +3262,6 @@ async function start() {
       catch (e) { console.warn(`[daemon] seek p${o.partition} failed: ${e.message}`); }
     }
   }
-
-  // Spin up the PTAC consumer in parallel. Fire-and-forget — its own
-  // failures are isolated and won't bring Darwin down.
-  startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
 
   setInterval(() => {
     const mem = process.memoryUsage();
