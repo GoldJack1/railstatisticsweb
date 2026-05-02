@@ -40,7 +40,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync, rmSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { gzipSync, gunzipSync } from 'node:zlib';
