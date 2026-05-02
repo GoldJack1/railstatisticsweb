@@ -562,9 +562,14 @@ function ridIsOnLoadedScheduleDate(rid) {
  * Skipped for **`post-fetch`** (scheduled 04:05): PTAC/unit data often arrives
  * hours earlier; we only reload timetable indexes and bust API caches then.
  *
- * PTAC (`consistByRid`, `formationsByRid`, `unitsById`): drop anything whose RID
- * is not on **`loadedDate`** in the timetable — previous operating days are removed
- * when the railway day rolls and indexes refresh, without relying on RID reuse quirks.
+ * PTAC (`consistByRid`, `unitsById`): drop rows/services unless the RID maps to a
+ * journey whose timetable **`ssd`** matches **`loadedDate`** — aligns with
+ * `unitsOnLoadedDate` / `consistsOnLoadedDate`.
+ *
+ * **Darwin `formationsByRid`**: prune only when the RID is missing from **`byRid`**.
+ * Many overnight services keep a formation on a RID that still exists in the
+ * loaded file while **`j.ssd`** can differ from **`loadedDate`**; SSD-strict pruning
+ * here wrongly stripped almost all coach lists.
  */
 function pruneMapsToValidRids() {
   if (!byRid) return;
@@ -590,7 +595,7 @@ function pruneMapsToValidRids() {
     if (!ridIsOnLoadedScheduleDate(rid)) consistByRid.delete(rid);
   }
   for (const rid of [...formationsByRid.keys()]) {
-    if (!ridIsOnLoadedScheduleDate(rid)) formationsByRid.delete(rid);
+    if (!byRid.has(rid)) formationsByRid.delete(rid);
   }
   for (const [unitId, entry] of [...unitsById.entries()]) {
     const svcs = (entry.services || []).filter((s) => s.rid && ridIsOnLoadedScheduleDate(s.rid));
