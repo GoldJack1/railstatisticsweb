@@ -36,6 +36,8 @@
  *   HEARTBEAT_SEC          stats log interval (default 60)
  *   DARWIN_CLIENT_READY_AFTER  restored (default) | warm — gate non-health API until caches restored or until warmup completes
  *   DARWIN_*               Kafka creds from .env
+ *   KAFKA_*_TIMEOUT_MS / KAFKA_RETRY_*  optional KafkaJS tuning (Darwin + PTAC share timeouts/retry)
+ *   PTAC_CONNECT_DELAY_MS  ms to wait before PTAC connects (default 2500; staggers TLS vs Darwin at startup)
  */
 
 import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync, rmSync, appendFileSync } from 'node:fs';
@@ -3174,12 +3176,25 @@ function handleRequest(req, res) {
 const server = createServer(handleRequest);
 
 // ---------- Kafka loop -----------------------------------------------------
+/** Shared KafkaJS tuning — Confluent often resets TLS mid-handshake under burst connects at startup; retries recover. */
+const kafkaJsTimeouts = {
+  connectionTimeout: Number(process.env.KAFKA_CONNECTION_TIMEOUT_MS || 30000),
+  authenticationTimeout: Number(process.env.KAFKA_AUTH_TIMEOUT_MS || 30000),
+  requestTimeout: Number(process.env.KAFKA_REQUEST_TIMEOUT_MS || 30000),
+};
+const kafkaJsRetry = {
+  retries: Number(process.env.KAFKA_RETRY_COUNT || 12),
+  initialRetryTime: Number(process.env.KAFKA_RETRY_INITIAL_MS || 400),
+  maxRetryTime: Number(process.env.KAFKA_RETRY_MAX_MS || 60000),
+  multiplier: 2,
+};
+
 const kafka = new Kafka({
   clientId: 'rs-departures-daemon',
   brokers: [cfg.bootstrap], ssl: true,
   sasl: { mechanism: 'plain', username: cfg.username, password: cfg.password },
-  connectionTimeout: 15000,
-  authenticationTimeout: 15000,
+  ...kafkaJsTimeouts,
+  retry: kafkaJsRetry,
   logLevel: logLevel.WARN,
 });
 const consumer = kafka.consumer({ groupId: cfg.groupId });
@@ -3220,12 +3235,16 @@ async function startPtacConsumer() {
     return;
   }
   ptacStats.startedAt = new Date().toISOString();
+  const ptacConnectDelayMs = Number(process.env.PTAC_CONNECT_DELAY_MS || 2500);
+  if (ptacConnectDelayMs > 0) {
+    await new Promise((r) => setTimeout(r, ptacConnectDelayMs));
+  }
   ptacKafka = new Kafka({
     clientId: 'rs-departures-daemon-ptac',
     brokers:  [ptacCfg.bootstrap], ssl: true,
     sasl:     { mechanism: 'plain', username: ptacCfg.username, password: ptacCfg.password },
-    connectionTimeout: 15000,
-    authenticationTimeout: 15000,
+    ...kafkaJsTimeouts,
+    retry: kafkaJsRetry,
     logLevel: logLevel.WARN,
   });
   ptacConsumer = ptacKafka.consumer({ groupId: ptacCfg.groupId });
