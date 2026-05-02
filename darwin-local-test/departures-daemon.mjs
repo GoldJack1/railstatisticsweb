@@ -2829,6 +2829,25 @@ function handleRequest(req, res) {
   // /api/health
   if (parts.length === 2 && parts[0] === 'api' && parts[1] === 'health') {
     const mem = process.memoryUsage();
+    let ptacUnitsOnLoadedDate = 0;
+    let ptacConsistsOnLoadedDate = 0;
+    if (loadedDate) {
+      for (const u of unitsById.values()) {
+        const svcs = u.services || [];
+        let onDay = false;
+        for (let i = 0; i < svcs.length; i++) {
+          const j = byRid.get(svcs[i].rid);
+          if (j?.ssd === loadedDate) {
+            onDay = true;
+            break;
+          }
+        }
+        if (onDay) ptacUnitsOnLoadedDate++;
+      }
+      for (const rid of consistByRid.keys()) {
+        if (byRid.get(rid)?.ssd === loadedDate) ptacConsistsOnLoadedDate++;
+      }
+    }
     sendJson(res, 200, {
       ok: true,
       mode: daemonMode,
@@ -2858,6 +2877,11 @@ function handleRequest(req, res) {
       ptac: {
         enabled: !!(ptacCfg.username && ptacCfg.groupId),
         topic: ptacCfg.topic,
+        /** Distinct physical units with ≥1 service on `loadedDate` (today's timetable SSD). */
+        unitsOnLoadedDate: ptacUnitsOnLoadedDate,
+        /** RIDs on `loadedDate` that have a PTAC consist attached. */
+        consistsOnLoadedDate: ptacConsistsOnLoadedDate,
+        replayAnchor: ptacCfg.replayAnchor,
         ...ptacStats,
       },
       memoryMB: { heap: +(mem.heapUsed/1024/1024).toFixed(1), rss: +(mem.rss/1024/1024).toFixed(1) },
