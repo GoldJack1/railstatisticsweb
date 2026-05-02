@@ -226,6 +226,14 @@ function buildDescription(row: DepartureRow): string {
     ? (terminatesHere ? null : (`to ${row.destinationName || row.destination}`))
     : (row.originName ? `from ${row.originName}` : null)
   const trainLength = row.trainLength && row.trainLength > 0 ? `${row.trainLength} coaches` : null
+  const unitHint =
+    row.hasConsist && row.unitIds && row.unitIds.length > 0 ? `Units ${row.unitIds.join(', ')}` : null
+  const formationHint =
+    row.formation?.coaches?.length && !trainLength
+      ? `${row.formation.coaches.length} coaches (formation)`
+      : row.formation?.coaches?.length && trainLength
+        ? `Formation ${row.formation.coaches.length} coaches`
+        : null
 
   if (row.cancelled && row.cancellation) {
     // Some feeds report generic "schedule deactivated", which is confusing
@@ -236,7 +244,9 @@ function buildDescription(row: DepartureRow): string {
   if (!row.cancelled && row.delayReason) {
     return `Delay reason: ${row.delayReason.reason}`
   }
-  return [passLabel, platLabel, trainLength, toc, headcode, routeHint].filter(Boolean).join(' · ')
+  return [passLabel, platLabel, trainLength, unitHint, formationHint, toc, headcode, routeHint]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** Build the title string. */

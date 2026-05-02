@@ -115,6 +115,15 @@ export interface DepartureRow {
   coachLoading: CoachLoadingValue[] | null;
   reverseFormation: boolean;
   hasConsist: boolean;
+  /** True when Darwin published `scheduleFormations` for this RID (coach classes / layout). */
+  hasFormation?: boolean;
+  /**
+   * Passenger-facing coach formation when known (same shape as service detail).
+   * Lets the board show stock without an extra `/api/service` request per row.
+   */
+  formation?: FormationData | null;
+  /** PTAC unit numbers extracted from consist when present. */
+  unitIds?: string[] | null;
   hasAssociations: boolean;
   hasAlerts: boolean;
 

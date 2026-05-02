@@ -538,11 +538,33 @@ function reloadReferenceData() {
   loadedDate = railwayDayYmd(new Date());
 }
 
+/** Normalize timetable SSD for comparisons (`YYYY-MM-DD` vs compact `YYYYMMDD`). */
+function normalizeSsdYmd(v) {
+  const s = String(v ?? '').trim();
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return s.slice(0, 10);
+}
+
+/**
+ * Journey exists on the **currently loaded schedule date** (`loadedDate`).
+ * Matches how `/api/health` counts `unitsOnLoadedDate` / `consistsOnLoadedDate`.
+ */
+function ridIsOnLoadedScheduleDate(rid) {
+  if (!rid || !byRid || !loadedDate) return false;
+  const j = byRid.get(rid);
+  if (!j) return false;
+  return normalizeSsdYmd(j.ssd) === normalizeSsdYmd(loadedDate);
+}
+
 /**
  * After a new timetable is loaded, drop RID-keyed state that no longer maps to
  * a journey in `byRid`. Used on **day rollover** and **manual** reloads.
  * Skipped for **`post-fetch`** (scheduled 04:05): PTAC/unit data often arrives
  * hours earlier; we only reload timetable indexes and bust API caches then.
+ *
+ * PTAC (`consistByRid`, `formationsByRid`, `unitsById`): drop anything whose RID
+ * is not on **`loadedDate`** in the timetable — previous operating days are removed
+ * when the railway day rolls and indexes refresh, without relying on RID reuse quirks.
  */
 function pruneMapsToValidRids() {
   if (!byRid) return;
@@ -565,13 +587,13 @@ function pruneMapsToValidRids() {
     if (!byRid.has(rid)) alertsByRid.delete(rid);
   }
   for (const rid of [...consistByRid.keys()]) {
-    if (!byRid.has(rid)) consistByRid.delete(rid);
+    if (!ridIsOnLoadedScheduleDate(rid)) consistByRid.delete(rid);
   }
   for (const rid of [...formationsByRid.keys()]) {
-    if (!byRid.has(rid)) formationsByRid.delete(rid);
+    if (!ridIsOnLoadedScheduleDate(rid)) formationsByRid.delete(rid);
   }
   for (const [unitId, entry] of [...unitsById.entries()]) {
-    const svcs = (entry.services || []).filter((s) => s.rid && byRid.has(s.rid));
+    const svcs = (entry.services || []).filter((s) => s.rid && ridIsOnLoadedScheduleDate(s.rid));
     if (svcs.length === 0) unitsById.delete(unitId);
     else unitsById.set(unitId, { ...entry, services: svcs });
   }

@@ -11,7 +11,8 @@
     "leeds:full": "node leeds-departures.mjs",
     "service": "node service-detail.mjs",
     "daemon": "node departures-daemon.mjs",
-    "fetch:daily-files": "node fetch-daily-timetables.mjs"
+    "fetch:daily-files": "node fetch-daily-timetables.mjs",
+    "fetch:ptac-today": "node fetch-ptac-today.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
