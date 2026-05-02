@@ -37,7 +37,9 @@
  *   DARWIN_CLIENT_READY_AFTER  restored (default) | warm — gate non-health API until caches restored or until warmup completes
  *   DARWIN_*               Kafka creds from .env
  *   KAFKA_*_TIMEOUT_MS / KAFKA_RETRY_*  optional KafkaJS tuning (Darwin + PTAC share timeouts/retry)
- *   PTAC_CONNECT_DELAY_MS  ms to wait before PTAC connects (default 2500; staggers TLS vs Darwin at startup)
+ *   PTAC_CONNECT_DELAY_MS      ms before PTAC connects (default 2500; staggers TLS vs Darwin)
+ *   PTAC_START_AFTER_WARMUP      default true — connect PTAC after historical warmup (less Kafka churn vs disk-heavy warmup)
+ *   PTAC_SESSION_TIMEOUT_MS etc. consumer session tuning when Confluent drops TLS briefly
  */
 
 import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync, rmSync, appendFileSync } from 'node:fs';
@@ -115,6 +117,11 @@ const ptacCfg = {
    */
   replayAnchor: (process.env.PTAC_REPLAY_ANCHOR || 'rolling').toLowerCase().trim(),
 };
+
+/** When true (default), PTAC Kafka connects only after historical warmup — avoids overlapping TLS + replay with disk/CPU-heavy warmup (fewer Confluent handshake drops). */
+const PTAC_START_AFTER_WARMUP = !['0', 'false', 'no'].includes(
+  String(process.env.PTAC_START_AFTER_WARMUP ?? 'true').toLowerCase(),
+);
 
 // ---------- pick today's timetable file ------------------------------------
 function pickTodaysTimetable() {
@@ -3260,7 +3267,15 @@ async function startPtacConsumer() {
     retry: kafkaJsRetry,
     logLevel: logLevel.WARN,
   });
-  ptacConsumer = ptacKafka.consumer({ groupId: ptacCfg.groupId });
+  const ptacSessionTimeout = Math.max(10000, Number(process.env.PTAC_SESSION_TIMEOUT_MS || 45000));
+  const ptacHeartbeatInterval = Math.max(500, Number(process.env.PTAC_HEARTBEAT_INTERVAL_MS || 3000));
+  const ptacRebalanceTimeout = Math.max(10000, Number(process.env.PTAC_REBALANCE_TIMEOUT_MS || 90000));
+  ptacConsumer = ptacKafka.consumer({
+    groupId: ptacCfg.groupId,
+    sessionTimeout: ptacSessionTimeout,
+    heartbeatInterval: ptacHeartbeatInterval,
+    rebalanceTimeout: ptacRebalanceTimeout,
+  });
 
   try {
     await ptacConsumer.connect();
@@ -3281,7 +3296,7 @@ async function startPtacConsumer() {
     replayLabel = `anchor=ssd_0001 SSD=${ssd} since=${new Date(sinceMs).toISOString()}`;
   } else if (ptacCfg.initialReplay > 0) {
     sinceMs = Date.now() - ptacCfg.initialReplay * 60_000;
-    replayLabel = `anchor=rolling -${ptacCfg.initialReplay} min since=${new Date(sinceMs).toISOString()}`;
+    replayLabel = `anchor=rolling last ${ptacCfg.initialReplay} min since=${new Date(sinceMs).toISOString()}`;
   }
   if (sinceMs != null) {
     const admin = ptacKafka.admin();
@@ -3373,12 +3388,18 @@ async function start() {
     }
     // PTAC after disk restore so replay isn't overwritten by persisted consists,
     // and join keys from timetable are already loaded.
-    startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
+    if (!PTAC_START_AFTER_WARMUP) {
+      startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
+    }
     try {
       await runHistoricalWarmup();
     } catch (e) {
       console.warn(`[daemon] background warmup failed: ${e.message}`);
       daemonMode = 'fully_warm';
+    }
+    if (PTAC_START_AFTER_WARMUP) {
+      console.log('[ptac] PTAC_START_AFTER_WARMUP=true: connecting now that historical warmup finished.');
+      startPtacConsumer().catch((e) => console.warn('[ptac] start failed:', e.message));
     }
   });
 
@@ -3392,7 +3413,7 @@ async function start() {
     try {
       const sinceMs = Date.now() - cfg.initialReplay * 60_000;
       replayOffsets = await admin.fetchTopicOffsetsByTimestamp(cfg.topic, sinceMs);
-      console.log(`[daemon] will replay -${cfg.initialReplay} min across ${replayOffsets.length} partition(s).`);
+      console.log(`[daemon] will replay last ${cfg.initialReplay} min (${replayOffsets.length} partition(s)).`);
     } catch (e) {
       console.warn(`[daemon] offset fetch failed: ${e.message}`);
     } finally {
