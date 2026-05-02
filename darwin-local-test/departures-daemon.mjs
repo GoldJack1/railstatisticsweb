@@ -824,17 +824,19 @@ function heavyStemForCore(corePath) {
 
 function deleteHeavyShards(stem) {
   if (!stem) return;
-  for (const label of ['formations', 'consist', 'units']) {
+  for (const label of ['formations', 'consist', 'units', 'overlay']) {
     try { unlinkSync(`${stem}.${label}.json.gz`); } catch {}
   }
 }
 
-function writeHeavyShardsAtomic(stem, formations, consistByRid, unitsById) {
+function writeHeavyShardsAtomic(stem, formations, consistByRid, unitsById, liveOverlayEntries) {
   if (!stem) return;
+  const overlay = Array.isArray(liveOverlayEntries) ? liveOverlayEntries : [];
   const chunks = [
     ['formations', formations],
     ['consist', consistByRid],
     ['units', unitsById],
+    ['overlay', overlay],
   ];
   for (const [label, arr] of chunks) {
     const finalPath = `${stem}.${label}.json.gz`;
@@ -854,6 +856,7 @@ function attachHeavyShards(raw, corePath) {
     const fpForm = `${stem}.formations.json.gz`;
     const fpCons = `${stem}.consist.json.gz`;
     const fpUnits = `${stem}.units.json.gz`;
+    const fpOv = `${stem}.overlay.json.gz`;
     if (existsSync(fpForm)) {
       raw.formations = JSON.parse(gunzipSync(readFileSync(fpForm)).toString('utf8'));
     }
@@ -862,6 +865,9 @@ function attachHeavyShards(raw, corePath) {
     }
     if (existsSync(fpUnits)) {
       raw.unitsById = JSON.parse(gunzipSync(readFileSync(fpUnits)).toString('utf8'));
+    }
+    if (existsSync(fpOv)) {
+      raw.liveOverlayByRid = JSON.parse(gunzipSync(readFileSync(fpOv)).toString('utf8'));
     }
   } catch (e) {
     console.warn(`[daemon] failed to merge heavy state shards for ${corePath}: ${e.message}`);
@@ -879,22 +885,24 @@ function readMergedStateFromDisk() {
   }
 }
 
-/** Strip heavy arrays for core JSON; arrays always returned for gzip shards (even when []). */
+/** Strip heavy arrays + live overlay for core JSON; shards hold gzip JSON (even when []). */
 function splitMergedForPersist(merged) {
   const formations = Array.isArray(merged.formations) ? merged.formations : [];
   const consistByRid = Array.isArray(merged.consistByRid) ? merged.consistByRid : [];
   const unitsById = Array.isArray(merged.unitsById) ? merged.unitsById : [];
+  const liveOverlayByRid = Array.isArray(merged.liveOverlayByRid) ? merged.liveOverlayByRid : [];
   const {
     formations: _fa,
     consistByRid: _ca,
     unitsById: _ua,
+    liveOverlayByRid: _lo,
     ...coreRest
   } = merged;
   const core = {
     ...coreRest,
     stateSchema: merged.stateSchema ?? 2,
   };
-  return { core, formations, consistByRid, unitsById };
+  return { core, formations, consistByRid, unitsById, liveOverlayByRid };
 }
 
 function pruneOldStateSnapshots() {
@@ -1564,11 +1572,11 @@ function persistState() {
     let formations = [...formationsByRid.entries()];
     let consistByRidArr = [...consistByRid.entries()];
     let unitsByIdArr = [...unitsById.entries()];
+    let overlayEntries = serializeLiveOverlayEntries();
 
     let corePayload = {
       savedAt,
       savedDate,
-      liveOverlayByRid: serializeLiveOverlayEntries(),
       cancelled: [...cancelled.entries()],
       delayReason: [...delayReason.entries()],
       messagesById: [...messagesById.entries()],
@@ -1582,6 +1590,7 @@ function persistState() {
 
     const mergedForScore = {
       ...corePayload,
+      liveOverlayByRid: overlayEntries,
       formations,
       consistByRid: consistByRidArr,
       unitsById: unitsByIdArr,
@@ -1602,17 +1611,17 @@ function persistState() {
             formations = split.formations;
             consistByRidArr = split.consistByRid;
             unitsByIdArr = split.unitsById;
+            overlayEntries = split.liveOverlayByRid;
           }
         }
       } catch {}
     }
 
-    // Write formations/consist/units shards before stringifying the core. The core
-    // still embeds liveOverlayByRid and can hit V8's max string length; if
-    // JSON.stringify throws we previously skipped shards entirely and coach data
-    // vanished from disk until the next successful persist.
+    // Heavy gz shards first (formations, PTAC, units, live overlay). Overlay used to
+    // live only inside core JSON and could push JSON.stringify past V8 limits —
+    // skipping persist dropped PTAC shards too; overlay is now `.overlay.json.gz`.
     const mainHeavyStem = heavyStemForCore(STATE_FILE);
-    writeHeavyShardsAtomic(mainHeavyStem, formations, consistByRidArr, unitsByIdArr);
+    writeHeavyShardsAtomic(mainHeavyStem, formations, consistByRidArr, unitsByIdArr, overlayEntries);
 
     let coreJson;
     try {
@@ -1636,7 +1645,7 @@ function persistState() {
     const dayLatestTmp = dayLatest + '.tmp';
     writeFileSync(dayLatestTmp, coreJson);
     renameSync(dayLatestTmp, dayLatest);
-    writeHeavyShardsAtomic(heavyStemForCore(dayLatest), formations, consistByRidArr, unitsByIdArr);
+    writeHeavyShardsAtomic(heavyStemForCore(dayLatest), formations, consistByRidArr, unitsByIdArr, overlayEntries);
 
     const dayStamp = (corePayload.savedAt || savedAt).replace(/[:.]/g, '-');
     const stampedStem = resolve(dayDir, `daemon-cache-heavy.${dayStamp}`);
@@ -1656,7 +1665,7 @@ function persistState() {
       } catch {}
     }
     try {
-      writeHeavyShardsAtomic(stampedStem, formations, consistByRidArr, unitsByIdArr);
+      writeHeavyShardsAtomic(stampedStem, formations, consistByRidArr, unitsByIdArr, overlayEntries);
     } catch {}
 
     pruneHistoryDirsByRetention();
@@ -1669,7 +1678,7 @@ function persistState() {
         const snapTmp = snap + '.tmp';
         writeFileSync(snapTmp, coreJson);
         renameSync(snapTmp, snap);
-        writeHeavyShardsAtomic(heavyStemForCore(snap), formations, consistByRidArr, unitsByIdArr);
+        writeHeavyShardsAtomic(heavyStemForCore(snap), formations, consistByRidArr, unitsByIdArr, overlayEntries);
         pruneOldStateSnapshots();
       } catch {}
     }
