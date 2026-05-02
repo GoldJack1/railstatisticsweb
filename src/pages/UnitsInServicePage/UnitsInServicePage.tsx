@@ -4,6 +4,7 @@ import { BUTSquareButton, BUTWideButton } from '../../components/buttons'
 import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import { PageTopHeader } from '../../components/misc'
 import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/special/TXTINPBUTIconWideButtonSearch'
+import { fetchDarwin } from '../../utils/darwinReadyFetch'
 import './UnitsInServicePage.css'
 
 type UnitCatalogItem = {
@@ -133,7 +134,7 @@ const UnitsInServicePage: React.FC = () => {
       setStatus('loading')
       setError(null)
     }
-    fetch('/api/darwin/units/catalog', { signal: ac.signal })
+    fetchDarwin('/api/darwin/units/catalog', { signal: ac.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()

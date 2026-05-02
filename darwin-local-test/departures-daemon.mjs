@@ -34,6 +34,7 @@
  *                          window so most services running today have their
  *                          formation cached on first request)
  *   HEARTBEAT_SEC          stats log interval (default 60)
+ *   DARWIN_CLIENT_READY_AFTER  restored (default) | warm — gate non-health API until caches restored or until warmup completes
  *   DARWIN_*               Kafka creds from .env
  */
 
@@ -612,9 +613,10 @@ const stats = {
 // piece of data once per service per day. Confluent's broker retention is
 // shorter than a day, so a daemon restart wipes a lot of useful state. We
 // persist these caches to disk every PERSIST_INTERVAL_SEC and on graceful
-// shutdown, then reload them on startup. Live overlays (forecasts, actuals,
-// platform changes) are *not* persisted — they're high-churn and Darwin
-// rebroadcasts them frequently.
+// shutdown, then reload them on startup. Formations + PTAC consists + units
+// are stored as three gzip shards beside each core JSON so stringify stays
+// within V8 limits. Live overlays (forecasts, actuals, platform changes) are
+// high-churn and Darwin rebroadcasts them frequently.
 const STATE_DIR  = resolve(__dirname, 'state');
 const STATE_FILE = resolve(STATE_DIR, 'daemon-cache.json');
 const STATE_HISTORY_DIR = resolve(STATE_DIR, 'history');
@@ -627,6 +629,8 @@ const STATE_HISTORY_RETENTION_DAYS = Math.max(1, Number(process.env.STATE_HISTOR
 const STATE_HISTORY_PRUNE_ON_PERSIST = !['0', 'false', 'no'].includes(String(process.env.STATE_HISTORY_PRUNE_ON_PERSIST || 'true').toLowerCase());
 const STATE_HISTORY_COMPRESS_SNAPSHOTS = !['0', 'false', 'no'].includes(String(process.env.STATE_HISTORY_COMPRESS_SNAPSHOTS || 'true').toLowerCase());
 const STATE_HISTORY_GZIP_LEVEL = Math.max(1, Math.min(9, Number(process.env.STATE_HISTORY_GZIP_LEVEL || 6)));
+/** Shard gzip level — separate env so operators can favour speed on huge PTAC maps without touching history snaps. */
+const STATE_HEAVY_GZIP_LEVEL = Math.max(1, Math.min(9, Number(process.env.STATE_HEAVY_GZIP_LEVEL || STATE_HISTORY_GZIP_LEVEL)));
 let lastPersistAt = null;
 let lastUnitCatalogPersistAt = null;
 const unitCatalogById = new Map(); // unitId -> cumulative unit record across days
@@ -644,6 +648,8 @@ const rawArchivePrunedYmd = new Set();
 // The mode never goes backwards once advanced; if the warmup fails we still
 // land in fully_warm and surface the error in warmupState.errors.
 let daemonMode = 'cold_starting';
+/** After background applyPersistedStateRest (formations, PTAC, messages, …). Used to gate client reads when policy is `restored`. */
+let liveCachesReady = false;
 const warmupState = {
   enabled: !['0', 'false', 'no'].includes(String(process.env.WARMUP_ENABLED || 'true').toLowerCase()),
   days: Math.max(0, Number(process.env.WARMUP_DAYS || 7)),
@@ -761,6 +767,94 @@ function stateScore(raw = {}) {
   );
 }
 
+/** Path prefix (no suffix) for formations/consist/units shards next to a core state file. */
+function heavyStemForCore(corePath) {
+  const dir = dirname(corePath);
+  const base = basename(corePath);
+  if (base === 'daemon-cache.json') return resolve(dir, 'daemon-cache-heavy');
+  if (base === 'daemon-cache.latest.json') return resolve(dir, 'daemon-cache-heavy.latest');
+  let m = /^daemon-cache\.(.+)\.json$/.exec(base);
+  if (m) return resolve(dir, `daemon-cache-heavy.${m[1]}`);
+  m = /^daemon-cache\.(.+)\.json\.gz$/.exec(base);
+  if (m) return resolve(dir, `daemon-cache-heavy.${m[1]}`);
+  return null;
+}
+
+function deleteHeavyShards(stem) {
+  if (!stem) return;
+  for (const label of ['formations', 'consist', 'units']) {
+    try { unlinkSync(`${stem}.${label}.json.gz`); } catch {}
+  }
+}
+
+function writeHeavyShardsAtomic(stem, formations, consistByRid, unitsById) {
+  if (!stem) return;
+  const chunks = [
+    ['formations', formations],
+    ['consist', consistByRid],
+    ['units', unitsById],
+  ];
+  for (const [label, arr] of chunks) {
+    const finalPath = `${stem}.${label}.json.gz`;
+    const tmpPath = `${finalPath}.tmp`;
+    const buf = gzipSync(JSON.stringify(Array.isArray(arr) ? arr : []), { level: STATE_HEAVY_GZIP_LEVEL });
+    writeFileSync(tmpPath, buf);
+    renameSync(tmpPath, finalPath);
+  }
+}
+
+/** Merge gzip shards written beside core JSON (schema v2). Legacy cores still carry inline arrays. */
+function attachHeavyShards(raw, corePath) {
+  if (!raw || typeof raw !== 'object') return raw;
+  const stem = heavyStemForCore(corePath);
+  if (!stem) return raw;
+  try {
+    const fpForm = `${stem}.formations.json.gz`;
+    const fpCons = `${stem}.consist.json.gz`;
+    const fpUnits = `${stem}.units.json.gz`;
+    if (existsSync(fpForm)) {
+      raw.formations = JSON.parse(gunzipSync(readFileSync(fpForm)).toString('utf8'));
+    }
+    if (existsSync(fpCons)) {
+      raw.consistByRid = JSON.parse(gunzipSync(readFileSync(fpCons)).toString('utf8'));
+    }
+    if (existsSync(fpUnits)) {
+      raw.unitsById = JSON.parse(gunzipSync(readFileSync(fpUnits)).toString('utf8'));
+    }
+  } catch (e) {
+    console.warn(`[daemon] failed to merge heavy state shards for ${corePath}: ${e.message}`);
+  }
+  return raw;
+}
+
+function readMergedStateFromDisk() {
+  if (!existsSync(STATE_FILE)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+    return attachHeavyShards(raw, STATE_FILE);
+  } catch {
+    return null;
+  }
+}
+
+/** Strip heavy arrays for core JSON; arrays always returned for gzip shards (even when []). */
+function splitMergedForPersist(merged) {
+  const formations = Array.isArray(merged.formations) ? merged.formations : [];
+  const consistByRid = Array.isArray(merged.consistByRid) ? merged.consistByRid : [];
+  const unitsById = Array.isArray(merged.unitsById) ? merged.unitsById : [];
+  const {
+    formations: _fa,
+    consistByRid: _ca,
+    unitsById: _ua,
+    ...coreRest
+  } = merged;
+  const core = {
+    ...coreRest,
+    stateSchema: merged.stateSchema ?? 2,
+  };
+  return { core, formations, consistByRid, unitsById };
+}
+
 function pruneOldStateSnapshots() {
   if (STATE_SNAPSHOT_COUNT <= 0) return;
   const prefix = 'daemon-cache.';
@@ -773,6 +867,10 @@ function pruneOldStateSnapshots() {
     .reverse();
   for (const stale of snapshots.slice(STATE_SNAPSHOT_COUNT)) {
     try { unlinkSync(resolve(STATE_DIR, stale)); } catch {}
+    const stampMatch = /^daemon-cache\.(.+)\.json$/.exec(stale);
+    if (stampMatch) {
+      deleteHeavyShards(resolve(STATE_DIR, `daemon-cache-heavy.${stampMatch[1]}`));
+    }
   }
 }
 
@@ -987,19 +1085,21 @@ function listHistorySnapshotsForDate(ymdDashed) {
   return list;
 }
 
-function readJsonMaybeGzip(path) {
-  if (!existsSync(path)) return null;
+/** Read gzip/plain JSON state and merge formations/consist/units shards beside the core file. */
+function readHistoricalStateFile(corePath) {
+  if (!existsSync(corePath)) return null;
   const now = Date.now();
-  const cached = historicalStateFileCache.get(path);
+  const cached = historicalStateFileCache.get(corePath);
   if (cached && now - (cached.loadedAtMs || 0) <= HIST_STATE_FILE_CACHE_TTL_MS) return cached.raw;
   try {
     let raw;
-    if (path.endsWith('.gz')) {
-      raw = JSON.parse(gunzipSync(readFileSync(path)).toString('utf8'));
+    if (corePath.endsWith('.gz')) {
+      raw = JSON.parse(gunzipSync(readFileSync(corePath)).toString('utf8'));
     } else {
-      raw = JSON.parse(readFileSync(path, 'utf8'));
+      raw = JSON.parse(readFileSync(corePath, 'utf8'));
     }
-    historicalStateFileCache.set(path, { loadedAtMs: now, raw });
+    attachHeavyShards(raw, corePath);
+    historicalStateFileCache.set(corePath, { loadedAtMs: now, raw });
     if (historicalStateFileCache.size > HIST_STATE_FILE_CACHE_MAX) {
       const ordered = [...historicalStateFileCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
       for (const [k] of ordered.slice(0, historicalStateFileCache.size - HIST_STATE_FILE_CACHE_MAX)) historicalStateFileCache.delete(k);
@@ -1024,7 +1124,7 @@ function buildOverlayHistorySeries(hours = 36) {
     const snaps = listHistorySnapshotsForDate(d);
     for (const s of snaps) {
       if (!s.path || !Number.isFinite(s.ms) || s.ms < cutoffMs) continue;
-      const raw = readJsonMaybeGzip(s.path);
+      const raw = readHistoricalStateFile(s.path);
       if (!raw) continue;
       points.push({
         savedAt: raw.savedAt || (s.savedAt || null),
@@ -1140,7 +1240,7 @@ function loadPersistedStateForDate(ymdDashed, at = null) {
   );
   if (ymdDashed === loadedDate) candidates.unshift(STATE_FILE);
   for (const p of candidates) {
-    const raw = readJsonMaybeGzip(p);
+    const raw = readHistoricalStateFile(p);
     if (raw) return raw;
   }
   return null;
@@ -1246,6 +1346,7 @@ function readPersistedStateRawIfFresh() {
   }
   try {
     const raw = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+    attachHeavyShards(raw, STATE_FILE);
     if (!KEEP_STATE_ACROSS_DAYS && raw.savedDate && raw.savedDate !== railwayDayYmd(new Date())) {
       console.log(`[daemon] persisted state is from ${raw.savedDate}, today is ${railwayDayYmd(new Date())} — discarding.`);
       return null;
@@ -1411,72 +1512,108 @@ async function runHistoricalWarmup() {
 function persistState() {
   try {
     if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-    let payload = {
-      savedAt:   new Date().toISOString(),
-      savedDate: loadedDate || railwayDayYmd(new Date()),
-      // Convert Maps/Sets to JSON-serialisable arrays. Use [[k,v], ...] format
-      // for Maps so order is preserved on round-trip.
-      formations:       [...formationsByRid.entries()],
+    const savedAt = new Date().toISOString();
+    const savedDate = loadedDate || railwayDayYmd(new Date());
+
+    let formations = [...formationsByRid.entries()];
+    let consistByRidArr = [...consistByRid.entries()];
+    let unitsByIdArr = [...unitsById.entries()];
+
+    let corePayload = {
+      savedAt,
+      savedDate,
       liveOverlayByRid: serializeLiveOverlayEntries(),
-      cancelled:        [...cancelled.entries()],
-      delayReason:      [...delayReason.entries()],
-      messagesById:     [...messagesById.entries()],
-      stationMessages:  [...stationMessages.entries()].map(([k, v]) => [k, [...v]]),
-      associations:     [...associationsByRid.entries()],
-      alerts:           [...alertsByRid.entries()],
+      cancelled: [...cancelled.entries()],
+      delayReason: [...delayReason.entries()],
+      messagesById: [...messagesById.entries()],
+      stationMessages: [...stationMessages.entries()].map(([k, v]) => [k, [...v]]),
+      associations: [...associationsByRid.entries()],
+      alerts: [...alertsByRid.entries()],
       reverseFormation: [...reverseFormation],
-      // PTAC caches — biggest entries, but together still <10 MB JSON.
-      consistByRid:     [...consistByRid.entries()],
-      unitsById:        [...unitsById.entries()],
       unmatchedConsists: [...unmatchedConsists.entries()],
+      stateSchema: 2,
     };
+
+    const mergedForScore = {
+      ...corePayload,
+      formations,
+      consistByRid: consistByRidArr,
+      unitsById: unitsByIdArr,
+    };
+
     if (PROTECT_RICHER_STATE && existsSync(STATE_FILE)) {
       try {
-        const currentOnDisk = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
-        const diskScore = stateScore(currentOnDisk);
-        const nextScore = stateScore(payload);
-        if (diskScore > nextScore * 1.2) {
-          console.warn(`[daemon] skip persist: on-disk cache looks richer (${diskScore} > ${nextScore}).`);
-          payload = currentOnDisk;
-          if (!payload.savedAt) payload.savedAt = new Date().toISOString();
-          if (!payload.savedDate) payload.savedDate = loadedDate || railwayDayYmd(new Date());
+        const diskMerged = readMergedStateFromDisk();
+        if (diskMerged) {
+          const diskScore = stateScore(diskMerged);
+          const nextScore = stateScore(mergedForScore);
+          if (diskScore > nextScore * 1.2) {
+            console.warn(`[daemon] skip persist: on-disk cache looks richer (${diskScore} > ${nextScore}).`);
+            const split = splitMergedForPersist(diskMerged);
+            corePayload = split.core;
+            if (!corePayload.savedAt) corePayload.savedAt = savedAt;
+            if (!corePayload.savedDate) corePayload.savedDate = savedDate;
+            formations = split.formations;
+            consistByRidArr = split.consistByRid;
+            unitsByIdArr = split.unitsById;
+          }
         }
       } catch {}
     }
-    // Atomic write: write to a tmp file, then rename. Avoids leaving a
-    // half-written cache on disk if the process crashes mid-flush.
-    const tmp = STATE_FILE + '.tmp';
-    const payloadJson = JSON.stringify(payload);
-    writeFileSync(tmp, payloadJson);
-    renameSync(tmp, STATE_FILE);
+
+    const coreJson = JSON.stringify(corePayload);
+
+    const tmpMain = STATE_FILE + '.tmp';
+    writeFileSync(tmpMain, coreJson);
+    renameSync(tmpMain, STATE_FILE);
+    writeHeavyShardsAtomic(heavyStemForCore(STATE_FILE), formations, consistByRidArr, unitsByIdArr);
+
     if (!existsSync(STATE_HISTORY_DIR)) mkdirSync(STATE_HISTORY_DIR, { recursive: true });
-    const dayDir = resolve(STATE_HISTORY_DIR, payload.savedDate);
+    const dayDir = resolve(STATE_HISTORY_DIR, corePayload.savedDate);
     if (!existsSync(dayDir)) mkdirSync(dayDir, { recursive: true });
-    const dayLatestTmp = resolve(dayDir, 'daemon-cache.latest.json.tmp');
+
     const dayLatest = resolve(dayDir, 'daemon-cache.latest.json');
-    writeFileSync(dayLatestTmp, payloadJson);
+    const dayLatestTmp = dayLatest + '.tmp';
+    writeFileSync(dayLatestTmp, coreJson);
     renameSync(dayLatestTmp, dayLatest);
-    const dayStamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
+    writeHeavyShardsAtomic(heavyStemForCore(dayLatest), formations, consistByRidArr, unitsByIdArr);
+
+    const dayStamp = (corePayload.savedAt || savedAt).replace(/[:.]/g, '-');
+    const stampedStem = resolve(dayDir, `daemon-cache-heavy.${dayStamp}`);
     if (STATE_HISTORY_COMPRESS_SNAPSHOTS) {
       const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json.gz`);
-      try { writeFileSync(daySnap, gzipSync(payloadJson, { level: STATE_HISTORY_GZIP_LEVEL })); } catch {}
+      const daySnapTmp = daySnap + '.tmp';
+      try {
+        writeFileSync(daySnapTmp, gzipSync(coreJson, { level: STATE_HISTORY_GZIP_LEVEL }));
+        renameSync(daySnapTmp, daySnap);
+      } catch {}
     } else {
       const daySnap = resolve(dayDir, `daemon-cache.${dayStamp}.json`);
-      try { writeFileSync(daySnap, payloadJson); } catch {}
+      const daySnapTmp = daySnap + '.tmp';
+      try {
+        writeFileSync(daySnapTmp, coreJson);
+        renameSync(daySnapTmp, daySnap);
+      } catch {}
     }
+    try {
+      writeHeavyShardsAtomic(stampedStem, formations, consistByRidArr, unitsByIdArr);
+    } catch {}
+
     pruneHistoryDirsByRetention();
-    // Phase 4: keep snapshot-index.json in sync with the new snapshot. Cheap
-    // (one readdir + JSON.stringify) and means historical lookups for today
-    // never have to fall back to the readdir path.
-    try { buildSnapshotIndexForDate(payload.savedDate); } catch {}
+    try { buildSnapshotIndexForDate(corePayload.savedDate); } catch {}
+
     if (STATE_SNAPSHOT_COUNT > 0) {
-      const stamp = (payload.savedAt || new Date().toISOString()).replace(/[:.]/g, '-');
+      const stamp = (corePayload.savedAt || savedAt).replace(/[:.]/g, '-');
       const snap = resolve(STATE_DIR, `daemon-cache.${stamp}.json`);
       try {
-        writeFileSync(snap, payloadJson);
+        const snapTmp = snap + '.tmp';
+        writeFileSync(snapTmp, coreJson);
+        renameSync(snapTmp, snap);
+        writeHeavyShardsAtomic(heavyStemForCore(snap), formations, consistByRidArr, unitsByIdArr);
         pruneOldStateSnapshots();
       } catch {}
     }
+    historicalStateFileCache.clear();
     lastPersistAt = new Date().toISOString();
   } catch (e) {
     console.warn(`[daemon] failed to persist state: ${e.message}`);
@@ -2538,6 +2675,15 @@ function pickCorsOrigin(req) {
   // Non-browser/no-origin requests (CLI/health checks).
   return cfg.corsOrigins[0] || 'http://localhost:3000';
 }
+/** Env: DARWIN_CLIENT_READY_AFTER=restored (default) | warm — when warm, block until historical warmup finishes too. */
+function clientReadsAllowed() {
+  const policy = String(process.env.DARWIN_CLIENT_READY_AFTER || 'restored').trim().toLowerCase();
+  if (policy === 'warm' || policy === 'fully_warm' || policy === 'full') {
+    return daemonMode === 'fully_warm';
+  }
+  return liveCachesReady;
+}
+
 function sendJson(res, status, body, req) {
   const json = JSON.stringify(body, null, 2);
   const cors = pickCorsOrigin(req);
@@ -2587,12 +2733,28 @@ function handleRequest(req, res) {
     }
   }
 
+  const isHealth = parts.length === 2 && parts[0] === 'api' && parts[1] === 'health';
+  if (!isHealth && !clientReadsAllowed()) {
+    sendJson(res, 503, {
+      ok: false,
+      error: 'starting',
+      mode: daemonMode,
+      liveCachesReady,
+      retryAfterSec: 3,
+      hint: 'Caches still loading after startup; retry shortly.',
+    }, req);
+    return;
+  }
+
   // /api/health
   if (parts.length === 2 && parts[0] === 'api' && parts[1] === 'health') {
     const mem = process.memoryUsage();
     sendJson(res, 200, {
       ok: true,
       mode: daemonMode,
+      liveCachesReady,
+      clientReadsAllowed: clientReadsAllowed(),
+      clientReadyPolicy: process.env.DARWIN_CLIENT_READY_AFTER || 'restored',
       tiplocsIndexed: byTiploc.size,
       journeysLoaded: byRid.size,
       timetableFile: timetablePath.split('/').pop(),
@@ -2763,7 +2925,16 @@ function handleRequest(req, res) {
         sendJson(res, 404, { error: `no historical data for ${dateParam}` }, req);
         return;
       }
-      const hist = buildServiceDetail(parts[2], histCtx);
+      // Timed views for the *current* timetable day still build overlays from the
+      // persisted snapshot, but Darwin formations + PTAC consists stream in live
+      // and may not be present in that snapshot (persist can skip or fail when
+      // the JSON payload is huge). Use in-memory caches for coach/consist data.
+      const liveDay = loadedDate || railwayDayYmd(new Date());
+      const detailCtx =
+        dateParam === liveDay
+          ? { ...histCtx, formationsByRid, consistByRid }
+          : histCtx;
+      const hist = buildServiceDetail(parts[2], detailCtx);
       if (!hist) {
         sendJson(res, 404, { error: `rid not found for ${dateParam}: "${parts[2]}"` }, req);
         return;
@@ -2990,6 +3161,8 @@ async function start() {
       console.log(`[daemon] background restore (rest of caches) finished in ${Date.now() - t0}ms`);
     } catch (e) {
       console.warn(`[daemon] background restore failed: ${e.message}`);
+    } finally {
+      liveCachesReady = true;
     }
     try {
       await runHistoricalWarmup();

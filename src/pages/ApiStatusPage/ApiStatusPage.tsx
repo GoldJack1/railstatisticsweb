@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { fetchDarwin } from '../../utils/darwinReadyFetch'
 import { PageTopHeader } from '../../components/misc'
 import { BUTWideButton } from '../../components/buttons'
 import './ApiStatusPage.css'
@@ -115,7 +116,7 @@ const ApiStatusPage: React.FC = () => {
 
   const fetchAvailable = async () => {
     try {
-      const res = await fetch('/api/darwin/history/dates')
+      const res = await fetchDarwin('/api/darwin/history/dates')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const payload: HistoryDatesPayload = await res.json()
       setAvailable(payload)

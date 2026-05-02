@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServiceDetail } from '../types/darwin'
+import { fetchDarwin } from '../utils/darwinReadyFetch'
 
 export type ServiceDetailStatus =
   | 'idle'
@@ -27,7 +28,6 @@ export interface UseServiceDetailResult {
 
 const DEFAULT_POLL_MS  = 15_000
 const DEFAULT_STALE_MS = 60_000
-const REQUEST_TIMEOUT_MS = 8_000
 const MAX_NETWORK_RETRIES = 2
 const RETRY_BASE_DELAY_MS = 500
 
@@ -107,28 +107,16 @@ export function useServiceDetail({
       let res: Response | null = null
       for (let attempt = 0; attempt <= MAX_NETWORK_RETRIES; attempt += 1) {
         if (ac.signal.aborted) throw createAbortError()
-        const attemptAc = new AbortController()
-        let timedOut = false
-        const onParentAbort = () => attemptAc.abort()
-        ac.signal.addEventListener('abort', onParentAbort, { once: true })
-        const timeoutId = setTimeout(() => {
-          timedOut = true
-          attemptAc.abort()
-        }, REQUEST_TIMEOUT_MS)
         try {
-          res = await fetch(url, { signal: attemptAc.signal })
-          clearTimeout(timeoutId)
-          ac.signal.removeEventListener('abort', onParentAbort)
+          res = await fetchDarwin(url, { signal: ac.signal })
           break
         } catch (rawErr) {
-          clearTimeout(timeoutId)
-          ac.signal.removeEventListener('abort', onParentAbort)
           const err = rawErr as Error
           if (ac.signal.aborted) throw createAbortError()
           if (attempt === MAX_NETWORK_RETRIES) {
-            throw new Error(timedOut ? userMessageForNetworkFailure() : (err.message || userMessageForNetworkFailure()))
+            throw new Error(err.message || userMessageForNetworkFailure())
           }
-          if (!timedOut && !isTransientNetworkError(err)) throw err
+          if (!isTransientNetworkError(err)) throw err
           await delay(RETRY_BASE_DELAY_MS * (attempt + 1), ac.signal)
         }
       }

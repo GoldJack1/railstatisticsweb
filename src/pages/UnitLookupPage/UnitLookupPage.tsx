@@ -7,6 +7,7 @@ import { CarriageMap } from '../../components/darwin/CarriageMap'
 import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import { useUnitDetail } from '../../hooks/useUnitDetail'
 import type { PtacVehicle, ServiceDetail } from '../../types/darwin'
+import { fetchDarwin } from '../../utils/darwinReadyFetch'
 import './UnitLookupPage.css'
 import '../ServiceDetailPage/ServiceDetailPage.css'
 
@@ -359,7 +360,7 @@ const UnitLookupPage: React.FC = () => {
     const qp = new URLSearchParams()
     if (selectedDay !== 'all') qp.set('date', selectedDay)
     const url = `/api/darwin/service/${encodeURIComponent(rid)}${qp.toString() ? `?${qp.toString()}` : ''}`
-    fetch(url, { signal: ac.signal })
+    fetchDarwin(url, { signal: ac.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
@@ -387,7 +388,7 @@ const UnitLookupPage: React.FC = () => {
     if (!unitId || status !== 'ok' || !data) return
     const ac = new AbortController()
     const t = window.setTimeout(() => {
-      fetch('/api/darwin/units/catalog', { signal: ac.signal })
+      fetchDarwin('/api/darwin/units/catalog', { signal: ac.signal })
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           return res.json()
@@ -439,7 +440,7 @@ const UnitLookupPage: React.FC = () => {
         if (!rid) continue
         try {
           const qp = new URLSearchParams({ date: day })
-          const res = await fetch(
+          const res = await fetchDarwin(
             `/api/darwin/service/${encodeURIComponent(rid)}?${qp.toString()}`,
             { signal: ac.signal }
           )

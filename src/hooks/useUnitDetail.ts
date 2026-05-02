@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UnitDetail } from '../types/darwin'
+import { fetchDarwin } from '../utils/darwinReadyFetch'
 
 export type UnitDetailStatus =
   | 'idle'
@@ -62,7 +63,7 @@ export function useUnitDetail({ unitId }: UseUnitDetailOptions): UseUnitDetailRe
     setStatus('loading')
 
     try {
-      const res = await fetch(`/api/darwin/unit/${encodeURIComponent(unitId)}`, { signal: ac.signal })
+      const res = await fetchDarwin(`/api/darwin/unit/${encodeURIComponent(unitId)}`, { signal: ac.signal })
       if (res.status === 404) {
         const body = await res.json().catch(() => ({}))
         setStatus('not-found')

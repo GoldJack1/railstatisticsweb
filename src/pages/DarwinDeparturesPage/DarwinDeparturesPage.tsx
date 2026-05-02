@@ -13,6 +13,7 @@ import TXTINPBUTIconWideButtonSearch from '../../components/textInputButtons/spe
 import { StationMessages } from '../../components/darwin/StationMessages'
 import DataLicenceAttribution from '../../components/darwin/DataLicenceAttribution'
 import { railwayOperatingDayIsoFromLondonParts } from '../../utils/railwayOperatingDayUk'
+import { fetchDarwin } from '../../utils/darwinReadyFetch'
 import './DarwinDeparturesPage.css'
 
 interface HistoryDatesResponse {
@@ -461,7 +462,7 @@ const DarwinDeparturesPage: React.FC = () => {
     let cancelled = false
     const load = async () => {
       try {
-        const res = await fetch('/api/darwin/history/dates')
+        const res = await fetchDarwin('/api/darwin/history/dates')
         if (!res.ok) throw new Error(`Request failed (${res.status})`)
         const body: HistoryDatesResponse = await res.json()
         if (cancelled) return
