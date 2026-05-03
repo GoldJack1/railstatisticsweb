@@ -43,7 +43,8 @@
  *   KAFKA_*_TIMEOUT_MS / KAFKA_RETRY_*  optional KafkaJS tuning (Darwin + PTAC share timeouts/retry)
  *   PTAC_CONNECT_DELAY_MS      ms before PTAC connects (default 2500; staggers TLS vs Darwin)
  *   PTAC_START_AFTER_WARMUP      default true — connect PTAC after historical warmup (less Kafka churn vs disk-heavy warmup)
- *   PTAC_SESSION_TIMEOUT_MS etc. consumer session tuning when Confluent drops TLS briefly
+ *   DARWIN_SESSION_TIMEOUT_MS / DARWIN_HEARTBEAT_INTERVAL_MS / DARWIN_REBALANCE_TIMEOUT_MS — Darwin consumer group (default 90s / 10s / 90s)
+ *   PTAC_SESSION_TIMEOUT_MS / PTAC_HEARTBEAT_INTERVAL_MS / PTAC_REBALANCE_TIMEOUT_MS — PTAC consumer (default 120s / 10s / 90s)
  */
 
 import { readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync, rmSync, appendFileSync } from 'node:fs';
@@ -3333,7 +3334,20 @@ const kafka = new Kafka({
   retry: kafkaJsRetry,
   logLevel: logLevel.WARN,
 });
-const consumer = kafka.consumer({ groupId: cfg.groupId });
+/** Longer session tolerates main-thread stalls (timetable parse, persist stringify) before "coordinator is not aware of this member". */
+const darwinSessionTimeout = Math.max(10000, Number(process.env.DARWIN_SESSION_TIMEOUT_MS || 90000));
+const darwinHeartbeatRaw = Number(process.env.DARWIN_HEARTBEAT_INTERVAL_MS || 10000);
+const darwinHeartbeatInterval = Math.min(
+  Math.max(3000, darwinHeartbeatRaw),
+  Math.floor(darwinSessionTimeout / 3) - 500,
+);
+const darwinRebalanceTimeout = Math.max(10000, Number(process.env.DARWIN_REBALANCE_TIMEOUT_MS || 90000));
+const consumer = kafka.consumer({
+  groupId: cfg.groupId,
+  sessionTimeout: darwinSessionTimeout,
+  heartbeatInterval: darwinHeartbeatInterval,
+  rebalanceTimeout: darwinRebalanceTimeout,
+});
 
 // PTAC consumer — separate Kafka client (different SASL credentials) on the
 // same Confluent cluster. Created lazily inside startPtacConsumer() so it
@@ -3383,8 +3397,12 @@ async function startPtacConsumer() {
     retry: kafkaJsRetry,
     logLevel: logLevel.WARN,
   });
-  const ptacSessionTimeout = Math.max(10000, Number(process.env.PTAC_SESSION_TIMEOUT_MS || 45000));
-  const ptacHeartbeatInterval = Math.max(500, Number(process.env.PTAC_HEARTBEAT_INTERVAL_MS || 3000));
+  const ptacSessionTimeout = Math.max(10000, Number(process.env.PTAC_SESSION_TIMEOUT_MS || 120000));
+  const ptacHeartbeatRaw = Number(process.env.PTAC_HEARTBEAT_INTERVAL_MS || 10000);
+  const ptacHeartbeatInterval = Math.min(
+    Math.max(3000, ptacHeartbeatRaw),
+    Math.floor(ptacSessionTimeout / 3) - 500,
+  );
   const ptacRebalanceTimeout = Math.max(10000, Number(process.env.PTAC_REBALANCE_TIMEOUT_MS || 90000));
   ptacConsumer = ptacKafka.consumer({
     groupId: ptacCfg.groupId,
