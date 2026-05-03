@@ -79,7 +79,7 @@ const cfg = {
   departuresCacheMs: Number(process.env.DEPARTURES_CACHE_MS || 3000),
   // Historical ?date=&at= responses are expensive (gzip + full JSON). Keep
   // the assembled snapshot longer than live boards (still seconds-level for live).
-  departuresHistCacheMs: Math.max(0, Number(process.env.DEPARTURES_HIST_CACHE_MS || 120_000)),
+  departuresHistCacheMs: Math.max(0, Number(process.env.DEPARTURES_HIST_CACHE_MS || 300_000)),
   internalApiKeys: (() => {
     const list = (process.env.INTERNAL_API_KEYS || '')
       .split(',')
@@ -811,12 +811,23 @@ const warmupState = {
 // indexes hot for a full railway day so browsing ?date=&at= stays responsive
 // after idle gaps. (Still bounded by HIST_TIMETABLE_CACHE_MAX.)
 const HIST_TIMETABLE_CACHE_TTL_MS = Number(process.env.HIST_TIMETABLE_CACHE_TTL_MS || 24 * 60 * 60_000);
-const HIST_TIMETABLE_CACHE_MAX = Math.max(1, Number(process.env.HIST_TIMETABLE_CACHE_MAX || 14));
-const HIST_CONTEXT_CACHE_TTL_MS = Number(process.env.HIST_CONTEXT_CACHE_TTL_MS || 30 * 60_000);
-const HIST_CONTEXT_CACHE_MAX = Math.max(1, Number(process.env.HIST_CONTEXT_CACHE_MAX || 48));
+const HIST_TIMETABLE_CACHE_MAX = Math.max(1, Number(process.env.HIST_TIMETABLE_CACHE_MAX || 21));
+const HIST_CONTEXT_CACHE_TTL_MS = Number(process.env.HIST_CONTEXT_CACHE_TTL_MS || 2 * 60 * 60_000);
+const HIST_CONTEXT_CACHE_MAX = Math.max(1, Number(process.env.HIST_CONTEXT_CACHE_MAX || 96));
 const HIST_STATE_FILE_CACHE_TTL_MS = Number(process.env.HIST_STATE_FILE_CACHE_TTL_MS || 60 * 60_000);
-const HIST_STATE_FILE_CACHE_MAX = Math.max(1, Number(process.env.HIST_STATE_FILE_CACHE_MAX || 32));
-const HIST_SNAPSHOT_LIST_CACHE_TTL_MS = Number(process.env.HIST_SNAPSHOT_LIST_CACHE_TTL_MS || 60_000);
+const HIST_STATE_FILE_CACHE_MAX = Math.max(1, Number(process.env.HIST_STATE_FILE_CACHE_MAX || 48));
+/** Snapshot list re-reads `snapshot-index.json` / directory; keep hot longer to avoid disk hits on busy days. */
+const HIST_SNAPSHOT_LIST_CACHE_TTL_MS = Number(process.env.HIST_SNAPSHOT_LIST_CACHE_TTL_MS || 10 * 60_000);
+/** Cap `historySnapshotListCache` entries (was incorrectly using HIST_CONTEXT_CACHE_MAX). */
+const HIST_SNAPSHOT_LIST_CACHE_MAX = Math.max(4, Number(process.env.HIST_SNAPSHOT_LIST_CACHE_MAX || 48));
+/** Browser may reuse identical historical ?date= URLs for this many seconds (0 = always no-store). */
+const HIST_DEPARTURES_HTTP_MAX_AGE_SEC = Math.max(0, Number(process.env.HIST_DEPARTURES_HTTP_MAX_AGE_SEC || 120));
+
+function pruneHistorySnapshotListCache() {
+  if (historySnapshotListCache.size <= HIST_SNAPSHOT_LIST_CACHE_MAX) return;
+  const ordered = [...historySnapshotListCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
+  for (const [k] of ordered.slice(0, historySnapshotListCache.size - HIST_SNAPSHOT_LIST_CACHE_MAX)) historySnapshotListCache.delete(k);
+}
 
 function isIsoDate(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
@@ -1233,6 +1244,7 @@ function buildSnapshotIndexForDate(ymdDashed) {
   }
   snapshotIndexCache.set(ymdDashed, { loadedAtMs: Date.now(), list });
   historySnapshotListCache.set(ymdDashed, { loadedAtMs: Date.now(), list });
+  pruneHistorySnapshotListCache();
   return list;
 }
 
@@ -1278,16 +1290,14 @@ function listHistorySnapshotsForDate(ymdDashed) {
   const indexed = readSnapshotIndexForDate(ymdDashed);
   if (indexed) {
     historySnapshotListCache.set(ymdDashed, { loadedAtMs: now, list: indexed });
+    pruneHistorySnapshotListCache();
     return indexed;
   }
   // Fallback for dates that haven't been indexed yet — compute by readdir
   // and build the index file so subsequent requests are fast.
   const list = snapshotsFromReaddir(ymdDashed);
   historySnapshotListCache.set(ymdDashed, { loadedAtMs: now, list });
-  if (historySnapshotListCache.size > HIST_CONTEXT_CACHE_MAX) {
-    const ordered = [...historySnapshotListCache.entries()].sort((a, b) => (a[1].loadedAtMs || 0) - (b[1].loadedAtMs || 0));
-    for (const [k] of ordered.slice(0, historySnapshotListCache.size - HIST_CONTEXT_CACHE_MAX)) historySnapshotListCache.delete(k);
-  }
+  pruneHistorySnapshotListCache();
   // Persist the index asynchronously so we don't add latency to the current
   // request. Best-effort.
   setImmediate(() => {
@@ -2939,12 +2949,17 @@ function clientReadsAllowed() {
   return liveCachesReady;
 }
 
-function sendJson(res, status, body, req) {
-  const json = JSON.stringify(body, null, 2);
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @param {{ cacheControl?: string }} [opts] — e.g. historical departures allow short private caching to cut repeat bytes.
+ */
+function sendJson(res, status, body, req, opts = {}) {
+  const pretty = ['1', 'true', 'yes'].includes(String(process.env.DARWIN_JSON_PRETTY || '').toLowerCase());
+  const json = pretty ? JSON.stringify(body, null, 2) : JSON.stringify(body);
   const cors = pickCorsOrigin(req);
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+    'Cache-Control': opts.cacheControl || 'no-store',
     'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -3082,6 +3097,8 @@ async function handleRequest(req, res) {
           stateFileTtlMs: HIST_STATE_FILE_CACHE_TTL_MS,
           stateFileMax: HIST_STATE_FILE_CACHE_MAX,
           snapshotListTtlMs: HIST_SNAPSHOT_LIST_CACHE_TTL_MS,
+          snapshotListMax: HIST_SNAPSHOT_LIST_CACHE_MAX,
+          departuresHttpMaxAgeSec: HIST_DEPARTURES_HTTP_MAX_AGE_SEC,
         },
       },
       warmup: {
@@ -3146,9 +3163,12 @@ async function handleRequest(req, res) {
       }
     }
     const cacheKey = `${resolved.tiplocs.join(',')}|${hours}|${dateParam || ''}|${atParam || ''}`;
+    const histHttpOpts = isHistorical && HIST_DEPARTURES_HTTP_MAX_AGE_SEC > 0
+      ? { cacheControl: `private, max-age=${HIST_DEPARTURES_HTTP_MAX_AGE_SEC}, stale-while-revalidate=600` }
+      : {};
     const cached = getCachedSnapshot(cacheKey);
     if (cached) {
-      sendJson(res, 200, cached, req);
+      sendJson(res, 200, cached, req, histHttpOpts);
       return;
     }
     // Pass the FULL set of TIPLOCs that share this CRS so a station with
@@ -3181,7 +3201,7 @@ async function handleRequest(req, res) {
     if (resolved.alternates) snap.alternates = resolved.alternates;
     const histTtl = isHistorical ? cfg.departuresHistCacheMs : cfg.departuresCacheMs;
     putCachedSnapshot(cacheKey, snap, histTtl);
-    sendJson(res, 200, snap, req);
+    sendJson(res, 200, snap, req, histHttpOpts);
     return;
   }
 

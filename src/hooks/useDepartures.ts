@@ -36,10 +36,11 @@ export interface UseDeparturesResult {
 
 const DEFAULT_POLL_MS  = 10_000
 const DEFAULT_STALE_MS = 30_000
-const MAX_NETWORK_RETRIES = 2
+const MAX_NETWORK_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 500
 const LIVE_CACHE_MAX_AGE_MS = 15_000
-const HIST_CACHE_MAX_AGE_MS = 5 * 60_000
+/** Match longer daemon historical snapshot TTL so revisiting dates reuses RAM cache instead of refetching. */
+const HIST_CACHE_MAX_AGE_MS = 15 * 60_000
 const CACHE_MAX_ENTRIES = 200
 
 interface DeparturesCacheEntry {
