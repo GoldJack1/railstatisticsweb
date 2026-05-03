@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Logs Kafka/PTAC staleness via /api/health (optional API key from env file).
+# Does not restart darwin-daemon — restarts are left to systemd/operators so
+# flushes are not interrupted unexpectedly.
 set -euo pipefail
 
 STATE_FILE="/tmp/darwin-health-watchdog.failcount"
@@ -76,10 +79,4 @@ else:
   FAILS=$((FAILS + 1))
   echo "$FAILS" > "$STATE_FILE"
   logger -t darwin-watchdog "$STALE_RESULT (failure $FAILS)"
-fi
-
-if [[ "$FAILS" -ge 3 ]]; then
-  logger -t darwin-watchdog "restarting darwin-daemon after repeated failures"
-  systemctl restart darwin-daemon
-  echo 0 > "$STATE_FILE"
 fi

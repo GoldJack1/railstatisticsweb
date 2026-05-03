@@ -6,7 +6,7 @@ These artefacts mirror the runbook requirements:
 |-------|----------------|-----------|
 | Disk high | Ops Agent `agent.googleapis.com/disk/percent_used` on `/` | **> 80%** (warn), **> 90%** (critical) |
 | Daemon restarts | Cloud Logging log-based metric — count `Started darwin-daemon.service` in `journalctl` forwarded logs | **> 0** in 60 minutes |
-| Public API latency | Existing **Uptime check** on `https://api-darwin.railstatistics.co.uk/api/health` (401 expected is OK for synthetic check — configure check to accept 401 or use a dedicated `/api/ping` later) | **p95 > 2s** |
+| Public API latency | **Uptime check** on `https://api-darwin.railstatistics.co.uk/api/ping` (**200** JSON, no API key; OK during daemon warmup) — or `/api/health` with key if you prefer richer signal | **p95 > 2s** |
 
 ## Prerequisites
 
@@ -64,7 +64,7 @@ The script POSTs each JSON file to `monitoring.googleapis.com/v3/projects/$PROJE
    Create **log-based metric** (counter), then alerting policy **rate > 0** in 1h (tune query to match how Ops Agent ships journal entries).
 
 3. **Uptime latency p95 > 2s**  
-   Monitoring → Uptime checks → select check for `api-darwin.railstatistics.co.uk` → Alerting → Latency p95 > 2000 ms.
+   Monitoring → Uptime checks → target path **`/api/ping`** on `api-darwin.railstatistics.co.uk` → Alerting → Latency p95 > 2000 ms.
 
 ---
 

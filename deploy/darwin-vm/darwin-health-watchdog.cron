@@ -1,0 +1,8 @@
+# /etc/cron.d/darwin-health-watchdog
+#
+# Logs local health / feed staleness; does NOT restart the daemon (see script header).
+# Install: deploy/darwin-vm/sync-vm-config.sh (via setup.sh / update.sh)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/5 * * * * root bash /opt/railstats/deploy/darwin-vm/darwin-health-watchdog.sh >> /var/log/darwin-health-watchdog.log 2>&1

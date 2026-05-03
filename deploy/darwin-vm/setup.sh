@@ -3,9 +3,7 @@ set -euo pipefail
 
 REPO_DIR="/opt/railstats"
 SERVICE_NAME="darwin-daemon"
-SYSTEMD_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 ENV_FILE="/etc/darwin-daemon.env"
-CADDY_SRC="${REPO_DIR}/deploy/darwin-vm/Caddyfile"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run as root: sudo $0"
@@ -57,20 +55,15 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-echo "[7/8] Installing systemd service and caddy config"
-install -m 0644 "${REPO_DIR}/deploy/darwin-vm/darwin-daemon.service" "${SYSTEMD_FILE}"
-install -m 0644 "${CADDY_SRC}" /etc/caddy/Caddyfile
+echo "[7/8] Installing systemd, Caddy, and cron snippets from repo"
+REPO_DIR="${REPO_DIR}" bash "${REPO_DIR}/deploy/darwin-vm/sync-vm-config.sh"
 chown -R railstats:railstats "${REPO_DIR}"
 
-echo "[cron] Installing /etc/cron.d/darwin-fetch (user railstats, matches daemon)"
-install -d -o railstats -g railstats -m 0755 "${REPO_DIR}/darwin-local-test/logs"
-install -m 0644 "${REPO_DIR}/deploy/darwin-vm/darwin-fetch.cron" /etc/cron.d/darwin-fetch
-
 echo "[8/8] Enabling services"
-systemctl daemon-reload
 systemctl enable --now "${SERVICE_NAME}"
 systemctl enable --now caddy
 
 echo "Done."
 echo "Verify daemon: systemctl status ${SERVICE_NAME} --no-pager"
 echo "Verify health: curl http://127.0.0.1:4001/api/health"
+echo "Verify ping (uptime monitors): curl http://127.0.0.1:4001/api/ping"

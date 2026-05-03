@@ -1,5 +1,6 @@
 # /etc/cron.d/darwin-weekly-check
 # Run weekly storage/health roll-up on Monday 06:30 local. Append-only log.
+# Install: deploy/darwin-vm/sync-vm-config.sh (via setup.sh / update.sh)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 30 6 * * 1 root /opt/railstats/deploy/darwin-vm/darwin-weekly-check.sh >> /var/log/darwin-weekly-check.log 2>&1

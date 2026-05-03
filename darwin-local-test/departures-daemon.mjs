@@ -17,6 +17,7 @@
  *
  * Endpoints:
  *   GET  /api/health
+ *   GET  /api/ping          (minimal liveness; no API key; OK during warmup — for uptime monitors)
  *   GET  /api/station/:code
  *   GET  /api/departures/:code?hours=N
  *   GET  /api/messages/:crs
@@ -34,6 +35,9 @@
  *                          window so most services running today have their
  *                          formation cached on first request)
  *   HEARTBEAT_SEC          stats log interval (default 60)
+ *   DAY_ROLLOVER_CHECK_SEC  how often to compare UK railway day vs loadedDate (default 60, clamped 15–600)
+ *   SCHEDULED_FETCH_TICK_SEC how often to evaluate DARWIN_AUTO_FETCH_TIME (default 30, clamped 15–120)
+ *   DARWIN_AUTO_FETCH_GRACE_MIN  minutes after scheduled time the in-daemon fetch may still run (default 15)
  *   DARWIN_CLIENT_READY_AFTER  restored (default) | warm — gate non-health API until caches restored or until warmup completes
  *   DARWIN_*               Kafka creds from .env
  *   KAFKA_*_TIMEOUT_MS / KAFKA_RETRY_*  optional KafkaJS tuning (Darwin + PTAC share timeouts/retry)
@@ -99,6 +103,12 @@ const cfg = {
   warmupDays: Math.max(0, Number(process.env.WARMUP_DAYS || 7)),
   warmupMaxRssMb: Math.max(0, Number(process.env.WARMUP_MAX_RSS_MB || 4500)),
   warmupLagMs: Math.max(0, Number(process.env.WARMUP_LAG_MS || 200)),
+  /** How often (seconds) we compare railway day vs `loadedDate` for rollover (15–600, default 60). */
+  dayRolloverCheckSec: Math.min(600, Math.max(15, Number(process.env.DAY_ROLLOVER_CHECK_SEC || 60))),
+  /** How often we evaluate `DARWIN_AUTO_FETCH_TIME` (15–120s, default 30) so the HH:MM slot is not skipped. */
+  scheduledFetchTickSec: Math.min(120, Math.max(15, Number(process.env.SCHEDULED_FETCH_TICK_SEC || 30))),
+  /** Minutes after `DARWIN_AUTO_FETCH_TIME` we still allow the one daily in-daemon fetch (default 15). */
+  autoFetchGraceMin: Math.min(120, Math.max(5, Number(process.env.DARWIN_AUTO_FETCH_GRACE_MIN || 15))),
 };
 
 // PTAC (S506) feed config — separate creds and consumer group from Darwin.
@@ -124,6 +134,29 @@ const PTAC_START_AFTER_WARMUP = !['0', 'false', 'no'].includes(
 );
 
 // ---------- pick today's timetable file ------------------------------------
+/** When GCS only has the previous SSD’s `YYYYMMDDHHMMSS_vN.xml.gz` names, the fetch
+ *  script still places them under `tt/<todayRailwayYmd>/`; accept any v8-shaped file
+ *  in that directory (newest timetable schema version wins). */
+function pickLooseTimetableV8FromDir(dir) {
+  let files = [];
+  try { files = readdirSync(dir); } catch { return null; }
+  const looseRe = /^(\d{14})_v(\d+)\.xml\.gz$/;
+  const matches = [];
+  for (const f of files) {
+    if (f.includes('_ref_')) continue;
+    const m = f.match(looseRe);
+    if (!m) continue;
+    matches.push({
+      path: resolve(dir, f),
+      ver: Number(m[2] || 0),
+      stamp: Number(m[1] || 0),
+    });
+  }
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => b.ver - a.ver || b.stamp - a.stamp);
+  return matches[0].path;
+}
+
 function pickTodaysTimetable() {
   // Must match UK railway day (not UTC calendar date) so tt/YYYYMMDD aligns with journey SSD.
   const ymd = railwayDayYmd(new Date()).replace(/-/g, '');
@@ -144,7 +177,11 @@ function pickTodaysTimetable() {
       all.push({ path: resolve(dir, f), ver });
     }
   }
-  if (all.length === 0) throw new Error(`no timetable file for today (${ymd})`);
+  if (all.length === 0) {
+    const loose = pickLooseTimetableV8FromDir(resolve(__dirname, `./tt/${ymd}`));
+    if (loose) return loose;
+    throw new Error(`no timetable file for today (${ymd})`);
+  }
   all.sort((a, b) => b.ver - a.ver);
   return all[0].path;
 }
@@ -163,7 +200,7 @@ function pickTimetableForDate(ymdDashed) {
     if (!m) continue;
     matches.push({ path: resolve(dir, f), ver: Number(m[1] || 0) });
   }
-  if (matches.length === 0) return null;
+  if (matches.length === 0) return pickLooseTimetableV8FromDir(dir);
   matches.sort((a, b) => b.ver - a.ver);
   return matches[0].path;
 }
@@ -478,14 +515,44 @@ function londonHHMM(d = new Date()) {
   return `${h}:${m}`;
 }
 
+/** Minute-of-day 0..1439 in Europe/London (same clock as `railwayDayYmd`). */
+function minutesSinceMidnightLondon(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  return h * 60 + m;
+}
+
+/** Parse `HH:MM` (24h) to minutes since midnight; null if invalid. */
+function parseHHMMToMinutes(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
 async function maybeRunScheduledAutoFetch(now = new Date()) {
   if (!cfg.autoFetchFiles) return;
-  const hhmm = londonHHMM(now);
   const today = railwayDayYmd(now).replace(/-/g, '');
-  if (hhmm !== cfg.autoFetchTime) return;
   if (lastAutoFetchRunYmd === today) return;
+  const targetMin = parseHHMMToMinutes(cfg.autoFetchTime);
+  if (targetMin == null) {
+    console.warn(`[daemon] invalid DARWIN_AUTO_FETCH_TIME="${cfg.autoFetchTime}" (want HH:MM); skipping scheduled fetch`);
+    return;
+  }
+  const nowMin = minutesSinceMidnightLondon(now);
+  const graceEnd = targetMin + cfg.autoFetchGraceMin;
+  if (nowMin < targetMin || nowMin > graceEnd) return;
   lastAutoFetchRunYmd = today;
-  const ok = await runDailyFileFetch('04:05 schedule');
+  const ok = await runDailyFileFetch('scheduled timetable fetch');
   if (ok) {
     try {
       await reloadAllDataAndResetLive('post-fetch');
@@ -1029,13 +1096,50 @@ function parseAtToMinutes(at) {
   return h * 60 + mm;
 }
 
-/** Wall-clock London instant for ?date=&at= — fixed +01:00 matches anchorTime(). */
-function londonWallInstantFromDateAt(dateStr, atStr) {
+function londonCalendarDateIso(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const pick = (t) => parts.find((p) => p.type === t)?.value || '00';
+  return `${pick('year')}-${pick('month')}-${pick('day')}`;
+}
+
+function londonWallClockHmLondon(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const hh = parts.find((p) => p.type === 'hour')?.value || '00';
+  const mm = parts.find((p) => p.type === 'minute')?.value || '00';
+  return { hh, mm };
+}
+
+/**
+ * Wall-clock London instant for ?date=&at= — fixed +01:00 matches anchorTime().
+ * When opts.anchorNoAtToLiveLondonClock is true and at is omitted, a date equal to
+ * today's London calendar date uses the current London hour/minute (not noon) so
+ * 00:00–01:59 stays on the correct timetable SSD vs misleading noon anchoring.
+ */
+function londonWallInstantFromDateAt(dateStr, atStr, opts = {}) {
+  const anchorNoAtToLiveLondonClock = !!opts.anchorNoAtToLiveLondonClock;
+  const nowRef = opts.nowRef instanceof Date ? opts.nowRef : new Date();
   if (!dateStr || !isIsoDate(dateStr)) return null;
-  if (atStr != null && parseAtToMinutes(atStr) != null) {
-    const mins = parseAtToMinutes(atStr);
-    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
-    const mm = String(mins % 60).padStart(2, '0');
+  const atMins = atStr != null ? parseAtToMinutes(atStr) : null;
+  if (atMins != null) {
+    const hh = String(Math.floor(atMins / 60)).padStart(2, '0');
+    const mm = String(atMins % 60).padStart(2, '0');
+    return new Date(`${dateStr}T${hh}:${mm}:00+01:00`);
+  }
+  if (
+    anchorNoAtToLiveLondonClock &&
+    dateStr === londonCalendarDateIso(nowRef)
+  ) {
+    const { hh, mm } = londonWallClockHmLondon(nowRef);
     return new Date(`${dateStr}T${hh}:${mm}:00+01:00`);
   }
   return new Date(`${dateStr}T12:00:00+01:00`);
@@ -1644,6 +1748,7 @@ function persistState() {
       reverseFormation: [...reverseFormation],
       unmatchedConsists: [...unmatchedConsists.entries()],
       stateSchema: 2,
+      ...(lastAutoFetchRunYmd ? { lastAutoFetchRunYmd } : {}),
     };
 
     const mergedForScore = {
@@ -1674,6 +1779,8 @@ function persistState() {
         }
       } catch {}
     }
+
+    if (lastAutoFetchRunYmd) corePayload.lastAutoFetchRunYmd = lastAutoFetchRunYmd;
 
     // Heavy gz shards first (formations, PTAC, units, live overlay). Overlay used to
     // live only inside core JSON and could push JSON.stringify past V8 limits —
@@ -2870,9 +2977,11 @@ async function handleRequest(req, res) {
 
   const url = new URL(req.url, `http://localhost:${cfg.port}`);
   const parts = url.pathname.split('/').filter(Boolean);
+  const isHealth = parts.length === 2 && parts[0] === 'api' && parts[1] === 'health';
+  const isPing = parts.length === 2 && parts[0] === 'api' && parts[1] === 'ping';
   // Optional API-key auth guard. When INTERNAL_API_KEY is set, every request
-  // must include matching X-API-Key.
-  if (cfg.internalApiKeys.length > 0) {
+  // must include matching X-API-Key. /api/ping is exempt so public uptime checks work.
+  if (cfg.internalApiKeys.length > 0 && !isPing) {
     const presented = (req.headers['x-api-key'] || '').toString().trim();
     if (!cfg.internalApiKeys.includes(presented)) {
       sendJson(res, 401, { error: 'unauthorized' }, req);
@@ -2880,8 +2989,7 @@ async function handleRequest(req, res) {
     }
   }
 
-  const isHealth = parts.length === 2 && parts[0] === 'api' && parts[1] === 'health';
-  if (!isHealth && !clientReadsAllowed()) {
+  if (!isHealth && !isPing && !clientReadsAllowed()) {
     sendJson(res, 503, {
       ok: false,
       error: 'starting',
@@ -2890,6 +2998,12 @@ async function handleRequest(req, res) {
       retryAfterSec: 3,
       hint: 'Caches still loading after startup; retry shortly.',
     }, req);
+    return;
+  }
+
+  // /api/ping — tiny JSON liveness for load balancers / GCP uptime (no API key; survives warmup gate above).
+  if (isPing) {
+    sendJson(res, 200, { ok: true, service: 'darwin-daemon', time: new Date().toISOString() }, req);
     return;
   }
 
@@ -3016,7 +3130,9 @@ async function handleRequest(req, res) {
       sendJson(res, 400, { error: 'invalid at format', hint: 'use HH:MM' }, req); return;
     }
     const loadedDay = loadedDate || railwayDayYmd(new Date());
-    const wallInstant = dateParam ? londonWallInstantFromDateAt(dateParam, atParam || null) : null;
+    const wallInstant = dateParam
+      ? londonWallInstantFromDateAt(dateParam, atParam || null, { anchorNoAtToLiveLondonClock: true })
+      : null;
     const anchorDay = wallInstant ? railwayDayYmd(wallInstant) : null;
     const dateComparison = anchorDay ? compareIsoDate(anchorDay, loadedDay) : 0;
     const isHistorical = !!dateParam && dateComparison < 0;
@@ -3180,7 +3296,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid?date=YYYY-MM-DD, /api/unit/:id, /api/units/catalog, /api/history/dates, /api/history/overlay-series' }, req);
+  sendJson(res, 404, { error: 'not found', hint: 'try /api/health, /api/ping, /api/station/:code, /api/departures/:code, /api/messages/:crs, /api/service/:rid?date=YYYY-MM-DD, /api/unit/:id, /api/units/catalog, /api/history/dates, /api/history/overlay-series' }, req);
 }
 
 const server = createServer((req, res) => {
@@ -3357,6 +3473,9 @@ async function start() {
   // asynchronously after server.listen() completes, then the warmup task
   // walks the last N days of history.
   const persistedRaw = readPersistedStateRawIfFresh();
+  if (persistedRaw?.lastAutoFetchRunYmd && /^\d{8}$/.test(String(persistedRaw.lastAutoFetchRunYmd))) {
+    lastAutoFetchRunYmd = String(persistedRaw.lastAutoFetchRunYmd);
+  }
   applyPersistedStateLive(persistedRaw);
   loadUnitCatalog();
   for (const unit of unitsById.values()) mergeUnitIntoCatalog(unit);
@@ -3366,6 +3485,7 @@ async function start() {
     daemonMode = 'live_ready';
     console.log(`[daemon] HTTP API listening on http://localhost:${cfg.port} (mode=${daemonMode})`);
     console.log(`[daemon]   GET /api/health`);
+    console.log(`[daemon]   GET /api/ping`);
     console.log(`[daemon]   GET /api/station/:code`);
     console.log(`[daemon]   GET /api/departures/:code?hours=N   (default ${cfg.windowHours})`);
     console.log(`[daemon]   GET /api/messages/:crs`);
@@ -3457,24 +3577,32 @@ async function start() {
   setInterval(persistState, PERSIST_INTERVAL_SEC * 1000);
   setInterval(persistUnitCatalog, PERSIST_INTERVAL_SEC * 1000);
 
-  // Day rollover: every 5 min, check the date.
+  // Day rollover: wall-clock UK railway day vs `loadedDate` (interval configurable).
   setInterval(() => {
     const t = railwayDayYmd(new Date());
     if (t !== loadedDate) {
       console.log(`[daemon] day rollover detected (${loadedDate} → ${t}), reloading reference data ...`);
       reloadAllDataAndResetLive('day rollover').catch((e) => {
-        console.warn(`[daemon] reload failed (will retry in 5 min): ${e.message}`);
+        console.warn(
+          `[daemon] day rollover timetable reload failed — advancing logical day to ${t} without retry storm: ${e.message}`,
+        );
+        loadedDate = t;
+        try {
+          persistState();
+        } catch (pe) {
+          console.warn(`[daemon] persist after rollover day advance failed: ${pe.message}`);
+        }
       });
     }
-  }, 5 * 60_000);
+  }, cfg.dayRolloverCheckSec * 1000);
 
-  // Daily timetable file auto-fetch at configured local time (default 04:05).
-  // Runs once per date while daemon is alive.
+  // Daily timetable in-daemon fetch at DARWIN_AUTO_FETCH_TIME London (default 04:05).
+  // Tick frequently enough to hit the grace window; once per railway day (persisted).
   setInterval(() => {
     maybeRunScheduledAutoFetch().catch((e) => {
       console.warn(`[daemon] scheduled auto-fetch failed: ${e.message}`);
     });
-  }, 60_000);
+  }, cfg.scheduledFetchTickSec * 1000);
 }
 
 start().catch((e) => { console.error('[daemon] fatal:', e); process.exit(1); });
