@@ -27,6 +27,7 @@ import ServiceDetailPage from './pages/ServiceDetailPage'
 import UnitLookupPage from './pages/UnitLookupPage'
 import UnitsInServicePage from './pages/UnitsInServicePage'
 import ApiStatusPage from './pages/ApiStatusPage'
+import NotFoundPage from './pages/NotFoundPage'
 import Header from './components/misc/Header/Header'
 import Footer from './components/misc/Footer/Footer'
 import { ProtectedRoute } from './components/firebase'
@@ -112,6 +113,7 @@ const App: React.FC = () => {
                 <Route path="/api-status" element={<ProtectedRoute><ApiStatusPage /></ProtectedRoute>} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/eula" element={<EulaPage />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </main>
             <Footer />
