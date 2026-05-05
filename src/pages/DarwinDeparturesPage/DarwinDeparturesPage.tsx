@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useDepartures } from '../../hooks/useDepartures'
 import type { DepartureRow, DepartureServiceType } from '../../types/darwin'
@@ -268,6 +268,66 @@ function isScheduleDeactivatedReason(reason?: string | null): boolean {
   if (!reason) return false
   return reason.trim().toLowerCase().includes('schedule deactivated')
 }
+
+type DarwinDepartureRowCardProps = {
+  row: DepartureRow
+  historicalMode: boolean
+  code: string
+  hours: number
+  historyDate: string
+  historyTime: string
+}
+
+/**
+ * Isolated from the page so per-second age ticks (useDepartures) do not rebuild
+ * every TextCard title/description when the snapshot reference is unchanged.
+ */
+const DarwinDepartureRowCard = React.memo(function DarwinDepartureRowCard({
+  row,
+  historicalMode,
+  code,
+  hours,
+  historyDate,
+  historyTime,
+}: DarwinDepartureRowCardProps) {
+  const navigate = useNavigate()
+  const title = buildTitle(row)
+  const description = buildDescription(row)
+  const detailPhrase =
+    row.movement === 'arrival'
+      ? `arrival ${formatTime(row.scheduledAt)} from ${row.originName || row.origin}`
+      : `${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}`
+  const ariaState = row.cancelled ? 'cancelled' : historicalMode ? 'historical snapshot' : 'on time'
+
+  const onClick = useCallback(() => {
+    const qp = new URLSearchParams()
+    if (historicalMode && historyDate) {
+      qp.set('date', historyDate)
+      if (historyTime) qp.set('at', historyTime)
+    }
+    const backQs = new URLSearchParams()
+    backQs.set('hours', String(hours))
+    if (historicalMode && historyDate) backQs.set('date', historyDate)
+    if (historicalMode && historyTime) backQs.set('at', historyTime)
+    const backTo = `/departures/${encodeURIComponent(code)}${backQs.toString() ? `?${backQs.toString()}` : ''}`
+    qp.set('from', backTo)
+    const suffix = qp.toString() ? `?${qp.toString()}` : ''
+    navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
+  }, [navigate, historicalMode, historyDate, historyTime, code, hours, row.rid])
+
+  return (
+    <div role="listitem">
+      <TextCard
+        title={title}
+        description={description}
+        state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
+        trailingIcon={<StatusBadge row={row} historicalMode={historicalMode} />}
+        onClick={onClick}
+        ariaLabel={`View details for ${detailPhrase}, ${ariaState}`}
+      />
+    </div>
+  )
+})
 
 function resolveSearchInput(rawInput: string, stations: Station[]): string | null {
   const trimmed = rawInput.trim()
@@ -642,11 +702,15 @@ const DarwinDeparturesPage: React.FC = () => {
   const activeFilteredRows =
     boardMode === 'departures' ? filteredDepartures : filteredArrivals
 
-  const filteredCounts = useMemo(() => ({
-    rows: activeFilteredRows.length,
-    cancelled: activeFilteredRows.filter((row) => row.cancelled).length,
-    withDelay: activeFilteredRows.filter((row) => row.delayReason).length,
-  }), [activeFilteredRows])
+  const filteredCounts = useMemo(() => {
+    let cancelled = 0
+    let withDelay = 0
+    for (const row of activeFilteredRows) {
+      if (row.cancelled) cancelled += 1
+      if (row.delayReason) withDelay += 1
+    }
+    return { rows: activeFilteredRows.length, cancelled, withDelay }
+  }, [activeFilteredRows])
 
   const subtitle = useMemo<React.ReactNode>(() => {
     const movementWord = boardMode === 'departures' ? 'departures' : 'arrivals'
@@ -1156,38 +1220,17 @@ const DarwinDeparturesPage: React.FC = () => {
                   </section>
                 ) : (
                   <div className="dep-cards" role="list">
-                    {activeFilteredRows.map((row) => {
-                      const rowKey = `${row.rid}-${row.movement ?? 'departure'}`
-                      const detailPhrase = row.movement === 'arrival'
-                        ? `arrival ${formatTime(row.scheduledAt)} from ${row.originName || row.origin}`
-                        : `${formatTime(row.scheduledAt)} to ${row.destinationName || row.destination}`
-                      return (
-                        <div role="listitem" key={rowKey}>
-                          <TextCard
-                            title={buildTitle(row)}
-                            description={buildDescription(row)}
-                            state={row.cancelled ? 'redAction' : (row.hasConsist ? 'greenAction' : 'default')}
-                            trailingIcon={<StatusBadge row={row} historicalMode={historicalMode} />}
-                            onClick={() => {
-                              const qp = new URLSearchParams()
-                              if (historicalMode && historyDate) {
-                                qp.set('date', historyDate)
-                                if (historyTime) qp.set('at', historyTime)
-                              }
-                              const backQs = new URLSearchParams()
-                              backQs.set('hours', String(hours))
-                              if (historicalMode && historyDate) backQs.set('date', historyDate)
-                              if (historicalMode && historyTime) backQs.set('at', historyTime)
-                              const backTo = `/departures/${encodeURIComponent(code)}${backQs.toString() ? `?${backQs.toString()}` : ''}`
-                              qp.set('from', backTo)
-                              const suffix = qp.toString() ? `?${qp.toString()}` : ''
-                              navigate(`/services/${encodeURIComponent(row.rid)}${suffix}`)
-                            }}
-                            ariaLabel={`View details for ${detailPhrase}, ${row.cancelled ? 'cancelled' : (historicalMode ? 'historical snapshot' : 'on time')}`}
-                          />
-                        </div>
-                      )
-                    })}
+                    {activeFilteredRows.map((row) => (
+                      <DarwinDepartureRowCard
+                        key={`${row.rid}-${row.movement ?? 'departure'}`}
+                        row={row}
+                        historicalMode={historicalMode}
+                        code={code}
+                        hours={hours}
+                        historyDate={historyDate}
+                        historyTime={historyTime}
+                      />
+                    ))}
                   </div>
                 )}
 
