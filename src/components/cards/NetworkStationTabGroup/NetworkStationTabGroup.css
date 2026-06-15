@@ -1,0 +1,41 @@
+.network-station-tab-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 7pt;
+  align-items: stretch;
+}
+
+.network-station-tab-group__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.network-station-tab-group__indicator {
+  width: 100%;
+  height: 4px;
+  background-color: var(--accent-color);
+  border-radius: 2px 2px 0 0;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.network-station-tab-group__indicator--placeholder {
+  visibility: hidden;
+}
+
+@media (max-width: 639px) {
+  .network-station-tab-group {
+    width: 100%;
+  }
+
+  .network-station-tab-group__item {
+    flex: 1 1 calc(50% - 4pt);
+    min-width: 0;
+  }
+
+  .network-station-tab-group__item .rs-button--tab {
+    width: 100%;
+  }
+}

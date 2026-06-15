@@ -83,7 +83,7 @@ function buildStationCollectionUpdatesFilters(): Array<Record<string, unknown>> 
 }
 
 export const onNewStationAdded = functions.firestore
-  .document("stations2603/{stationId}")
+  .document("stations_gbnr/{stationId}")
   .onCreate(async (snap, context) => {
     const stationData = snap.data()!;
     const stationName = stationData.stationname || "Unknown Station";
@@ -143,7 +143,7 @@ export const onNewStationAdded = functions.firestore
         crsCode: crsCode,
         toc: toc,
         country: country,
-        sourceCollection: "stations2603",
+        sourceCollection: "stations_gbnr",
       },
       small_icon: "onesignal_small_icon_default",
       ios_badgeType: "Increase",

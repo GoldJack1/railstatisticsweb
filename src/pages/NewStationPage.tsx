@@ -1,22 +1,29 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStations } from '../hooks/useStations'
-import { usePendingStationChanges } from '../contexts/PendingStationChangesContext'
+import { useStationCollection } from '../contexts/StationCollectionContext'
+import { useNextStationId } from '../hooks/useNextStationId'
 import { NewStationForm } from '../components/models'
 import type { StationDetailsTab } from '../components/models'
 import { BUTSharedNativeButton } from '../components/buttons'
 import { BUTWideButton } from '../components/buttons'
+import { NETWORK_LABELS } from '../constants/stationCollections'
+import type { NetworkCollectionId } from '../constants/stationCollections'
 import '../components/models/StationModal/StationModal.css'
 import '../components/models/StationEditModal/StationEditModal.css'
 import './StationDetailsPage/StationDetailsPage.css'
 
 const NewStationPage: React.FC = () => {
   const navigate = useNavigate()
-  const { stations, loading, error } = useStations()
-  const { pendingChanges } = usePendingStationChanges()
+  const { networkId } = useStationCollection()
+  const [targetCollectionId, setTargetCollectionId] = useState<NetworkCollectionId>(networkId)
+  const { nextStationId, loading } = useNextStationId(targetCollectionId)
   const [activeTab, setActiveTab] = useState<StationDetailsTab>('details')
   const [isMobile, setIsMobile] = useState(false)
   const [formIsDirty, setFormIsDirty] = useState(false)
+
+  useEffect(() => {
+    setTargetCollectionId(networkId)
+  }, [networkId])
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)')
@@ -25,36 +32,6 @@ const NewStationPage: React.FC = () => {
     mql.addEventListener('change', update)
     return () => mql.removeEventListener('change', update)
   }, [])
-
-  const nextNumericStationId = useMemo(() => {
-    const numericIds: number[] = []
-    const idLengths: number[] = []
-
-    for (const station of stations) {
-      if (/^\d+$/.test(station.id)) {
-        numericIds.push(parseInt(station.id, 10))
-        idLengths.push(station.id.length)
-      }
-    }
-
-    // Staged new stations are not in `stations` until publish — include them so each
-    // "Add new station" flow gets the next free numeric ID.
-    for (const [id, entry] of Object.entries(pendingChanges)) {
-      if (entry.isNew && /^\d+$/.test(id)) {
-        numericIds.push(parseInt(id, 10))
-        idLengths.push(id.length)
-      }
-    }
-
-    if (numericIds.length === 0) {
-      return '0001'
-    }
-
-    const maxNumericId = Math.max(...numericIds)
-    const next = maxNumericId + 1
-    const maxLength = Math.max(4, ...idLengths)
-    return String(next).padStart(maxLength, '0')
-  }, [stations, pendingChanges])
 
   useEffect(() => {
     document.title = 'New Station | Rail Statistics'
@@ -71,17 +48,6 @@ const NewStationPage: React.FC = () => {
     )
   }
 
-  if (error) {
-    return (
-      <div className="container">
-        <div className="error-state">
-          <h3>Failed to Load Stations</h3>
-          <p>{error}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="container container--station-details">
       <div className="station-details-page">
@@ -89,7 +55,8 @@ const NewStationPage: React.FC = () => {
           <div>
             <h1 className="station-details-title">Add new station</h1>
             <div className="station-details-subtitle">
-              <span>New ID: {nextNumericStationId}</span>
+              <span>New ID: {nextStationId}</span>
+              <span> · {NETWORK_LABELS[targetCollectionId]}</span>
             </div>
           </div>
           <div className="station-details-header-right">
@@ -170,7 +137,9 @@ const NewStationPage: React.FC = () => {
           <main className="station-details-main">
             <section className="station-details-card modal-content modal-content-edit">
               <NewStationForm
-                nextStationId={nextNumericStationId}
+                nextStationId={nextStationId}
+                targetCollectionId={targetCollectionId}
+                onTargetCollectionChange={setTargetCollectionId}
                 onCancel={() => navigate(-1)}
                 onCreated={() => navigate('/stations', { replace: true })}
                 activeTab={activeTab}
@@ -186,4 +155,3 @@ const NewStationPage: React.FC = () => {
 }
 
 export default NewStationPage
-

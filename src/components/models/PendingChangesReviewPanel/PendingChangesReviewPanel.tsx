@@ -7,8 +7,8 @@ import { useMyScheduleJobsForReview } from '../../../hooks/useMyScheduleJobsForR
 import {
   getStationCollectionDisplayLabel,
   type PendingScheduleJobSummary,
-  type StationCollectionId
 } from '../../../services/firebase'
+import { isStationCollectionId } from '../../../constants/stationCollections'
 import { getFieldChangesForPendingReview } from '../../../utils/pendingChangeFieldDiffs'
 import { computePendingChangesFingerprint } from '../../../utils/pendingChangesFingerprint'
 import { readScheduleSavedFingerprint } from '../../../utils/scheduledPublishStorage'
@@ -16,8 +16,8 @@ import '../../../pages/Stations.css'
 import './PendingChangesReviewPanel.css'
 
 function collectionLabelForJob(collectionId: string | undefined): string {
-  if (collectionId === 'stations2603' || collectionId === 'newsandboxstations1') {
-    return getStationCollectionDisplayLabel(collectionId as StationCollectionId)
+  if (collectionId && isStationCollectionId(collectionId)) {
+    return getStationCollectionDisplayLabel(collectionId)
   }
   return collectionId?.trim() ? collectionId : '—'
 }

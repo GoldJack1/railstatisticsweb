@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fetchStationsFromFirebase } from '../services/firebase'
+import {
+  fetchStationsFromFirebase,
+  fetchAllNetworkStationsFromFirebase,
+} from '../services/firebase'
 import { calculateStats, fetchLocalStations } from '../services/localData'
 import type { Station, StationStats, UseStationsReturn } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
@@ -17,7 +20,7 @@ const getErrorMessage = (err: unknown): string => {
 }
 
 export const useStations = (): UseStationsReturn => {
-  const { collectionId } = useStationCollection()
+  const { collectionId, networkView, isSandbox } = useStationCollection()
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,20 +49,22 @@ export const useStations = (): UseStationsReturn => {
         return
       }
 
-      // Firebase: in dev, use a timeout so we don't hang if config is missing or network fails
       const isDev = import.meta.env.DEV
-      let firebaseStations: Station[]
+      const fetchData = async (): Promise<Station[]> => {
+        if (!isSandbox && networkView === 'all') {
+          return fetchAllNetworkStationsFromFirebase()
+        }
+        return fetchStationsFromFirebase(collectionId)
+      }
 
+      let firebaseStations: Station[]
       if (isDev) {
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Firebase request timed out')), FIREBASE_TIMEOUT_MS)
         )
-        firebaseStations = await Promise.race([
-          fetchStationsFromFirebase(collectionId),
-          timeoutPromise
-        ])
+        firebaseStations = await Promise.race([fetchData(), timeoutPromise])
       } else {
-        firebaseStations = await fetchStationsFromFirebase(collectionId)
+        firebaseStations = await fetchData()
       }
 
       if (firebaseStations.length > 0) {
@@ -79,11 +84,11 @@ export const useStations = (): UseStationsReturn => {
     } finally {
       setLoading(false)
     }
-  }, [collectionId])
+  }, [collectionId, networkView, isSandbox])
 
   useEffect(() => {
     void loadStations()
-  }, [loadStations]) // Refetch when user toggles station collection
+  }, [loadStations])
 
   useEffect(() => {
     const onRefetch = () => {

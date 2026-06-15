@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "deploy": "echo 'Deploy to Netlify via git push'",
     "firebase:deploy": "firebase deploy --only firestore:rules",
+    "firebase:deploy-functions": "bash scripts/deploy-cloud-functions.sh",
     "firebase:delete-onSandboxStationAdded": "firebase functions:delete onSandboxStationAdded --region us-central1 --force",
     "media:home:mp4-to-webm": "bash scripts/convert-home-mp4-to-webm.sh",
     "firebase:enable-totp": "node scripts/enable-firebase-totp-mfa.mjs",

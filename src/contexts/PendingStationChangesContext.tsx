@@ -13,8 +13,18 @@ import {
   type ScheduledJobStationPayload
 } from '../utils/scheduledJobPendingMatch'
 import ScheduledServerJobFirestoreSync, { type ServerScheduledJobDetail } from './ScheduledServerJobFirestoreSync'
+import type { StationCollectionId } from '../constants/stationCollections'
+import { DEFAULT_NETWORK_COLLECTION_ID, isStationCollectionId } from '../constants/stationCollections'
 
 const PENDING_CHANGES_STORAGE_KEY = 'railstatistics-pending-station-changes-v1'
+
+function migratePendingEntry(entry: PendingChangeEntry): PendingChangeEntry {
+  const targetCollectionId =
+    entry.targetCollectionId && isStationCollectionId(entry.targetCollectionId)
+      ? entry.targetCollectionId
+      : DEFAULT_NETWORK_COLLECTION_ID
+  return { ...entry, targetCollectionId }
+}
 
 function loadPendingChangesFromStorage(): Record<string, PendingChangeEntry> {
   if (typeof window === 'undefined') return {}
@@ -23,13 +33,19 @@ function loadPendingChangesFromStorage(): Record<string, PendingChangeEntry> {
     if (!raw) return {}
     const parsed = JSON.parse(raw) as unknown
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return parsed as Record<string, PendingChangeEntry>
+    const entries = parsed as Record<string, PendingChangeEntry>
+    const migrated: Record<string, PendingChangeEntry> = {}
+    for (const [id, entry] of Object.entries(entries)) {
+      migrated[id] = migratePendingEntry(entry)
+    }
+    return migrated
   } catch {
     return {}
   }
 }
 
 export interface PendingChangeEntry {
+  targetCollectionId: StationCollectionId
   original: Station
   updated: Partial<Station>
   /** Optional sandbox-only extra fields (for newsandboxstations1). */
@@ -39,8 +55,18 @@ export interface PendingChangeEntry {
 
 interface PendingStationChangesContextValue {
   pendingChanges: Record<string, PendingChangeEntry>
-  upsertPendingChange: (station: Station, updated: Partial<Station>, sandboxUpdated?: Partial<SandboxStationDoc> | null) => void
-  addNewPendingStation: (stationId: string, updated: Partial<Station>, sandboxUpdated?: Partial<SandboxStationDoc> | null) => void
+  upsertPendingChange: (
+    station: Station,
+    updated: Partial<Station>,
+    targetCollectionId: StationCollectionId,
+    sandboxUpdated?: Partial<SandboxStationDoc> | null
+  ) => void
+  addNewPendingStation: (
+    stationId: string,
+    updated: Partial<Station>,
+    targetCollectionId: StationCollectionId,
+    sandboxUpdated?: Partial<SandboxStationDoc> | null
+  ) => void
   clearPendingChange: (stationId: string) => void
   clearAllPendingChanges: () => void
   clearPendingChangesForIds: (stationIds: string[]) => void
@@ -72,11 +98,13 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
   const upsertPendingChange = useCallback((
     station: Station,
     updated: Partial<Station>,
+    targetCollectionId: StationCollectionId,
     sandboxUpdated?: Partial<SandboxStationDoc> | null
   ) => {
     setPendingChanges(prev => ({
       ...prev,
       [station.id]: {
+        targetCollectionId,
         original: station,
         updated,
         sandboxUpdated: sandboxUpdated ?? prev[station.id]?.sandboxUpdated ?? null,
@@ -88,6 +116,7 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
   const addNewPendingStation = useCallback((
     stationId: string,
     updated: Partial<Station>,
+    targetCollectionId: StationCollectionId,
     sandboxUpdated?: Partial<SandboxStationDoc> | null
   ) => {
     const original: Station = {
@@ -109,6 +138,7 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
     setPendingChanges(prev => ({
       ...prev,
       [stationId]: {
+        targetCollectionId,
         original,
         updated,
         sandboxUpdated: sandboxUpdated ?? prev[stationId]?.sandboxUpdated ?? null,

@@ -53,7 +53,17 @@ service cloud.firestore {
         );
     }
 
-    match /stations2603/{stationId} {
+    match /stations_gbnr/{stationId} {
+      allow read: if true;
+      allow create, update, delete: if isStationEditor();
+    }
+
+    match /stations_nitranslink/{stationId} {
+      allow read: if true;
+      allow create, update, delete: if isStationEditor();
+    }
+
+    match /stations_roiirerail/{stationId} {
       allow read: if true;
       allow create, update, delete: if isStationEditor();
     }
@@ -69,7 +79,7 @@ service cloud.firestore {
 
       allow create: if isStationEditor()
         && request.resource.data.status == 'pending'
-        && request.resource.data.collectionId in ['stations2603', 'newsandboxstations1']
+        && request.resource.data.collectionId in ['stations_gbnr', 'stations_nitranslink', 'stations_roiirerail', 'newsandboxstations1']
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.stationIds is list
         && request.resource.data.stationIds.size() > 0

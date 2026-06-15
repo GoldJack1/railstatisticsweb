@@ -5,10 +5,11 @@
  */
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import {assertCollectionId, type StationCollectionId} from "./stationCollectionIds";
 
 const db = () => admin.firestore();
 
-export type StationCollectionId = "stations2603" | "newsandboxstations1";
+export type {StationCollectionId};
 
 export interface JobChangeEntry {
   isNew?: boolean;
@@ -32,12 +33,6 @@ function stationToFirestoreUpdate(data: Record<string, unknown>): Record<string,
     update.location = new admin.firestore.GeoPoint(data.latitude, data.longitude);
   }
   return update;
-}
-
-function assertCollectionId(id: string): asserts id is StationCollectionId {
-  if (id !== "stations2603" && id !== "newsandboxstations1") {
-    throw new Error(`Invalid collectionId: ${id}`);
-  }
 }
 
 /**

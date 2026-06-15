@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import '../StationModal/StationModal.css'
 import '../StationEditModal/StationEditModal.css'
 import { BUTBaseButton as Button } from '../../buttons'
 import NewStationForm from '../StationDetails/NewStationForm'
+import { useStationCollection } from '../../../contexts/StationCollectionContext'
+import type { NetworkCollectionId } from '../../../constants/stationCollections'
 
 interface NewStationModalProps {
   isOpen: boolean
@@ -11,6 +13,9 @@ interface NewStationModalProps {
 }
 
 const NewStationModal: React.FC<NewStationModalProps> = ({ isOpen, onClose, nextStationId }) => {
+  const { networkId } = useStationCollection()
+  const [targetCollectionId, setTargetCollectionId] = useState<NetworkCollectionId>(networkId)
+
   if (!isOpen) return null
 
   return (
@@ -34,6 +39,8 @@ const NewStationModal: React.FC<NewStationModalProps> = ({ isOpen, onClose, next
         </div>
         <NewStationForm
           nextStationId={nextStationId}
+          targetCollectionId={targetCollectionId}
+          onTargetCollectionChange={setTargetCollectionId}
           onCancel={onClose}
           onCreated={() => onClose()}
         />
@@ -43,4 +50,3 @@ const NewStationModal: React.FC<NewStationModalProps> = ({ isOpen, onClose, next
 }
 
 export default NewStationModal
-

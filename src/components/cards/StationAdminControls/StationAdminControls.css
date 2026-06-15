@@ -1,6 +1,6 @@
 .station-admin-controls-card {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-md);
   width: 100%;
   background-color: var(--bg-secondary);
@@ -21,6 +21,10 @@
 .station-admin-controls-group {
   display: grid;
   gap: 4px;
+}
+
+.station-admin-controls-group--add .station-admin-controls-add-button {
+  min-width: 0;
 }
 
 .station-admin-controls-group--pending {

@@ -15,7 +15,11 @@ import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import StationCard from '../../components/cards/StationCard/StationCard'
 import StationAdminControls from '../../components/cards/StationAdminControls/StationAdminControls'
+import NetworkStationTabGroup from '../../components/cards/NetworkStationTabGroup/NetworkStationTabGroup'
 import { formatStationLocationDisplay } from '../../utils/formatStationLocation'
+import { NETWORK_COLLECTION_IDS } from '../../constants/stationCollections'
+import type { NetworkViewFilter } from '../../constants/stationCollections'
+import { countPendingChangesForCollection } from '../../utils/pendingChangesByCollection'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
@@ -65,8 +69,18 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1280 : window.innerWidth
   )
-  const { collectionId, setCollectionId } = useStationCollection()
+  const { collectionId, networkView, setNetworkView, isSandbox, setSandbox } = useStationCollection()
   const { pendingChanges } = usePendingStationChanges()
+  const pendingChangesCount = useMemo(() => {
+    if (isSandbox) return countPendingChangesForCollection(pendingChanges, collectionId)
+    if (networkView === 'all') {
+      return NETWORK_COLLECTION_IDS.reduce(
+        (sum, id) => sum + countPendingChangesForCollection(pendingChanges, id),
+        0
+      )
+    }
+    return countPendingChangesForCollection(pendingChanges, collectionId)
+  }, [pendingChanges, collectionId, networkView, isSandbox])
   const isAdminPanelVisible =
     initialMode === 'edit' || new URLSearchParams(routerLocation.search).get('admin') === '1'
 
@@ -165,7 +179,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, effectiveSelections, sortOption])
+  }, [debouncedSearchTerm, effectiveSelections, sortOption, collectionId, networkView])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -216,19 +230,33 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
             : 'Explore railway stations and passenger data'
         }
       />
+      {!isSandbox && (
+        <div className="stations-network-tabs-wrap">
+          <NetworkStationTabGroup
+            value={networkView}
+            onChange={(view: NetworkViewFilter) => setNetworkView(view)}
+          />
+        </div>
+      )}
+      {isSandbox && (
+        <p className="stations-sandbox-banner" role="status">
+          Sandbox mode — viewing test data in newsandboxstations1
+        </p>
+      )}
       {isAdminPanelVisible && (
         <div className="stations-admin-controls-wrap">
           <StationAdminControls
             isEditMode={isEditMode}
-            collectionId={collectionId}
-            pendingChangesCount={Object.keys(pendingChanges).length}
+            isSandbox={isSandbox}
+            pendingChangesCount={pendingChangesCount}
             onModeChange={(mode) => setIsEditMode(mode === 'edit')}
-            onCollectionChange={setCollectionId}
+            onSandboxChange={setSandbox}
             onOpenPendingChanges={() =>
               navigate('/stations/pending-review', {
                 state: { from: pathnameForReviewPendingSource(routerLocation) }
               })
             }
+            onAddStation={() => navigate('/stations/new')}
           />
         </div>
       )}

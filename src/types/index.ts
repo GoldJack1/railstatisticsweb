@@ -1,5 +1,7 @@
 
 // Station data types
+import type { NetworkCollectionId } from '../constants/stationCollections'
+
 export interface Station {
   id: string
   stationName: string
@@ -16,6 +18,8 @@ export interface Station {
   /** Fare zone (e.g. 1, 2, 3 for TfL) */
   fareZone?: string | null
   yearlyPassengers: YearlyPassengers | null
+  /** Set when stations are loaded from a merged “All networks” view. */
+  sourceCollectionId?: NetworkCollectionId
 }
 
 export interface YearlyPassengers {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../../hooks/useStations'
 import { BUTWideButton } from '../../components/buttons'
@@ -8,6 +8,8 @@ import PendingChangesReviewPanel, {
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { getStationCollectionDisplayLabel } from '../../services/firebase'
+import { NETWORK_COLLECTION_IDS } from '../../constants/stationCollections'
+import { countPendingChangesForCollection } from '../../utils/pendingChangesByCollection'
 import { safeReviewPendingReturnPath } from '../../utils/reviewPendingNavigation'
 import '../StationDetailsPage/StationDetailsPage.css'
 import './ReviewPendingChangesPage.css'
@@ -17,8 +19,17 @@ const ReviewPendingChangesPage: React.FC = () => {
   const location = useLocation()
   const { loading, error, refetch } = useStations()
   const { pendingChanges } = usePendingStationChanges()
-  const { collectionId } = useStationCollection()
-  const pendingCount = Object.keys(pendingChanges).length
+  const { collectionId, networkView, isSandbox } = useStationCollection()
+  const pendingCount = useMemo(() => {
+    if (isSandbox) return countPendingChangesForCollection(pendingChanges, collectionId)
+    if (networkView === 'all') {
+      return NETWORK_COLLECTION_IDS.reduce(
+        (sum, id) => sum + countPendingChangesForCollection(pendingChanges, id),
+        0
+      )
+    }
+    return countPendingChangesForCollection(pendingChanges, collectionId)
+  }, [pendingChanges, collectionId, networkView, isSandbox])
   const collectionLabel = getStationCollectionDisplayLabel(collectionId)
   const [reviewTab, setReviewTab] = useState<PendingReviewPageTab>('pending')
 

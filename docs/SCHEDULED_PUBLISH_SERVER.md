@@ -26,8 +26,10 @@ Pending station edits can be **queued in Firestore** and applied by a **schedule
 3. Deploy functions:
 
    ```bash
-   firebase deploy --only functions
+   npm run firebase:deploy-functions
    ```
+
+   Or: `firebase deploy --only functions` (after `npm --prefix functions run build`).
 
    Ensure the **Cloud Scheduler** API is enabled for your GCP project (Firebase usually prompts during first deploy).
 
@@ -35,7 +37,7 @@ Pending station edits can be **queued in Firestore** and applied by a **schedule
 
 - The app writes a document to **`scheduledStationPublishJobs`** with:
   - `runAt` — when to publish (Firestore `Timestamp`)
-  - `collectionId` — `stations2603` or `newsandboxstations1`
+  - `collectionId` — `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, or `newsandboxstations1`
   - `changes` — snapshot of pending edits (same shape the web app uses for publish)
   - `stationIds` — list of station document IDs in that snapshot
   - `status` — `pending` → `processing` → `completed` or `failed`

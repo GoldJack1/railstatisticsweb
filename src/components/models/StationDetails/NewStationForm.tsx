@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import type { SandboxStationDoc, Station, YearlyPassengers } from '../../../types'
 import { usePendingStationChanges } from '../../../contexts/PendingStationChangesContext'
-import { BUTBaseButton as Button } from '../../buttons'
+import { BUTBaseButton as Button, BUTThreeButtonBar } from '../../buttons'
+import { NETWORK_LABELS } from '../../../constants/stationCollections'
+import type { NetworkCollectionId } from '../../../constants/stationCollections'
 import LocationMapPicker from './LocationMapPicker'
 import type { StationDetailsTab } from './StationDetailsView'
 import { createPortal } from 'react-dom'
@@ -76,6 +78,8 @@ const UNSAVED_MESSAGE = 'Are you sure you want to go back? All data will not be 
 
 interface NewStationFormProps {
   nextStationId: string
+  targetCollectionId: NetworkCollectionId
+  onTargetCollectionChange: (id: NetworkCollectionId) => void
   onCancel: () => void
   onCreated: (stationId: string) => void
   /** When set (e.g. on new station page), only this section is shown. When undefined (e.g. in modal), all sections shown. */
@@ -88,6 +92,8 @@ interface NewStationFormProps {
 
 const NewStationForm: React.FC<NewStationFormProps> = ({
   nextStationId,
+  targetCollectionId,
+  onTargetCollectionChange,
   onCancel,
   onCreated,
   activeTab,
@@ -264,7 +270,7 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
 
     setSaving(true)
     try {
-      addNewPendingStation(nextStationId, payload, additionalWithSlug)
+      addNewPendingStation(nextStationId, payload, targetCollectionId, additionalWithSlug)
       onCreated(nextStationId)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to stage new station')
@@ -278,6 +284,24 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
       {showDetails && (
       <div className="modal-section">
         <h3 className="modal-section-title">Details</h3>
+        <div className="edit-field" style={{ marginBottom: '1rem' }}>
+          <span className="edit-label">Add to database *</span>
+          <BUTThreeButtonBar
+            buttons={[
+              { label: NETWORK_LABELS.stations_gbnr, value: 'stations_gbnr' },
+              { label: NETWORK_LABELS.stations_nitranslink, value: 'stations_nitranslink' },
+              { label: NETWORK_LABELS.stations_roiirerail, value: 'stations_roiirerail' },
+            ]}
+            selectedIndex={
+              targetCollectionId === 'stations_nitranslink'
+                ? 1
+                : targetCollectionId === 'stations_roiirerail'
+                  ? 2
+                  : 0
+            }
+            onChange={(_, value) => onTargetCollectionChange(value as NetworkCollectionId)}
+          />
+        </div>
         <div className="modal-detail-item edit-readonly">
           <span className="modal-detail-label">Station ID</span>
           <span className="modal-detail-value">{nextStationId}</span>

@@ -121,6 +121,7 @@ const StationDetailsEditForm: React.FC<StationDetailsEditFormProps> = ({
   const [preparedAdditionalDetails, setPreparedAdditionalDetails] = useState<Partial<SandboxStationDoc> | null>(null)
   const { upsertPendingChange } = usePendingStationChanges()
   const { collectionId } = useStationCollection()
+  const stationCollectionId = station.sourceCollectionId ?? collectionId
   const [additionalDoc, setAdditionalDoc] = useState<SandboxStationDoc | null>(null)
   const [additionalLoading, setAdditionalLoading] = useState(false)
 
@@ -164,7 +165,7 @@ const StationDetailsEditForm: React.FC<StationDetailsEditFormProps> = ({
     let cancelled = false
     setAdditionalLoading(true)
     setAdditionalDoc(null)
-    fetchStationDocumentById(station.id)
+    fetchStationDocumentById(station.id, stationCollectionId)
       .then((data) => {
         if (!cancelled && data) {
           const doc = data as SandboxStationDoc
@@ -185,7 +186,7 @@ const StationDetailsEditForm: React.FC<StationDetailsEditFormProps> = ({
     return () => {
       cancelled = true
     }
-  }, [collectionId, station.id])
+  }, [collectionId, station.id, stationCollectionId])
 
   const update = (updates: Partial<Station>) => {
     setForm((prev) => ({ ...prev, ...updates }))
@@ -431,6 +432,7 @@ const StationDetailsEditForm: React.FC<StationDetailsEditFormProps> = ({
           fareZone: form.fareZone || null,
           yearlyPassengers
         },
+        stationCollectionId,
         { ...(additionalDetails as Partial<SandboxStationDoc> | null), urlSlug }
       )
       onSaved()

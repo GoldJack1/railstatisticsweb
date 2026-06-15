@@ -1,25 +1,26 @@
 import React from 'react'
 import { BUTBaseButtonBar as ButtonBar } from '../../buttons'
 import { BUTBaseButton as Button } from '../../buttons'
-import type { StationCollectionId } from '../../../services/firebase'
 import './StationAdminControls.css'
 
 interface StationAdminControlsProps {
   isEditMode: boolean
-  collectionId: StationCollectionId
+  isSandbox: boolean
   pendingChangesCount: number
   onModeChange: (mode: 'view' | 'edit') => void
-  onCollectionChange: (collectionId: StationCollectionId) => void
+  onSandboxChange: (enabled: boolean) => void
   onOpenPendingChanges: () => void
+  onAddStation: () => void
 }
 
 const StationAdminControls: React.FC<StationAdminControlsProps> = ({
   isEditMode,
-  collectionId,
+  isSandbox,
   pendingChangesCount,
   onModeChange,
-  onCollectionChange,
-  onOpenPendingChanges
+  onSandboxChange,
+  onOpenPendingChanges,
+  onAddStation,
 }) => {
   return (
     <section className="station-admin-controls-card" aria-label="Station admin controls">
@@ -36,16 +37,31 @@ const StationAdminControls: React.FC<StationAdminControlsProps> = ({
       </div>
 
       <div className="station-admin-controls-group">
-        <span className="station-admin-controls-label">Data source</span>
+        <span className="station-admin-controls-label">Sandbox mode</span>
         <ButtonBar
           buttons={[
-            { label: 'Production', value: 'stations2603' },
-            { label: 'Sandbox', value: 'newsandboxstations1' }
+            { label: 'Off', value: 'off' },
+            { label: 'On', value: 'on' }
           ]}
-          selectedIndex={collectionId === 'newsandboxstations1' ? 1 : 0}
-          onChange={(_, value) => onCollectionChange(value as StationCollectionId)}
+          selectedIndex={isSandbox ? 1 : 0}
+          onChange={(_, value) => onSandboxChange(value === 'on')}
         />
       </div>
+
+      {isEditMode && (
+        <div className="station-admin-controls-group station-admin-controls-group--add">
+          <span className="station-admin-controls-label">Stations</span>
+          <Button
+            type="button"
+            variant="wide"
+            width="fill"
+            className="station-admin-controls-add-button"
+            onClick={onAddStation}
+          >
+            + Add new station
+          </Button>
+        </div>
+      )}
 
       <div className="station-admin-controls-group station-admin-controls-group--pending">
         <Button

@@ -18,6 +18,11 @@ import { computePendingChangesFingerprint } from '../utils/pendingChangesFingerp
 import { toDatetimeLocalValue } from '../utils/datetimeLocal'
 import { useAuth } from '../contexts/AuthContext'
 import { isMasterPublishUser, MASTER_PUBLISH_DENIED_MESSAGE } from '../utils/masterPublishPolicy'
+import {
+  filterPendingChangesForCollection,
+  validateSingleCollectionPending,
+} from '../utils/pendingChangesByCollection'
+import { NETWORK_COLLECTION_IDS } from '../constants/stationCollections'
 
 /** When the schedule picker is empty, save uses now + this offset (1 hour). */
 export const PENDING_PUBLISH_SCHEDULE_DEFAULT_OFFSET_MS = 60 * 60 * 1000
@@ -35,7 +40,7 @@ export function usePendingChangesPublishFlow({
   onPublishSuccess
 }: UsePendingChangesPublishFlowOptions) {
   const { user } = useAuth()
-  const { collectionId } = useStationCollection()
+  const { collectionId, networkView, isSandbox } = useStationCollection()
   const {
     pendingChanges,
     clearPendingChange,
@@ -45,6 +50,18 @@ export function usePendingChangesPublishFlow({
     clearTrackedScheduledServerJob,
     serverScheduledJobDetail
   } = usePendingStationChanges()
+
+  const scopedPendingChanges = useMemo(() => {
+    if (isSandbox) return filterPendingChangesForCollection(pendingChanges, collectionId)
+    if (networkView === 'all') {
+      const merged: typeof pendingChanges = {}
+      for (const id of NETWORK_COLLECTION_IDS) {
+        Object.assign(merged, filterPendingChangesForCollection(pendingChanges, id))
+      }
+      return merged
+    }
+    return filterPendingChangesForCollection(pendingChanges, collectionId)
+  }, [pendingChanges, collectionId, networkView, isSandbox])
 
   const passwordReauthActionRef = useRef<'publish' | 'schedule' | 'cancelSchedule' | null>(null)
   const pendingScheduleMsRef = useRef<number | null>(null)
@@ -59,7 +76,7 @@ export function usePendingChangesPublishFlow({
   const [scheduleDatetimeUserEdited, setScheduleDatetimeUserEdited] = useState(false)
   const [scheduleLocalNowMs, setScheduleLocalNowMs] = useState(() => Date.now())
 
-  const pendingCount = Object.keys(pendingChanges).length
+  const pendingCount = Object.keys(scopedPendingChanges).length
   const canMasterPublish = isMasterPublishUser(user)
 
   useEffect(() => {
@@ -153,23 +170,30 @@ export function usePendingChangesPublishFlow({
         return
       }
       const want = new Set(stationIds)
-      const validIds = Object.keys(pendingChanges).filter(id => want.has(id))
+      const validIds = Object.keys(scopedPendingChanges).filter(id => want.has(id))
       if (validIds.length === 0) return
+
+      const validation = validateSingleCollectionPending(pendingChanges, validIds)
+      if ('error' in validation) {
+        window.alert(validation.error)
+        return
+      }
 
       setIsPublishingAll(true)
       try {
         for (const stationId of validIds) {
           const entry = pendingChanges[stationId]
           if (!entry) continue
+          const targetCollection = entry.targetCollectionId
           if (entry.isNew) {
-            await createStationInFirebase(stationId, entry.updated)
+            await createStationInFirebase(stationId, entry.updated, targetCollection)
             if (entry.sandboxUpdated && Object.keys(entry.sandboxUpdated).length > 0) {
-              await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated)
+              await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated, targetCollection)
             }
           } else {
-            await updateStationInFirebase(stationId, entry.updated)
+            await updateStationInFirebase(stationId, entry.updated, targetCollection)
             if (entry.sandboxUpdated && Object.keys(entry.sandboxUpdated).length > 0) {
-              await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated)
+              await mergeStationAdditionalDetailsInFirebase(stationId, entry.sandboxUpdated, targetCollection)
             }
           }
         }
@@ -203,6 +227,7 @@ export function usePendingChangesPublishFlow({
     },
     [
       pendingChanges,
+      scopedPendingChanges,
       clearPendingChangesForIds,
       trackedScheduledJobId,
       clearTrackedScheduledServerJob,
@@ -230,11 +255,18 @@ export function usePendingChangesPublishFlow({
         return
       }
       const want = new Set(stationIds)
-      const validIds = Object.keys(pendingChanges).filter(id => want.has(id))
+      const validIds = Object.keys(scopedPendingChanges).filter(id => want.has(id))
       if (validIds.length === 0) {
         window.alert('No valid stations selected for scheduling.')
         return
       }
+
+      const validation = validateSingleCollectionPending(pendingChanges, validIds)
+      if ('error' in validation) {
+        window.alert(validation.error)
+        return
+      }
+      const jobCollectionId = validation.collectionId
 
       setIsSavingSchedule(true)
       try {
@@ -292,7 +324,7 @@ export function usePendingChangesPublishFlow({
 
         const jobId = await createScheduledStationPublishJob({
           runAtMs: effectiveRunAtMs,
-          collectionId,
+          collectionId: jobCollectionId,
           changes: changesPayload
         })
         registerScheduledServerJob(jobId)
@@ -315,7 +347,7 @@ export function usePendingChangesPublishFlow({
     [
       trackedScheduledJobId,
       pendingChanges,
-      collectionId,
+      scopedPendingChanges,
       registerScheduledServerJob,
       serverScheduledJobDetail?.scheduledChanges,
       serverScheduledJobDetail?.runAtMs,
@@ -406,7 +438,7 @@ export function usePendingChangesPublishFlow({
 
   return {
     user,
-    pendingChanges,
+    pendingChanges: scopedPendingChanges,
     clearPendingChange,
     pendingCount,
     canMasterPublish,

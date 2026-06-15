@@ -226,44 +226,175 @@ export const handleRedirectResult = async () => {
 export { onAuthStateChanged, getRedirectResult }
 export type { User }
 
-export const STATION_COLLECTION_STORAGE_KEY = 'railstats_station_collection'
+export {
+  NETWORK_COLLECTION_IDS,
+  NETWORK_LABELS,
+  SANDBOX_COLLECTION_ID,
+  STATION_COLLECTION_DISPLAY_LABELS,
+  STATION_NETWORK_STORAGE_KEY,
+  STATION_SANDBOX_STORAGE_KEY,
+  STATION_COLLECTION_STORAGE_KEY,
+  DEFAULT_NETWORK_COLLECTION_ID,
+  DEFAULT_NETWORK_VIEW,
+  deriveCollectionId,
+  getStationCollectionDisplayLabel,
+  getNetworkCollectionDisplayLabel,
+  isNetworkCollection,
+  isSandboxCollection,
+  isNetworkViewFilter,
+  type NetworkCollectionId,
+  type NetworkViewFilter,
+  type StationCollectionId,
+} from '../constants/stationCollections'
 
-export type StationCollectionId = 'stations2603' | 'newsandboxstations1'
+import {
+  DEFAULT_NETWORK_COLLECTION_ID,
+  DEFAULT_NETWORK_VIEW,
+  NETWORK_COLLECTION_IDS,
+  SANDBOX_COLLECTION_ID,
+  STATION_COLLECTION_STORAGE_KEY,
+  STATION_NETWORK_STORAGE_KEY,
+  STATION_NETWORK_VIEW_STORAGE_KEY,
+  STATION_SANDBOX_STORAGE_KEY,
+  deriveCollectionId,
+  isNetworkCollection,
+  isNetworkViewFilter,
+  type NetworkCollectionId,
+  type NetworkViewFilter,
+  type StationCollectionId,
+} from '../constants/stationCollections'
 
-/** Human-readable labels for UI (matches station list “Data source” options). */
-export const STATION_COLLECTION_DISPLAY_LABELS: Record<StationCollectionId, string> = {
-  stations2603: 'Production (stations2603)',
-  newsandboxstations1: 'Sandbox (newsandboxstations1)'
+function syncDerivedCollectionStorage(): void {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return
+  try {
+    const collectionId = deriveCollectionId(
+      getStationNetworkView(),
+      getStationNetworkId(),
+      getStationSandboxMode()
+    )
+    window.localStorage.setItem(STATION_COLLECTION_STORAGE_KEY, collectionId)
+  } catch {
+    // ignore
+  }
 }
 
-export const getStationCollectionDisplayLabel = (id: StationCollectionId): string =>
-  STATION_COLLECTION_DISPLAY_LABELS[id]
-
-const DEFAULT_STATION_COLLECTION: StationCollectionId = 'stations2603'
-
-/** Read the currently selected station collection from localStorage (falls back to production). */
-export const getStationCollectionName = (): StationCollectionId => {
+function readLegacyCollectionStorage(): StationCollectionId | null {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
-    return DEFAULT_STATION_COLLECTION
+    return null
   }
   try {
     const stored = window.localStorage.getItem(STATION_COLLECTION_STORAGE_KEY)
-    if (stored === 'stations2603' || stored === 'newsandboxstations1') {
-      return stored
-    }
+    if (stored === SANDBOX_COLLECTION_ID) return SANDBOX_COLLECTION_ID
+    if (stored != null && isNetworkCollection(stored)) return stored
+    if (stored === 'stations2603') return 'stations_gbnr'
   } catch {
-    // Ignore storage errors and fall back to default
+    // ignore
   }
-  return DEFAULT_STATION_COLLECTION
+  return null
 }
 
-/** Persist the selected station collection to localStorage so it can be read by Firebase helpers. */
+/** Read persisted network tab selection. */
+export const getStationNetworkId = (): NetworkCollectionId => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return DEFAULT_NETWORK_COLLECTION_ID
+  }
+  try {
+    const stored = window.localStorage.getItem(STATION_NETWORK_STORAGE_KEY)
+    if (stored != null && isNetworkCollection(stored)) return stored
+    const legacy = readLegacyCollectionStorage()
+    if (legacy && isNetworkCollection(legacy)) return legacy
+  } catch {
+    // ignore
+  }
+  return DEFAULT_NETWORK_COLLECTION_ID
+}
+
+/** Persist network tab selection. */
+export const setStationNetworkId = (id: NetworkCollectionId): void => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return
+  try {
+    window.localStorage.setItem(STATION_NETWORK_STORAGE_KEY, id)
+    syncDerivedCollectionStorage()
+  } catch {
+    // ignore
+  }
+}
+
+/** Read persisted network view filter (All or a single network). */
+export const getStationNetworkView = (): NetworkViewFilter => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return DEFAULT_NETWORK_VIEW
+  }
+  try {
+    const stored = window.localStorage.getItem(STATION_NETWORK_VIEW_STORAGE_KEY)
+    if (stored != null && isNetworkViewFilter(stored)) return stored
+  } catch {
+    // ignore
+  }
+  return DEFAULT_NETWORK_VIEW
+}
+
+/** Persist network view filter and sync derived collection id. */
+export const setStationNetworkView = (view: NetworkViewFilter): void => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return
+  try {
+    window.localStorage.setItem(STATION_NETWORK_VIEW_STORAGE_KEY, view)
+    if (view !== 'all') {
+      window.localStorage.setItem(STATION_NETWORK_STORAGE_KEY, view)
+    }
+    syncDerivedCollectionStorage()
+  } catch {
+    // ignore
+  }
+}
+
+/** Read whether admin sandbox mode is enabled. */
+export const getStationSandboxMode = (): boolean => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return false
+  }
+  try {
+    const stored = window.localStorage.getItem(STATION_SANDBOX_STORAGE_KEY)
+    if (stored === 'true' || stored === 'false') return stored === 'true'
+    const legacy = readLegacyCollectionStorage()
+    if (legacy === SANDBOX_COLLECTION_ID) return true
+  } catch {
+    // ignore
+  }
+  return false
+}
+
+/** Persist sandbox mode and sync derived collection id. */
+export const setStationSandboxMode = (enabled: boolean): void => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return
+  try {
+    window.localStorage.setItem(STATION_SANDBOX_STORAGE_KEY, enabled ? 'true' : 'false')
+    syncDerivedCollectionStorage()
+  } catch {
+    // ignore
+  }
+}
+
+/** Read the currently active station collection (network or sandbox). */
+export const getStationCollectionName = (): StationCollectionId => {
+  return deriveCollectionId(getStationNetworkView(), getStationNetworkId(), getStationSandboxMode())
+}
+
+/** Persist derived collection id (keeps network + sandbox keys in sync). */
 export const setStationCollectionName = (id: StationCollectionId): void => {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
     return
   }
   try {
     window.localStorage.setItem(STATION_COLLECTION_STORAGE_KEY, id)
+    if (id === SANDBOX_COLLECTION_ID) {
+      window.localStorage.setItem(STATION_SANDBOX_STORAGE_KEY, 'true')
+      return
+    }
+    if (isNetworkCollection(id)) {
+      window.localStorage.setItem(STATION_NETWORK_STORAGE_KEY, id)
+      window.localStorage.setItem(STATION_SANDBOX_STORAGE_KEY, 'false')
+    }
   } catch {
     // Ignore storage errors; selection just won't persist
   }
@@ -451,7 +582,8 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         stnarea: data.stnarea || null,
         londonBorough: londonBorough != null && londonBorough !== '' ? String(londonBorough) : null,
         fareZone,
-        yearlyPassengers: data.yearlyPassengers || null
+        yearlyPassengers: data.yearlyPassengers || null,
+        ...(isNetworkCollection(collectionName) ? { sourceCollectionId: collectionName } : {}),
       }
       
       stations.push(station)
@@ -463,6 +595,25 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
     console.error('Firebase fetch error:', error)
     throw error
   }
+}
+
+/** Fetch and merge stations from every production network collection. */
+export const fetchAllNetworkStationsFromFirebase = async (): Promise<Station[]> => {
+  const batches = await Promise.all(
+    NETWORK_COLLECTION_IDS.map(async (collectionId) => {
+      try {
+        return await fetchStationsFromFirebase(collectionId)
+      } catch (error) {
+        console.warn(`Failed to load stations from ${collectionId}:`, error)
+        return []
+      }
+    })
+  )
+  const merged = batches.flat()
+  if (merged.length === 0) {
+    throw new Error('No data available in Firebase')
+  }
+  return merged.sort((a, b) => a.stationName.localeCompare(b.stationName))
 }
 
 /**
@@ -487,34 +638,36 @@ const stationToFirestoreUpdate = (data: Partial<Station>): Record<string, unknow
   return update
 }
 
-/** Update a station document in Firestore. Uses current collection (stations2603). */
+/** Update a station document in Firestore. */
 export const updateStationInFirebase = async (
   stationId: string,
-  data: Partial<Station>
+  data: Partial<Station>,
+  collectionOverride?: StationCollectionId
 ): Promise<void> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
   }
   if (!db) throw new Error('Failed to initialize Firebase database')
-  const collectionName = getStationCollectionName()
+  const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
   const update = stationToFirestoreUpdate(data)
   if (Object.keys(update).length === 0) return
   await updateDoc(docRef, { ...update, id: stationId })
 }
 
-/** Create a new station document in Firestore with a specific ID. Uses current collection selection. */
+/** Create a new station document in Firestore with a specific ID. */
 export const createStationInFirebase = async (
   stationId: string,
-  data: Partial<Station>
+  data: Partial<Station>,
+  collectionOverride?: StationCollectionId
 ): Promise<void> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
   }
   if (!db) throw new Error('Failed to initialize Firebase database')
-  const collectionName = getStationCollectionName()
+  const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
   const payload = stationToFirestoreUpdate(data)
   if (Object.keys(payload).length === 0) {
@@ -530,14 +683,15 @@ export const createStationInFirebase = async (
  */
 export const updateStationAdditionalDetailsInFirebase = async (
   stationId: string,
-  data: Partial<SandboxStationDoc>
+  data: Partial<SandboxStationDoc>,
+  collectionOverride?: StationCollectionId
 ): Promise<void> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
   }
   if (!db) throw new Error('Failed to initialize Firebase database')
-  const collectionName = getStationCollectionName()
+  const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
   const payload = data as Record<string, unknown>
   if (!payload || Object.keys(payload).length === 0) return
@@ -547,14 +701,15 @@ export const updateStationAdditionalDetailsInFirebase = async (
 /** Create/merge additional details for a station document (safe for new stations). */
 export const mergeStationAdditionalDetailsInFirebase = async (
   stationId: string,
-  data: Partial<SandboxStationDoc>
+  data: Partial<SandboxStationDoc>,
+  collectionOverride?: StationCollectionId
 ): Promise<void> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
   }
   if (!db) throw new Error('Failed to initialize Firebase database')
-  const collectionName = getStationCollectionName()
+  const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
   const payload = data as Record<string, unknown>
   if (!payload || Object.keys(payload).length === 0) return
@@ -562,14 +717,17 @@ export const mergeStationAdditionalDetailsInFirebase = async (
 }
 
 /** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */
-export const fetchStationDocumentById = async (stationId: string): Promise<Record<string, unknown> | null> => {
+export const fetchStationDocumentById = async (
+  stationId: string,
+  collectionOverride?: StationCollectionId
+): Promise<Record<string, unknown> | null> => {
   if (!db) {
     const { db: newDb } = await initializeFirebase()
     db = newDb
   }
   if (!db) return null
   try {
-    const collectionName = getStationCollectionName()
+    const collectionName = collectionOverride ?? getStationCollectionName()
     const docRef = doc(db, collectionName, stationId)
     const snapshot = await getDoc(docRef)
     if (!snapshot.exists()) return null

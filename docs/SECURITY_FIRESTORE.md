@@ -11,18 +11,19 @@ Nothing is pushed automatically when you commit to Git. You run **`firebase depl
 | What you run | What is uploaded / updated |
 |--------------|----------------------------|
 | **`npm run firebase:deploy`** | **Firestore security rules only** — the contents of `firestore.rules`. |
+| **`npm run firebase:deploy-functions`** | **Cloud Functions only** — see `scripts/README-deploy-cloud-functions.md`. |
 | `firebase deploy --only firestore:indexes` | Composite indexes from `firestore.indexes.json`. |
-| `firebase deploy --only functions` | Cloud Functions after `functions/` build (e.g. scheduled station publish processor). |
+| `firebase deploy --only functions` | Same as `firebase:deploy-functions` (builds `functions/` first via script). |
 | `firebase deploy --only hosting` | Static site from `dist` per `firebase.json` (this project often uses **Netlify** for the web app instead). |
 | `firebase deploy` (no `--only`) | **Everything** in `firebase.json`: Firestore rules, indexes, functions, and hosting. |
 
-Scripts in `package.json` only wrap **rules** today (`firebase:deploy` → `firestore:rules`). Indexes and functions need explicit `firebase deploy --only …` commands (or extend `package.json` if you want shortcuts).
+Scripts in `package.json`: `firebase:deploy` (rules), `firebase:deploy-functions` (functions only). Indexes need `firebase deploy --only firestore:indexes`.
 
 ## What the rules do
 
 | Collection | Read | Write |
 |------------|------|--------|
-| `stations2603`, `newsandboxstations1` | **Anyone** (including signed-out clients) | **Station editors only** |
+| `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, `newsandboxstations1` | **Anyone** (including signed-out clients) | **Station editors only** |
 | `scheduledStationPublishJobs` | **Anyone** | Create (validated) + delete own jobs + **cancel** own pending jobs (`status` → `cancelled`, optional `cancelReason` / `supersededByJobId`, editors only); Cloud Function uses Admin SDK for processing |
 | **Any other path** (`/{document=**}`) | **Anyone** | **Denied** (add an explicit `match` if a collection needs client writes) |
 

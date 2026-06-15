@@ -1,6 +1,6 @@
 # Swap two Firestore documents (0263 ↔ 0264)
 
-This script reads documents **0263** and **0264** from the `stations2603` collection, deletes both, then re-creates them with data swapped (0263 gets 0264’s data, 0264 gets 0263’s data).
+This script reads documents **0263** and **0264** from the `stations_gbnr` collection, deletes both, then re-creates them with data swapped (0263 gets 0264’s data, 0264 gets 0263’s data).
 
 ## 1. Service account key
 
@@ -44,11 +44,11 @@ node scripts/swap-firestore-docs.js --project=your-firebase-project-id
 Optional overrides:
 
 ```bash
-node scripts/swap-firestore-docs.js --collection=stations2603 --id1=0263 --id2=0264
+node scripts/swap-firestore-docs.js --collection=stations_gbnr --id1=0263 --id2=0264
 ```
 
 ## Summary
 
 - Uses **Firebase Admin SDK** (not the Firebase CLI) so it can read/write Firestore.
 - Requires a **service account key** and your **Firebase project ID**.
-- Default collection: `stations2603`; default doc IDs: `0263`, `0264`.
+- Default collection: `stations_gbnr`; default doc IDs: `0263`, `0264`.

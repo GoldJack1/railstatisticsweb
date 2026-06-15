@@ -15,12 +15,12 @@
  *   node scripts/swap-firestore-docs.js --project=my-project-id
  *
  * Optional: override collection or document IDs
- *   node scripts/swap-firestore-docs.js --collection=stations2603 --id1=0263 --id2=0264
+ *   node scripts/swap-firestore-docs.js --collection=stations_gbnr --id1=0263 --id2=0264
  */
 
 import admin from 'firebase-admin';
 
-const COLLECTION = 'stations2603';
+const COLLECTION = 'stations_gbnr';
 const ID1 = '0263';
 const ID2 = '0264';
 
