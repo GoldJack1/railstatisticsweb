@@ -23,7 +23,8 @@
     "firebase:delete-onSandboxStationAdded": "firebase functions:delete onSandboxStationAdded --region us-central1 --force",
     "media:home:mp4-to-webm": "bash scripts/convert-home-mp4-to-webm.sh",
     "firebase:enable-totp": "node scripts/enable-firebase-totp-mfa.mjs",
-    "firebase:set-station-editor-claim": "node scripts/set-rs-station-editor-claim.mjs"
+    "firebase:set-station-editor-claim": "node scripts/set-rs-station-editor-claim.mjs",
+    "firebase:import-gb-heritage": "node scripts/import-gb-heritage-stations.mjs"
   },
   "repository": {
     "type": "git",

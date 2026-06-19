@@ -49,7 +49,7 @@ const StationAdminControls: React.FC<StationAdminControlsProps> = ({
       </div>
 
       {isEditMode && (
-        <div className="station-admin-controls-group station-admin-controls-group--add">
+        <div className="station-admin-controls-group station-admin-controls-group--add station-admin-controls-group--add-mobile">
           <span className="station-admin-controls-label">Stations</span>
           <Button
             type="button"

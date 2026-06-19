@@ -12,7 +12,7 @@ export interface StationFilterOptions {
   tocs: string[]
   countries: string[]
   counties: string[]
-  londonBoroughs: string[]
+  boroughs: string[]
   fareZones: string[]
 }
 
@@ -20,7 +20,7 @@ export interface StationFilterSelections {
   tocs: string[]
   countries: string[]
   counties: string[]
-  londonBoroughs: string[]
+  boroughs: string[]
   fareZones: string[]
 }
 
@@ -54,7 +54,7 @@ export const getStationFilterOptions = (stations: Station[]): StationFilterOptio
   tocs: sortAlphabetically([...new Set(stations.map((station) => station.toc).filter(isNonEmptyString))]),
   countries: sortAlphabetically([...new Set(stations.map((station) => station.country).filter(isNonEmptyString))]),
   counties: sortAlphabetically([...new Set(stations.map((station) => station.county).filter(isNonEmptyString))]),
-  londonBoroughs: sortAlphabetically([...new Set(stations.map((station) => station.londonBorough).filter(isNonEmptyString))]),
+  boroughs: sortAlphabetically([...new Set(stations.map((station) => station.borough).filter(isNonEmptyString))]),
   fareZones: sortAlphabetically([...new Set(stations.map((station) => station.fareZone).filter(isNonEmptyString))]),
 })
 
@@ -64,7 +64,7 @@ export const getDefaultStationFilterSelections = (
   tocs: options.tocs,
   countries: options.countries,
   counties: options.counties,
-  londonBoroughs: options.londonBoroughs,
+  boroughs: options.boroughs,
   fareZones: options.fareZones,
 })
 
@@ -94,16 +94,16 @@ export const filterStations = (
       !shouldApplyCategoryFilter(selections.counties, options.counties) ||
       selections.counties.includes(station.county || '')
 
-    const londonBoroughFilterEnabled = isOnlyGreaterLondonSelected(selections.counties)
+    const boroughFilterEnabled = isOnlyGreaterLondonSelected(selections.counties)
     const boroughSubsetSelected = shouldApplyCategoryFilter(
-      selections.londonBoroughs,
-      options.londonBoroughs
+      selections.boroughs,
+      options.boroughs
     )
-    const londonBoroughMatch =
-      !londonBoroughFilterEnabled ||
+    const boroughMatch =
+      !boroughFilterEnabled ||
       station.county !== 'Greater London' ||
       !boroughSubsetSelected ||
-      selections.londonBoroughs.includes(station.londonBorough || '')
+      selections.boroughs.includes(station.borough || '')
 
     const fareZoneMatch =
       !shouldApplyCategoryFilter(selections.fareZones, options.fareZones) ||
@@ -114,7 +114,7 @@ export const filterStations = (
       tocMatch &&
       countryMatch &&
       countyMatch &&
-      londonBoroughMatch &&
+      boroughMatch &&
       fareZoneMatch
     )
   })

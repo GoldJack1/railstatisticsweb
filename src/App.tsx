@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage/LoginPage'
 import StationsPageRefactored from './pages/StationsPageRefactored/StationsPageRefactored'
 import ReviewPendingChangesPage from './pages/ReviewPendingChangesPage/ReviewPendingChangesPage'
 import StationDetailsPage from './pages/StationDetailsPage/StationDetailsPage'
+import LegacyStationRedirect from './pages/StationDetailsPage/LegacyStationRedirect'
 import NewStationPage from './pages/NewStationPage'
 import MigrationPage from './pages/MigrationPage/MigrationPage'
 import DesignSystemHomePage from './pages/designSystem/DesignSystemHomePage/DesignSystemHomePage'
@@ -90,8 +91,10 @@ const App: React.FC = () => {
                 <Route path="/stations/edit" element={<ProtectedRoute><StationsPageRefactored initialMode="edit" /></ProtectedRoute>} />
                 <Route path="/stations/pending-review" element={<ProtectedRoute><ReviewPendingChangesPage /></ProtectedRoute>} />
                 <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
-                <Route path="/stations/:stationId" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
-                <Route path="/stations/:stationId/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
+                <Route path="/stations/:network/:stationSlug" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
+                <Route path="/stations/:network/:stationSlug/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
+                <Route path="/stations/:legacyStationId/edit" element={<ProtectedRoute><LegacyStationRedirect mode="edit" /></ProtectedRoute>} />
+                <Route path="/stations/:legacyStationId" element={<ProtectedRoute><LegacyStationRedirect mode="view" /></ProtectedRoute>} />
                 <Route path="/migration" element={<MigrationPage />} />
                 <Route path="/buttons" element={<ButtonsPage />} />
                 <Route path="/design-system" element={<ProtectedRoute><DesignSystemHomePage /></ProtectedRoute>} />

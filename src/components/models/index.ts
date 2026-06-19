@@ -14,4 +14,5 @@ export { default as StationDetailsEditForm } from './StationDetails/StationDetai
 export { default as NewStationForm } from './StationDetails/NewStationForm'
 export { default as StationLocationMapView } from './StationDetails/StationLocationMapView'
 export { default as NewStationModal } from './NewStationModal/NewStationModal'
+export { default as ChooseNetworkForNewStationModal } from './ChooseNetworkForNewStationModal/ChooseNetworkForNewStationModal'
 export { default as HomeDownloadPlatformModal } from './HomeDownloadPlatformModal/HomeDownloadPlatformModal'

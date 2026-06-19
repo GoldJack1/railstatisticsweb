@@ -945,7 +945,7 @@ const MigrationPage: React.FC = () => {
         const tiploc = station.tiploc || ''
         const country = station.country || ''
         const county = station.county || ''
-        const borough = station.londonBorough || ''
+        const borough = station.borough || ''
         const searchable = normalizeSearchText([name, crs, tiploc, country, county, borough].join(' '))
 
         if (!searchable) return false
@@ -1496,7 +1496,7 @@ const MigrationPage: React.FC = () => {
                                       {formatStationLocationDisplay({
                                         county: station.county,
                                         country: station.country,
-                                        londonBorough: station.londonBorough
+                                        borough: station.borough
                                       }) || '—'}
                                     </span>
                                   </div>
@@ -1814,12 +1814,12 @@ const MigrationPage: React.FC = () => {
                                         {formatStationLocationDisplay({
                                           county: fb.county,
                                           country: fb.country,
-                                          londonBorough: fb.londonBorough
+                                          borough: fb.borough
                                         })}
                                       </small>
                                     </div>
-                                    {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
-                                      <span className="match-borough">{fb.londonBorough}</span>
+                                    {fb.borough && !isGreaterLondonCounty(fb.county) && (
+                                      <span className="match-borough">{fb.borough}</span>
                                     )}
                                   </>
                                 ) : (
@@ -1895,12 +1895,12 @@ const MigrationPage: React.FC = () => {
                                         {formatStationLocationDisplay({
                                           county: fb.county,
                                           country: fb.country,
-                                          londonBorough: fb.londonBorough
+                                          borough: fb.borough
                                         })}
                                       </small>
                                     </div>
-                                    {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
-                                      <span className="match-borough">{fb.londonBorough}</span>
+                                    {fb.borough && !isGreaterLondonCounty(fb.county) && (
+                                      <span className="match-borough">{fb.borough}</span>
                                     )}
                                   </>
                                 ) : (
@@ -1996,12 +1996,12 @@ const MigrationPage: React.FC = () => {
                                   {formatStationLocationDisplay({
                                     county: fb.county,
                                     country: fb.country,
-                                    londonBorough: fb.londonBorough
+                                    borough: fb.borough
                                   })}
                                 </small>
                               </div>
-                              {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
-                                <span className="match-borough">{fb.londonBorough}</span>
+                              {fb.borough && !isGreaterLondonCounty(fb.county) && (
+                                <span className="match-borough">{fb.borough}</span>
                               )}
                             </>
                           ) : (
@@ -2248,12 +2248,12 @@ const MigrationPage: React.FC = () => {
                                       {formatStationLocationDisplay({
                                         county: fb.county,
                                         country: fb.country,
-                                        londonBorough: fb.londonBorough
+                                        borough: fb.borough
                                       })}
                                     </small>
                                   </div>
-                                  {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
-                                    <span className="match-borough">{fb.londonBorough}</span>
+                                  {fb.borough && !isGreaterLondonCounty(fb.county) && (
+                                    <span className="match-borough">{fb.borough}</span>
                                   )}
                                 </>
                               ) : (
@@ -2355,12 +2355,12 @@ const MigrationPage: React.FC = () => {
                                 {formatStationLocationDisplay({
                                   county: fb.county,
                                   country: fb.country,
-                                  londonBorough: fb.londonBorough
+                                  borough: fb.borough
                                 })}
                               </small>
                             </div>
-                            {fb.londonBorough && !isGreaterLondonCounty(fb.county) && (
-                              <span className="match-borough">{fb.londonBorough}</span>
+                            {fb.borough && !isGreaterLondonCounty(fb.county) && (
+                              <span className="match-borough">{fb.borough}</span>
                             )}
                           </>
                         ) : (

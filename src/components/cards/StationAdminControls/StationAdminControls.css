@@ -23,6 +23,10 @@
   gap: 4px;
 }
 
+.station-admin-controls-group--add-mobile {
+  display: none;
+}
+
 .station-admin-controls-group--add .station-admin-controls-add-button {
   min-width: 0;
 }
@@ -52,7 +56,11 @@
     background-color: transparent;
     border: 0;
     border-radius: 0;
-    padding: 20px;
+    padding: var(--space-md) 0 0;
+  }
+
+  .station-admin-controls-group--add-mobile {
+    display: grid;
   }
 
   .station-admin-controls-group--pending {

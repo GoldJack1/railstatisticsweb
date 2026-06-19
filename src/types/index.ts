@@ -13,11 +13,13 @@ export interface Station {
   county: string | null
   toc: string | null
   stnarea: string | null
-  /** London borough (e.g. Greater London stations) */
-  londonBorough?: string | null
+  /** Borough or local authority area */
+  borough?: string | null
   /** Fare zone (e.g. 1, 2, 3 for TfL) */
   fareZone?: string | null
   yearlyPassengers: YearlyPassengers | null
+  /** URL path segment from Firestore `url` or `urlSlug`. */
+  stationUrl?: string | null
   /** Set when stations are loaded from a merged “All networks” view. */
   sourceCollectionId?: NetworkCollectionId
 }
@@ -41,6 +43,7 @@ export interface SandboxStationDoc {
   staffingLevel?: string
   nlc?: string
   'min-connection-time'?: string | number
+  url?: string
   urlSlug?: string
   toilets?: {
     toiletsAccessible?: string
@@ -67,7 +70,9 @@ export interface SandboxStationDoc {
   }
   facilities?: Record<string, unknown>
   yearlyPassengers?: Record<string, number | null>
-  londonBorough?: string
+  borough?: string
+  province?: string
+  'post-eir_code'?: string
   fareZone?: string | number
 }
 

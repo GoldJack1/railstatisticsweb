@@ -1,81 +1,119 @@
 /**
- * Station area → category and URL slug.
- * Used to build station detail URLs: {category}-{areaSlug}-{stationId}
- * e.g. rail-greatbritainnationalrail-0002
+ * Station detail URL paths: {networkSlug}/{stationSlug}
+ * e.g. gb-heritage/keighley, gb-national-rail/london-paddington
  */
 
-/** Categories for station URLs (rail + placeholders for future: metro, trams, tramtrain) */
-export const STATION_CATEGORIES = ['rail', 'metro', 'trams', 'tramtrain'] as const
-export type StationCategory = (typeof STATION_CATEGORIES)[number]
+import {
+  DEFAULT_NETWORK_COLLECTION_ID,
+  isStationCollectionId,
+  NETWORK_URL_SLUGS,
+  SANDBOX_URL_SLUG,
+  STNAREA_TO_NETWORK_COLLECTION,
+  isSandboxCollection,
+  type NetworkCollectionId,
+  type StationCollectionId,
+} from '../constants/stationCollections'
+import type { Station } from '../types'
 
-export interface StationAreaConfig {
-  category: StationCategory
-  slug: string
-}
-
-/**
- * Maps station area code (from Firebase stnarea) to category and URL slug.
- * GBNR = Great Britain National Rail → rail / greatbritainnationalrail.
- * Placeholder categories (metro, trams, tramtrain) can be extended when areas are added.
- */
-const STATION_AREA_MAP: Record<string, StationAreaConfig> = {
-  GBNR: { category: 'rail', slug: 'greatbritainnationalrail' }
-  // Future: e.g. METRO: { category: 'metro', slug: '...' }, TRAMS: { category: 'trams', slug: '...' }
-}
-
-const DEFAULT_CATEGORY: StationCategory = 'rail'
-
-function slugifyFallback(area: string): string {
-  return area
+export function slugifyStationPathSegment(value: string): string {
+  return String(value)
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^a-z0-9]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 }
 
-/**
- * Get category and slug for a station area code (e.g. GBNR).
- * Unknown areas default to rail and a slugified area code.
- */
-export function getStationAreaConfig(area: string | null | undefined): StationAreaConfig {
-  if (!area || typeof area !== 'string') {
-    return { category: DEFAULT_CATEGORY, slug: 'rail' }
+export function getNetworkUrlSlug(collectionId: StationCollectionId): string {
+  if (isSandboxCollection(collectionId)) return SANDBOX_URL_SLUG
+  return NETWORK_URL_SLUGS[collectionId]
+}
+
+export function getCollectionIdFromNetworkUrlSlug(slug: string): StationCollectionId | null {
+  const normalized = slug.trim().toLowerCase()
+  if (normalized === SANDBOX_URL_SLUG) return 'newsandboxstations1'
+  for (const id of Object.keys(NETWORK_URL_SLUGS) as NetworkCollectionId[]) {
+    if (NETWORK_URL_SLUGS[id] === normalized) return id
   }
-  const key = area.trim().toUpperCase()
-  const config = STATION_AREA_MAP[key]
-  if (config) return config
-  return { category: DEFAULT_CATEGORY, slug: slugifyFallback(area) || 'rail' }
+  return null
 }
 
-export function getCategoryForStationArea(area: string | null | undefined): StationCategory {
-  return getStationAreaConfig(area).category
+export function getStationNetworkCollectionId(
+  station: Station,
+  fallbackCollectionId?: StationCollectionId
+): StationCollectionId | null {
+  if (station.sourceCollectionId && isStationCollectionId(station.sourceCollectionId)) {
+    return station.sourceCollectionId
+  }
+  if (fallbackCollectionId && isStationCollectionId(fallbackCollectionId)) {
+    return fallbackCollectionId
+  }
+  const stnarea = station.stnarea?.trim().toUpperCase()
+  if (stnarea && STNAREA_TO_NETWORK_COLLECTION[stnarea]) {
+    return STNAREA_TO_NETWORK_COLLECTION[stnarea]
+  }
+  return null
 }
 
-export function getAreaSlug(area: string | null | undefined): string {
-  return getStationAreaConfig(area).slug
+/** URL path segment for a station (from Firestore `url` / `urlSlug`, else slugified name). */
+export function getStationPathSlug(station: Pick<Station, 'stationName' | 'stationUrl'>): string {
+  const fromDoc = station.stationUrl?.trim()
+  if (fromDoc) return slugifyStationPathSegment(fromDoc)
+  return slugifyStationPathSegment(station.stationName || '')
 }
 
 /**
- * Build station detail path segment: {category}-{areaSlug}-{stationId}
- * e.g. rail-greatbritainnationalrail-0002
+ * Build station detail path segment: {networkSlug}/{stationSlug}
+ * e.g. gb-heritage/keighley
  */
-export function buildStationPath(station: { id: string; stnarea?: string | null }): string {
-  const { category, slug } = getStationAreaConfig(station.stnarea ?? null)
-  return `${category}-${slug}-${station.id}`
+export function buildStationPath(
+  station: Station,
+  fallbackCollectionId?: StationCollectionId
+): string {
+  const collectionId =
+    getStationNetworkCollectionId(station, fallbackCollectionId) ??
+    (fallbackCollectionId && isStationCollectionId(fallbackCollectionId)
+      ? fallbackCollectionId
+      : DEFAULT_NETWORK_COLLECTION_ID)
+  const networkSlug = getNetworkUrlSlug(collectionId)
+  const stationSlug = getStationPathSlug(station)
+  return `${networkSlug}/${stationSlug}`
+}
+
+export function findStationByRoute(
+  stations: Station[],
+  networkSlug: string,
+  stationSlug: string,
+  fallbackCollectionId?: StationCollectionId
+): Station | null {
+  const collectionId = getCollectionIdFromNetworkUrlSlug(networkSlug)
+  if (!collectionId) return null
+  const normalizedStationSlug = slugifyStationPathSegment(decodeURIComponent(stationSlug))
+
+  return (
+    stations.find((station) => {
+      const stationCollection = getStationNetworkCollectionId(station, fallbackCollectionId)
+      if (stationCollection !== collectionId) return false
+      return getStationPathSlug(station) === normalizedStationSlug
+    }) ?? null
+  )
 }
 
 /**
- * Parse a path segment to get station ID.
+ * Parse a legacy single-segment path to get station ID.
  * Accepts:
- * - New format: rail-greatbritainnationalrail-0002 → 0002
- * - Legacy: 0002 → 0002
+ * - Old category format: rail-greatbritainnationalrail-0002 → 0002
+ * - Legacy id-only: 0002 → 0002
  */
-export function parseStationPath(pathSegment: string): string {
+export function parseLegacyStationPath(pathSegment: string): string {
   if (!pathSegment || pathSegment === 'new') return pathSegment
   const parts = pathSegment.split('-')
   if (parts.length >= 3) {
-    // category-areaSlug-id: id is last segment
     return parts[parts.length - 1]
   }
   return pathSegment
+}
+
+/** @deprecated Use parseLegacyStationPath */
+export function parseStationPath(pathSegment: string): string {
+  return parseLegacyStationPath(pathSegment)
 }

@@ -31,6 +31,8 @@ bash scripts/deploy-cloud-functions.sh
 
 - `processScheduledStationPublishJobs` (scheduled station publish)
 - `onNewStationAdded` (new-station push notifications for `stations_gbnr`)
+- `onNewStationAddedNitranslink` (`stations_nitranslink`)
+- `onNewStationAddedRoiirerail` (`stations_roiirerail`)
 
 ## What does NOT get updated
 

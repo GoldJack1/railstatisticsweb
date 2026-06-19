@@ -2,6 +2,13 @@ export const NETWORK_COLLECTION_IDS = [
   "stations_gbnr",
   "stations_nitranslink",
   "stations_roiirerail",
+  "stations_gbheritage",
+] as const;
+
+export const NEW_STATION_NOTIFICATION_COLLECTION_IDS = [
+  "stations_gbnr",
+  "stations_nitranslink",
+  "stations_roiirerail",
 ] as const;
 
 export type NetworkCollectionId = (typeof NETWORK_COLLECTION_IDS)[number];

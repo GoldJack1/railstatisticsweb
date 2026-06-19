@@ -1,7 +1,6 @@
 /**
- * FROZEN: Production new-station notifications (FCM topic + OneSignal).
- * Do not change behavior here unless you are deliberately updating that product flow.
- * Historical reference: `.cursor/index.js` (same logic).
+ * Production new-station notifications (FCM topic + OneSignal).
+ * Only fires for main network collections — not heritage or sandbox.
  */
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
@@ -82,89 +81,107 @@ function buildStationCollectionUpdatesFilters(): Array<Record<string, unknown>> 
   ];
 }
 
-export const onNewStationAdded = functions.firestore
-  .document("stations_gbnr/{stationId}")
-  .onCreate(async (snap, context) => {
-    const stationData = snap.data()!;
-    const stationName = stationData.stationname || "Unknown Station";
-    const crsCode = stationData.CrsCode || "";
-    const toc = stationData.TOC || "";
-    const country = stationData.country || "";
+async function handleNewStationAdded(
+  sourceCollection: string,
+  stationId: string,
+  stationData: FirebaseFirestore.DocumentData
+): Promise<null> {
+  const stationName = stationData.stationname || "Unknown Station";
+  const crsCode = stationData.CrsCode || "";
+  const toc = stationData.TOC || "";
+  const country = stationData.country || "";
 
-    console.log(`🆕 New station detected: ${stationName}`);
+  console.log(`🆕 New station detected in ${sourceCollection}: ${stationName}`);
 
-    const message = {
-      notification: {
-        title: "New Station!",
-        body: `${stationName} has just opened! Have you been?`,
-      },
-      data: {
-        type: "new_station",
-        stationId: context.params.stationId,
-        stationName: stationName,
-        crsCode: crsCode,
-        toc: toc,
-        country: country,
-      },
-      apns: {
-        payload: {
-          aps: {
-            alert: {
-              title: "New Station!",
-              body: `${stationName} has just opened! Have you been?`,
-            },
-            badge: 1,
-            sound: "default",
+  const message = {
+    notification: {
+      title: "New Station!",
+      body: `${stationName} has just opened! Have you been?`,
+    },
+    data: {
+      type: "new_station",
+      stationId: stationId,
+      stationName: stationName,
+      crsCode: crsCode,
+      toc: toc,
+      country: country,
+      sourceCollection: sourceCollection,
+    },
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            title: "New Station!",
+            body: `${stationName} has just opened! Have you been?`,
           },
+          badge: 1,
+          sound: "default",
         },
       },
-      topic: "ia_new_stations",
-    };
+    },
+    topic: "ia_new_stations",
+  };
 
-    try {
-      const response = await admin.messaging().send(message);
-      console.log("✅ Notification sent successfully:", response);
-    } catch (error) {
-      console.error("❌ Error sending notification:", error);
-    }
+  try {
+    const response = await admin.messaging().send(message);
+    console.log(`✅ FCM notification sent for ${sourceCollection}:`, response);
+  } catch (error) {
+    console.error(`❌ FCM error for ${sourceCollection}:`, error);
+  }
 
-    // Also send via OneSignal (production) to users opted into station collection updates.
-    // This lets you keep FCM topic notifications while migrating to OneSignal.
-    const oneSignalPayload = {
-      filters: buildStationCollectionUpdatesFilters(),
-      target_channel: "push",
-      headings: {en: "New Station!"},
-      contents: {en: `${stationName} has just opened! Have you been?`},
-      data: {
-        type: "new_station",
-        station_collection_updates: "true",
-        stationId: context.params.stationId,
-        stationName: stationName,
-        crsCode: crsCode,
-        toc: toc,
-        country: country,
-        sourceCollection: "stations_gbnr",
-      },
-      small_icon: "onesignal_small_icon_default",
-      ios_badgeType: "Increase",
-      ios_badgeCount: 1,
-    };
+  const oneSignalPayload = {
+    filters: buildStationCollectionUpdatesFilters(),
+    target_channel: "push",
+    headings: {en: "New Station!"},
+    contents: {en: `${stationName} has just opened! Have you been?`},
+    data: {
+      type: "new_station",
+      station_collection_updates: "true",
+      stationId: stationId,
+      stationName: stationName,
+      crsCode: crsCode,
+      toc: toc,
+      country: country,
+      sourceCollection: sourceCollection,
+    },
+    small_icon: "onesignal_small_icon_default",
+    ios_badgeType: "Increase",
+    ios_badgeCount: 1,
+  };
 
-    try {
-      const osResponse = await sendOneSignalNotification(oneSignalPayload);
-      console.log("✅ OneSignal production notification sent:", {
-        statusCode: osResponse.statusCode,
-        id: osResponse.body && osResponse.body.id ? osResponse.body.id : "unknown",
-        recipients: osResponse.body && typeof osResponse.body.recipients !== "undefined"
-          ? osResponse.body.recipients
-          : "unknown",
-        errors: osResponse.body && osResponse.body.errors ? osResponse.body.errors : null,
-        raw: osResponse.body && osResponse.body.raw ? osResponse.body.raw : null,
-      });
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error("❌ OneSignal production notification failed:", msg);
-    }
+  try {
+    const osResponse = await sendOneSignalNotification(oneSignalPayload);
+    console.log(`✅ OneSignal notification sent for ${sourceCollection}:`, {
+      statusCode: osResponse.statusCode,
+      id: osResponse.body && osResponse.body.id ? osResponse.body.id : "unknown",
+      recipients: osResponse.body && typeof osResponse.body.recipients !== "undefined"
+        ? osResponse.body.recipients
+        : "unknown",
+      errors: osResponse.body && osResponse.body.errors ? osResponse.body.errors : null,
+      raw: osResponse.body && osResponse.body.raw ? osResponse.body.raw : null,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ OneSignal error for ${sourceCollection}:`, msg);
+  }
 
-    return null;
-  });
+  return null;
+}
+
+function createOnNewStationAddedTrigger(collectionId: string) {
+  return functions.firestore
+    .document(`${collectionId}/{stationId}`)
+    .onCreate(async (snap, context) => {
+      return handleNewStationAdded(
+        collectionId,
+        context.params.stationId,
+        snap.data()!
+      );
+    });
+}
+
+/** @deprecated Use named exports below; kept for existing deployed function name on stations_gbnr. */
+export const onNewStationAdded = createOnNewStationAddedTrigger("stations_gbnr");
+
+export const onNewStationAddedNitranslink = createOnNewStationAddedTrigger("stations_nitranslink");
+export const onNewStationAddedRoiirerail = createOnNewStationAddedTrigger("stations_roiirerail");

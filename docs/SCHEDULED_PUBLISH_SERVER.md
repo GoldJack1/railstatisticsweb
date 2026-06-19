@@ -37,7 +37,7 @@ Pending station edits can be **queued in Firestore** and applied by a **schedule
 
 - The app writes a document to **`scheduledStationPublishJobs`** with:
   - `runAt` — when to publish (Firestore `Timestamp`)
-  - `collectionId` — `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, or `newsandboxstations1`
+  - `collectionId` — `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, `stations_gbheritage`, or `newsandboxstations1`
   - `changes` — snapshot of pending edits (same shape the web app uses for publish)
   - `stationIds` — list of station document IDs in that snapshot
   - `status` — `pending` → `processing` → `completed` or `failed`

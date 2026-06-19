@@ -11,7 +11,7 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import {processDueScheduledStationJobs} from "./stationScheduledPublish";
 
-export {onNewStationAdded} from "./onNewStationAdded";
+export {onNewStationAdded, onNewStationAddedNitranslink, onNewStationAddedRoiirerail} from "./onNewStationAdded";
 
 setGlobalOptions({maxInstances: 10});
 

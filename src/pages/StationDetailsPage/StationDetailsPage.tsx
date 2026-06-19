@@ -1,10 +1,18 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStations } from '../../hooks/useStations'
+import { useStationCollectionFieldSchema } from '../../hooks/useStationCollectionFieldSchema'
 import type { SandboxStationDoc, Station } from '../../types'
 import { fetchStationDocumentById } from '../../services/firebase'
-import { buildStationPath, parseStationPath } from '../../utils/stationAreaSlug'
-import { StationDetailsView, type StationDetailsTab } from '../../components/models'
+import { buildStationPath, findStationByRoute } from '../../utils/stationAreaSlug'
+import { isStationCollectionId } from '../../constants/stationCollections'
+import { useStationCollection } from '../../contexts/StationCollectionContext'
+import {
+  getVisibleStationDetailsTabs,
+  stationDetailsShowsAdditionalTab,
+  type StationDetailsTab,
+} from '../../utils/stationCollectionFieldSchema'
+import { StationDetailsView } from '../../components/models'
 import { StationDetailsEditForm } from '../../components/models'
 import { BUTWideButton } from '../../components/buttons'
 import { BUTCircleButton } from '../../components/buttons'
@@ -19,8 +27,8 @@ interface StationDetailsPageProps {
 
 const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const navigate = useNavigate()
-  const { stationId: stationIdParam } = useParams()
-  const stationId = parseStationPath(stationIdParam ?? '')
+  const { network = '', stationSlug = '' } = useParams()
+  const { collectionId } = useStationCollection()
   const { stations, loading, error } = useStations()
   const [additionalDoc, setAdditionalDoc] = useState<SandboxStationDoc | null>(null)
   const [additionalLoading, setAdditionalLoading] = useState(false)
@@ -30,7 +38,19 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const [maxTabContentHeight, setMaxTabContentHeight] = useState(0)
   const visibleBodyRef = useRef<HTMLDivElement | null>(null)
   const tabMeasureRefs = useRef<Partial<Record<StationDetailsTab, HTMLDivElement | null>>>({})
-  const TAB_ORDER: StationDetailsTab[] = ['details', 'additional', 'service', 'location', 'usage', 'stepFree', 'facilities']
+
+  const station: Station | null = useMemo(() => {
+    if (!network || !stationSlug) return null
+    return findStationByRoute(stations, network, stationSlug, collectionId)
+  }, [stations, network, stationSlug, collectionId])
+
+  const schemaCollectionId =
+    station?.sourceCollectionId && isStationCollectionId(station.sourceCollectionId)
+      ? station.sourceCollectionId
+      : null
+  const { fieldSchema, loading: schemaLoading } = useStationCollectionFieldSchema(schemaCollectionId)
+  const showAdditionalTab = stationDetailsShowsAdditionalTab(fieldSchema)
+  const visibleTabs = useMemo(() => getVisibleStationDetailsTabs(fieldSchema), [fieldSchema])
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)')
@@ -40,10 +60,20 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     return () => mql.removeEventListener('change', update)
   }, [])
 
-  const station: Station | null = useMemo(() => {
-    if (!stationId) return null
-    return stations.find((s) => s.id === stationId) ?? null
-  }, [stations, stationId])
+  useEffect(() => {
+    if (activeTab === 'additional' && !showAdditionalTab) setActiveTab('details')
+    if (activeTab === 'service' && !fieldSchema.showServiceTab) setActiveTab('details')
+    if (activeTab === 'usage' && !fieldSchema.showUsageTab) setActiveTab('details')
+    if (activeTab === 'stepFree' && !fieldSchema.showStepFreeTab) setActiveTab('details')
+    if (activeTab === 'facilities' && !fieldSchema.showFacilitiesTab) setActiveTab('details')
+  }, [
+    activeTab,
+    showAdditionalTab,
+    fieldSchema.showServiceTab,
+    fieldSchema.showUsageTab,
+    fieldSchema.showStepFreeTab,
+    fieldSchema.showFacilitiesTab,
+  ])
 
   useEffect(() => {
     if (!station) return
@@ -54,11 +84,11 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   }, [mode, station])
 
   useEffect(() => {
-    if (!stationId) return
+    if (!station) return
     let cancelled = false
     setAdditionalLoading(true)
     setAdditionalDoc(null)
-    fetchStationDocumentById(stationId)
+    fetchStationDocumentById(station.id, station.sourceCollectionId ?? collectionId)
       .then((data) => {
         if (cancelled) return
         setAdditionalDoc((data as SandboxStationDoc) ?? null)
@@ -69,13 +99,13 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     return () => {
       cancelled = true
     }
-  }, [stationId])
+  }, [station?.id, station?.sourceCollectionId, collectionId])
 
   useLayoutEffect(() => {
     if (mode !== 'view') return
 
     const measureHeights = () => {
-      const heights = TAB_ORDER
+      const heights = visibleTabs
         .map((tab) => {
           const pane = tabMeasureRefs.current[tab]
           if (!pane) return 0
@@ -98,7 +128,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
       window.cancelAnimationFrame(frameB)
       window.removeEventListener('resize', measureHeights)
     }
-  }, [mode, station?.id, additionalDoc, additionalLoading])
+  }, [mode, station?.id, additionalDoc, additionalLoading, visibleTabs])
 
   useEffect(() => {
     setMaxTabContentHeight(0)
@@ -114,7 +144,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     // #endregion
   }, [mode, activeTab, isMobile, maxTabContentHeight, station?.id])
 
-  if (loading) {
+  if (loading || schemaLoading) {
     return (
       <div className="container">
         <div className="loading-state">
@@ -136,7 +166,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     )
   }
 
-  if (!stationId || !station) {
+  if (!network || !stationSlug || !station) {
     return (
       <div className="container">
         <div className="error-state">
@@ -176,7 +206,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 <BUTCircleButton
                   type="button"
                   ariaLabel="Edit station"
-                  onClick={() => navigate(`/stations/${buildStationPath(station)}/edit`)}
+                  onClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}/edit`)}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 20h9" />
@@ -188,7 +218,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 <BUTCircleButton
                   type="button"
                   ariaLabel="View station"
-                  onClick={() => navigate(`/stations/${buildStationPath(station)}`)}
+                  onClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}`)}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
@@ -213,26 +243,30 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
               >
                 Details
               </BUTWideButton>
-              <BUTWideButton
-                type="button"
-                width="hug"
-                colorVariant="accent"
-                className="station-details-tab"
-                state={activeTab === 'additional' ? 'active' : 'pressed'}
-                onClick={() => setActiveTab('additional')}
-              >
-                Additional details
-              </BUTWideButton>
-              <BUTWideButton
-                type="button"
-                width="hug"
-                colorVariant="accent"
-                className="station-details-tab"
-                state={activeTab === 'service' ? 'active' : 'pressed'}
-                onClick={() => setActiveTab('service')}
-              >
-                Service & Connections
-              </BUTWideButton>
+              {showAdditionalTab && (
+                <BUTWideButton
+                  type="button"
+                  width="hug"
+                  colorVariant="accent"
+                  className="station-details-tab"
+                  state={activeTab === 'additional' ? 'active' : 'pressed'}
+                  onClick={() => setActiveTab('additional')}
+                >
+                  Additional details
+                </BUTWideButton>
+              )}
+              {fieldSchema.showServiceTab && (
+                <BUTWideButton
+                  type="button"
+                  width="hug"
+                  colorVariant="accent"
+                  className="station-details-tab"
+                  state={activeTab === 'service' ? 'active' : 'pressed'}
+                  onClick={() => setActiveTab('service')}
+                >
+                  Service & Connections
+                </BUTWideButton>
+              )}
               <BUTWideButton
                 type="button"
                 width="hug"
@@ -243,36 +277,42 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
               >
                 Location
               </BUTWideButton>
-              <BUTWideButton
-                type="button"
-                width="hug"
-                colorVariant="accent"
-                className="station-details-tab"
-                state={activeTab === 'usage' ? 'active' : 'pressed'}
-                onClick={() => setActiveTab('usage')}
-              >
-                Usage
-              </BUTWideButton>
-              <BUTWideButton
-                type="button"
-                width="hug"
-                colorVariant="accent"
-                className="station-details-tab"
-                state={activeTab === 'stepFree' ? 'active' : 'pressed'}
-                onClick={() => setActiveTab('stepFree')}
-              >
-                Step-free & Lift access
-              </BUTWideButton>
-              <BUTWideButton
-                type="button"
-                width="hug"
-                colorVariant="accent"
-                className="station-details-tab"
-                state={activeTab === 'facilities' ? 'active' : 'pressed'}
-                onClick={() => setActiveTab('facilities')}
-              >
-                Facilities
-              </BUTWideButton>
+              {fieldSchema.showUsageTab && (
+                <BUTWideButton
+                  type="button"
+                  width="hug"
+                  colorVariant="accent"
+                  className="station-details-tab"
+                  state={activeTab === 'usage' ? 'active' : 'pressed'}
+                  onClick={() => setActiveTab('usage')}
+                >
+                  Usage
+                </BUTWideButton>
+              )}
+              {fieldSchema.showStepFreeTab && (
+                <BUTWideButton
+                  type="button"
+                  width="hug"
+                  colorVariant="accent"
+                  className="station-details-tab"
+                  state={activeTab === 'stepFree' ? 'active' : 'pressed'}
+                  onClick={() => setActiveTab('stepFree')}
+                >
+                  {fieldSchema.stepFreeTabLabel}
+                </BUTWideButton>
+              )}
+              {fieldSchema.showFacilitiesTab && (
+                <BUTWideButton
+                  type="button"
+                  width="hug"
+                  colorVariant="accent"
+                  className="station-details-tab"
+                  state={activeTab === 'facilities' ? 'active' : 'pressed'}
+                  onClick={() => setActiveTab('facilities')}
+                >
+                  Facilities
+                </BUTWideButton>
+              )}
             </nav>
           </aside>
 
@@ -284,6 +324,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                   onCancel={() => navigate('/stations')}
                   onSaved={() => navigate('/stations')}
                   activeTab={activeTab}
+                  fieldSchema={fieldSchema}
                   actionsPortalId={isMobile ? 'station-details-sidebar-actions' : 'station-details-header-actions'}
                   onUnsavedChangesChange={setEditFormHasUnsavedChanges}
                 />
@@ -298,9 +339,10 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                     additionalDoc={additionalDoc}
                     additionalLoading={additionalLoading}
                     activeTab={activeTab}
+                    fieldSchema={fieldSchema}
                   />
                   <div className="station-details-measure-layer" aria-hidden="true">
-                    {TAB_ORDER.map((tab) => (
+                    {visibleTabs.map((tab) => (
                       <div
                         key={tab}
                         className="station-details-measure-pane"
@@ -313,6 +355,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                           additionalDoc={additionalDoc}
                           additionalLoading={additionalLoading}
                           activeTab={tab}
+                          fieldSchema={fieldSchema}
                         />
                       </div>
                     ))}

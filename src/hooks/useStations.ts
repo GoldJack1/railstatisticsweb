@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   fetchStationsFromFirebase,
   fetchAllNetworkStationsFromFirebase,
@@ -8,6 +8,7 @@ import type { Station, StationStats, UseStationsReturn } from '../types'
 import { useStationCollection } from '../contexts/StationCollectionContext'
 
 const FIREBASE_TIMEOUT_MS = 12_000
+const SANDBOX_COLLECTION_ID = 'newsandboxstations1'
 
 const getErrorMessage = (err: unknown): string => {
   if (err instanceof Error) return err.message
@@ -20,8 +21,9 @@ const getErrorMessage = (err: unknown): string => {
 }
 
 export const useStations = (): UseStationsReturn => {
-  const { collectionId, networkView, isSandbox } = useStationCollection()
-  const [stations, setStations] = useState<Station[]>([])
+  const { isSandbox } = useStationCollection()
+  const [networkStations, setNetworkStations] = useState<Station[]>([])
+  const [sandboxStations, setSandboxStations] = useState<Station[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<StationStats>({
@@ -30,31 +32,41 @@ export const useStations = (): UseStationsReturn => {
     withTOC: 0,
     withPassengers: 0
   })
+  const networksLoadedRef = useRef(false)
+  const sandboxLoadedRef = useRef(false)
+
+  const stations = isSandbox ? sandboxStations : networkStations
 
   const loadStations = useCallback(async (): Promise<void> => {
     try {
-      setLoading(true)
       setError(null)
 
       const useLocalOnly = import.meta.env.VITE_USE_LOCAL_DATA_ONLY === 'true'
 
       if (useLocalOnly) {
+        setLoading(true)
         const localStations = await fetchLocalStations()
         if (localStations.length > 0) {
-          setStations(localStations)
+          setNetworkStations(localStations)
           setStats(calculateStats(localStations))
+          networksLoadedRef.current = true
         } else {
           setError('No local data. Add public/data/stations.json or set VITE_USE_LOCAL_DATA_ONLY=false.')
         }
         return
       }
 
+      const hasCached = isSandbox ? sandboxLoadedRef.current : networksLoadedRef.current
+      if (!hasCached) {
+        setLoading(true)
+      }
+
       const isDev = import.meta.env.DEV
       const fetchData = async (): Promise<Station[]> => {
-        if (!isSandbox && networkView === 'all') {
-          return fetchAllNetworkStationsFromFirebase()
+        if (isSandbox) {
+          return fetchStationsFromFirebase(SANDBOX_COLLECTION_ID)
         }
-        return fetchStationsFromFirebase(collectionId)
+        return fetchAllNetworkStationsFromFirebase()
       }
 
       let firebaseStations: Station[]
@@ -68,7 +80,13 @@ export const useStations = (): UseStationsReturn => {
       }
 
       if (firebaseStations.length > 0) {
-        setStations(firebaseStations)
+        if (isSandbox) {
+          setSandboxStations(firebaseStations)
+          sandboxLoadedRef.current = true
+        } else {
+          setNetworkStations(firebaseStations)
+          networksLoadedRef.current = true
+        }
         setStats(calculateStats(firebaseStations))
       } else {
         throw new Error('No data available in Firebase')
@@ -84,7 +102,7 @@ export const useStations = (): UseStationsReturn => {
     } finally {
       setLoading(false)
     }
-  }, [collectionId, networkView, isSandbox])
+  }, [isSandbox])
 
   useEffect(() => {
     void loadStations()

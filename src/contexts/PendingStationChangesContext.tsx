@@ -50,6 +50,8 @@ export interface PendingChangeEntry {
   updated: Partial<Station>
   /** Optional sandbox-only extra fields (for newsandboxstations1). */
   sandboxUpdated?: Partial<SandboxStationDoc> | null
+  /** Snapshot of additional fields before edit (for per-field review diffs). */
+  sandboxOriginal?: Partial<SandboxStationDoc> | null
   isNew?: boolean
 }
 
@@ -59,7 +61,8 @@ interface PendingStationChangesContextValue {
     station: Station,
     updated: Partial<Station>,
     targetCollectionId: StationCollectionId,
-    sandboxUpdated?: Partial<SandboxStationDoc> | null
+    sandboxUpdated?: Partial<SandboxStationDoc> | null,
+    sandboxOriginal?: Partial<SandboxStationDoc> | null
   ) => void
   addNewPendingStation: (
     stationId: string,
@@ -99,7 +102,8 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
     station: Station,
     updated: Partial<Station>,
     targetCollectionId: StationCollectionId,
-    sandboxUpdated?: Partial<SandboxStationDoc> | null
+    sandboxUpdated?: Partial<SandboxStationDoc> | null,
+    sandboxOriginal?: Partial<SandboxStationDoc> | null
   ) => {
     setPendingChanges(prev => ({
       ...prev,
@@ -108,6 +112,10 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
         original: station,
         updated,
         sandboxUpdated: sandboxUpdated ?? prev[station.id]?.sandboxUpdated ?? null,
+        sandboxOriginal:
+          sandboxOriginal !== undefined
+            ? sandboxOriginal
+            : prev[station.id]?.sandboxOriginal ?? null,
         isNew: prev[station.id]?.isNew
       }
     }))
@@ -130,7 +138,7 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
       county: updated.county ?? null,
       toc: updated.toc ?? null,
       stnarea: updated.stnarea ?? null,
-      londonBorough: updated.londonBorough ?? null,
+      borough: updated.borough ?? null,
       fareZone: updated.fareZone ?? null,
       yearlyPassengers: (updated.yearlyPassengers ?? null) as Station['yearlyPassengers']
     }

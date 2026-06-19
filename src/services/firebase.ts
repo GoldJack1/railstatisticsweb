@@ -555,18 +555,20 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
       const fareZoneRaw = data.fareZone ?? data.fare_zone ?? data.FareZone ?? data['Fare Zone'] ?? data.farezone
       const fareZone = fareZoneRaw != null && fareZoneRaw !== '' ? String(fareZoneRaw) : null
 
-      let londonBorough: string | null =
-        data.londonBorough ??
-        data['London Borough'] ??
-        data.LondonBorough ??
-        data.london_borough ??
-        data.borough ??
-        data.Borough ??
-        null
-      if (londonBorough == null && typeof data.address === 'object' && data.address !== null) {
+      let borough: string | null = data.borough ?? data.Borough ?? null
+      if (borough == null) {
+        const legacy =
+          data.londonBorough ??
+          data['London Borough'] ??
+          data.LondonBorough ??
+          data.london_borough ??
+          null
+        if (legacy != null && legacy !== '') borough = String(legacy)
+      }
+      if (borough == null && typeof data.address === 'object' && data.address !== null) {
         const addr = data.address as Record<string, unknown>
-        const b = addr.borough ?? addr.londonBorough ?? addr['London Borough']
-        if (b != null && b !== '') londonBorough = String(b)
+        const b = addr.borough ?? addr.Borough
+        if (b != null && b !== '') borough = String(b)
       }
 
       const station = {
@@ -580,9 +582,10 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         county: data.county || null,
         toc: data.TOC || data.toc || null,
         stnarea: data.stnarea || null,
-        londonBorough: londonBorough != null && londonBorough !== '' ? String(londonBorough) : null,
+        borough: borough != null && borough !== '' ? String(borough) : null,
         fareZone,
         yearlyPassengers: data.yearlyPassengers || null,
+        stationUrl: String(data.url ?? data.urlSlug ?? '').trim() || null,
         ...(isNetworkCollection(collectionName) ? { sourceCollectionId: collectionName } : {}),
       }
       
@@ -629,7 +632,7 @@ const stationToFirestoreUpdate = (data: Partial<Station>): Record<string, unknow
   if (data.county !== undefined) update.county = data.county
   if (data.toc !== undefined) update.TOC = data.toc
   if (data.stnarea !== undefined) update.stnarea = data.stnarea
-  if (data.londonBorough !== undefined) update.londonBorough = data.londonBorough
+  if (data.borough !== undefined) update.borough = data.borough
   if (data.fareZone !== undefined) update.fareZone = data.fareZone
   if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers
   if (data.latitude !== undefined && data.longitude !== undefined) {
@@ -714,6 +717,30 @@ export const mergeStationAdditionalDetailsInFirebase = async (
   const payload = data as Record<string, unknown>
   if (!payload || Object.keys(payload).length === 0) return
   await setDoc(docRef, payload, { merge: true })
+}
+
+/** Sample raw station documents from a collection (for inferring field schema). */
+export const fetchStationCollectionSampleDocs = async (
+  collectionId: StationCollectionId,
+  maxDocs = 40
+): Promise<Record<string, unknown>[]> => {
+  if (!db) {
+    const { db: newDb } = await initializeFirebase()
+    db = newDb
+  }
+  if (!db) return []
+  try {
+    const stationsRef = collection(db, collectionId)
+    const snapshot = await getDocs(query(stationsRef, limit(maxDocs)))
+    const docs: Record<string, unknown>[] = []
+    snapshot.forEach((snap) => {
+      docs.push(snap.data() as Record<string, unknown>)
+    })
+    return docs
+  } catch (error) {
+    console.error('Firebase fetch collection sample docs error:', error)
+    return []
+  }
 }
 
 /** Fetch a single station document by ID from the current collection (for sandbox full-detail modal). */

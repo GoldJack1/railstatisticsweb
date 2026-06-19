@@ -1,32 +1,49 @@
 import React, { useEffect } from 'react'
 import type { Station, SandboxStationDoc } from '../../../types'
 import { formatFareZoneDisplay } from '../../../utils/formatFareZone'
+import { readStationUrl, resolveStationUrlHref } from '../../../utils/stationUrlField'
+import type { StationCollectionFieldSchema } from '../../../utils/stationCollectionFieldSchema'
+import { stationDetailsShowsAdditionalTab } from '../../../utils/stationCollectionFieldSchema'
+import { useStationFieldSchema } from '../../../hooks/useStationCollectionFieldSchema'
 import { BUTBaseButton as Button } from '../../buttons'
 import StationResponsiveLocationMap from './StationResponsiveLocationMap'
 
+const BLANK_DISPLAY = '---'
+
+const isBlankValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string' && value.trim() === '') return true
+  return false
+}
+
+const formatOptionalText = (value: string | null | undefined): string => {
+  if (isBlankValue(value)) return BLANK_DISPLAY
+  return String(value)
+}
+
 const formatValue = (v: unknown): string => {
-  if (v === null || v === undefined) return 'N/A'
+  if (isBlankValue(v)) return BLANK_DISPLAY
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
 
-/** Get London borough from station or raw doc (tries common field names). */
-const getLondonBorough = (station: Station | null, doc: Record<string, unknown> | null | undefined): string | null => {
-  if (station?.londonBorough) return station.londonBorough
+/** Get borough from station or raw doc (tries common field names). */
+const getBorough = (station: Station | null, doc: Record<string, unknown> | null | undefined): string | null => {
+  if (station?.borough) return station.borough
   if (!doc) return null
   let v: unknown =
+    doc.borough ??
+    doc.Borough ??
     doc.londonBorough ??
     doc['London Borough'] ??
     doc.LondonBorough ??
-    doc.london_borough ??
-    doc.borough ??
-    doc.Borough
+    doc.london_borough
   if (v == null || v === '') {
     const addr = doc.address
     if (typeof addr === 'object' && addr !== null) {
       const a = addr as Record<string, unknown>
-      v = a.borough ?? a.londonBorough ?? a['London Borough']
+      v = a.borough ?? a.Borough
     }
   }
   if (v == null || v === '') return null
@@ -60,7 +77,7 @@ const getYearlyPassengerEntries = (
         if (typeof count === 'number') {
           return { year, value: count.toLocaleString() }
         }
-        return { year, value: 'N/A' }
+        return { year, value: BLANK_DISPLAY }
       })
     }
 
@@ -84,14 +101,7 @@ const getYearlyPassengerEntries = (
   return []
 }
 
-export type StationDetailsTab =
-  | 'details'
-  | 'location'
-  | 'usage'
-  | 'additional'
-  | 'stepFree'
-  | 'service'
-  | 'facilities'
+import type { StationDetailsTab } from '../../../utils/stationCollectionFieldSchema'
 
 interface StationDetailsViewProps {
   station: Station
@@ -99,6 +109,8 @@ interface StationDetailsViewProps {
   additionalLoading?: boolean
   /** When undefined (e.g. in modal), all sections are shown. When set, only that tab's content is shown. */
   activeTab?: StationDetailsTab
+  /** Per-network field visibility; inferred from Firestore when omitted. */
+  fieldSchema?: StationCollectionFieldSchema
 }
 
 const StationDetailsView: React.FC<StationDetailsViewProps> = ({
@@ -106,7 +118,10 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   additionalDoc,
   additionalLoading,
   activeTab,
+  fieldSchema: fieldSchemaProp,
 }) => {
+  const { fieldSchema } = useStationFieldSchema(station, fieldSchemaProp)
+  const showAdditionalFields = stationDetailsShowsAdditionalTab(fieldSchema)
   const hasCoordinates = station.latitude !== 0 && station.longitude !== 0
   const googleMapsUrl = hasCoordinates ? `https://www.google.com/maps?q=${station.latitude},${station.longitude}` : null
 
@@ -122,11 +137,16 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   const showAll = activeTab === undefined
   const showDetails = showAll || activeTab === 'details'
   const showLocationTab = showAll || activeTab === 'location'
-  const showUsage = showAll || activeTab === 'usage'
-  const showAdditional = showAll || activeTab === 'additional'
-  const showStepFree = showAll || activeTab === 'stepFree'
-  const showService = showAll || activeTab === 'service'
-  const showFacilities = showAll || activeTab === 'facilities'
+  const showUsage = fieldSchema.showUsageTab && (showAll || activeTab === 'usage')
+  const showAdditional = showAdditionalFields && (showAll || activeTab === 'additional')
+  const showStepFree = fieldSchema.showStepFreeTab && (showAll || activeTab === 'stepFree')
+  const showService = fieldSchema.showServiceTab && (showAll || activeTab === 'service')
+  const showFacilities = fieldSchema.showFacilitiesTab && (showAll || activeTab === 'facilities')
+
+  const stationUrlValue = readStationUrl(
+    additionalDoc ?? ({ url: station.stationUrl, urlSlug: station.stationUrl } as Partial<SandboxStationDoc>)
+  )
+  const stationUrlHref = resolveStationUrlHref(stationUrlValue)
 
   useEffect(() => {
     if (!showLocationTab || !showLocation) return
@@ -143,48 +163,77 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
           <div className="modal-details-grid modal-facilities-grid">
             <div className="modal-detail-item">
               <span className="modal-detail-label">Station ID</span>
-              <span className="modal-detail-value">{station.id ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.id)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">CRS Code</span>
-              <span className="modal-detail-value">{station.crsCode ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.crsCode)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">Tiploc</span>
-              <span className="modal-detail-value">{station.tiploc ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.tiploc)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">TOC</span>
-              <span className="modal-detail-value">{station.toc ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.toc)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">Country</span>
-              <span className="modal-detail-value">{station.country ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.country)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">County</span>
-              <span className="modal-detail-value">{station.county ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.county)}</span>
             </div>
             <div className="modal-detail-item">
               <span className="modal-detail-label">Station area</span>
-              <span className="modal-detail-value">{station.stnarea ?? 'N/A'}</span>
+              <span className="modal-detail-value">{formatOptionalText(station.stnarea)}</span>
             </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">London Borough</span>
-              <span className="modal-detail-value">
-                {getLondonBorough(station, additionalDoc as Record<string, unknown> | null) ?? 'N/A'}
-              </span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Fare zone</span>
-              <span className="modal-detail-value">
-                {(() => {
-                  const z = getFareZone(station, additionalDoc as Record<string, unknown> | null)
-                  return z ? (formatFareZoneDisplay(z) || z) : 'N/A'
-                })()}
-              </span>
-            </div>
+            {fieldSchema.showBorough && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Borough</span>
+                <span className="modal-detail-value">
+                  {formatOptionalText(getBorough(station, additionalDoc as Record<string, unknown> | null))}
+                </span>
+              </div>
+            )}
+            {fieldSchema.showFareZone && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Fare zone</span>
+                <span className="modal-detail-value">
+                  {(() => {
+                    const z = getFareZone(station, additionalDoc as Record<string, unknown> | null)
+                    if (isBlankValue(z)) return BLANK_DISPLAY
+                    return formatFareZoneDisplay(z!) || z
+                  })()}
+                </span>
+              </div>
+            )}
+            {fieldSchema.showUrl && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">{fieldSchema.urlFieldLabel}</span>
+                <span className="modal-detail-value">{formatOptionalText(stationUrlValue)}</span>
+              </div>
+            )}
           </div>
+          {fieldSchema.showUrl && stationUrlHref && (
+            <Button
+              type="button"
+              variant="wide"
+              width="hug"
+              className="modal-map-link"
+              onClick={() => window.open(stationUrlHref, '_blank', 'noopener,noreferrer')}
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              }
+            >
+              Open link
+            </Button>
+          )}
         </div>
       )}
 
@@ -250,31 +299,47 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         <div className="modal-section">
           <h3 className="modal-section-title">Additional details</h3>
           <div className="modal-details-grid modal-facilities-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Operator code</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.operatorCode)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Staffing level</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.staffingLevel)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">NLC</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.nlc)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Min connection time</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc['min-connection-time'])}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">URL slug</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.urlSlug)}</span>
-            </div>
+            {fieldSchema.showOperatorCode && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Operator code</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.operatorCode)}</span>
+              </div>
+            )}
+            {fieldSchema.showStaffingLevel && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Staffing level</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.staffingLevel)}</span>
+              </div>
+            )}
+            {fieldSchema.showNlc && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">NLC</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.nlc)}</span>
+              </div>
+            )}
+            {fieldSchema.showMinConnectionTime && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Min connection time</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc['min-connection-time'])}</span>
+              </div>
+            )}
+            {fieldSchema.showProvince && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Province</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.province)}</span>
+              </div>
+            )}
+            {fieldSchema.showPostEirCode && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Post / Eircode</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc['post-eir_code'])}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {showFacilities && additionalDoc?.toilets && (
+      {showFacilities && fieldSchema.showToiletsSection && additionalDoc?.toilets && (
         <div className="modal-section">
           <h3 className="modal-section-title">Toilets</h3>
           <div className="modal-details-grid">
@@ -294,23 +359,25 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         </div>
       )}
 
-      {showStepFree && additionalDoc?.stepFree && (
+      {showStepFree && fieldSchema.showStepFreeSection && additionalDoc?.stepFree && (
         <div className="modal-section">
-          <h3 className="modal-section-title">Step-free & Lift access</h3>
+          <h3 className="modal-section-title">{fieldSchema.stepFreeTabLabel}</h3>
           <div className="modal-details-grid">
             <div className="modal-detail-item">
-              <span className="modal-detail-label">Code</span>
+              <span className="modal-detail-label">Step-free code</span>
               <span className="modal-detail-value">{formatValue(additionalDoc.stepFree.stepFreeCode)}</span>
             </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Note</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.stepFree.stepFreeNote)}</span>
-            </div>
+            {fieldSchema.showStepFreeNote && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Note</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.stepFree?.stepFreeNote)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {showStepFree && additionalDoc?.lift && (
+      {showStepFree && fieldSchema.showLiftSection && additionalDoc?.lift && (
         <div className="modal-section">
           <h3 className="modal-section-title">Lift</h3>
           <div className="modal-details-grid">
@@ -330,59 +397,71 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         </div>
       )}
 
-      {showService && additionalDoc?.connections && (
+      {showService &&
+        additionalDoc?.connections &&
+        (fieldSchema.showConnectionBus ||
+          fieldSchema.showConnectionTaxi ||
+          fieldSchema.showConnectionUnderground) && (
         <div className="modal-section">
           <h3 className="modal-section-title">Connections</h3>
           <div className="modal-details-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Bus</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionBus)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Taxi</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionTaxi)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Underground</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionUnderground)}</span>
-            </div>
+            {fieldSchema.showConnectionBus && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Bus</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionBus)}</span>
+              </div>
+            )}
+            {fieldSchema.showConnectionTaxi && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Taxi</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionTaxi)}</span>
+              </div>
+            )}
+            {fieldSchema.showConnectionUnderground && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Underground</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionUnderground)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {showService && additionalDoc?.is && (
+      {showService && additionalDoc?.is && (fieldSchema.showRequestStop || fieldSchema.showLimitedService) && (
         <div className="modal-section">
           <h3 className="modal-section-title">Service</h3>
           <div className="modal-details-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Request stop</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.is.isrequeststop)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Limited service</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.is.Islimitedservice)}</span>
-            </div>
+            {fieldSchema.showRequestStop && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Request stop</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.is.isrequeststop)}</span>
+              </div>
+            )}
+            {fieldSchema.showLimitedService && (
+              <div className="modal-detail-item">
+                <span className="modal-detail-label">Limited service</span>
+                <span className="modal-detail-value">{formatValue(additionalDoc.is.Islimitedservice)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {showFacilities && additionalDoc?.facilities && (
+      {showFacilities && fieldSchema.facilityKeys.length > 0 && additionalDoc?.facilities && (
         <div className="modal-section">
           <h3 className="modal-section-title">Facilities</h3>
-          {Object.keys(additionalDoc.facilities).length === 0 ? (
-            <p className="modal-sandbox-loading">No facilities listed for this station.</p>
-          ) : (
-            <div className="modal-details-grid modal-facilities-grid">
-              {Object.entries(additionalDoc.facilities).map(([key, value]) => (
-                <div key={key} className="modal-detail-item">
-                  <span className="modal-detail-label">
-                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                  </span>
-                  <span className="modal-detail-value">{formatValue(value)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="modal-details-grid modal-facilities-grid">
+            {fieldSchema.facilityKeys.map((key) => (
+              <div key={key} className="modal-detail-item">
+                <span className="modal-detail-label">
+                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                </span>
+                <span className="modal-detail-value">
+                  {formatValue((additionalDoc.facilities as Record<string, unknown> | undefined)?.[key])}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -406,5 +485,6 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   )
 }
 
+export type { StationDetailsTab } from '../../../utils/stationCollectionFieldSchema'
 export default StationDetailsView
 

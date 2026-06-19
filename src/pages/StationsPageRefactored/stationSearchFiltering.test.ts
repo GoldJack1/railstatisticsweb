@@ -18,7 +18,7 @@ const makeStation = (overrides: Partial<Station>): Station => ({
   county: overrides.county ?? null,
   toc: overrides.toc ?? null,
   stnarea: overrides.stnarea ?? null,
-  londonBorough: overrides.londonBorough ?? null,
+  borough: overrides.borough ?? null,
   fareZone: overrides.fareZone ?? null,
   yearlyPassengers: overrides.yearlyPassengers ?? null,
 })
@@ -32,7 +32,7 @@ describe('stationSearchFiltering', () => {
       country: 'England',
       county: 'Greater London',
       toc: 'TfL Rail',
-      londonBorough: 'Westminster',
+      borough: 'Westminster',
       fareZone: '1',
       yearlyPassengers: { '2023': 200 },
     }),
@@ -87,7 +87,7 @@ describe('stationSearchFiltering', () => {
       tocs: options.tocs,
       countries: options.countries,
       counties: ['Greater London'],
-      londonBoroughs: ['Westminster'],
+      boroughs: ['Westminster'],
       fareZones: options.fareZones,
     }
     const londonOnlyResults = filterStations(stations, '', selections, options)

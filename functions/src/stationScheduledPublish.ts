@@ -26,7 +26,7 @@ function stationToFirestoreUpdate(data: Record<string, unknown>): Record<string,
   if (data.county !== undefined) update.county = data.county;
   if (data.toc !== undefined) update.TOC = data.toc;
   if (data.stnarea !== undefined) update.stnarea = data.stnarea;
-  if (data.londonBorough !== undefined) update.londonBorough = data.londonBorough;
+  if (data.borough !== undefined) update.borough = data.borough;
   if (data.fareZone !== undefined) update.fareZone = data.fareZone;
   if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers;
   if (typeof data.latitude === "number" && typeof data.longitude === "number") {

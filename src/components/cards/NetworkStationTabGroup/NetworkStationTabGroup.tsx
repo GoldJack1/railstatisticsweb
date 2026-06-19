@@ -23,20 +23,15 @@ const NetworkStationTabGroup: React.FC<NetworkStationTabGroupProps> = ({
       {NETWORK_VIEW_TABS.map((tab) => {
         const isSelected = value === tab.value
         return (
-          <div key={tab.value} className="network-station-tab-group__item">
-            {isSelected ? (
-              <div className="network-station-tab-group__indicator" aria-hidden="true" />
-            ) : (
-              <div className="network-station-tab-group__indicator network-station-tab-group__indicator--placeholder" aria-hidden="true" />
-            )}
-            <BUTTabButton
-              type="button"
-              pressed={isSelected}
-              onClick={() => onChange(tab.value)}
-            >
-              {tab.label}
-            </BUTTabButton>
-          </div>
+          <BUTTabButton
+            key={tab.value}
+            type="button"
+            width="hug"
+            pressed={isSelected}
+            onClick={() => onChange(tab.value)}
+          >
+            {tab.label}
+          </BUTTabButton>
         )
       })}
     </div>

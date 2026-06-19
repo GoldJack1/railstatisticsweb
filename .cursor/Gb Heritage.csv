@@ -1,0 +1,7 @@
+id,stnarea,stationname,crs,tiploc,country,county,borough,toc,latitude,longitude,isrequeststop,islimitedservice,stepFree,staffingLevel,nlc,fareZone
+0001,GBHERITAGE,Keighley,XKV,KEIGWVR,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.8677132413776,-1.90146329950676,No,No,No,Full Time,846811,
+0002,GBHERITAGE,Ingrow West,,INGROW,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.8538508206042,-1.91505655968437,No,No,No,Full Time,846812,
+0003,GBHERITAGE,Damens,,DAMEMS,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.845982183748,-1.92448551093605,Yes,No,No,Full Time,846813,
+0004,GBHERITAGE,Oakworth,,OAKWRTH,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.8414191642863,-1.94200668882502,No,No,No,Full Time,846816,
+0005,GBHERITAGE,Haworth,XHV,HAWORTH,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.8312844755076,-1.94873717126791,No,No,No,Full Time,846815,
+0006,GBHERITAGE,Oxenhope,XOB,OXHP,England,West Yorkshire,Keighley,Keighley & Worth Valley,53.8149970710192,-1.95225065183444,No,No,No,Full Time,846814,

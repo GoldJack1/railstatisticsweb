@@ -23,7 +23,7 @@ Scripts in `package.json`: `firebase:deploy` (rules), `firebase:deploy-functions
 
 | Collection | Read | Write |
 |------------|------|--------|
-| `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, `newsandboxstations1` | **Anyone** (including signed-out clients) | **Station editors only** |
+| `stations_gbnr`, `stations_nitranslink`, `stations_roiirerail`, `stations_gbheritage`, `newsandboxstations1` | **Anyone** (including signed-out clients) | **Station editors only** |
 | `scheduledStationPublishJobs` | **Anyone** | Create (validated) + delete own jobs + **cancel** own pending jobs (`status` → `cancelled`, optional `cancelReason` / `supersededByJobId`, editors only); Cloud Function uses Admin SDK for processing |
 | **Any other path** (`/{document=**}`) | **Anyone** | **Denied** (add an explicit `match` if a collection needs client writes) |
 

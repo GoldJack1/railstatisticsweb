@@ -50,7 +50,7 @@ const EXAMPLE_STATION: Station = {
   county: 'Greater London',
   toc: 'Sample TOC',
   stnarea: 'Central',
-  londonBorough: 'City of Westminster',
+  borough: 'City of Westminster',
   fareZone: '1',
   yearlyPassengers: {
     '2023': 1234567,
@@ -217,7 +217,6 @@ const ComponentsPage: React.FC = () => {
         <NewStationModal
           isOpen={showNewStationModal}
           onClose={() => setShowNewStationModal(false)}
-          nextStationId="DS002"
         />
         </div>
       </div>

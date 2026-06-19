@@ -22,6 +22,7 @@ import type { NetworkViewFilter } from '../../constants/stationCollections'
 import { countPendingChangesForCollection } from '../../utils/pendingChangesByCollection'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
+import { buildStationPath } from '../../utils/stationAreaSlug'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
 import {
   filterStations,
@@ -49,7 +50,7 @@ const SORT_DDM_OPTIONS: Array<{ label: string; value: SortOption }> = [
 ]
 
 const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => {
-  const { stations, loading, error, refetch } = useStations()
+  const { stations: loadedStations, loading, error, refetch } = useStations()
   const navigate = useNavigate()
   const routerLocation = useLocation()
   const [searchTerm, setSearchTerm] = useState('')
@@ -57,7 +58,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     tocs: [],
     countries: [],
     counties: [],
-    londonBoroughs: [],
+    boroughs: [],
     fareZones: [],
   })
   const [hasUserInteractedWithFilters, setHasUserInteractedWithFilters] = useState(false)
@@ -84,8 +85,23 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   const isAdminPanelVisible =
     initialMode === 'edit' || new URLSearchParams(routerLocation.search).get('admin') === '1'
 
+  useEffect(() => {
+    const adminEnabled = new URLSearchParams(routerLocation.search).get('admin') === '1'
+    if (adminEnabled || initialMode === 'edit') {
+      setIsEditMode(true)
+      return
+    }
+    if (initialMode !== 'edit') {
+      setIsEditMode(false)
+    }
+  }, [routerLocation.search, initialMode])
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  const stations = useMemo(() => {
+    if (isSandbox || networkView === 'all') return loadedStations
+    return loadedStations.filter((station) => station.sourceCollectionId === networkView)
+  }, [loadedStations, isSandbox, networkView])
 
   const uniqueValues = useMemo(() => getStationFilterOptions(stations || []), [stations])
   const defaultSelections = useMemo(
@@ -150,16 +166,16 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
         const next = { ...baseSelections, [key]: selectedItems }
         if (key === 'counties') {
           if (isOnlyGreaterLondonSelected(selectedItems)) {
-            next.londonBoroughs = uniqueValues.londonBoroughs
+            next.boroughs = uniqueValues.boroughs
           } else {
-            next.londonBoroughs = []
+            next.boroughs = []
           }
         }
         return next
       })
       setHasUserInteractedWithFilters(true)
     },
-    [defaultSelections, hasUserInteractedWithFilters, uniqueValues.londonBoroughs]
+    [defaultSelections, hasUserInteractedWithFilters, uniqueValues.boroughs]
   )
 
   const getSelectedPositions = (items: string[], selectedItems: string[]) =>
@@ -167,15 +183,15 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
       .map((item) => items.indexOf(item))
       .filter((index) => index >= 0)
 
-  const londonBoroughFilterEnabled = isOnlyGreaterLondonSelected(effectiveSelections.counties)
+  const boroughFilterEnabled = isOnlyGreaterLondonSelected(effectiveSelections.counties)
 
   const toggleLondonBoroughFilter = useCallback(() => {
-    if (londonBoroughFilterEnabled) {
+    if (boroughFilterEnabled) {
       updateFilterSelection('counties', defaultSelections.counties)
       return
     }
     updateFilterSelection('counties', ['Greater London'])
-  }, [defaultSelections.counties, londonBoroughFilterEnabled, updateFilterSelection])
+  }, [defaultSelections.counties, boroughFilterEnabled, updateFilterSelection])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -230,36 +246,45 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
             : 'Explore railway stations and passenger data'
         }
       />
-      {!isSandbox && (
-        <div className="stations-network-tabs-wrap">
-          <NetworkStationTabGroup
-            value={networkView}
-            onChange={(view: NetworkViewFilter) => setNetworkView(view)}
-          />
-        </div>
-      )}
-      {isSandbox && (
-        <p className="stations-sandbox-banner" role="status">
-          Sandbox mode — viewing test data in newsandboxstations1
-        </p>
-      )}
-      {isAdminPanelVisible && (
-        <div className="stations-admin-controls-wrap">
-          <StationAdminControls
-            isEditMode={isEditMode}
-            isSandbox={isSandbox}
-            pendingChangesCount={pendingChangesCount}
-            onModeChange={(mode) => setIsEditMode(mode === 'edit')}
-            onSandboxChange={setSandbox}
-            onOpenPendingChanges={() =>
-              navigate('/stations/pending-review', {
-                state: { from: pathnameForReviewPendingSource(routerLocation) }
-              })
-            }
-            onAddStation={() => navigate('/stations/new')}
-          />
-        </div>
-      )}
+      <div
+        className={[
+          'stations-toolbar-band',
+          !isAdminPanelVisible && !isSandbox ? 'stations-toolbar-band--desktop-only' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {isAdminPanelVisible && (
+          <div className="stations-admin-controls-wrap">
+            <StationAdminControls
+              isEditMode={isEditMode}
+              isSandbox={isSandbox}
+              pendingChangesCount={pendingChangesCount}
+              onModeChange={(mode) => setIsEditMode(mode === 'edit')}
+              onSandboxChange={setSandbox}
+              onOpenPendingChanges={() =>
+                navigate('/stations/pending-review', {
+                  state: { from: pathnameForReviewPendingSource(routerLocation) }
+                })
+              }
+              onAddStation={() => navigate('/stations/new')}
+            />
+          </div>
+        )}
+        {!isSandbox && (
+          <div className="stations-network-tabs-wrap stations-network-tabs-wrap--toolbar">
+            <NetworkStationTabGroup
+              value={networkView}
+              onChange={(view: NetworkViewFilter) => setNetworkView(view)}
+            />
+          </div>
+        )}
+        {isSandbox && (
+          <p className="stations-sandbox-banner" role="status">
+            Sandbox mode — viewing test data in newsandboxstations1
+          </p>
+        )}
+      </div>
 
       {/* Main Content */}
       <div className="stations-content">
@@ -267,6 +292,17 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
         <aside className="stations-sidebar">
           {/* Search + Filters + Sort */}
           <div className="sidebar-section">
+            {isAdminPanelVisible && isEditMode && (
+              <div className="stations-sidebar-add-station stations-sidebar-add-station--desktop">
+                <BUTWideButton
+                  type="button"
+                  width="fill"
+                  onClick={() => navigate('/stations/new')}
+                >
+                  + Add new station
+                </BUTWideButton>
+              </div>
+            )}
             <h2 className="sidebar-section-title sidebar-section-title--subsection">Search</h2>
             <div className="search-container">
               <TXTINPBUTIconWideButtonSearch
@@ -289,6 +325,9 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
               />
             </div>
             <div className="search-filters-spacer" aria-hidden="true" />
+            <h2 className="sidebar-section-title sidebar-section-title--subsection stations-mobile-filters-heading">
+              Filters
+            </h2>
             <div className="mobile-filters-toggle-row">
               <BUTWideButton
                 type="button"
@@ -311,6 +350,15 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                 {isMobileSortExpanded ? 'Hide Sort' : 'Show Sort'}
               </BUTWideButton>
             </div>
+            {!isSandbox && (
+              <div className="stations-network-tabs-wrap stations-network-tabs-wrap--mobile">
+                <h2 className="sidebar-section-title sidebar-section-title--subsection">Network</h2>
+                <NetworkStationTabGroup
+                  value={networkView}
+                  onChange={(view: NetworkViewFilter) => setNetworkView(view)}
+                />
+              </div>
+            )}
 
             <div
               id="stations-mobile-only-filters"
@@ -356,7 +404,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                     <div className="county-london-toggle">
                       <span className="county-london-toggle__label">London Borough Filter</span>
                       <TOGToggleVisited
-                        checked={londonBoroughFilterEnabled}
+                        checked={boroughFilterEnabled}
                         onChange={() => toggleLondonBoroughFilter()}
                         ariaLabel="London Borough Filter"
                         className="county-london-toggle__control"
@@ -364,15 +412,15 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                     </div>
                   </div>
 
-                  {londonBoroughFilterEnabled && (
+                  {boroughFilterEnabled && (
                     <div className="filter-group">
-                      <label className="filter-label">London Borough</label>
+                      <label className="filter-label">Borough</label>
                       <BUTDDMListActionDual
-                        items={uniqueValues.londonBoroughs}
+                        items={uniqueValues.boroughs}
                         filterName="Boroughs"
                         selectionMode="multi"
-                        selectedPositions={getSelectedPositions(uniqueValues.londonBoroughs, effectiveSelections.londonBoroughs)}
-                        onSelectionChanged={(_, selectedItems) => updateFilterSelection('londonBoroughs', selectedItems)}
+                        selectedPositions={getSelectedPositions(uniqueValues.boroughs, effectiveSelections.boroughs)}
+                        onSelectionChanged={(_, selectedItems) => updateFilterSelection('boroughs', selectedItems)}
                         colorVariant="primary"
                       />
                     </div>
@@ -430,8 +478,8 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
                 key={station.id}
                 station={station}
                 locationDisplay={formatStationLocationDisplay(station)}
-                onCardClick={() => navigate(`/stations/${station.id}${isEditMode ? '/edit' : ''}`)}
-                onInfoClick={() => navigate(`/stations/${station.id}${isEditMode ? '/edit' : ''}`)}
+                onCardClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`)}
+                onInfoClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`)}
               />
             ))}
           </div>
