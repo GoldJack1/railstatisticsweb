@@ -91,9 +91,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
       setIsEditMode(true)
       return
     }
-    if (initialMode !== 'edit') {
-      setIsEditMode(false)
-    }
+    setIsEditMode(false)
   }, [routerLocation.search, initialMode])
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)

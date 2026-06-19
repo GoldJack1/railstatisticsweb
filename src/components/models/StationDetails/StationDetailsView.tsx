@@ -144,7 +144,7 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   const showFacilities = fieldSchema.showFacilitiesTab && (showAll || activeTab === 'facilities')
 
   const stationUrlValue = readStationUrl(
-    additionalDoc ?? ({ url: station.stationUrl, urlSlug: station.stationUrl } as Partial<SandboxStationDoc>)
+    additionalDoc ?? ({ url: station.stationUrl, urlSlug: station.urlSlug } as Partial<SandboxStationDoc>)
   )
   const stationUrlHref = resolveStationUrlHref(stationUrlValue)
 

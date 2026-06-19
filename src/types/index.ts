@@ -18,8 +18,10 @@ export interface Station {
   /** Fare zone (e.g. 1, 2, 3 for TfL) */
   fareZone?: string | null
   yearlyPassengers: YearlyPassengers | null
-  /** URL path segment from Firestore `url` or `urlSlug`. */
+  /** Website URL from Firestore `url` (e.g. heritage station pages). Not used for routing. */
   stationUrl?: string | null
+  /** Optional route path override from Firestore `urlSlug`. */
+  urlSlug?: string | null
   /** Set when stations are loaded from a merged “All networks” view. */
   sourceCollectionId?: NetworkCollectionId
 }

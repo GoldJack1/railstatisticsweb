@@ -585,7 +585,8 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         borough: borough != null && borough !== '' ? String(borough) : null,
         fareZone,
         yearlyPassengers: data.yearlyPassengers || null,
-        stationUrl: String(data.url ?? data.urlSlug ?? '').trim() || null,
+        urlSlug: String(data.urlSlug ?? '').trim() || null,
+        stationUrl: String(data.url ?? '').trim() || null,
         ...(isNetworkCollection(collectionName) ? { sourceCollectionId: collectionName } : {}),
       }
       

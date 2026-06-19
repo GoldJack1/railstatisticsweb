@@ -54,10 +54,10 @@ export function getStationNetworkCollectionId(
   return null
 }
 
-/** URL path segment for a station (from Firestore `url` / `urlSlug`, else slugified name). */
-export function getStationPathSlug(station: Pick<Station, 'stationName' | 'stationUrl'>): string {
-  const fromDoc = station.stationUrl?.trim()
-  if (fromDoc) return slugifyStationPathSegment(fromDoc)
+/** URL path segment: slugified station name, or Firestore `urlSlug` when set. */
+export function getStationPathSlug(station: Pick<Station, 'stationName' | 'urlSlug'>): string {
+  const urlSlug = station.urlSlug?.trim()
+  if (urlSlug) return slugifyStationPathSegment(urlSlug)
   return slugifyStationPathSegment(station.stationName || '')
 }
 
