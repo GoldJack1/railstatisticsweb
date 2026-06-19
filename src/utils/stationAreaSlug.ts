@@ -54,6 +54,12 @@ export function getStationNetworkCollectionId(
   return null
 }
 
+/** Unique key for a station across merged network collections (Firestore doc IDs overlap). */
+export function getStationMapKey(station: Station): string {
+  const collectionId = getStationNetworkCollectionId(station)
+  return collectionId ? `${collectionId}:${station.id}` : station.id
+}
+
 /** URL path segment: slugified station name, or Firestore `urlSlug` when set. */
 export function getStationPathSlug(station: Pick<Station, 'stationName' | 'urlSlug'>): string {
   const urlSlug = station.urlSlug?.trim()

@@ -6,6 +6,7 @@ import { PendingStationChangesProvider } from './contexts/PendingStationChangesC
 import HomePage from './pages/HomePage/HomePage'
 import LoginPage from './pages/LoginPage/LoginPage'
 import StationsPageRefactored from './pages/StationsPageRefactored/StationsPageRefactored'
+import StationsMapPage from './pages/StationsMapPage/StationsMapPage'
 import ReviewPendingChangesPage from './pages/ReviewPendingChangesPage/ReviewPendingChangesPage'
 import StationDetailsPage from './pages/StationDetailsPage/StationDetailsPage'
 import LegacyStationRedirect from './pages/StationDetailsPage/LegacyStationRedirect'
@@ -39,6 +40,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
+  '/stations/map': 'Station Map | Rail Statistics',
   '/stations/edit': 'Stations Admin | Rail Statistics',
   '/stations/pending-review': 'Review changes | Rail Statistics',
   '/stations/new': 'New Station | Rail Statistics',
@@ -63,7 +65,10 @@ const PAGE_TITLES: Record<string, string> = {
 
 const App: React.FC = () => {
   const { pathname } = useLocation()
-  const isStationsPage = pathname === '/stations' || pathname === '/stations/edit'
+  const isStationsPage =
+    pathname === '/stations' ||
+    pathname === '/stations/edit' ||
+    pathname === '/stations/map'
 
   useEffect(() => {
     if (pathname.startsWith('/units/')) {
@@ -87,6 +92,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/log-in" element={<LoginPage />} />
+                <Route path="/stations/map" element={<ProtectedRoute><StationsMapPage /></ProtectedRoute>} />
                 <Route path="/stations" element={<ProtectedRoute><StationsPageRefactored /></ProtectedRoute>} />
                 <Route path="/stations/edit" element={<ProtectedRoute><StationsPageRefactored initialMode="edit" /></ProtectedRoute>} />
                 <Route path="/stations/pending-review" element={<ProtectedRoute><ReviewPendingChangesPage /></ProtectedRoute>} />

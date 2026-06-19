@@ -1,0 +1,130 @@
+.stations-osm-map {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.stations-osm-map__legend {
+    position: absolute;
+    left: var(--space-md);
+    bottom: var(--space-md);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: var(--space-sm) var(--space-md);
+    list-style: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    pointer-events: none;
+}
+
+.stations-osm-map__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    color: var(--text-primary);
+}
+
+.stations-osm-map__legend-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.35);
+}
+
+.stations-osm-map__legend-label {
+    white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+    .stations-map-page .stations-osm-map,
+    .stations-map-page .stations-osm-map__canvas {
+        height: var(--stations-map-mobile-height, 500px);
+        min-height: var(--stations-map-mobile-height, 500px);
+        max-height: var(--stations-map-mobile-height, 500px);
+        flex: none;
+    }
+
+    .stations-osm-map__legend {
+        left: var(--space-sm);
+        bottom: var(--space-sm);
+        padding: var(--space-xs) var(--space-sm);
+        gap: 0.25rem;
+    }
+
+    .stations-osm-map__legend-item {
+        font-size: 0.75rem;
+    }
+}
+
+/* Invisible larger tap target; visual pin is drawn on top */
+.stations-osm-map__hit-target {
+    pointer-events: auto;
+}
+
+.stations-osm-map__visual-target {
+    pointer-events: none;
+}
+
+.stations-osm-map__canvas {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.stations-osm-map__popup {
+    min-width: 10rem;
+    max-width: 14rem;
+}
+
+.stations-osm-map__popup-title {
+    margin: 0 0 0.25rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #111;
+}
+
+.stations-osm-map__popup-network,
+.stations-osm-map__popup-meta {
+    margin: 0 0 0.35rem;
+    font-size: 0.85rem;
+    color: #444;
+}
+
+.stations-osm-map__popup-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.stations-osm-map__popup-link:hover {
+    color: #1d4ed8;
+}
+
+/* Leaflet popup inherits app styles poorly on dark pages */
+.leaflet-popup-content-wrapper {
+    border-radius: 0.5rem;
+}
+
+.leaflet-popup-content {
+    margin: 0.75rem 1rem;
+    line-height: 1.4;
+}

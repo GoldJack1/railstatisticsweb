@@ -14,6 +14,7 @@ function getHeaderPageTitle(pathname: string): string {
   if (pathname === '/buttons') return 'Buttons'
   if (pathname.startsWith('/stations/new')) return 'New station'
   if (pathname.startsWith('/stations/pending-review')) return 'Pending review'
+  if (pathname === '/stations/map') return 'Station map'
   if (pathname.startsWith('/stations/')) return 'Station'
   if (pathname === '/stations') return 'Stations'
   if (pathname.startsWith('/design-system/colours')) return 'Colours'
@@ -42,6 +43,7 @@ const Header: React.FC = () => {
   const isHomeActive = pathname === '/' || pathname === '/home'
   const isMigrationActive = pathname === '/migration'
   const isStationsActive = pathname.startsWith('/stations')
+  const isMapActive = pathname === '/stations/map'
   const isMessagesActive = pathname.startsWith('/admin/messages')
 
   const pageTitle = getHeaderPageTitle(pathname)
@@ -49,7 +51,8 @@ const Header: React.FC = () => {
   const navItems = [
     { to: '/home' as const, label: 'Home', active: isHomeActive, show: true },
     { to: '/migration' as const, label: 'Migration', active: isMigrationActive, show: true },
-    { to: '/stations' as const, label: 'Stations', active: isStationsActive, show: Boolean(user) },
+    { to: '/stations' as const, label: 'Stations', active: isStationsActive && !isMapActive, show: Boolean(user) },
+    { to: '/stations/map' as const, label: 'Map', active: isMapActive, show: Boolean(user) },
     { to: '/admin/messages' as const, label: 'Messages', active: isMessagesActive, show: Boolean(user) },
   ].filter((item) => item.show)
 

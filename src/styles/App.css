@@ -56,7 +56,9 @@
 }
 
 .main-content.app-main.app-main--stations-layout {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 

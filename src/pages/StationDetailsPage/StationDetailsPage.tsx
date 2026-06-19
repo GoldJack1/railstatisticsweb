@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useStations } from '../../hooks/useStations'
 import { useStationCollectionFieldSchema } from '../../hooks/useStationCollectionFieldSchema'
 import type { SandboxStationDoc, Station } from '../../types'
@@ -25,8 +25,19 @@ interface StationDetailsPageProps {
   mode: 'view' | 'edit'
 }
 
+function getStationDetailsReturnPath(state: unknown): string {
+  if (state && typeof state === 'object' && 'returnTo' in state) {
+    const returnTo = (state as { returnTo?: unknown }).returnTo
+    if (typeof returnTo === 'string' && returnTo.startsWith('/')) return returnTo
+  }
+  return '/stations'
+}
+
 const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const backPath = getStationDetailsReturnPath(location.state)
+  const navigationState = location.state
   const { network = '', stationSlug = '' } = useParams()
   const { collectionId } = useStationCollection()
   const { stations, loading, error } = useStations()
@@ -172,7 +183,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
         <div className="error-state">
           <h3>Station not found</h3>
           <p>We couldn’t find that station in the current data source.</p>
-          <BUTWideButton type="button" width="hug" onClick={() => navigate('/stations')}>
+          <BUTWideButton type="button" width="hug" onClick={() => navigate(backPath)}>
             Back to stations
           </BUTWideButton>
         </div>
@@ -196,7 +207,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 width="hug"
                 onClick={() => {
                   if (mode === 'edit' && editFormHasUnsavedChanges && !window.confirm('Are you sure you want to go back? All data will not be saved.')) return
-                  navigate('/stations')
+                  navigate(backPath)
                 }}
               >
                 Back
@@ -206,7 +217,11 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 <BUTCircleButton
                   type="button"
                   ariaLabel="Edit station"
-                  onClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}/edit`)}
+                  onClick={() =>
+                    navigate(`/stations/${buildStationPath(station, collectionId)}/edit`, {
+                      state: navigationState,
+                    })
+                  }
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 20h9" />
@@ -218,7 +233,11 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                 <BUTCircleButton
                   type="button"
                   ariaLabel="View station"
-                  onClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}`)}
+                  onClick={() =>
+                    navigate(`/stations/${buildStationPath(station, collectionId)}`, {
+                      state: navigationState,
+                    })
+                  }
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
@@ -321,8 +340,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
               {mode === 'edit' ? (
                 <StationDetailsEditForm
                   station={station}
-                  onCancel={() => navigate('/stations')}
-                  onSaved={() => navigate('/stations')}
+                  onCancel={() => navigate(backPath)}
+                  onSaved={() => navigate(backPath)}
                   activeTab={activeTab}
                   fieldSchema={fieldSchema}
                   actionsPortalId={isMobile ? 'station-details-sidebar-actions' : 'station-details-header-actions'}

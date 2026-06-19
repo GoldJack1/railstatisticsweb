@@ -1,6 +1,11 @@
 import React from 'react'
 import { BUTTabButton } from '../../buttons'
-import { NETWORK_VIEW_TABS, type NetworkViewFilter } from '../../../constants/stationCollections'
+import {
+  NETWORK_VIEW_TABS,
+  isNetworkCollection,
+  type NetworkViewFilter,
+} from '../../../constants/stationCollections'
+import { NETWORK_MAP_COLORS } from '../../../constants/stationNetworkMapColors'
 import './NetworkStationTabGroup.css'
 
 interface NetworkStationTabGroupProps {
@@ -22,6 +27,7 @@ const NetworkStationTabGroup: React.FC<NetworkStationTabGroupProps> = ({
     >
       {NETWORK_VIEW_TABS.map((tab) => {
         const isSelected = value === tab.value
+        const dotColor = isNetworkCollection(tab.value) ? NETWORK_MAP_COLORS[tab.value] : null
         return (
           <BUTTabButton
             key={tab.value}
@@ -30,7 +36,16 @@ const NetworkStationTabGroup: React.FC<NetworkStationTabGroupProps> = ({
             pressed={isSelected}
             onClick={() => onChange(tab.value)}
           >
-            {tab.label}
+            <span className="network-station-tab-group__label">
+              {dotColor && (
+                <span
+                  className="network-station-tab-group__dot"
+                  style={{ backgroundColor: dotColor }}
+                  aria-hidden="true"
+                />
+              )}
+              {tab.label}
+            </span>
           </BUTTabButton>
         )
       })}
