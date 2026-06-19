@@ -63,7 +63,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  padding-top: var(--space-lg);
+  padding-top: var(--space-xl);
 }
 
 .station-details-sidebar-actions {
@@ -241,7 +241,7 @@
     flex-direction: column;
     gap: var(--space-sm);
     min-width: 0;
-    padding-top: 0;
+    padding-top: var(--space-lg);
   }
 
   .station-details-sidebar-actions {

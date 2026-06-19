@@ -2,6 +2,7 @@ import React, { useEffect, useId } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { BUTHeaderLink } from '../../buttons'
+import BetaTag from '../BetaTag/BetaTag'
 import './Header.css'
 
 /** Title shown next to the logo on narrow viewports (main nav items stay in the hamburger). */
@@ -14,7 +15,7 @@ function getHeaderPageTitle(pathname: string): string {
   if (pathname === '/buttons') return 'Buttons'
   if (pathname.startsWith('/stations/new')) return 'New station'
   if (pathname.startsWith('/stations/pending-review')) return 'Pending review'
-  if (pathname === '/stations/map') return 'Station map'
+  if (pathname === '/stations/map') return 'Map'
   if (pathname.startsWith('/stations/')) return 'Station'
   if (pathname === '/stations') return 'Stations'
   if (pathname.startsWith('/design-system/colours')) return 'Colours'
@@ -49,11 +50,11 @@ const Header: React.FC = () => {
   const pageTitle = getHeaderPageTitle(pathname)
 
   const navItems = [
-    { to: '/home' as const, label: 'Home', active: isHomeActive, show: true },
-    { to: '/migration' as const, label: 'Migration', active: isMigrationActive, show: true },
-    { to: '/stations' as const, label: 'Stations', active: isStationsActive && !isMapActive, show: Boolean(user) },
-    { to: '/stations/map' as const, label: 'Map', active: isMapActive, show: Boolean(user) },
-    { to: '/admin/messages' as const, label: 'Messages', active: isMessagesActive, show: Boolean(user) },
+    { to: '/home' as const, label: 'Home', active: isHomeActive, show: true, showBeta: false },
+    { to: '/migration' as const, label: 'Migration', active: isMigrationActive, show: true, showBeta: false },
+    { to: '/stations' as const, label: 'Stations', active: isStationsActive && !isMapActive, show: Boolean(user), showBeta: false },
+    { to: '/stations/map' as const, label: 'Map', active: isMapActive, show: true, showBeta: true },
+    { to: '/admin/messages' as const, label: 'Messages', active: isMessagesActive, show: Boolean(user), showBeta: false },
   ].filter((item) => item.show)
 
   useEffect(() => {
@@ -105,7 +106,10 @@ const Header: React.FC = () => {
                 className="logo-link logo-link--mobile-title"
                 ariaLabel="Rail Statistics home"
               >
-                <span className="header-page-title">{pageTitle}</span>
+                <span className="header-page-title-row">
+                  <span className="header-page-title">{pageTitle}</span>
+                  {isMapActive ? <BetaTag className="header-page-title__beta" /> : null}
+                </span>
               </BUTHeaderLink>
             </div>
           </div>
@@ -113,9 +117,10 @@ const Header: React.FC = () => {
           <div className="header-right">
             <nav className="header-nav header-nav--desktop" aria-label="Main">
               <div className="header-nav-links">
-                {navItems.map(({ to, label, active }) => (
+                {navItems.map(({ to, label, active, showBeta }) => (
                   <BUTHeaderLink key={to} to={to} active={active}>
-                    {label}
+                    <span className="header-nav-link__label">{label}</span>
+                    {showBeta ? <BetaTag /> : null}
                   </BUTHeaderLink>
                 ))}
               </div>
@@ -149,10 +154,11 @@ const Header: React.FC = () => {
           <div className="header-mobile-panel-inner" inert={mobileMenuOpen ? undefined : true}>
             <nav className="header-nav header-nav--mobile" aria-label="Main">
               <ul className="header-mobile-nav-list">
-                {navItems.map(({ to, label, active }) => (
+                {navItems.map(({ to, label, active, showBeta }) => (
                   <li key={to}>
                     <BUTHeaderLink to={to} active={active} onClick={closeMobileMenu}>
-                      {label}
+                      <span className="header-nav-link__label">{label}</span>
+                      {showBeta ? <BetaTag /> : null}
                     </BUTHeaderLink>
                   </li>
                 ))}

@@ -18,10 +18,25 @@
 }
 
 .rs-page-top-header__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   font-size: var(--text-2xl);
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1;
   margin: 0 0 var(--space-sm) 0;
+}
+
+.rs-page-top-header__title-text {
+  min-width: 0;
+  line-height: 1;
+}
+
+.rs-page-top-header__title .rs-beta-tag {
+  align-self: center;
+  transform: translateY(0.06em);
 }
 
 .rs-page-top-header__subtitle {

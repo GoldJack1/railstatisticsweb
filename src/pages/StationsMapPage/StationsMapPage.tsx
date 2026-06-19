@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { PageTopHeader } from '../../components/misc'
+import BetaTag from '../../components/misc/BetaTag/BetaTag'
 import { BUTWideButton } from '../../components/buttons'
 import NetworkStationTabGroup from '../../components/cards/NetworkStationTabGroup/NetworkStationTabGroup'
 import StationsOsmMap from '../../components/maps/StationsOsmMap'
@@ -98,7 +99,7 @@ const StationsMapPage: React.FC = () => {
 
   return (
     <div className="stations-page stations-map-page">
-      <PageTopHeader title="Station map" />
+      <PageTopHeader title="Map" titleAddon={<BetaTag />} />
       <div className="stations-toolbar-band">
         <div className="stations-network-tabs-wrap stations-network-tabs-wrap--toolbar">
           <NetworkStationTabGroup value={networkView} onChange={setNetworkView} />

@@ -18,6 +18,7 @@ interface PageTopHeaderActionButton {
 interface PageTopHeaderProps {
   title: string
   subtitle?: React.ReactNode
+  titleAddon?: React.ReactNode
   className?: string
   innerClassName?: string
   actionButton?: PageTopHeaderActionButton
@@ -27,6 +28,7 @@ interface PageTopHeaderProps {
 const PageTopHeader: React.FC<PageTopHeaderProps> = ({
   title,
   subtitle,
+  titleAddon,
   className = '',
   innerClassName = '',
   actionButton,
@@ -43,7 +45,10 @@ const PageTopHeader: React.FC<PageTopHeaderProps> = ({
     <header className={headerClassName}>
       <div className={innerClassNameCombined}>
         <div className="rs-page-top-header__copy">
-          <h1 className="rs-page-top-header__title">{title}</h1>
+          <h1 className="rs-page-top-header__title">
+            <span className="rs-page-top-header__title-text">{title}</span>
+            {titleAddon}
+          </h1>
           {subtitle ? <p className="rs-page-top-header__subtitle">{subtitle}</p> : null}
           {actionButton ? (
             shouldUseIconButton ? (

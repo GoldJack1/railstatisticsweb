@@ -7,6 +7,7 @@ import { fetchStationDocumentById } from '../../services/firebase'
 import { buildStationPath, findStationByRoute } from '../../utils/stationAreaSlug'
 import { isStationCollectionId } from '../../constants/stationCollections'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   getVisibleStationDetailsTabs,
   stationDetailsShowsAdditionalTab,
@@ -40,6 +41,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const navigationState = location.state
   const { network = '', stationSlug = '' } = useParams()
   const { collectionId } = useStationCollection()
+  const { user, loading: authLoading } = useAuth()
+  const canEdit = !authLoading && Boolean(user)
   const { stations, loading, error } = useStations()
   const [additionalDoc, setAdditionalDoc] = useState<SandboxStationDoc | null>(null)
   const [additionalLoading, setAdditionalLoading] = useState(false)
@@ -196,7 +199,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
       <PageTopHeader
         title={`${mode === 'edit' ? 'Edit station' : 'Station details'}: ${station.stationName || 'Station'}`}
         subtitle={`${station.crsCode || 'No CRS'} · ID: ${station.id}`}
-        actionContent={(!isMobile && mode === 'edit') ? <div id="station-details-header-actions" className="station-details-header-actions-slot" /> : undefined}
+        actionContent={canEdit && !isMobile && mode === 'edit' ? <div id="station-details-header-actions" className="station-details-header-actions-slot" /> : undefined}
       />
       <div className="station-details-page">
         <div className="station-details-layout">
@@ -212,39 +215,43 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
               >
                 Back
               </BUTWideButton>
-              <div className="station-details-sidebar-actions-spacer" aria-hidden="true" />
-              {mode === 'view' ? (
-                <BUTCircleButton
-                  type="button"
-                  ariaLabel="Edit station"
-                  onClick={() =>
-                    navigate(`/stations/${buildStationPath(station, collectionId)}/edit`, {
-                      state: navigationState,
-                    })
-                  }
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                    </svg>
-                  }
-                />
-              ) : (
-                <BUTCircleButton
-                  type="button"
-                  ariaLabel="View station"
-                  onClick={() =>
-                    navigate(`/stations/${buildStationPath(station, collectionId)}`, {
-                      state: navigationState,
-                    })
-                  }
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  }
-                />
+              {canEdit && (
+                <>
+                  <div className="station-details-sidebar-actions-spacer" aria-hidden="true" />
+                  {mode === 'view' ? (
+                    <BUTCircleButton
+                      type="button"
+                      ariaLabel="Edit station"
+                      onClick={() =>
+                        navigate(`/stations/${buildStationPath(station, collectionId)}/edit`, {
+                          state: navigationState,
+                        })
+                      }
+                      icon={
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      }
+                    />
+                  ) : (
+                    <BUTCircleButton
+                      type="button"
+                      ariaLabel="View station"
+                      onClick={() =>
+                        navigate(`/stations/${buildStationPath(station, collectionId)}`, {
+                          state: navigationState,
+                        })
+                      }
+                      icon={
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      }
+                    />
+                  )}
+                </>
               )}
             </div>
             <div className="station-details-sidebar-secondary-actions">
@@ -337,7 +344,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
 
           <main className="station-details-main">
             <section className={`station-details-card modal-content ${mode === 'edit' ? 'modal-content-edit' : ''}`}>
-              {mode === 'edit' ? (
+              {canEdit && mode === 'edit' ? (
                 <StationDetailsEditForm
                   station={station}
                   onCancel={() => navigate(backPath)}

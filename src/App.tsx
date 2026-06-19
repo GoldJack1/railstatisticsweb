@@ -40,7 +40,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/home': 'Home | Rail Statistics',
   '/log-in': 'Log in | Rail Statistics',
   '/stations': 'Stations | Rail Statistics',
-  '/stations/map': 'Station Map | Rail Statistics',
+  '/stations/map': 'Map | Rail Statistics',
   '/stations/edit': 'Stations Admin | Rail Statistics',
   '/stations/pending-review': 'Review changes | Rail Statistics',
   '/stations/new': 'New Station | Rail Statistics',
@@ -92,15 +92,15 @@ const App: React.FC = () => {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/log-in" element={<LoginPage />} />
-                <Route path="/stations/map" element={<ProtectedRoute><StationsMapPage /></ProtectedRoute>} />
+                <Route path="/stations/map" element={<StationsMapPage />} />
                 <Route path="/stations" element={<ProtectedRoute><StationsPageRefactored /></ProtectedRoute>} />
                 <Route path="/stations/edit" element={<ProtectedRoute><StationsPageRefactored initialMode="edit" /></ProtectedRoute>} />
                 <Route path="/stations/pending-review" element={<ProtectedRoute><ReviewPendingChangesPage /></ProtectedRoute>} />
                 <Route path="/stations/new" element={<ProtectedRoute><NewStationPage /></ProtectedRoute>} />
-                <Route path="/stations/:network/:stationSlug" element={<ProtectedRoute><StationDetailsPage mode="view" /></ProtectedRoute>} />
+                <Route path="/stations/:network/:stationSlug" element={<StationDetailsPage mode="view" />} />
                 <Route path="/stations/:network/:stationSlug/edit" element={<ProtectedRoute><StationDetailsPage mode="edit" /></ProtectedRoute>} />
                 <Route path="/stations/:legacyStationId/edit" element={<ProtectedRoute><LegacyStationRedirect mode="edit" /></ProtectedRoute>} />
-                <Route path="/stations/:legacyStationId" element={<ProtectedRoute><LegacyStationRedirect mode="view" /></ProtectedRoute>} />
+                <Route path="/stations/:legacyStationId" element={<LegacyStationRedirect mode="view" />} />
                 <Route path="/migration" element={<MigrationPage />} />
                 <Route path="/buttons" element={<ButtonsPage />} />
                 <Route path="/design-system" element={<ProtectedRoute><DesignSystemHomePage /></ProtectedRoute>} />

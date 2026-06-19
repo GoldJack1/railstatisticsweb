@@ -1,0 +1,15 @@
+.rs-beta-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #ffffff;
+  background-color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+}

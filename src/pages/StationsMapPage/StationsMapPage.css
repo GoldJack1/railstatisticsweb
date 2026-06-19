@@ -142,6 +142,10 @@
         overflow: visible;
     }
 
+    .stations-map-page .rs-page-top-header {
+        display: none;
+    }
+
     .stations-map-page.stations-page .stations-content {
         overflow: visible;
     }
@@ -166,18 +170,9 @@
         scroll-margin-top: var(--stations-map-app-header);
     }
 
-    .stations-map-page .rs-page-top-header {
-        padding: calc(var(--space-md) + 10px) 0 var(--space-lg) 0;
-        border-bottom: none;
-    }
-
-    .stations-map-page .rs-page-top-header__title {
-        margin-bottom: 0;
-    }
-
     .stations-map-page .stations-toolbar-band {
         margin-bottom: 0;
-        padding-top: 0;
+        padding-top: var(--space-lg);
         padding-bottom: 0;
     }
 

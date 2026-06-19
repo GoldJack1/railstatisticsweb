@@ -313,7 +313,7 @@ export function StationsOsmMap({
 
   return (
     <div className="stations-osm-map">
-      <div ref={mapContainerRef} className="stations-osm-map__canvas" aria-label="Station map" />
+      <div ref={mapContainerRef} className="stations-osm-map__canvas" aria-label="Map" />
       {networkView === 'all' && visibleLegendNetworks.length > 0 && (
         <ul className="stations-osm-map__legend" aria-label="Network colours">
           {visibleLegendNetworks.map((collectionId) => (
