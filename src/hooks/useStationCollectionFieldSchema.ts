@@ -46,9 +46,14 @@ export function useStationCollectionFieldSchema(collectionId: StationCollectionI
             requireCrsCode: collectionId !== 'stations_gbheritage',
             requireTiploc: collectionId !== 'stations_gbheritage',
             showStepFreeSection: collectionId === 'stations_gbheritage',
-            showStepFreeTab: collectionId === 'stations_gbheritage',
-            stepFreeTabLabel:
-              collectionId === 'stations_gbheritage' ? 'Step-free code' : 'Step-free & Lift access',
+            showStepFreeTab: false,
+            stepFreeTabLabel: 'Step-free & Lift access',
+            showStationStatusSection: collectionId === 'stations_gbheritage',
+            showStaffingLevel: collectionId === 'stations_gbheritage',
+            showNlc: collectionId === 'stations_gbheritage',
+            showGauge: collectionId === 'stations_gbheritage',
+            showRequestStop: collectionId === 'stations_gbheritage',
+            showServiceTab: collectionId === 'stations_gbheritage',
           })
         }
       })

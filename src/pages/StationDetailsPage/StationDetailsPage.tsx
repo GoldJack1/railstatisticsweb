@@ -8,6 +8,12 @@ import { buildStationPath, findStationByRoute } from '../../utils/stationAreaSlu
 import { isStationCollectionId } from '../../constants/stationCollections'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
+import {
+  getPendingFieldChangesForEntry,
+  mergeAdditionalDocWithPendingUpdate,
+  mergeStationWithPendingUpdate,
+} from '../../utils/applyPendingChangesForDisplay'
 import {
   getVisibleStationDetailsTabs,
   stationDetailsShowsAdditionalTab,
@@ -57,6 +63,22 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     if (!network || !stationSlug) return null
     return findStationByRoute(stations, network, stationSlug, collectionId)
   }, [stations, network, stationSlug, collectionId])
+
+  const { pendingChanges } = usePendingStationChanges()
+  const pendingEntry = station ? pendingChanges[station.id] : undefined
+  const pendingFieldChanges = useMemo(
+    () => getPendingFieldChangesForEntry(pendingEntry),
+    [pendingEntry]
+  )
+  const displayStation = useMemo(
+    () => (station ? mergeStationWithPendingUpdate(station, pendingEntry) : null),
+    [station, pendingEntry]
+  )
+  const displayAdditionalDoc = useMemo(
+    () => mergeAdditionalDocWithPendingUpdate(additionalDoc, pendingEntry),
+    [additionalDoc, pendingEntry]
+  )
+  const showPendingOverlay = canEdit && Boolean(pendingEntry) && pendingFieldChanges.length > 0
 
   const schemaCollectionId =
     station?.sourceCollectionId && isStationCollectionId(station.sourceCollectionId)
@@ -197,8 +219,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   return (
     <div className="container container--station-details">
       <PageTopHeader
-        title={`${mode === 'edit' ? 'Edit station' : 'Station details'}: ${station.stationName || 'Station'}`}
-        subtitle={`${station.crsCode || 'No CRS'} · ID: ${station.id}`}
+        title={`${mode === 'edit' ? 'Edit station' : 'Station details'}: ${(displayStation ?? station).stationName || 'Station'}`}
+        subtitle={`${(displayStation ?? station).crsCode || 'No CRS'} · ID: ${station.id}${showPendingOverlay ? ' · Unpublished changes' : ''}`}
         actionContent={canEdit && !isMobile && mode === 'edit' ? <div id="station-details-header-actions" className="station-details-header-actions-slot" /> : undefined}
       />
       <div className="station-details-page">
@@ -347,6 +369,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
               {canEdit && mode === 'edit' ? (
                 <StationDetailsEditForm
                   station={station}
+                  pendingEntry={pendingEntry}
                   onCancel={() => navigate(backPath)}
                   onSaved={() => navigate(backPath)}
                   activeTab={activeTab}
@@ -361,11 +384,13 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                   style={maxTabContentHeight > 0 ? { minHeight: `${maxTabContentHeight}px` } : undefined}
                 >
                   <StationDetailsView
-                    station={station}
-                    additionalDoc={additionalDoc}
+                    station={displayStation ?? station}
+                    additionalDoc={displayAdditionalDoc}
                     additionalLoading={additionalLoading}
                     activeTab={activeTab}
                     fieldSchema={fieldSchema}
+                    pendingFieldChanges={showPendingOverlay ? pendingFieldChanges : undefined}
+                    isPendingNew={pendingEntry?.isNew === true}
                   />
                   <div className="station-details-measure-layer" aria-hidden="true">
                     {visibleTabs.map((tab) => (
@@ -377,11 +402,13 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
                         }}
                       >
                         <StationDetailsView
-                          station={station}
-                          additionalDoc={additionalDoc}
+                          station={displayStation ?? station}
+                          additionalDoc={displayAdditionalDoc}
                           additionalLoading={additionalLoading}
                           activeTab={tab}
                           fieldSchema={fieldSchema}
+                          pendingFieldChanges={showPendingOverlay ? pendingFieldChanges : undefined}
+                          isPendingNew={pendingEntry?.isNew === true}
                         />
                       </div>
                     ))}

@@ -46,6 +46,7 @@ export function flattenAdditionalDocForDiff(doc: Partial<SandboxStationDoc> | nu
     ['operatorCode', 'Operator code'],
     ['staffingLevel', 'Staffing level'],
     ['nlc', 'NLC'],
+    ['guage', 'Gauge'],
     ['min-connection-time', 'Min connection time'],
     ['province', 'Province'],
     ['post-eir_code', 'Post / Eircode'],
@@ -68,8 +69,8 @@ export function flattenAdditionalDocForDiff(doc: Partial<SandboxStationDoc> | nu
 
   const stepFree = doc.stepFree
   if (stepFree && typeof stepFree === 'object') {
-    if (stepFree.stepFreeCode !== undefined) out['Step-free · Code'] = stepFree.stepFreeCode
-    if (stepFree.stepFreeNote !== undefined) out['Step-free · Note'] = stepFree.stepFreeNote
+    if (stepFree.stepFreeCode !== undefined) out['Step Free Status · Code'] = stepFree.stepFreeCode
+    if (stepFree.stepFreeNote !== undefined) out['Step Free Status · Note'] = stepFree.stepFreeNote
   }
 
   const lift = doc.lift
@@ -92,6 +93,14 @@ export function flattenAdditionalDocForDiff(doc: Partial<SandboxStationDoc> | nu
   if (isBlock && typeof isBlock === 'object') {
     if (isBlock.isrequeststop !== undefined) out['Service · Request stop'] = isBlock.isrequeststop
     if (isBlock.Islimitedservice !== undefined) out['Service · Limited service'] = isBlock.Islimitedservice
+  }
+
+  const stationStatus = doc.stationstatus
+  if (stationStatus && typeof stationStatus === 'object') {
+    if (stationStatus.status !== undefined) out['Station status · Status'] = stationStatus.status
+    if (stationStatus.operationalperiod !== undefined) {
+      out['Station status · Operational period'] = stationStatus.operationalperiod
+    }
   }
 
   const facilities = doc.facilities

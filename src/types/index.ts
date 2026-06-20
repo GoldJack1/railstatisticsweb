@@ -44,6 +44,7 @@ export interface SandboxStationDoc {
   operatorCode?: string
   staffingLevel?: string
   nlc?: string
+  guage?: string
   'min-connection-time'?: string | number
   url?: string
   urlSlug?: string
@@ -69,6 +70,10 @@ export interface SandboxStationDoc {
   is?: {
     isrequeststop?: string | boolean
     Islimitedservice?: string | boolean
+  }
+  stationstatus?: {
+    operationalperiod?: string
+    status?: string
   }
   facilities?: Record<string, unknown>
   yearlyPassengers?: Record<string, number | null>

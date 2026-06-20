@@ -59,6 +59,38 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+.stations-map-page__toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    max-width: var(--container-3xl);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: var(--space-md) var(--space-2xl);
+    box-sizing: border-box;
+}
+
+.stations-map-page__admin-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.stations-map-page__admin-actions .rs-button {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.stations-map-page .stations-network-tabs-wrap--toolbar {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
 /* Mobile / tablet: map on top, station panel fixed below (always visible) */
 @media (max-width: 1023px) {
     .stations-map-page.stations-page {
@@ -176,11 +208,14 @@
         padding-bottom: 0;
     }
 
+    .stations-map-page__toolbar-row {
+        max-width: none;
+        padding: var(--space-lg) var(--space-lg) calc(var(--space-lg) + 8px);
+        gap: var(--space-sm);
+    }
+
     .stations-map-page .stations-network-tabs-wrap--toolbar {
         display: block;
-        max-width: none;
-        margin: 0;
-        padding: var(--space-lg) var(--space-lg) calc(var(--space-lg) + 8px);
         min-width: 0;
         overflow: hidden;
         box-sizing: border-box;

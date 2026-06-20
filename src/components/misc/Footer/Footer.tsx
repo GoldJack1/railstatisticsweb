@@ -1,7 +1,12 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { useTheme } from '../../../hooks/useTheme'
+import {
+  isStationAdminModeActive,
+  isStationAdminSearchParam,
+  writeStationAdminModeEnabled,
+} from '../../../utils/stationAdminModeStorage'
 import { BUTFooterLink } from '../../buttons'
 import './Footer.css'
 
@@ -12,20 +17,42 @@ const Footer: React.FC = () => {
   const navigate = useNavigate()
   const isStationsPage = location.pathname.startsWith('/stations')
 
+  useEffect(() => {
+    if (user && isStationAdminSearchParam(location.search)) {
+      writeStationAdminModeEnabled(true)
+    }
+  }, [user, location.search])
+
   const handleAdminToggle = () => {
+    const currentlyOn = isStationAdminModeActive(location.search)
+    const nextOn = !currentlyOn
+    writeStationAdminModeEnabled(nextOn)
+
+    if (location.pathname === '/stations/map') {
+      const params = new URLSearchParams(location.search)
+      if (nextOn) {
+        params.set('admin', '1')
+      } else {
+        params.delete('admin')
+      }
+      const query = params.toString()
+      navigate(query.length > 0 ? `/stations/map?${query}` : '/stations/map')
+      return
+    }
+
     if (isStationsPage) {
       const params = new URLSearchParams(location.search)
-      if (params.get('admin') === '1') {
-        params.delete('admin')
-      } else {
+      if (nextOn) {
         params.set('admin', '1')
+      } else {
+        params.delete('admin')
       }
       const query = params.toString()
       navigate(query.length > 0 ? `/stations?${query}` : '/stations')
       return
     }
 
-    navigate('/stations?admin=1')
+    navigate(nextOn ? '/stations?admin=1' : '/stations')
   }
 
   return (

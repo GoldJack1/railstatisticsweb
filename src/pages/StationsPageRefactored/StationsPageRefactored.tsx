@@ -24,6 +24,7 @@ import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { buildStationPath } from '../../utils/stationAreaSlug'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
+import { useStationAdminMode } from '../../hooks/useStationAdminMode'
 import {
   filterStations,
   getDefaultStationFilterSelections,
@@ -72,6 +73,7 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   )
   const { collectionId, networkView, setNetworkView, isSandbox, setSandbox } = useStationCollection()
   const { pendingChanges } = usePendingStationChanges()
+  const isAdminMode = useStationAdminMode()
   const pendingChangesCount = useMemo(() => {
     if (isSandbox) return countPendingChangesForCollection(pendingChanges, collectionId)
     if (networkView === 'all') {
@@ -82,17 +84,15 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     }
     return countPendingChangesForCollection(pendingChanges, collectionId)
   }, [pendingChanges, collectionId, networkView, isSandbox])
-  const isAdminPanelVisible =
-    initialMode === 'edit' || new URLSearchParams(routerLocation.search).get('admin') === '1'
+  const isAdminPanelVisible = initialMode === 'edit' || isAdminMode
 
   useEffect(() => {
-    const adminEnabled = new URLSearchParams(routerLocation.search).get('admin') === '1'
-    if (adminEnabled || initialMode === 'edit') {
+    if (initialMode === 'edit' || isAdminMode) {
       setIsEditMode(true)
       return
     }
     setIsEditMode(false)
-  }, [routerLocation.search, initialMode])
+  }, [initialMode, isAdminMode])
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 

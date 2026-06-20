@@ -16,6 +16,8 @@ export type StationDetailsTab =
   | 'service'
   | 'facilities'
 
+export const STEP_FREE_SECTION_LABEL = 'Step Free Status'
+
 export type StationCollectionFieldSchema = {
   defaultStnarea: string
   showBorough: boolean
@@ -23,6 +25,7 @@ export type StationCollectionFieldSchema = {
   showOperatorCode: boolean
   showStaffingLevel: boolean
   showNlc: boolean
+  showGauge: boolean
   showMinConnectionTime: boolean
   showUrl: boolean
   urlFieldKey: StationUrlFieldKey
@@ -44,6 +47,7 @@ export type StationCollectionFieldSchema = {
   showConnectionUnderground: boolean
   showRequestStop: boolean
   showLimitedService: boolean
+  showStationStatusSection: boolean
   requireCrsCode: boolean
   requireTiploc: boolean
 }
@@ -99,6 +103,7 @@ export const EMPTY_STATION_COLLECTION_FIELD_SCHEMA: StationCollectionFieldSchema
   showOperatorCode: false,
   showStaffingLevel: false,
   showNlc: false,
+  showGauge: false,
   showMinConnectionTime: false,
   showUrl: false,
   urlFieldKey: 'urlSlug',
@@ -120,6 +125,7 @@ export const EMPTY_STATION_COLLECTION_FIELD_SCHEMA: StationCollectionFieldSchema
   showConnectionUnderground: false,
   showRequestStop: false,
   showLimitedService: false,
+  showStationStatusSection: false,
   requireCrsCode: true,
   requireTiploc: true,
 }
@@ -143,8 +149,14 @@ export function inferStationCollectionFieldSchema(
       requireCrsCode: !isHeritage,
       requireTiploc: !isHeritage,
       showStepFreeSection: isHeritage,
-      showStepFreeTab: isHeritage,
-      stepFreeTabLabel: isHeritage ? 'Step-free code' : 'Step-free & Lift access',
+      showStepFreeTab: false,
+      stepFreeTabLabel: 'Step-free & Lift access',
+      showStationStatusSection: isHeritage,
+      showStaffingLevel: isHeritage,
+      showNlc: isHeritage,
+      showGauge: isHeritage,
+      showRequestStop: isHeritage,
+      showServiceTab: isHeritage,
     }
   }
 
@@ -163,6 +175,14 @@ export function inferStationCollectionFieldSchema(
   const showConnectionUnderground = hasPopulatedNested(docs, 'connections', 'connectionUnderground')
   const showRequestStop = hasPopulatedNested(docs, 'is', 'isrequeststop')
   const showLimitedService = hasPopulatedNested(docs, 'is', 'Islimitedservice')
+  const showStationStatusSection =
+    isHeritage ||
+    hasPopulatedNested(docs, 'stationstatus', 'status') ||
+    hasPopulatedNested(docs, 'stationstatus', 'operationalperiod')
+  const showStaffingLevel =
+    isHeritage || hasPopulatedTopLevel(docs, ['staffingLevel', 'staffing_level'])
+  const showNlc = isHeritage || hasPopulatedTopLevel(docs, ['nlc', 'NLC'])
+  const showGauge = isHeritage || hasPopulatedTopLevel(docs, ['guage', 'Guage'])
   const showFacilitiesTab = facilityKeys.length > 0 || showToiletsSection
 
   const showUsageTab = docs.some((d) => {
@@ -178,8 +198,9 @@ export function inferStationCollectionFieldSchema(
       hasPopulatedTopLevel(docs, ['londonBorough', 'london_borough']),
     showFareZone: hasPopulatedTopLevel(docs, FARE_ZONE_KEYS),
     showOperatorCode: hasPopulatedTopLevel(docs, ['operatorCode', 'operator_code']),
-    showStaffingLevel: hasPopulatedTopLevel(docs, ['staffingLevel', 'staffing_level']),
-    showNlc: hasPopulatedTopLevel(docs, ['nlc', 'NLC']),
+    showStaffingLevel,
+    showNlc,
+    showGauge,
     showMinConnectionTime: hasPopulatedTopLevel(docs, ['min-connection-time', 'minConnectionTime']),
     showUrl,
     urlFieldKey,
@@ -188,9 +209,9 @@ export function inferStationCollectionFieldSchema(
     showPostEirCode: hasPopulatedTopLevel(docs, ['post-eir_code']),
     showUsageTab,
     showStepFreeSection,
-    showStepFreeTab: showStepFreeSection || showLiftSection,
+    showStepFreeTab: showLiftSection,
     showStepFreeNote,
-    stepFreeTabLabel: isHeritage ? 'Step-free code' : 'Step-free & Lift access',
+    stepFreeTabLabel: 'Step-free & Lift access',
     showLiftSection,
     showToiletsSection,
     showFacilitiesTab,
@@ -200,12 +221,15 @@ export function inferStationCollectionFieldSchema(
       showConnectionTaxi ||
       showConnectionUnderground ||
       showRequestStop ||
-      showLimitedService,
+      showLimitedService ||
+      showStationStatusSection ||
+      showStaffingLevel,
     showConnectionBus,
     showConnectionTaxi,
     showConnectionUnderground,
     showRequestStop,
     showLimitedService,
+    showStationStatusSection,
     requireCrsCode: collectionId !== 'stations_gbheritage',
     requireTiploc: collectionId !== 'stations_gbheritage',
   }
@@ -214,8 +238,6 @@ export function inferStationCollectionFieldSchema(
 export function stationDetailsShowsAdditionalTab(fieldSchema: StationCollectionFieldSchema): boolean {
   return (
     fieldSchema.showOperatorCode ||
-    fieldSchema.showStaffingLevel ||
-    fieldSchema.showNlc ||
     fieldSchema.showMinConnectionTime ||
     fieldSchema.showProvince ||
     fieldSchema.showPostEirCode

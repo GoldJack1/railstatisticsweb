@@ -98,10 +98,18 @@ function rowToFirestoreDoc(row) {
     location: new admin.firestore.GeoPoint(lat, lng),
     staffingLevel: row.staffingLevel || '',
     nlc: row.nlc || '',
+    guage: row.guage || row.gauge || '',
     is: {
       isrequeststop: row.isrequeststop || 'No',
       Islimitedservice: row.islimitedservice || 'No',
     },
+  }
+
+  if (row.status || row.operationalperiod) {
+    doc.stationstatus = {
+      status: row.status || '',
+      operationalperiod: row.operationalperiod || '',
+    }
   }
 
   if (row.stepFree) {

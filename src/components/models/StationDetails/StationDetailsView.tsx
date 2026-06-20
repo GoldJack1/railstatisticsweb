@@ -3,10 +3,14 @@ import type { Station, SandboxStationDoc } from '../../../types'
 import { formatFareZoneDisplay } from '../../../utils/formatFareZone'
 import { readStationUrl, resolveStationUrlHref } from '../../../utils/stationUrlField'
 import type { StationCollectionFieldSchema } from '../../../utils/stationCollectionFieldSchema'
-import { stationDetailsShowsAdditionalTab } from '../../../utils/stationCollectionFieldSchema'
+import { stationDetailsShowsAdditionalTab, STEP_FREE_SECTION_LABEL } from '../../../utils/stationCollectionFieldSchema'
 import { useStationFieldSchema } from '../../../hooks/useStationCollectionFieldSchema'
 import { BUTBaseButton as Button } from '../../buttons'
+import { StationDetailField } from './StationDetailField'
+import { StationPendingChangesBanner } from './StationPendingChangesBanner'
 import StationResponsiveLocationMap from './StationResponsiveLocationMap'
+import type { StationFieldChange } from '../../../utils/stationFieldDiffs'
+import './StationPendingChangesBanner.css'
 
 const BLANK_DISPLAY = '---'
 
@@ -111,6 +115,9 @@ interface StationDetailsViewProps {
   activeTab?: StationDetailsTab
   /** Per-network field visibility; inferred from Firestore when omitted. */
   fieldSchema?: StationCollectionFieldSchema
+  /** Staged unpublished edits for this station (highlights fields + banner). */
+  pendingFieldChanges?: StationFieldChange[]
+  isPendingNew?: boolean
 }
 
 const StationDetailsView: React.FC<StationDetailsViewProps> = ({
@@ -119,6 +126,8 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
   additionalLoading,
   activeTab,
   fieldSchema: fieldSchemaProp,
+  pendingFieldChanges,
+  isPendingNew = false,
 }) => {
   const { fieldSchema } = useStationFieldSchema(station, fieldSchemaProp)
   const showAdditionalFields = stationDetailsShowsAdditionalTab(fieldSchema)
@@ -157,63 +166,51 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
 
   return (
     <>
+      {(pendingFieldChanges?.length || isPendingNew) && (
+        <StationPendingChangesBanner changes={pendingFieldChanges ?? []} isNew={isPendingNew} />
+      )}
       {showDetails && (
+        <>
         <div className="modal-section">
           <h3 className="modal-section-title">Details</h3>
           <div className="modal-details-grid modal-facilities-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Station ID</span>
-              <span className="modal-detail-value">{formatOptionalText(station.id)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">CRS Code</span>
-              <span className="modal-detail-value">{formatOptionalText(station.crsCode)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Tiploc</span>
-              <span className="modal-detail-value">{formatOptionalText(station.tiploc)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">TOC</span>
-              <span className="modal-detail-value">{formatOptionalText(station.toc)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Country</span>
-              <span className="modal-detail-value">{formatOptionalText(station.country)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">County</span>
-              <span className="modal-detail-value">{formatOptionalText(station.county)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Station area</span>
-              <span className="modal-detail-value">{formatOptionalText(station.stnarea)}</span>
-            </div>
+            <StationDetailField label="Station ID" value={formatOptionalText(station.id)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="CRS Code" value={formatOptionalText(station.crsCode)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="Tiploc" value={formatOptionalText(station.tiploc)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="TOC" value={formatOptionalText(station.toc)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="Country" value={formatOptionalText(station.country)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="County" value={formatOptionalText(station.county)} pendingFieldChanges={pendingFieldChanges} />
+            <StationDetailField label="Station area" value={formatOptionalText(station.stnarea)} pendingFieldChanges={pendingFieldChanges} />
             {fieldSchema.showBorough && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Borough</span>
-                <span className="modal-detail-value">
-                  {formatOptionalText(getBorough(station, additionalDoc as Record<string, unknown> | null))}
-                </span>
-              </div>
+              <StationDetailField
+                label="Borough"
+                value={formatOptionalText(getBorough(station, additionalDoc as Record<string, unknown> | null))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showFareZone && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Fare zone</span>
-                <span className="modal-detail-value">
-                  {(() => {
-                    const z = getFareZone(station, additionalDoc as Record<string, unknown> | null)
-                    if (isBlankValue(z)) return BLANK_DISPLAY
-                    return formatFareZoneDisplay(z!) || z
-                  })()}
-                </span>
-              </div>
+              <StationDetailField
+                label="Fare zone"
+                value={(() => {
+                  const z = getFareZone(station, additionalDoc as Record<string, unknown> | null)
+                  if (isBlankValue(z)) return BLANK_DISPLAY
+                  return formatFareZoneDisplay(z!) || z || BLANK_DISPLAY
+                })()}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showNlc && (
+              <StationDetailField label="NLC" value={formatValue(additionalDoc?.nlc)} pendingFieldChanges={pendingFieldChanges} />
+            )}
+            {fieldSchema.showGauge && (
+              <StationDetailField label="Gauge" value={formatValue(additionalDoc?.guage)} pendingFieldChanges={pendingFieldChanges} />
             )}
             {fieldSchema.showUrl && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">{fieldSchema.urlFieldLabel}</span>
-                <span className="modal-detail-value">{formatOptionalText(stationUrlValue)}</span>
-              </div>
+              <StationDetailField
+                label={fieldSchema.urlFieldLabel}
+                value={formatOptionalText(stationUrlValue)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
           </div>
           {fieldSchema.showUrl && stationUrlHref && (
@@ -235,20 +232,43 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
             </Button>
           )}
         </div>
+
+        {fieldSchema.showStepFreeSection && (
+          <div className="modal-section">
+            <h3 className="modal-section-title">{STEP_FREE_SECTION_LABEL}</h3>
+            <div className="modal-details-grid">
+              <StationDetailField
+                label="Step Free Status"
+                value={formatValue(additionalDoc?.stepFree?.stepFreeCode)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+              {fieldSchema.showStepFreeNote && (
+                <StationDetailField
+                  label="Note"
+                  value={formatValue(additionalDoc?.stepFree?.stepFreeNote)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+              )}
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {showLocationTab && showLocation && (
         <div className="modal-section modal-section--location">
           <h3 className="modal-section-title">Location</h3>
           <div className="modal-details-grid modal-facilities-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Latitude</span>
-              <span className="modal-detail-value">{(geoLat ?? station.latitude).toFixed(6)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Longitude</span>
-              <span className="modal-detail-value">{(geoLng ?? station.longitude).toFixed(6)}</span>
-            </div>
+            <StationDetailField
+              label="Latitude"
+              value={(geoLat ?? station.latitude).toFixed(6)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
+            <StationDetailField
+              label="Longitude"
+              value={(geoLng ?? station.longitude).toFixed(6)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
           </div>
           {(googleMapsUrl || (geoLat != null && geoLng != null)) && (() => {
             const lat = geoLat ?? station.latitude
@@ -300,40 +320,32 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
           <h3 className="modal-section-title">Additional details</h3>
           <div className="modal-details-grid modal-facilities-grid">
             {fieldSchema.showOperatorCode && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Operator code</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.operatorCode)}</span>
-              </div>
-            )}
-            {fieldSchema.showStaffingLevel && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Staffing level</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.staffingLevel)}</span>
-              </div>
-            )}
-            {fieldSchema.showNlc && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">NLC</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.nlc)}</span>
-              </div>
+              <StationDetailField
+                label="Operator code"
+                value={formatValue(additionalDoc.operatorCode)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showMinConnectionTime && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Min connection time</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc['min-connection-time'])}</span>
-              </div>
+              <StationDetailField
+                label="Min connection time"
+                value={formatValue(additionalDoc['min-connection-time'])}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showProvince && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Province</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.province)}</span>
-              </div>
+              <StationDetailField
+                label="Province"
+                value={formatValue(additionalDoc.province)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showPostEirCode && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Post / Eircode</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc['post-eir_code'])}</span>
-              </div>
+              <StationDetailField
+                label="Post / Eircode"
+                value={formatValue(additionalDoc['post-eir_code'])}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
           </div>
         </div>
@@ -343,36 +355,21 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         <div className="modal-section">
           <h3 className="modal-section-title">Toilets</h3>
           <div className="modal-details-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Accessible</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.toilets.toiletsAccessible)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Changing Place</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.toilets.toiletsChangingPlace)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Baby changing</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.toilets.toiletsBabyChanging)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showStepFree && fieldSchema.showStepFreeSection && additionalDoc?.stepFree && (
-        <div className="modal-section">
-          <h3 className="modal-section-title">{fieldSchema.stepFreeTabLabel}</h3>
-          <div className="modal-details-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Step-free code</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.stepFree.stepFreeCode)}</span>
-            </div>
-            {fieldSchema.showStepFreeNote && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Note</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.stepFree?.stepFreeNote)}</span>
-              </div>
-            )}
+            <StationDetailField
+              label="Accessible"
+              value={formatValue(additionalDoc.toilets.toiletsAccessible)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
+            <StationDetailField
+              label="Changing Place"
+              value={formatValue(additionalDoc.toilets.toiletsChangingPlace)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
+            <StationDetailField
+              label="Baby changing"
+              value={formatValue(additionalDoc.toilets.toiletsBabyChanging)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
           </div>
         </div>
       )}
@@ -381,18 +378,21 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         <div className="modal-section">
           <h3 className="modal-section-title">Lift</h3>
           <div className="modal-details-grid">
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Available</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.lift.liftAvailable)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Notes</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.lift.liftNotes)}</span>
-            </div>
-            <div className="modal-detail-item">
-              <span className="modal-detail-label">Details</span>
-              <span className="modal-detail-value">{formatValue(additionalDoc.lift.liftDetails)}</span>
-            </div>
+            <StationDetailField
+              label="Available"
+              value={formatValue(additionalDoc.lift.liftAvailable)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
+            <StationDetailField
+              label="Notes"
+              value={formatValue(additionalDoc.lift.liftNotes)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
+            <StationDetailField
+              label="Details"
+              value={formatValue(additionalDoc.lift.liftDetails)}
+              pendingFieldChanges={pendingFieldChanges}
+            />
           </div>
         </div>
       )}
@@ -406,42 +406,72 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
           <h3 className="modal-section-title">Connections</h3>
           <div className="modal-details-grid">
             {fieldSchema.showConnectionBus && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Bus</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionBus)}</span>
-              </div>
+              <StationDetailField
+                label="Bus"
+                value={formatValue(additionalDoc.connections.connectionBus)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showConnectionTaxi && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Taxi</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionTaxi)}</span>
-              </div>
+              <StationDetailField
+                label="Taxi"
+                value={formatValue(additionalDoc.connections.connectionTaxi)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showConnectionUnderground && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Underground</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.connections.connectionUnderground)}</span>
-              </div>
+              <StationDetailField
+                label="Underground"
+                value={formatValue(additionalDoc.connections.connectionUnderground)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
           </div>
         </div>
       )}
 
-      {showService && additionalDoc?.is && (fieldSchema.showRequestStop || fieldSchema.showLimitedService) && (
+      {showService &&
+        (fieldSchema.showStationStatusSection ||
+          fieldSchema.showStaffingLevel ||
+          fieldSchema.showRequestStop ||
+          fieldSchema.showLimitedService) && (
         <div className="modal-section">
           <h3 className="modal-section-title">Service</h3>
           <div className="modal-details-grid">
+            {fieldSchema.showStationStatusSection && (
+              <>
+                <StationDetailField
+                  label="Status"
+                  value={formatOptionalText(additionalDoc?.stationstatus?.status)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+                <StationDetailField
+                  label="Operational period"
+                  value={formatOptionalText(additionalDoc?.stationstatus?.operationalperiod)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+              </>
+            )}
+            {fieldSchema.showStaffingLevel && (
+              <StationDetailField
+                label="Staffing level"
+                value={formatValue(additionalDoc?.staffingLevel)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
             {fieldSchema.showRequestStop && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Request stop</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.is.isrequeststop)}</span>
-              </div>
+              <StationDetailField
+                label="Request stop"
+                value={formatValue(additionalDoc?.is?.isrequeststop)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
             {fieldSchema.showLimitedService && (
-              <div className="modal-detail-item">
-                <span className="modal-detail-label">Limited service</span>
-                <span className="modal-detail-value">{formatValue(additionalDoc.is.Islimitedservice)}</span>
-              </div>
+              <StationDetailField
+                label="Limited service"
+                value={formatValue(additionalDoc?.is?.Islimitedservice)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             )}
           </div>
         </div>
@@ -452,14 +482,12 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
           <h3 className="modal-section-title">Facilities</h3>
           <div className="modal-details-grid modal-facilities-grid">
             {fieldSchema.facilityKeys.map((key) => (
-              <div key={key} className="modal-detail-item">
-                <span className="modal-detail-label">
-                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                </span>
-                <span className="modal-detail-value">
-                  {formatValue((additionalDoc.facilities as Record<string, unknown> | undefined)?.[key])}
-                </span>
-              </div>
+              <StationDetailField
+                key={key}
+                label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                value={formatValue((additionalDoc.facilities as Record<string, unknown> | undefined)?.[key])}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             ))}
           </div>
         </div>
@@ -473,10 +501,12 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
               (additionalDoc?.yearlyPassengers as Record<string, number> | number | null) ??
                 (station.yearlyPassengers as Record<string, number> | number | null)
             ).map((entry) => (
-              <div key={entry.year} className="modal-detail-item">
-                <span className="modal-detail-label">{entry.year}</span>
-                <span className="modal-detail-value">{entry.value}</span>
-              </div>
+              <StationDetailField
+                key={entry.year}
+                label={entry.year}
+                value={entry.value}
+                pendingFieldChanges={pendingFieldChanges}
+              />
             ))}
           </div>
         </div>

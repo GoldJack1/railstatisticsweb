@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BUTBaseButton as Button } from '../../buttons'
 import { BUTBaseButtonBar as ButtonBar } from '../../buttons'
 import PendingChangesActionModal, { type PendingActionModalMode } from '../PendingChangesActionModal/PendingChangesActionModal'
@@ -12,6 +13,8 @@ import { isStationCollectionId } from '../../../constants/stationCollections'
 import { getFieldChangesForPendingReview } from '../../../utils/pendingChangeFieldDiffs'
 import { computePendingChangesFingerprint } from '../../../utils/pendingChangesFingerprint'
 import { readScheduleSavedFingerprint } from '../../../utils/scheduledPublishStorage'
+import { buildEditPendingNewStationNavigationState } from '../../../utils/pendingNewStationEdit'
+import { pathnameForReviewPendingSource } from '../../../utils/reviewPendingNavigation'
 import '../../../pages/Stations.css'
 import './PendingChangesReviewPanel.css'
 
@@ -128,6 +131,8 @@ const PendingChangesReviewPanel: React.FC<PendingChangesReviewPanelProps> = ({
   pageTab,
   onPageTabChange
 }) => {
+  const navigate = useNavigate()
+  const location = useLocation()
   const flow = usePendingChangesPublishFlow({ refetch, reviewActive, onPublishSuccess })
   const [actionModal, setActionModal] = useState<PendingActionModalMode | null>(null)
   const [cancelScheduleTargetJob, setCancelScheduleTargetJob] = useState<PendingScheduleJobSummary | null>(null)
@@ -311,6 +316,21 @@ const PendingChangesReviewPanel: React.FC<PendingChangesReviewPanelProps> = ({
     clearPendingChange(stationId)
   }
 
+  const openEditPendingNewStation = useCallback(
+    (stationId: string) => {
+      const entry = pendingChanges[stationId]
+      if (!entry?.isNew) return
+      navigate('/stations/new', {
+        state: buildEditPendingNewStationNavigationState(
+          stationId,
+          entry,
+          pathnameForReviewPendingSource(location)
+        ),
+      })
+    },
+    [navigate, location, pendingChanges]
+  )
+
   const confirmDeleteScheduleJobHistory = async (job: PendingScheduleJobSummary) => {
     if (!canMasterPublish) {
       window.alert('Only the site owner can delete server schedule jobs.')
@@ -430,6 +450,20 @@ const PendingChangesReviewPanel: React.FC<PendingChangesReviewPanelProps> = ({
             </label>
           </td>
           <td className="pending-review-table__discard">
+            {entry.isNew === true && (
+              <Button
+                type="button"
+                variant="chip"
+                width="hug"
+                instantAction
+                className="pending-review-edit-btn"
+                onClick={() => openEditPendingNewStation(stationId)}
+                disabled={isPublishingAll || isSavingSchedule}
+                ariaLabel={`Edit draft station ${stationTitle}`}
+              >
+                Edit
+              </Button>
+            )}
             <Button
               type="button"
               variant="chip"
@@ -523,6 +557,20 @@ const PendingChangesReviewPanel: React.FC<PendingChangesReviewPanelProps> = ({
         )}
 
         <footer className="pending-review-card__footer">
+          {entry.isNew === true && (
+            <Button
+              type="button"
+              variant="chip"
+              width="fill"
+              instantAction
+              className="pending-review-edit-btn pending-review-card__edit-btn"
+              onClick={() => openEditPendingNewStation(stationId)}
+              disabled={isPublishingAll || isSavingSchedule}
+              ariaLabel={`Edit draft station ${stationTitle}`}
+            >
+              Edit draft
+            </Button>
+          )}
           <Button
             type="button"
             variant="chip"

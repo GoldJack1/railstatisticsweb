@@ -1,0 +1,38 @@
+.map-add-station-context-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 11rem;
+  padding: var(--space-xs);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.map-add-station-context-menu__item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-add-station-context-menu__item:hover,
+.map-add-station-context-menu__item:focus-visible {
+  background-color: var(--bg-tertiary);
+  outline: none;
+}
+
+.map-add-station-context-menu__coords {
+  margin: 0;
+  padding: 0 var(--space-md) var(--space-xs);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}

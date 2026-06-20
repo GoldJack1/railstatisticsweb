@@ -1,0 +1,37 @@
+.station-details-pending-banner {
+    margin: 0 0 var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
+}
+
+.station-details-pending-banner__title {
+    margin: 0 0 var(--space-sm);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.45;
+}
+
+.station-details-pending-banner__list {
+    margin-top: var(--space-sm);
+}
+
+.modal-detail-item--pending {
+    border-left: 3px solid var(--accent-primary, #2563eb);
+    padding-left: calc(var(--space-sm) - 3px);
+}
+
+.modal-detail-pending-from {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.modal-detail-pending-from::before {
+    content: 'Published: ';
+    font-weight: 600;
+}

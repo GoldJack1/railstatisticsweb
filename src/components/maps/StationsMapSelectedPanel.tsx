@@ -1,14 +1,18 @@
 import { forwardRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StationCard from '../cards/StationCard/StationCard'
+import { BUTWideButton } from '../buttons'
 import { NETWORK_LABELS, isNetworkCollection } from '../../constants/stationCollections'
 import { buildStationPath, getStationNetworkCollectionId } from '../../utils/stationAreaSlug'
 import { formatStationLocationDisplay } from '../../utils/formatStationLocation'
+import { buildEditPendingNewStationNavigationState } from '../../utils/pendingNewStationEdit'
+import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import type { Station } from '../../types'
 import './StationsMapSelectedPanel.css'
 
 interface StationsMapSelectedPanelProps {
   station: Station | null
+  isPendingNew?: boolean
 }
 
 function formatDetail(value: string | null | undefined): string {
@@ -34,8 +38,9 @@ function getLatestPassengerEntry(
 }
 
 const StationsMapSelectedPanel = forwardRef<HTMLElement, StationsMapSelectedPanelProps>(
-  ({ station }, ref) => {
+  ({ station, isPendingNew = false }, ref) => {
     const navigate = useNavigate()
+    const { pendingChanges } = usePendingStationChanges()
 
     const collectionId = station ? getStationNetworkCollectionId(station) : null
     const networkLabel =
@@ -49,9 +54,33 @@ const StationsMapSelectedPanel = forwardRef<HTMLElement, StationsMapSelectedPane
 
     const stationPath = station ? buildStationPath(station, collectionId ?? undefined) : null
     const openStation = () => {
+      if (isPendingNew && station) {
+        const entry = pendingChanges[station.id]
+        if (entry?.isNew && collectionId && isNetworkCollection(collectionId)) {
+          navigate('/stations/new', {
+            state: buildEditPendingNewStationNavigationState(
+              station.id,
+              entry,
+              '/stations/map?admin=1'
+            ),
+          })
+        } else {
+          navigate('/stations/pending-review', { state: { returnTo: '/stations/map?admin=1' } })
+        }
+        return
+      }
       if (stationPath) {
         navigate(`/stations/${stationPath}`, { state: { returnTo: '/stations/map' } })
       }
+    }
+
+    const editPendingDraft = () => {
+      if (!station || !isPendingNew || !collectionId || !isNetworkCollection(collectionId)) return
+      const entry = pendingChanges[station.id]
+      if (!entry?.isNew) return
+      navigate('/stations/new', {
+        state: buildEditPendingNewStationNavigationState(station.id, entry, '/stations/map?admin=1'),
+      })
     }
 
     return (
@@ -68,6 +97,14 @@ const StationsMapSelectedPanel = forwardRef<HTMLElement, StationsMapSelectedPane
               onCardClick={openStation}
               onInfoClick={openStation}
             />
+            {isPendingNew && (
+              <>
+                <p className="stations-map-selected-panel__pending">Unsaved — pending publish</p>
+                <BUTWideButton type="button" width="fill" onClick={editPendingDraft}>
+                  Edit draft station
+                </BUTWideButton>
+              </>
+            )}
             <dl className="stations-map-selected-panel__details">
               {networkLabel && (
                 <div className="stations-map-selected-panel__row">

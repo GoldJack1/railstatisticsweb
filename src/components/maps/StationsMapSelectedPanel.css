@@ -18,6 +18,20 @@
     text-align: center;
 }
 
+.stations-map-selected-panel__pending {
+    margin: 0;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--surface-secondary);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+}
+
+.stations-map-selected-panel__pending + .rs-button {
+    margin-top: var(--space-sm);
+}
+
 .stations-map-selected-panel .rs-station-card-stack {
     flex-shrink: 0;
 }

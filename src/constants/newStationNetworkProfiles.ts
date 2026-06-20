@@ -7,6 +7,7 @@ export type NewStationNetworkProfile = {
   showBorough: boolean
   showFareZone: boolean
   showNlc: boolean
+  showGauge: boolean
   showStaffingLevel: boolean
   showMinConnectionTime: boolean
   showOperatorCode: boolean
@@ -22,6 +23,7 @@ export const NEW_STATION_NETWORK_PROFILES: Record<NetworkCollectionId, NewStatio
     showBorough: true,
     showFareZone: true,
     showNlc: false,
+    showGauge: false,
     showStaffingLevel: false,
     showMinConnectionTime: true,
     showOperatorCode: true,
@@ -35,6 +37,7 @@ export const NEW_STATION_NETWORK_PROFILES: Record<NetworkCollectionId, NewStatio
     showBorough: false,
     showFareZone: false,
     showNlc: false,
+    showGauge: false,
     showStaffingLevel: false,
     showMinConnectionTime: false,
     showOperatorCode: true,
@@ -48,6 +51,7 @@ export const NEW_STATION_NETWORK_PROFILES: Record<NetworkCollectionId, NewStatio
     showBorough: false,
     showFareZone: false,
     showNlc: false,
+    showGauge: false,
     showStaffingLevel: false,
     showMinConnectionTime: false,
     showOperatorCode: true,
@@ -56,11 +60,12 @@ export const NEW_STATION_NETWORK_PROFILES: Record<NetworkCollectionId, NewStatio
     showRequestStop: false,
   },
   stations_gbheritage: {
-    description: 'GB Heritage — borough, NLC, staffing, step-free, URL slug, and request-stop fields.',
+    description: 'GB Heritage — borough, NLC, gauge, staffing, station status, step-free, URL slug, and request-stop fields.',
     defaultStnarea: NETWORK_STNAREA_DEFAULTS.stations_gbheritage,
     showBorough: true,
     showFareZone: false,
     showNlc: true,
+    showGauge: true,
     showStaffingLevel: true,
     showMinConnectionTime: false,
     showOperatorCode: false,
