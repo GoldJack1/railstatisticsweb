@@ -5,6 +5,7 @@ export const NETWORK_MAP_COLORS: Record<NetworkCollectionId, string> = {
   stations_nitranslink: '#03846E',
   stations_roiirerail: '#32A441',
   stations_gbheritage: '#dc2626',
+  lightrail_GBSHEFFSUPERTRAM: '#f0632a',
 }
 
 export const NETWORK_MAP_FALLBACK_COLOR = '#64748b'

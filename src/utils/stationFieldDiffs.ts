@@ -1,5 +1,6 @@
 import type { PendingChangeEntry } from '../contexts/PendingStationChangesContext'
 import type { SandboxStationDoc, Station, YearlyPassengers } from '../types'
+import { isLightRailCollection, LIGHT_RAIL_DOC_FIELDS, pickLightRailSandboxOnlyFields } from './lightRailStationFields'
 import { readStationUrl } from './stationUrlField'
 
 export interface StationFieldChange {
@@ -54,6 +55,23 @@ export function flattenAdditionalDocForDiff(doc: Partial<SandboxStationDoc> | nu
 
   for (const [key, label] of topLevel) {
     if (doc[key] !== undefined) out[label] = doc[key]
+  }
+
+  if (Object.keys(pickLightRailSandboxOnlyFields(doc as Record<string, unknown>)).length > 0) {
+    const lightRailLabels: Record<string, string> = {
+      [LIGHT_RAIL_DOC_FIELDS.dateOpened]: 'Date opened',
+      [LIGHT_RAIL_DOC_FIELDS.linesServed]: 'Lines served',
+      [LIGHT_RAIL_DOC_FIELDS.isLimitedService]: 'Limited service',
+      [LIGHT_RAIL_DOC_FIELDS.platforms]: 'Platforms',
+      [LIGHT_RAIL_DOC_FIELDS.isStaffed]: 'Staffed',
+      [LIGHT_RAIL_DOC_FIELDS.isStepFree]: 'Step free status',
+      [LIGHT_RAIL_DOC_FIELDS.hasLift]: 'Has lift',
+      [LIGHT_RAIL_DOC_FIELDS.bus]: 'Bus',
+      [LIGHT_RAIL_DOC_FIELDS.train]: 'Train',
+    }
+    for (const [key, label] of Object.entries(lightRailLabels)) {
+      if ((doc as Record<string, unknown>)[key] !== undefined) out[label] = (doc as Record<string, unknown>)[key]
+    }
   }
 
   if (doc.url !== undefined || doc.urlSlug !== undefined || readStationUrl(doc)) {
@@ -173,18 +191,25 @@ export function diffYearlyPassengerFields(
 export function diffCoreStationFields(
   original: Partial<Station>,
   updated: Partial<Station>,
-  isNew = false
+  isNew = false,
+  options?: { isLightRail?: boolean }
 ): StationFieldChange[] {
   const changes: StationFieldChange[] = []
+  const skipKeys = options?.isLightRail
+    ? new Set<keyof Station>(['crsCode', 'tiploc', 'toc', 'yearlyPassengers'])
+    : null
 
   for (const { key, label } of CORE_STATION_FIELD_LABELS) {
+    if (skipKeys?.has(key)) continue
+    const displayLabel =
+      options?.isLightRail && key === 'stationName' ? 'Stop name' : label
     const fromVal = original[key]
     const toVal = updated[key] ?? original[key]
     const fromStr = formatStationFieldDiffValue(fromVal)
     const toStr = formatStationFieldDiffValue(toVal)
     if (fromStr === toStr) continue
     changes.push({
-      label,
+      label: displayLabel,
       from: isNew ? '—' : fromStr,
       to: toStr,
     })
@@ -207,6 +232,7 @@ export interface StationFieldChangesInput {
   originalAdditional?: Partial<SandboxStationDoc> | null
   updatedAdditional?: Partial<SandboxStationDoc> | null
   isNew?: boolean
+  isLightRail?: boolean
 }
 
 /** Build a per-field change list for station edit review or pending changes. */
@@ -229,14 +255,40 @@ export function getStationFieldChanges(input: StationFieldChangesInput): Station
         : originalPassengers
 
   return [
-    ...diffCoreStationFields(input.originalStation, input.updatedStation, isNew),
+    ...diffCoreStationFields(input.originalStation, input.updatedStation, isNew, {
+      isLightRail: input.isLightRail,
+    }),
     ...diffYearlyPassengerFields(originalPassengers, updatedPassengers, isNew),
     ...diffAdditionalDocFields(input.originalAdditional, input.updatedAdditional, isNew),
   ]
 }
 
-export function getFieldChangesForPendingReview(entry: PendingChangeEntry): StationFieldChange[] {
+export function getFieldChangesForPendingReview(
+  entry: PendingChangeEntry,
+  options?: { additionalDocFallback?: Partial<SandboxStationDoc> | null }
+): StationFieldChange[] {
   const { original, updated, sandboxUpdated, sandboxOriginal, isNew } = entry
+  const isLightRail = isLightRailCollection(entry.targetCollectionId)
+
+  let originalAdditional = isNew ? null : sandboxOriginal ?? null
+  if (
+    isLightRail &&
+    options?.additionalDocFallback &&
+    (!originalAdditional ||
+      Object.keys(pickLightRailSandboxOnlyFields(originalAdditional as Record<string, unknown>)).length === 0)
+  ) {
+    originalAdditional = pickLightRailSandboxOnlyFields(
+      options.additionalDocFallback as Record<string, unknown>
+    ) as Partial<SandboxStationDoc>
+  }
+
+  let mergedUpdatedAdditional: Partial<SandboxStationDoc> | null = null
+  if (sandboxUpdated) {
+    mergedUpdatedAdditional =
+      originalAdditional && !isNew
+        ? ({ ...originalAdditional, ...sandboxUpdated } as Partial<SandboxStationDoc>)
+        : sandboxUpdated
+  }
 
   const updatedStation: Partial<Station> = {
     stationName: updated.stationName ?? original.stationName,
@@ -256,8 +308,9 @@ export function getFieldChangesForPendingReview(entry: PendingChangeEntry): Stat
   return getStationFieldChanges({
     originalStation: original,
     updatedStation,
-    originalAdditional: isNew ? null : sandboxOriginal ?? null,
-    updatedAdditional: sandboxUpdated ?? null,
+    originalAdditional,
+    updatedAdditional: mergedUpdatedAdditional,
     isNew: isNew === true,
+    isLightRail,
   })
 }

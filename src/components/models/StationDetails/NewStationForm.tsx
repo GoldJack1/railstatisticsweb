@@ -11,6 +11,13 @@ import type { StationDetailsTab } from '../../../utils/stationCollectionFieldSch
 import { STEP_FREE_SECTION_LABEL } from '../../../utils/stationCollectionFieldSchema'
 import type { PendingNewStationDraftPrefill } from '../../../utils/pendingNewStationEdit'
 import { createPortal } from 'react-dom'
+import { LightRailLinesServedChipPicker } from '../../chips/LightRailLinesServedChipPicker'
+import { LightRailPlatformsChipPicker } from '../../chips/LightRailPlatformsChipPicker'
+import {
+  buildLightRailAdditionalSavePayload,
+  LIGHT_RAIL_DOC_FIELDS,
+  readLightRailDocString,
+} from '../../../utils/lightRailStationFields'
 import TXTINPWideButton from '../../textInputs/plain/TXTINPWideButton'
 
 type NewStationFormState = Partial<Station>
@@ -202,6 +209,10 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
   }
 
   const validateAndPrepareAdditionalDetails = (): Partial<SandboxStationDoc> | null => {
+    if (fieldSchema.isLightRail) {
+      const picked = buildLightRailAdditionalSavePayload(additionalForm as Record<string, unknown>)
+      return Object.keys(picked).length > 0 ? (picked as Partial<SandboxStationDoc>) : null
+    }
     const payload: Partial<SandboxStationDoc> = { ...additionalForm }
     const facilities: Record<string, unknown> = {}
     for (const row of facilitiesRows) {
@@ -239,7 +250,7 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
     Boolean((form.stationName ?? '').trim()) &&
     (!fieldSchema.requireCrsCode || Boolean((form.crsCode ?? '').trim())) &&
     (!fieldSchema.requireTiploc || Boolean((form.tiploc ?? '').trim())) &&
-    Boolean((form.toc ?? '').trim()) &&
+    (fieldSchema.isLightRail || Boolean((form.toc ?? '').trim())) &&
     Boolean((form.country ?? '').trim()) &&
     Boolean((form.county ?? '').trim()) &&
     Boolean((form.stnarea ?? '').trim()) &&
@@ -283,8 +294,16 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
     const stnarea = (form.stnarea ?? '').trim()
     const urlValue = String(additionalForm[fieldSchema.urlFieldKey] ?? '').trim()
 
-    if (!name || !toc || !country || !county || !stnarea) {
-      setSaveError('Missing required fields: Station name, TOC, Country, County, Station area.')
+    if (!name || !country || !county || !stnarea) {
+      setSaveError(
+        fieldSchema.isLightRail
+          ? 'Missing required fields: Stop name, Country, County, Station area.'
+          : 'Missing required fields: Station name, TOC, Country, County, Station area.'
+      )
+      return
+    }
+    if (!fieldSchema.isLightRail && !toc) {
+      setSaveError('Missing required field: TOC.')
       return
     }
     if (fieldSchema.requireCrsCode && !crs) {
@@ -308,20 +327,31 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
     const yearlyPassengers = validateAndPrepareYearlyPassengers()
     if (yearlyPassengers === 'error') return
 
-    const payload: Partial<Station> = {
-      stationName: name,
-      crsCode: crs,
-      tiploc: tiploc || null,
-      latitude: lat,
-      longitude: lng,
-      country: country || null,
-      county: county || null,
-      toc: toc || null,
-      stnarea: stnarea || null,
-      borough: (form.borough ?? '').trim() || null,
-      fareZone: (form.fareZone ?? '').trim() || null,
-      yearlyPassengers
-    }
+    const payload: Partial<Station> = fieldSchema.isLightRail
+      ? {
+          stationName: name,
+          latitude: lat,
+          longitude: lng,
+          country: country || null,
+          county: county || null,
+          stnarea: stnarea || null,
+          borough: (form.borough ?? '').trim() || null,
+          fareZone: (form.fareZone ?? '').trim() || null,
+        }
+      : {
+          stationName: name,
+          crsCode: crs,
+          tiploc: tiploc || null,
+          latitude: lat,
+          longitude: lng,
+          country: country || null,
+          county: county || null,
+          toc: toc || null,
+          stnarea: stnarea || null,
+          borough: (form.borough ?? '').trim() || null,
+          fareZone: (form.fareZone ?? '').trim() || null,
+          yearlyPassengers,
+        }
 
     const additional = validateAndPrepareAdditionalDetails()
     const additionalWithSlug = fieldSchema.showUrl
@@ -374,7 +404,7 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
         <div className="edit-form-grid">
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-stationName">
-              Station name *
+              {fieldSchema.isLightRail ? 'Stop name *' : 'Station name *'}
             </label>
             <TXTINPWideButton
               id="new-stationName"
@@ -385,6 +415,8 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 colorVariant="secondary"
               />
           </div>
+          {!fieldSchema.isLightRail && (
+            <>
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-crsCode">
               CRS Code{fieldSchema.requireCrsCode ? ' *' : ''}
@@ -419,6 +451,8 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 colorVariant="secondary"
               />
           </div>
+            </>
+          )}
           <div className="edit-field">
             <label className="edit-label" htmlFor="new-country">
               Country *
@@ -481,6 +515,36 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
               />
             </div>
           )}
+          {fieldSchema.showLinesServed && (
+            <div className="edit-field edit-field-full">
+              <span className="edit-label" id="new-linesServed-label">
+                Lines served
+              </span>
+              <LightRailLinesServedChipPicker
+                id="new-linesServed"
+                labelledBy="new-linesServed-label"
+                value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.linesServed)}
+                onChange={(next) =>
+                  updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.linesServed]: next } as Partial<SandboxStationDoc>)
+                }
+              />
+            </div>
+          )}
+          {fieldSchema.showPlatforms && (
+            <div className="edit-field edit-field-full">
+              <span className="edit-label" id="new-platforms-label">
+                Platforms
+              </span>
+              <LightRailPlatformsChipPicker
+                id="new-platforms"
+                labelledBy="new-platforms-label"
+                value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.platforms)}
+                onChange={(next) =>
+                  updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.platforms]: next } as Partial<SandboxStationDoc>)
+                }
+              />
+            </div>
+          )}
           {fieldSchema.showNlc && (
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-nlc">
@@ -534,12 +598,20 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
           <div className="edit-form-grid">
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-stepFreeCode">
-                Step-free code
+                {fieldSchema.isLightRail ? 'Step Free Status' : 'Step-free code'}
               </label>
               <TXTINPWideButton
                 id="new-stepFreeCode"
-                value={String(additionalForm.stepFree?.stepFreeCode ?? '')}
-                onInputChange={(e) => updateAdditionalNested('stepFree', { stepFreeCode: e.target.value })}
+                value={
+                  fieldSchema.isLightRail
+                    ? readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.isStepFree)
+                    : String(additionalForm.stepFree?.stepFreeCode ?? '')
+                }
+                onInputChange={(e) =>
+                  fieldSchema.isLightRail
+                    ? updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.isStepFree]: e.target.value } as Partial<SandboxStationDoc>)
+                    : updateAdditionalNested('stepFree', { stepFreeCode: e.target.value })
+                }
                 inputClassName="edit-input"
                 colorVariant="secondary"
               />
@@ -784,6 +856,23 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
         <div className="modal-section">
           <h3 className="modal-section-title">Lift</h3>
           <div className="edit-form-grid">
+            {fieldSchema.isLightRail ? (
+              <div className="edit-field">
+                <label className="edit-label" htmlFor="new-hasLift">
+                  Has lift
+                </label>
+                <TXTINPWideButton
+                  id="new-hasLift"
+                  value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.hasLift)}
+                  onInputChange={(e) =>
+                    updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.hasLift]: e.target.value } as Partial<SandboxStationDoc>)
+                  }
+                  inputClassName="edit-input"
+                  colorVariant="secondary"
+                />
+              </div>
+            ) : (
+              <>
             <div className="edit-field">
               <label className="edit-label" htmlFor="new-liftAvailable">
                 Available
@@ -823,6 +912,8 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 colorVariant="secondary"
               />
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -831,7 +922,23 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
         <div className="modal-section">
           <h3 className="modal-section-title">Service & Connections</h3>
           <div className="edit-form-grid">
-            {fieldSchema.showConnectionBus && (
+            {fieldSchema.isLightRail && fieldSchema.showDateOpened && (
+              <div className="edit-field">
+                <label className="edit-label" htmlFor="new-dateOpened">
+                  Date opened
+                </label>
+                <TXTINPWideButton
+                  id="new-dateOpened"
+                  value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.dateOpened)}
+                  onInputChange={(e) =>
+                    updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.dateOpened]: e.target.value } as Partial<SandboxStationDoc>)
+                  }
+                  inputClassName="edit-input"
+                  colorVariant="secondary"
+                />
+              </div>
+            )}
+            {!fieldSchema.isLightRail && fieldSchema.showConnectionBus && (
               <div className="edit-field">
                 <label className="edit-label" htmlFor="new-connectionBus">
                   Bus
@@ -845,7 +952,39 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 />
               </div>
             )}
-            {fieldSchema.showConnectionTaxi && (
+            {fieldSchema.isLightRail && fieldSchema.showConnectionBus && (
+              <div className="edit-field">
+                <label className="edit-label" htmlFor="new-bus">
+                  Bus
+                </label>
+                <TXTINPWideButton
+                  id="new-bus"
+                  value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.bus)}
+                  onInputChange={(e) =>
+                    updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.bus]: e.target.value } as Partial<SandboxStationDoc>)
+                  }
+                  inputClassName="edit-input"
+                  colorVariant="secondary"
+                />
+              </div>
+            )}
+            {fieldSchema.isLightRail && fieldSchema.showConnectionTrain && (
+              <div className="edit-field">
+                <label className="edit-label" htmlFor="new-train">
+                  Train
+                </label>
+                <TXTINPWideButton
+                  id="new-train"
+                  value={readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.train)}
+                  onInputChange={(e) =>
+                    updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.train]: e.target.value } as Partial<SandboxStationDoc>)
+                  }
+                  inputClassName="edit-input"
+                  colorVariant="secondary"
+                />
+              </div>
+            )}
+            {!fieldSchema.isLightRail && fieldSchema.showConnectionTaxi && (
               <div className="edit-field">
                 <label className="edit-label" htmlFor="new-connectionTaxi">
                   Taxi
@@ -859,7 +998,7 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 />
               </div>
             )}
-            {fieldSchema.showConnectionUnderground && (
+            {!fieldSchema.isLightRail && fieldSchema.showConnectionUnderground && (
               <div className="edit-field">
                 <label className="edit-label" htmlFor="new-connectionUnderground">
                   Underground
@@ -873,7 +1012,7 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 />
               </div>
             )}
-            {fieldSchema.showStationStatusSection && (
+            {!fieldSchema.isLightRail && fieldSchema.showStationStatusSection && (
               <>
                 <div className="edit-field">
                   <label className="edit-label" htmlFor="new-station-status">
@@ -906,18 +1045,26 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
             {fieldSchema.showStaffingLevel && (
               <div className="edit-field">
                 <label className="edit-label" htmlFor="new-staffingLevel">
-                  Staffing Level
+                  {fieldSchema.isLightRail ? 'Staffed' : 'Staffing Level'}
                 </label>
                 <TXTINPWideButton
                   id="new-staffingLevel"
-                  value={String(additionalForm.staffingLevel ?? '')}
-                  onInputChange={(e) => updateAdditional({ staffingLevel: e.target.value })}
+                  value={
+                    fieldSchema.isLightRail
+                      ? readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.isStaffed)
+                      : String(additionalForm.staffingLevel ?? '')
+                  }
+                  onInputChange={(e) =>
+                    fieldSchema.isLightRail
+                      ? updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.isStaffed]: e.target.value } as Partial<SandboxStationDoc>)
+                      : updateAdditional({ staffingLevel: e.target.value })
+                  }
                   inputClassName="edit-input"
                   colorVariant="secondary"
                 />
               </div>
             )}
-            {fieldSchema.showRequestStop && (
+            {!fieldSchema.isLightRail && fieldSchema.showRequestStop && (
               <div className="edit-field">
                 <label className="edit-label" htmlFor="new-requestStop">
                   Request stop
@@ -938,8 +1085,16 @@ const NewStationForm: React.FC<NewStationFormProps> = ({
                 </label>
                 <TXTINPWideButton
                   id="new-limitedService"
-                  value={String(additionalForm.is?.Islimitedservice ?? '')}
-                  onInputChange={(e) => updateAdditionalNested('is', { Islimitedservice: e.target.value })}
+                  value={
+                    fieldSchema.isLightRail
+                      ? readLightRailDocString(additionalForm as Record<string, unknown>, LIGHT_RAIL_DOC_FIELDS.isLimitedService)
+                      : String(additionalForm.is?.Islimitedservice ?? '')
+                  }
+                  onInputChange={(e) =>
+                    fieldSchema.isLightRail
+                      ? updateAdditional({ [LIGHT_RAIL_DOC_FIELDS.isLimitedService]: e.target.value } as Partial<SandboxStationDoc>)
+                      : updateAdditionalNested('is', { Islimitedservice: e.target.value })
+                  }
                   inputClassName="edit-input"
                   colorVariant="secondary"
                 />

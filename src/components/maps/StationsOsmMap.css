@@ -78,6 +78,35 @@
     pointer-events: none;
 }
 
+/* SuperTram stops use the South Yorkshire People's Network logo instead of coloured dots */
+.stations-osm-map__supertram-marker-shell {
+    background: transparent;
+    border: none;
+}
+
+.stations-osm-map__supertram-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    line-height: 0;
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.28));
+}
+
+.stations-osm-map__supertram-marker__svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.stations-osm-map__supertram-marker .supertram-logo-border {
+    fill: #ffffff;
+}
+
+.stations-osm-map__supertram-marker--selected .supertram-logo-border {
+    fill: #2563eb;
+}
+
 .stations-osm-map--add-station-mode .stations-osm-map__canvas {
     cursor: crosshair;
 }

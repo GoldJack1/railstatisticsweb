@@ -1,0 +1,43 @@
+.light-rail-lines-chip-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.light-rail-lines-chip-picker__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
+
+.light-rail-lines-chip-picker__chip:hover {
+  opacity: 0.92;
+}
+
+.light-rail-lines-chip-picker__chip:focus-visible {
+  outline: 2px solid var(--accent-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+.light-rail-lines-chip-picker__chip--selected {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+.light-rail-lines-chip-picker__chip:not(.light-rail-lines-chip-picker__chip--selected) {
+  background-color: color-mix(in srgb, var(--bg-secondary, #f1f5f9) 88%, transparent);
+}

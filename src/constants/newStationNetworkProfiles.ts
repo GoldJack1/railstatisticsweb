@@ -73,6 +73,20 @@ export const NEW_STATION_NETWORK_PROFILES: Record<NetworkCollectionId, NewStatio
     showFacilitiesTab: false,
     showRequestStop: true,
   },
+  lightrail_GBSHEFFSUPERTRAM: {
+    description: 'South Yorkshire SuperTram — borough, fare zones, lines, platforms, step-free, lift, and bus/train connections.',
+    defaultStnarea: NETWORK_STNAREA_DEFAULTS.lightrail_GBSHEFFSUPERTRAM,
+    showBorough: true,
+    showFareZone: true,
+    showNlc: false,
+    showGauge: false,
+    showStaffingLevel: true,
+    showMinConnectionTime: false,
+    showOperatorCode: false,
+    showStepFreeTab: true,
+    showFacilitiesTab: false,
+    showRequestStop: false,
+  },
 }
 
 export function getNewStationNetworkProfile(collectionId: NetworkCollectionId): NewStationNetworkProfile {

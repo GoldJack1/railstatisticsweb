@@ -184,7 +184,11 @@ export function usePendingChangesPublishFlow({
         for (const stationId of validIds) {
           const entry = pendingChanges[stationId]
           if (!entry) continue
-          const targetCollection = entry.targetCollectionId
+          const validationForEntry = validateSingleCollectionPending(pendingChanges, [stationId])
+          if ('error' in validationForEntry) {
+            throw new Error(validationForEntry.error)
+          }
+          const targetCollection = validationForEntry.collectionId
           if (entry.isNew) {
             await createStationInFirebase(stationId, entry.updated, targetCollection)
             if (entry.sandboxUpdated && Object.keys(entry.sandboxUpdated).length > 0) {
@@ -221,6 +225,13 @@ export function usePendingChangesPublishFlow({
         if (clearsAllPending) {
           onPublishSuccess?.()
         }
+      } catch (err) {
+        console.error('Failed to publish pending station changes:', err)
+        window.alert(
+          err instanceof Error
+            ? err.message
+            : 'Failed to publish changes to Firebase. Check the browser console for details.'
+        )
       } finally {
         setIsPublishingAll(false)
       }

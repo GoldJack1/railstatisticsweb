@@ -1,0 +1,10 @@
+.rs-station-text-card--light-rail {
+  padding-bottom: 0;
+}
+
+.rs-station-text-card--light-rail .light-rail-line-strip {
+  position: relative;
+  z-index: 2;
+  width: calc(100% + 24px);
+  margin: 12px -12px 0;
+}

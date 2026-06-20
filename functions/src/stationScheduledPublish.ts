@@ -17,18 +17,35 @@ export interface JobChangeEntry {
   sandboxUpdated?: Record<string, unknown> | null;
 }
 
-function stationToFirestoreUpdate(data: Record<string, unknown>): Record<string, unknown> {
+function stationToFirestoreUpdate(
+  data: Record<string, unknown>,
+  collectionId?: StationCollectionId
+): Record<string, unknown> {
   const update: Record<string, unknown> = {};
-  if (data.stationName !== undefined) update.stationname = data.stationName;
-  if (data.crsCode !== undefined) update.CrsCode = data.crsCode;
-  if (data.tiploc !== undefined) update.tiploc = data.tiploc;
-  if (data.country !== undefined) update.country = data.country;
-  if (data.county !== undefined) update.county = data.county;
-  if (data.toc !== undefined) update.TOC = data.toc;
-  if (data.stnarea !== undefined) update.stnarea = data.stnarea;
-  if (data.borough !== undefined) update.borough = data.borough;
-  if (data.fareZone !== undefined) update.fareZone = data.fareZone;
-  if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers;
+  const isLightRail = collectionId === "lightrail_GBSHEFFSUPERTRAM";
+
+  if (isLightRail) {
+    if (data.stationName !== undefined) update.StopName = data.stationName;
+    if (data.country !== undefined) update.country = data.country;
+    if (data.county !== undefined) update.county = data.county;
+    if (data.stnarea !== undefined) update.stnarea = data.stnarea;
+    if (data.borough !== undefined) update.borough = data.borough;
+    if (data.fareZone !== undefined && data.fareZone !== null && String(data.fareZone).trim() !== "") {
+      update.FareZone = data.fareZone;
+    }
+  } else {
+    if (data.stationName !== undefined) update.stationname = data.stationName;
+    if (data.crsCode !== undefined) update.CrsCode = data.crsCode;
+    if (data.tiploc !== undefined) update.tiploc = data.tiploc;
+    if (data.country !== undefined) update.country = data.country;
+    if (data.county !== undefined) update.county = data.county;
+    if (data.toc !== undefined) update.TOC = data.toc;
+    if (data.stnarea !== undefined) update.stnarea = data.stnarea;
+    if (data.borough !== undefined) update.borough = data.borough;
+    if (data.fareZone !== undefined) update.fareZone = data.fareZone;
+    if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers;
+  }
+
   if (typeof data.latitude === "number" && typeof data.longitude === "number") {
     update.location = new admin.firestore.GeoPoint(data.latitude, data.longitude);
   }
@@ -55,7 +72,7 @@ export async function applyScheduledStationJobPayload(payload: {
     const sandboxUpdated = entry.sandboxUpdated;
     const isNew = entry.isNew === true;
 
-    const corePayload = stationToFirestoreUpdate(updated);
+    const corePayload = stationToFirestoreUpdate(updated, collectionId as StationCollectionId);
     const coreWithId = {...corePayload, id: stationId};
 
     if (isNew) {

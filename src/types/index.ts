@@ -24,6 +24,8 @@ export interface Station {
   urlSlug?: string | null
   /** Set when stations are loaded from a merged “All networks” view. */
   sourceCollectionId?: NetworkCollectionId
+  /** Comma-separated SuperTram lines (Firestore `Lines Served`). */
+  linesServed?: string | null
 }
 
 export interface YearlyPassengers {
@@ -81,6 +83,17 @@ export interface SandboxStationDoc {
   province?: string
   'post-eir_code'?: string
   fareZone?: string | number
+  StopName?: string
+  'Date Opened'?: string
+  'Lines Served'?: string
+  IsLimitedService?: string
+  Platforms?: string
+  IsStaffed?: string
+  IsStepFree?: string
+  HasLift?: string
+  FareZone?: string
+  Bus?: string
+  Train?: string
 }
 
 export interface StationStats {

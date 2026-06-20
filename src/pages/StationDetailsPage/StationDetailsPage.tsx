@@ -4,7 +4,12 @@ import { useStations } from '../../hooks/useStations'
 import { useStationCollectionFieldSchema } from '../../hooks/useStationCollectionFieldSchema'
 import type { SandboxStationDoc, Station } from '../../types'
 import { fetchStationDocumentById } from '../../services/firebase'
-import { buildStationPath, findStationByRoute } from '../../utils/stationAreaSlug'
+import {
+  buildStationPath,
+  findStationByRoute,
+  getCollectionIdFromNetworkUrlSlug,
+  getStationNetworkCollectionId,
+} from '../../utils/stationAreaSlug'
 import { isStationCollectionId } from '../../constants/stationCollections'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -67,8 +72,8 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   const { pendingChanges } = usePendingStationChanges()
   const pendingEntry = station ? pendingChanges[station.id] : undefined
   const pendingFieldChanges = useMemo(
-    () => getPendingFieldChangesForEntry(pendingEntry),
-    [pendingEntry]
+    () => getPendingFieldChangesForEntry(pendingEntry, { additionalDocFallback: additionalDoc }),
+    [pendingEntry, additionalDoc]
   )
   const displayStation = useMemo(
     () => (station ? mergeStationWithPendingUpdate(station, pendingEntry) : null),
@@ -80,10 +85,12 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
   )
   const showPendingOverlay = canEdit && Boolean(pendingEntry) && pendingFieldChanges.length > 0
 
-  const schemaCollectionId =
-    station?.sourceCollectionId && isStationCollectionId(station.sourceCollectionId)
-      ? station.sourceCollectionId
-      : null
+  const routeCollectionId = getCollectionIdFromNetworkUrlSlug(network)
+  const schemaCollectionId = useMemo(() => {
+    if (!station) return null
+    const resolved = getStationNetworkCollectionId(station, routeCollectionId ?? collectionId)
+    return resolved && isStationCollectionId(resolved) ? resolved : null
+  }, [station, routeCollectionId, collectionId])
   const { fieldSchema, loading: schemaLoading } = useStationCollectionFieldSchema(schemaCollectionId)
   const showAdditionalTab = stationDetailsShowsAdditionalTab(fieldSchema)
   const visibleTabs = useMemo(() => getVisibleStationDetailsTabs(fieldSchema), [fieldSchema])
@@ -124,7 +131,10 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     let cancelled = false
     setAdditionalLoading(true)
     setAdditionalDoc(null)
-    fetchStationDocumentById(station.id, station.sourceCollectionId ?? collectionId)
+    fetchStationDocumentById(
+      station.id,
+      getStationNetworkCollectionId(station, routeCollectionId ?? collectionId) ?? collectionId
+    )
       .then((data) => {
         if (cancelled) return
         setAdditionalDoc((data as SandboxStationDoc) ?? null)
@@ -135,7 +145,7 @@ const StationDetailsPage: React.FC<StationDetailsPageProps> = ({ mode }) => {
     return () => {
       cancelled = true
     }
-  }, [station?.id, station?.sourceCollectionId, collectionId])
+  }, [station?.id, station?.sourceCollectionId, collectionId, routeCollectionId])
 
   useLayoutEffect(() => {
     if (mode !== 'view') return

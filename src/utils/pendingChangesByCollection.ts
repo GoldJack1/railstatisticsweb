@@ -1,15 +1,39 @@
 import type { PendingChangeEntry } from '../contexts/PendingStationChangesContext'
 import type { StationCollectionId } from '../constants/stationCollections'
 import { DEFAULT_NETWORK_COLLECTION_ID, isStationCollectionId } from '../constants/stationCollections'
+import { getStationNetworkCollectionId } from './stationAreaSlug'
 
+/** Resolve which Firestore collection a pending entry should write to. */
 export function resolvePendingTargetCollectionId(
   entry: Partial<PendingChangeEntry> | undefined,
-  fallback: StationCollectionId
+  fallback: StationCollectionId = DEFAULT_NETWORK_COLLECTION_ID
 ): StationCollectionId {
-  if (entry?.targetCollectionId && isStationCollectionId(entry.targetCollectionId)) {
-    return entry.targetCollectionId
+  if (!entry) return fallback
+
+  const stored =
+    entry.targetCollectionId && isStationCollectionId(entry.targetCollectionId)
+      ? entry.targetCollectionId
+      : null
+
+  // Resolve from station identity first — do not pass `fallback` here or every
+  // stop without `sourceCollectionId` would inherit GBNR before `stnarea` is checked.
+  const fromStationIdentity = entry.original ? getStationNetworkCollectionId(entry.original) : null
+
+  // Prefer the station's actual network over a stale stored target (e.g. default GBNR).
+  if (fromStationIdentity) {
+    if (!stored || stored !== fromStationIdentity) return fromStationIdentity
+    return stored
   }
-  return fallback
+
+  return stored ?? fallback
+}
+
+/** Normalize a stored pending entry so its target collection matches the station. */
+export function migratePendingEntryTarget(entry: PendingChangeEntry): PendingChangeEntry {
+  return {
+    ...entry,
+    targetCollectionId: resolvePendingTargetCollectionId(entry, DEFAULT_NETWORK_COLLECTION_ID),
+  }
 }
 
 export function filterPendingChangesForCollection(

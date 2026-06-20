@@ -3,6 +3,7 @@ export const NETWORK_COLLECTION_IDS = [
   'stations_nitranslink',
   'stations_roiirerail',
   'stations_gbheritage',
+  'lightrail_GBSHEFFSUPERTRAM',
 ] as const
 
 /** Production networks that trigger new-station push notifications (excludes heritage + sandbox). */
@@ -21,6 +22,7 @@ export const NETWORK_LABELS: Record<NetworkCollectionId, string> = {
   stations_nitranslink: 'NI Translink',
   stations_roiirerail: 'Irish Rail',
   stations_gbheritage: 'GB Heritage',
+  lightrail_GBSHEFFSUPERTRAM: 'South Yorkshire SuperTram',
 }
 
 export const NETWORK_VIEW_TABS: Array<{ label: string; value: NetworkViewFilter }> = [
@@ -29,6 +31,7 @@ export const NETWORK_VIEW_TABS: Array<{ label: string; value: NetworkViewFilter 
   { label: NETWORK_LABELS.stations_nitranslink, value: 'stations_nitranslink' },
   { label: NETWORK_LABELS.stations_roiirerail, value: 'stations_roiirerail' },
   { label: NETWORK_LABELS.stations_gbheritage, value: 'stations_gbheritage' },
+  { label: NETWORK_LABELS.lightrail_GBSHEFFSUPERTRAM, value: 'lightrail_GBSHEFFSUPERTRAM' },
 ]
 
 export const SANDBOX_COLLECTION_ID = 'newsandboxstations1' as const
@@ -40,6 +43,7 @@ export const STATION_COLLECTION_DISPLAY_LABELS: Record<StationCollectionId, stri
   stations_nitranslink: 'NI Translink (stations_nitranslink)',
   stations_roiirerail: 'Irish Rail (stations_roiirerail)',
   stations_gbheritage: 'GB Heritage (stations_gbheritage)',
+  lightrail_GBSHEFFSUPERTRAM: 'South Yorkshire SuperTram (lightrail_GBSHEFFSUPERTRAM)',
   newsandboxstations1: 'Sandbox (newsandboxstations1)',
 }
 
@@ -51,6 +55,7 @@ export const NETWORK_STNAREA_DEFAULTS: Record<NetworkCollectionId, string> = {
   stations_nitranslink: 'NITRANSLINK',
   stations_roiirerail: 'ROIIRERAIL',
   stations_gbheritage: 'GBHERITAGE',
+  lightrail_GBSHEFFSUPERTRAM: 'GBSHEFFSUPERTRAM',
 }
 
 /** URL path segment for each network in station detail routes (e.g. `/stations/gb-heritage/keighley`). */
@@ -59,6 +64,7 @@ export const NETWORK_URL_SLUGS: Record<NetworkCollectionId, string> = {
   stations_nitranslink: 'ni-translink',
   stations_roiirerail: 'irish-rail',
   stations_gbheritage: 'gb-heritage',
+  lightrail_GBSHEFFSUPERTRAM: 'south-yorkshire-supertram',
 }
 
 export const SANDBOX_URL_SLUG = 'sandbox' as const
@@ -69,6 +75,7 @@ export const STNAREA_TO_NETWORK_COLLECTION: Record<string, NetworkCollectionId> 
   NITRANSLINK: 'stations_nitranslink',
   ROIIRERAIL: 'stations_roiirerail',
   GBHERITAGE: 'stations_gbheritage',
+  GBSHEFFSUPERTRAM: 'lightrail_GBSHEFFSUPERTRAM',
 }
 
 export const DEFAULT_NETWORK_VIEW: NetworkViewFilter = 'all'

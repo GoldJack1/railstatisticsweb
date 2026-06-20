@@ -3,6 +3,7 @@ export const NETWORK_COLLECTION_IDS = [
   "stations_nitranslink",
   "stations_roiirerail",
   "stations_gbheritage",
+  "lightrail_GBSHEFFSUPERTRAM",
 ] as const;
 
 export const NEW_STATION_NOTIFICATION_COLLECTION_IDS = [

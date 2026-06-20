@@ -10,6 +10,8 @@ import { StationDetailField } from './StationDetailField'
 import { StationPendingChangesBanner } from './StationPendingChangesBanner'
 import StationResponsiveLocationMap from './StationResponsiveLocationMap'
 import type { StationFieldChange } from '../../../utils/stationFieldDiffs'
+import { LIGHT_RAIL_DOC_FIELDS, readLightRailDocString } from '../../../utils/lightRailStationFields'
+import { LightRailLinesServedChips } from './LightRailLinesServedChips'
 import './StationPendingChangesBanner.css'
 
 const BLANK_DISPLAY = '---'
@@ -156,6 +158,7 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
     additionalDoc ?? ({ url: station.stationUrl, urlSlug: station.urlSlug } as Partial<SandboxStationDoc>)
   )
   const stationUrlHref = resolveStationUrlHref(stationUrlValue)
+  const lightRailDoc = fieldSchema.isLightRail ? (additionalDoc as Record<string, unknown> | null) : null
 
   useEffect(() => {
     if (!showLocationTab || !showLocation) return
@@ -175,9 +178,13 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
           <h3 className="modal-section-title">Details</h3>
           <div className="modal-details-grid modal-facilities-grid">
             <StationDetailField label="Station ID" value={formatOptionalText(station.id)} pendingFieldChanges={pendingFieldChanges} />
-            <StationDetailField label="CRS Code" value={formatOptionalText(station.crsCode)} pendingFieldChanges={pendingFieldChanges} />
-            <StationDetailField label="Tiploc" value={formatOptionalText(station.tiploc)} pendingFieldChanges={pendingFieldChanges} />
-            <StationDetailField label="TOC" value={formatOptionalText(station.toc)} pendingFieldChanges={pendingFieldChanges} />
+            {!fieldSchema.isLightRail && (
+              <>
+                <StationDetailField label="CRS Code" value={formatOptionalText(station.crsCode)} pendingFieldChanges={pendingFieldChanges} />
+                <StationDetailField label="Tiploc" value={formatOptionalText(station.tiploc)} pendingFieldChanges={pendingFieldChanges} />
+                <StationDetailField label="TOC" value={formatOptionalText(station.toc)} pendingFieldChanges={pendingFieldChanges} />
+              </>
+            )}
             <StationDetailField label="Country" value={formatOptionalText(station.country)} pendingFieldChanges={pendingFieldChanges} />
             <StationDetailField label="County" value={formatOptionalText(station.county)} pendingFieldChanges={pendingFieldChanges} />
             <StationDetailField label="Station area" value={formatOptionalText(station.stnarea)} pendingFieldChanges={pendingFieldChanges} />
@@ -196,6 +203,19 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
                   if (isBlankValue(z)) return BLANK_DISPLAY
                   return formatFareZoneDisplay(z!) || z || BLANK_DISPLAY
                 })()}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showLinesServed && (
+              <LightRailLinesServedChips
+                linesServed={readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.linesServed)}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showPlatforms && (
+              <StationDetailField
+                label="Platforms"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.platforms))}
                 pendingFieldChanges={pendingFieldChanges}
               />
             )}
@@ -239,7 +259,11 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
             <div className="modal-details-grid">
               <StationDetailField
                 label="Step Free Status"
-                value={formatValue(additionalDoc?.stepFree?.stepFreeCode)}
+                value={
+                  fieldSchema.isLightRail
+                    ? formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.isStepFree))
+                    : formatValue(additionalDoc?.stepFree?.stepFreeCode)
+                }
                 pendingFieldChanges={pendingFieldChanges}
               />
               {fieldSchema.showStepFreeNote && (
@@ -374,30 +398,84 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
         </div>
       )}
 
-      {showStepFree && fieldSchema.showLiftSection && additionalDoc?.lift && (
+      {showStepFree && fieldSchema.showLiftSection && (
         <div className="modal-section">
-          <h3 className="modal-section-title">Lift</h3>
+          <h3 className="modal-section-title">{fieldSchema.isLightRail ? 'Lift' : 'Lift'}</h3>
           <div className="modal-details-grid">
-            <StationDetailField
-              label="Available"
-              value={formatValue(additionalDoc.lift.liftAvailable)}
-              pendingFieldChanges={pendingFieldChanges}
-            />
-            <StationDetailField
-              label="Notes"
-              value={formatValue(additionalDoc.lift.liftNotes)}
-              pendingFieldChanges={pendingFieldChanges}
-            />
-            <StationDetailField
-              label="Details"
-              value={formatValue(additionalDoc.lift.liftDetails)}
-              pendingFieldChanges={pendingFieldChanges}
-            />
+            {fieldSchema.isLightRail ? (
+              <StationDetailField
+                label="Has lift"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.hasLift))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            ) : (
+              <>
+                <StationDetailField
+                  label="Available"
+                  value={formatValue(additionalDoc?.lift?.liftAvailable)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+                <StationDetailField
+                  label="Notes"
+                  value={formatValue(additionalDoc?.lift?.liftNotes)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+                <StationDetailField
+                  label="Details"
+                  value={formatValue(additionalDoc?.lift?.liftDetails)}
+                  pendingFieldChanges={pendingFieldChanges}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showService && fieldSchema.isLightRail && (
+        <div className="modal-section">
+          <h3 className="modal-section-title">Service & Connections</h3>
+          <div className="modal-details-grid">
+            {fieldSchema.showDateOpened && (
+              <StationDetailField
+                label="Date opened"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.dateOpened))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showLimitedService && (
+              <StationDetailField
+                label="Limited service"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.isLimitedService))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showStaffingLevel && (
+              <StationDetailField
+                label="Staffed"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.isStaffed))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showConnectionBus && (
+              <StationDetailField
+                label="Bus"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.bus))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
+            {fieldSchema.showConnectionTrain && (
+              <StationDetailField
+                label="Train"
+                value={formatValue(readLightRailDocString(lightRailDoc, LIGHT_RAIL_DOC_FIELDS.train))}
+                pendingFieldChanges={pendingFieldChanges}
+              />
+            )}
           </div>
         </div>
       )}
 
       {showService &&
+        !fieldSchema.isLightRail &&
         additionalDoc?.connections &&
         (fieldSchema.showConnectionBus ||
           fieldSchema.showConnectionTaxi ||
@@ -431,6 +509,7 @@ const StationDetailsView: React.FC<StationDetailsViewProps> = ({
       )}
 
       {showService &&
+        !fieldSchema.isLightRail &&
         (fieldSchema.showStationStatusSection ||
           fieldSchema.showStaffingLevel ||
           fieldSchema.showRequestStop ||

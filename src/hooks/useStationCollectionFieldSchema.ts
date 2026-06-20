@@ -10,6 +10,7 @@ import {
 } from '../utils/stationCollectionFieldSchema'
 import { getStationUrlFieldKey, getStationUrlFieldLabel } from '../utils/stationUrlField'
 import { useStationCollection } from '../contexts/StationCollectionContext'
+import { getStationNetworkCollectionId } from '../utils/stationAreaSlug'
 
 export function useStationCollectionFieldSchema(collectionId: StationCollectionId | null): {
   fieldSchema: StationCollectionFieldSchema
@@ -37,23 +38,35 @@ export function useStationCollectionFieldSchema(collectionId: StationCollectionI
       .catch(() => {
         if (!cancelled) {
           const networkId = isNetworkCollection(collectionId) ? collectionId : undefined
+          const isHeritage = collectionId === 'stations_gbheritage'
+          const isLightRail = collectionId === 'lightrail_GBSHEFFSUPERTRAM'
           setFieldSchema({
             ...EMPTY_STATION_COLLECTION_FIELD_SCHEMA,
+            isLightRail,
             defaultStnarea: networkId ? NETWORK_STNAREA_DEFAULTS[networkId] : '',
-            showUrl: collectionId === 'stations_gbheritage',
+            showUrl: isHeritage,
             urlFieldKey: getStationUrlFieldKey(collectionId),
             urlFieldLabel: getStationUrlFieldLabel(collectionId),
-            requireCrsCode: collectionId !== 'stations_gbheritage',
-            requireTiploc: collectionId !== 'stations_gbheritage',
-            showStepFreeSection: collectionId === 'stations_gbheritage',
-            showStepFreeTab: false,
+            requireCrsCode: !isHeritage && !isLightRail,
+            requireTiploc: !isHeritage && !isLightRail,
+            showBorough: isHeritage || isLightRail,
+            showFareZone: isLightRail,
+            showLinesServed: isLightRail,
+            showPlatforms: isLightRail,
+            showStepFreeSection: isHeritage || isLightRail,
+            showStepFreeTab: isLightRail,
             stepFreeTabLabel: 'Step-free & Lift access',
-            showStationStatusSection: collectionId === 'stations_gbheritage',
-            showStaffingLevel: collectionId === 'stations_gbheritage',
-            showNlc: collectionId === 'stations_gbheritage',
-            showGauge: collectionId === 'stations_gbheritage',
-            showRequestStop: collectionId === 'stations_gbheritage',
-            showServiceTab: collectionId === 'stations_gbheritage',
+            showLiftSection: isLightRail,
+            showDateOpened: isLightRail,
+            showLimitedService: isLightRail,
+            showStaffingLevel: isHeritage || isLightRail,
+            showConnectionBus: isLightRail,
+            showConnectionTrain: isLightRail,
+            showNlc: isHeritage,
+            showGauge: isHeritage,
+            showRequestStop: isHeritage,
+            showServiceTab: isHeritage || isLightRail,
+            showStationStatusSection: isHeritage,
           })
         }
       })
@@ -75,7 +88,7 @@ export function useStationFieldSchema(
   fieldSchemaOverride?: StationCollectionFieldSchema
 ): { fieldSchema: StationCollectionFieldSchema; loading: boolean } {
   const { collectionId } = useStationCollection()
-  const stationCollectionId = station.sourceCollectionId ?? collectionId
+  const stationCollectionId = getStationNetworkCollectionId(station, collectionId) ?? collectionId
   const schemaCollectionId = isStationCollectionId(stationCollectionId) ? stationCollectionId : null
   const { fieldSchema, loading } = useStationCollectionFieldSchema(fieldSchemaOverride ? null : schemaCollectionId)
 

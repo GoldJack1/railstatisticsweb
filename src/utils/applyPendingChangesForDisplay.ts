@@ -16,9 +16,12 @@ export function mergeAdditionalDocWithPendingUpdate(
   return { ...doc, ...entry.sandboxUpdated }
 }
 
-export function getPendingFieldChangesForEntry(entry: PendingChangeEntry | undefined): StationFieldChange[] {
+export function getPendingFieldChangesForEntry(
+  entry: PendingChangeEntry | undefined,
+  options?: { additionalDocFallback?: SandboxStationDoc | null }
+): StationFieldChange[] {
   if (!entry) return []
-  return getFieldChangesForPendingReview(entry)
+  return getFieldChangesForPendingReview(entry, options)
 }
 
 export function findPendingFieldChange(

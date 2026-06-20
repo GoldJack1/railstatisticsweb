@@ -246,6 +246,7 @@ export {
   type NetworkViewFilter,
   type StationCollectionId,
 } from '../constants/stationCollections'
+import { isLightRailCollection, LIGHT_RAIL_DOC_FIELDS } from '../utils/lightRailStationFields'
 
 import {
   DEFAULT_NETWORK_COLLECTION_ID,
@@ -573,20 +574,24 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
 
       const station = {
         id: doc.id,
-        stationName: data.stationname || data.stationName || '',
+        stationName: data.stationname || data.stationName || data.StopName || '',
         crsCode: data.CrsCode || data.crsCode || '',
         tiploc: data.tiploc || null,
         latitude: latitude,
         longitude: longitude,
-        country: data.country || null,
-        county: data.county || null,
+        country: data.country || data.Country || null,
+        county: data.county || data.County || null,
         toc: data.TOC || data.toc || null,
-        stnarea: data.stnarea || null,
+        stnarea: data.stnarea || data.STNAREA || null,
         borough: borough != null && borough !== '' ? String(borough) : null,
         fareZone,
         yearlyPassengers: data.yearlyPassengers || null,
         urlSlug: String(data.urlSlug ?? '').trim() || null,
         stationUrl: String(data.url ?? '').trim() || null,
+        linesServed:
+          data['Lines Served'] != null && String(data['Lines Served']).trim() !== ''
+            ? String(data['Lines Served'])
+            : null,
         ...(isNetworkCollection(collectionName) ? { sourceCollectionId: collectionName } : {}),
       }
       
@@ -624,18 +629,35 @@ export const fetchAllNetworkStationsFromFirebase = async (): Promise<Station[]> 
  * Map our Station type to Firestore document fields (same names as used when reading).
  * Only includes fields that are provided (non-undefined).
  */
-const stationToFirestoreUpdate = (data: Partial<Station>): Record<string, unknown> => {
+const stationToFirestoreUpdate = (
+  data: Partial<Station>,
+  collectionId?: StationCollectionId
+): Record<string, unknown> => {
   const update: Record<string, unknown> = {}
-  if (data.stationName !== undefined) update.stationname = data.stationName
-  if (data.crsCode !== undefined) update.CrsCode = data.crsCode
-  if (data.tiploc !== undefined) update.tiploc = data.tiploc
-  if (data.country !== undefined) update.country = data.country
-  if (data.county !== undefined) update.county = data.county
-  if (data.toc !== undefined) update.TOC = data.toc
-  if (data.stnarea !== undefined) update.stnarea = data.stnarea
-  if (data.borough !== undefined) update.borough = data.borough
-  if (data.fareZone !== undefined) update.fareZone = data.fareZone
-  if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers
+  const isLightRail = isLightRailCollection(collectionId)
+
+  if (isLightRail) {
+    if (data.stationName !== undefined) update[LIGHT_RAIL_DOC_FIELDS.stopName] = data.stationName
+    if (data.country !== undefined) update.country = data.country
+    if (data.county !== undefined) update.county = data.county
+    if (data.stnarea !== undefined) update.stnarea = data.stnarea
+    if (data.borough !== undefined) update.borough = data.borough
+    if (data.fareZone !== undefined && data.fareZone !== null && String(data.fareZone).trim() !== '') {
+      update[LIGHT_RAIL_DOC_FIELDS.fareZone] = data.fareZone
+    }
+  } else {
+    if (data.stationName !== undefined) update.stationname = data.stationName
+    if (data.crsCode !== undefined) update.CrsCode = data.crsCode
+    if (data.tiploc !== undefined) update.tiploc = data.tiploc
+    if (data.country !== undefined) update.country = data.country
+    if (data.county !== undefined) update.county = data.county
+    if (data.toc !== undefined) update.TOC = data.toc
+    if (data.stnarea !== undefined) update.stnarea = data.stnarea
+    if (data.borough !== undefined) update.borough = data.borough
+    if (data.fareZone !== undefined) update.fareZone = data.fareZone
+    if (data.yearlyPassengers !== undefined) update.yearlyPassengers = data.yearlyPassengers
+  }
+
   if (data.latitude !== undefined && data.longitude !== undefined) {
     update.location = new GeoPoint(data.latitude, data.longitude)
   }
@@ -655,7 +677,7 @@ export const updateStationInFirebase = async (
   if (!db) throw new Error('Failed to initialize Firebase database')
   const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
-  const update = stationToFirestoreUpdate(data)
+  const update = stationToFirestoreUpdate(data, collectionOverride)
   if (Object.keys(update).length === 0) return
   await updateDoc(docRef, { ...update, id: stationId })
 }
@@ -673,7 +695,7 @@ export const createStationInFirebase = async (
   if (!db) throw new Error('Failed to initialize Firebase database')
   const collectionName = collectionOverride ?? getStationCollectionName()
   const docRef = doc(db, collectionName, stationId)
-  const payload = stationToFirestoreUpdate(data)
+  const payload = stationToFirestoreUpdate(data, collectionOverride)
   if (Object.keys(payload).length === 0) {
     throw new Error('No data provided to create station')
   }

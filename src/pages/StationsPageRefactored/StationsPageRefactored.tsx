@@ -14,6 +14,8 @@ import { PageTopHeader } from '../../components/misc'
 import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import StationCard from '../../components/cards/StationCard/StationCard'
+import LightRailStopCard from '../../components/cards/LightRailStopCard/LightRailStopCard'
+import { isLightRailStop } from '../../utils/stationCardForNetwork'
 import StationAdminControls from '../../components/cards/StationAdminControls/StationAdminControls'
 import NetworkStationTabGroup from '../../components/cards/NetworkStationTabGroup/NetworkStationTabGroup'
 import { formatStationLocationDisplay } from '../../utils/formatStationLocation'
@@ -471,15 +473,19 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
         <main className="stations-main">
           {/* Station Grid */}
           <div className="stations-page-grid">
-            {paginatedStations.map(station => (
-              <StationCard
-                key={station.id}
-                station={station}
-                locationDisplay={formatStationLocationDisplay(station)}
-                onCardClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`)}
-                onInfoClick={() => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`)}
-              />
-            ))}
+            {paginatedStations.map((station) => {
+              const cardProps = {
+                station,
+                locationDisplay: formatStationLocationDisplay(station),
+                onCardClick: () => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`),
+                onInfoClick: () => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`),
+              }
+              return isLightRailStop(station) ? (
+                <LightRailStopCard key={station.id} {...cardProps} />
+              ) : (
+                <StationCard key={station.id} {...cardProps} />
+              )
+            })}
           </div>
 
           {/* Pagination */}

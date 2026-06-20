@@ -1,6 +1,8 @@
 import { forwardRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StationCard from '../cards/StationCard/StationCard'
+import LightRailStopCard from '../cards/LightRailStopCard/LightRailStopCard'
+import { isLightRailStop } from '../../utils/stationCardForNetwork'
 import { BUTWideButton } from '../buttons'
 import { NETWORK_LABELS, isNetworkCollection } from '../../constants/stationCollections'
 import { buildStationPath, getStationNetworkCollectionId } from '../../utils/stationAreaSlug'
@@ -91,12 +93,21 @@ const StationsMapSelectedPanel = forwardRef<HTMLElement, StationsMapSelectedPane
           </p>
         ) : (
           <>
-            <StationCard
-              station={station}
-              locationDisplay={formatStationLocationDisplay(station)}
-              onCardClick={openStation}
-              onInfoClick={openStation}
-            />
+            {isLightRailStop(station) ? (
+              <LightRailStopCard
+                station={station}
+                locationDisplay={formatStationLocationDisplay(station)}
+                onCardClick={openStation}
+                onInfoClick={openStation}
+              />
+            ) : (
+              <StationCard
+                station={station}
+                locationDisplay={formatStationLocationDisplay(station)}
+                onCardClick={openStation}
+                onInfoClick={openStation}
+              />
+            )}
             {isPendingNew && (
               <>
                 <p className="stations-map-selected-panel__pending">Unsaved — pending publish</p>

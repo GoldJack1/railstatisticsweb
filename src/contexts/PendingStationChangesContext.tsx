@@ -14,16 +14,12 @@ import {
 } from '../utils/scheduledJobPendingMatch'
 import ScheduledServerJobFirestoreSync, { type ServerScheduledJobDetail } from './ScheduledServerJobFirestoreSync'
 import type { StationCollectionId } from '../constants/stationCollections'
-import { DEFAULT_NETWORK_COLLECTION_ID, isStationCollectionId } from '../constants/stationCollections'
+import { migratePendingEntryTarget } from '../utils/pendingChangesByCollection'
 
 const PENDING_CHANGES_STORAGE_KEY = 'railstatistics-pending-station-changes-v1'
 
 function migratePendingEntry(entry: PendingChangeEntry): PendingChangeEntry {
-  const targetCollectionId =
-    entry.targetCollectionId && isStationCollectionId(entry.targetCollectionId)
-      ? entry.targetCollectionId
-      : DEFAULT_NETWORK_COLLECTION_ID
-  return { ...entry, targetCollectionId }
+  return migratePendingEntryTarget(entry)
 }
 
 function loadPendingChangesFromStorage(): Record<string, PendingChangeEntry> {
@@ -105,13 +101,22 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
     sandboxUpdated?: Partial<SandboxStationDoc> | null,
     sandboxOriginal?: Partial<SandboxStationDoc> | null
   ) => {
+    const draftEntry: PendingChangeEntry = {
+      targetCollectionId,
+      original: station,
+      updated,
+      sandboxUpdated: sandboxUpdated ?? null,
+      sandboxOriginal: sandboxOriginal ?? null,
+    }
+    const resolvedTarget = migratePendingEntryTarget(draftEntry).targetCollectionId
+
     setPendingChanges(prev => ({
       ...prev,
       [station.id]: {
-        targetCollectionId,
+        targetCollectionId: resolvedTarget,
         original: station,
         updated,
-        sandboxUpdated: sandboxUpdated ?? prev[station.id]?.sandboxUpdated ?? null,
+        sandboxUpdated: sandboxUpdated !== undefined ? sandboxUpdated : prev[station.id]?.sandboxUpdated ?? null,
         sandboxOriginal:
           sandboxOriginal !== undefined
             ? sandboxOriginal
@@ -143,10 +148,19 @@ export const PendingStationChangesProvider: React.FC<{ children: React.ReactNode
       yearlyPassengers: (updated.yearlyPassengers ?? null) as Station['yearlyPassengers']
     }
 
+    const draftEntry: PendingChangeEntry = {
+      targetCollectionId,
+      original,
+      updated,
+      sandboxUpdated: sandboxUpdated ?? null,
+      isNew: true,
+    }
+    const resolvedTarget = migratePendingEntryTarget(draftEntry).targetCollectionId
+
     setPendingChanges(prev => ({
       ...prev,
       [stationId]: {
-        targetCollectionId,
+        targetCollectionId: resolvedTarget,
         original,
         updated,
         sandboxUpdated: sandboxUpdated ?? prev[stationId]?.sandboxUpdated ?? null,

@@ -1,3 +1,4 @@
+import { resolvePendingTargetCollectionId } from './pendingChangesByCollection'
 import type { PendingChangeEntry } from '../contexts/PendingStationChangesContext'
 import type { NetworkViewFilter } from '../constants/stationCollections'
 import { isNetworkCollection } from '../constants/stationCollections'
@@ -15,9 +16,8 @@ export function pendingEntryToMapStation(stationId: string, entry: PendingChange
 
   if (!isValidStationCoordinate(latitude, longitude)) return null
 
-  const sourceCollectionId = isNetworkCollection(entry.targetCollectionId)
-    ? entry.targetCollectionId
-    : undefined
+  const resolvedCollectionId = resolvePendingTargetCollectionId(entry)
+  const sourceCollectionId = isNetworkCollection(resolvedCollectionId) ? resolvedCollectionId : undefined
 
   return {
     ...entry.original,

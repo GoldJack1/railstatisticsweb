@@ -6,6 +6,7 @@ import type { StationCollectionId } from '../constants/stationCollections'
 import { isNetworkCollection, NETWORK_STNAREA_DEFAULTS } from '../constants/stationCollections'
 import type { StationUrlFieldKey } from './stationUrlField'
 import { getStationUrlFieldKey, getStationUrlFieldLabel } from './stationUrlField'
+import { LIGHT_RAIL_DOC_FIELDS } from './lightRailStationFields'
 
 export type StationDetailsTab =
   | 'details'
@@ -19,6 +20,7 @@ export type StationDetailsTab =
 export const STEP_FREE_SECTION_LABEL = 'Step Free Status'
 
 export type StationCollectionFieldSchema = {
+  isLightRail: boolean
   defaultStnarea: string
   showBorough: boolean
   showFareZone: boolean
@@ -45,6 +47,10 @@ export type StationCollectionFieldSchema = {
   showConnectionBus: boolean
   showConnectionTaxi: boolean
   showConnectionUnderground: boolean
+  showConnectionTrain: boolean
+  showLinesServed: boolean
+  showPlatforms: boolean
+  showDateOpened: boolean
   showRequestStop: boolean
   showLimitedService: boolean
   showStationStatusSection: boolean
@@ -97,6 +103,7 @@ function collectFacilityKeys(docs: Record<string, unknown>[]): string[] {
 }
 
 export const EMPTY_STATION_COLLECTION_FIELD_SCHEMA: StationCollectionFieldSchema = {
+  isLightRail: false,
   defaultStnarea: '',
   showBorough: false,
   showFareZone: false,
@@ -123,6 +130,10 @@ export const EMPTY_STATION_COLLECTION_FIELD_SCHEMA: StationCollectionFieldSchema
   showConnectionBus: false,
   showConnectionTaxi: false,
   showConnectionUnderground: false,
+  showConnectionTrain: false,
+  showLinesServed: false,
+  showPlatforms: false,
+  showDateOpened: false,
   showRequestStop: false,
   showLimitedService: false,
   showStationStatusSection: false,
@@ -139,24 +150,60 @@ export function inferStationCollectionFieldSchema(
 
   if (docs.length === 0) {
     const isHeritage = collectionId === 'stations_gbheritage'
+    const isLightRail = collectionId === 'lightrail_GBSHEFFSUPERTRAM'
     const urlFieldKey = collectionId ? getStationUrlFieldKey(collectionId) : 'urlSlug'
     return {
       ...EMPTY_STATION_COLLECTION_FIELD_SCHEMA,
+      isLightRail,
       defaultStnarea,
       showUrl: isHeritage,
       urlFieldKey,
       urlFieldLabel: collectionId ? getStationUrlFieldLabel(collectionId) : 'URL slug',
-      requireCrsCode: !isHeritage,
-      requireTiploc: !isHeritage,
-      showStepFreeSection: isHeritage,
-      showStepFreeTab: false,
+      requireCrsCode: !isHeritage && !isLightRail,
+      requireTiploc: !isHeritage && !isLightRail,
+      showBorough: isHeritage || isLightRail,
+      showFareZone: isLightRail,
+      showLinesServed: isLightRail,
+      showPlatforms: isLightRail,
+      showStepFreeSection: isHeritage || isLightRail,
+      showStepFreeTab: isLightRail,
       stepFreeTabLabel: 'Step-free & Lift access',
-      showStationStatusSection: isHeritage,
-      showStaffingLevel: isHeritage,
+      showLiftSection: isLightRail,
+      showDateOpened: isLightRail,
+      showLimitedService: isLightRail,
+      showStaffingLevel: isHeritage || isLightRail,
+      showConnectionBus: isLightRail,
+      showConnectionTrain: isLightRail,
       showNlc: isHeritage,
       showGauge: isHeritage,
       showRequestStop: isHeritage,
-      showServiceTab: isHeritage,
+      showServiceTab: isHeritage || isLightRail,
+    }
+  }
+
+  const isLightRail = collectionId === 'lightrail_GBSHEFFSUPERTRAM'
+  if (isLightRail) {
+    return {
+      ...EMPTY_STATION_COLLECTION_FIELD_SCHEMA,
+      isLightRail: true,
+      defaultStnarea,
+      showBorough: hasPopulatedTopLevel(docs, BOROUGH_KEYS),
+      showFareZone: hasPopulatedTopLevel(docs, [...FARE_ZONE_KEYS, LIGHT_RAIL_DOC_FIELDS.fareZone]),
+      showLinesServed: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.linesServed]),
+      showPlatforms: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.platforms]),
+      showStepFreeSection: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.isStepFree]),
+      showStepFreeTab:
+        hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.isStepFree, LIGHT_RAIL_DOC_FIELDS.hasLift]),
+      showLiftSection: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.hasLift]),
+      showDateOpened: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.dateOpened]),
+      showLimitedService: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.isLimitedService]),
+      showStaffingLevel: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.isStaffed]),
+      showConnectionBus: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.bus]),
+      showConnectionTrain: hasPopulatedTopLevel(docs, [LIGHT_RAIL_DOC_FIELDS.train]),
+      showServiceTab: true,
+      requireCrsCode: false,
+      requireTiploc: false,
+      stepFreeTabLabel: 'Step-free & Lift access',
     }
   }
 
@@ -192,6 +239,7 @@ export function inferStationCollectionFieldSchema(
   })
 
   return {
+    isLightRail: false,
     defaultStnarea,
     showBorough:
       hasPopulatedTopLevel(docs, BOROUGH_KEYS) ||
@@ -227,6 +275,10 @@ export function inferStationCollectionFieldSchema(
     showConnectionBus,
     showConnectionTaxi,
     showConnectionUnderground,
+    showConnectionTrain: false,
+    showLinesServed: false,
+    showPlatforms: false,
+    showDateOpened: false,
     showRequestStop,
     showLimitedService,
     showStationStatusSection,
