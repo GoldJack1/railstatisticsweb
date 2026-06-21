@@ -114,6 +114,43 @@ export function pickChangedLightRailSandboxFields(
   return changed
 }
 
+export const LIGHT_RAIL_YES_NO_VALUES = ['Yes', 'No'] as const
+
+export type LightRailYesNoValue = (typeof LIGHT_RAIL_YES_NO_VALUES)[number]
+
+/** Map stored strings to Yes/No for select controls (case-insensitive). */
+export function normalizeLightRailYesNo(value: string | null | undefined): '' | LightRailYesNoValue {
+  const trimmed = String(value ?? '').trim()
+  if (trimmed === '') return ''
+  if (/^yes$/i.test(trimmed)) return 'Yes'
+  if (/^no$/i.test(trimmed)) return 'No'
+  if (trimmed === 'Yes' || trimmed === 'No') return trimmed
+  return ''
+}
+
+export const LIGHT_RAIL_DEFAULT_YES_NO = 'No'
+
+/** Default Yes/No values when adding a new SuperTram stop. */
+export const LIGHT_RAIL_YES_NO_FIELD_DEFAULTS: Partial<Record<LightRailDocFieldKey, string>> = {
+  [LIGHT_RAIL_DOC_FIELDS.isStepFree]: LIGHT_RAIL_DEFAULT_YES_NO,
+  [LIGHT_RAIL_DOC_FIELDS.hasLift]: LIGHT_RAIL_DEFAULT_YES_NO,
+  [LIGHT_RAIL_DOC_FIELDS.bus]: LIGHT_RAIL_DEFAULT_YES_NO,
+  [LIGHT_RAIL_DOC_FIELDS.train]: LIGHT_RAIL_DEFAULT_YES_NO,
+  [LIGHT_RAIL_DOC_FIELDS.isStaffed]: LIGHT_RAIL_DEFAULT_YES_NO,
+  [LIGHT_RAIL_DOC_FIELDS.isLimitedService]: LIGHT_RAIL_DEFAULT_YES_NO,
+}
+
+export function buildDefaultLightRailAdditionalForm(): Partial<Record<LightRailDocFieldKey, string>> {
+  return { ...LIGHT_RAIL_YES_NO_FIELD_DEFAULTS }
+}
+
+export function buildDefaultLightRailNewStationCoreFields(): { country: string; county: string } {
+  return {
+    country: 'England',
+    county: 'South Yorkshire',
+  }
+}
+
 /** SuperTram line chip colours (background + contrasting text). */
 export const LIGHT_RAIL_LINE_CHIP_COLORS: Record<string, { bg: string; text: string }> = {
   'Tram-Train': { bg: '#000000', text: '#ffffff' },

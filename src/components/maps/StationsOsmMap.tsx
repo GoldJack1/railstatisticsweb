@@ -12,7 +12,6 @@ import {
   NETWORK_MAP_COLORS,
   NETWORK_MAP_FALLBACK_COLOR,
   PENDING_NEW_STATION_MAP_COLOR,
-  SELECTED_MARKER_BORDER_COLOR,
 } from '../../constants/stationNetworkMapColors'
 import { useTheme } from '../../hooks/useTheme'
 import { getStationNetworkCollectionId, getStationMapKey } from '../../utils/stationAreaSlug'
@@ -21,7 +20,7 @@ import {
   createSuperTramMapDivIcon,
   isSuperTramMapStop,
 } from '../../utils/superTramMapMarker'
-import { getMarkerHitRadius, getMarkerVisualRadius } from '../../utils/mapMarkerSizing'
+import { getMarkerHitRadius, getMarkerVisualRadius, MARKER_STROKE } from '../../utils/mapMarkerSizing'
 import { addThemeTileLayersToMap, swapThemeTileLayers, type MapTileLayerRefs } from '../../utils/mapTileLayers'
 import type { Station } from '../../types'
 import {
@@ -126,8 +125,8 @@ function applyMarkerStyle(
   circleMarker.setStyle({
     radius: visual,
     fillColor: getStationMarkerColor(station, networkView, pendingNewStationKeys),
-    color: isSelected ? SELECTED_MARKER_BORDER_COLOR : '#ffffff',
-    weight: isSelected ? 3 : 2,
+    color: isSelected ? MARKER_STROKE.color.selected : MARKER_STROKE.color.normal,
+    weight: isSelected ? MARKER_STROKE.weight.selected : MARKER_STROKE.weight.normal,
     fillOpacity: 0.95,
   })
 }

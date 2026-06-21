@@ -1,5 +1,10 @@
 import L from 'leaflet'
-import { getMarkerVisualDiameter } from './mapMarkerSizing'
+import {
+  getMarkerStrokeWeight,
+  getMarkerVisualDiameter,
+  getSuperTramIconOuterDiameter,
+  MARKER_STROKE,
+} from './mapMarkerSizing'
 import { LIGHTRAIL_COLLECTION_ID } from './lightRailStationFields'
 import { getStationNetworkCollectionId } from './stationAreaSlug'
 import type { NetworkViewFilter } from '../constants/stationCollections'
@@ -7,14 +12,8 @@ import type { Station } from '../types'
 
 export const SUPERTRAM_MAP_LOGO_URL = '/images/south-yorkshire-peoples-network-logo.svg'
 
-const SUPERTRAM_LOGO_SVGMarkup = `<svg class="stations-osm-map__supertram-marker__svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 99.87 47.54" aria-hidden="true"><path class="supertram-logo-fill" d="M12.76,45.2L3.51,22.86h30.81c.47,0,.91-.18,1.24-.51L53.2,4.71c1.52-1.52,3.55-2.36,5.71-2.36h28.2l9.26,22.34h-30.82c-.47,0-.9.18-1.23.51l-17.65,17.64c-1.5,1.5-3.58,2.36-5.71,2.36H12.76Z" fill="#ff5700"/><path class="supertram-logo-border" d="M85.54,4.69l7.31,17.65h-27.31c-1.09,0-2.12.43-2.89,1.2l-17.65,17.64c-1.07,1.07-2.53,1.68-4.05,1.68H14.33l-7.31-17.66h27.31c1.09,0,2.12-.43,2.89-1.2L54.86,6.36c1.07-1.07,2.53-1.68,4.05-1.68h26.63M58.91,4.69h0,0M88.67,0h-29.76c-2.78,0-5.4,1.08-7.36,3.05l-17.47,17.47H0l2.68,6.48,7.31,17.66,1.2,2.89h29.76c2.74,0,5.42-1.11,7.36-3.05l17.47-17.47h34.08l-2.68-6.48-7.31-17.65-1.2-2.89h0Z" fill="#ffffff"/></svg>`
-
-/** Slightly larger than circle dots so the arrow logo stays legible. */
-const SUPERTRAM_LOGO_SIZE_SCALE = 1.25
-
-function getSuperTramMarkerSize(isSelected: boolean, mobile: boolean): number {
-  return Math.round(getMarkerVisualDiameter(isSelected, mobile) * SUPERTRAM_LOGO_SIZE_SCALE)
-}
+/** Black blob + orange arrow; outline is drawn via CSS to match circle markers. */
+const SUPERTRAM_LOGO_SVGMarkup = `<svg class="stations-osm-map__supertram-marker__svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 134.1 134.1" aria-hidden="true"><path class="supertram-logo-bg" d="M67.05,130.6c-35.04,0-63.55-28.51-63.55-63.55S32.01,3.5,67.05,3.5s63.55,28.51,63.55,63.55-28.51,63.55-63.55,63.55Z"/><path class="supertram-logo-fill" d="M77.06,45.76c-1.69,0-3.32.67-4.52,1.87l-19.68,19.68c-.85.85-2.01,1.34-3.22,1.34h-30.46l8.16,19.69h29.71c1.69,0,3.32-.67,4.52-1.87l19.69-19.68c.85-.85,2.01-1.34,3.22-1.34h30.47l-8.16-19.69h-29.71,0Z" fill="#ff5700"/></svg>`
 
 export function isSuperTramMapStop(station: Station, networkView: NetworkViewFilter): boolean {
   const collectionId = getStationNetworkCollectionId(
@@ -30,7 +29,10 @@ export function createSuperTramMapDivIcon(
   mobile: boolean,
   isPendingNew: boolean
 ): L.DivIcon {
-  const size = getSuperTramMarkerSize(isSelected, mobile)
+  const innerSize = getMarkerVisualDiameter(isSelected, mobile)
+  const iconSize = getSuperTramIconOuterDiameter(isSelected, mobile)
+  const strokeWeight = getMarkerStrokeWeight(isSelected)
+  const strokeColor = isSelected ? MARKER_STROKE.color.selected : MARKER_STROKE.color.normal
   const classes = [
     'stations-osm-map__supertram-marker',
     mobile ? 'stations-osm-map__supertram-marker--mobile' : '',
@@ -42,8 +44,8 @@ export function createSuperTramMapDivIcon(
 
   return L.divIcon({
     className: 'stations-osm-map__supertram-marker-shell',
-    html: `<div class="${classes}" style="width:${size}px;height:${size}px" aria-hidden="true">${SUPERTRAM_LOGO_SVGMarkup}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    html: `<div class="${classes}" style="width:${innerSize}px;height:${innerSize}px;border-width:${strokeWeight}px;border-color:${strokeColor}" aria-hidden="true">${SUPERTRAM_LOGO_SVGMarkup}</div>`,
+    iconSize: [iconSize, iconSize],
+    iconAnchor: [iconSize / 2, iconSize / 2],
   })
 }
