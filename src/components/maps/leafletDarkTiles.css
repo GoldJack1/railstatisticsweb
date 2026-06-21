@@ -1,0 +1,65 @@
+/**
+ * Dark-mode OSM map: inverted tiles plus themed zoom controls and attribution.
+ */
+[data-theme='dark'] .stations-osm-map__canvas.leaflet-container,
+[data-theme='dark'] .location-map-picker-map.leaflet-container,
+[data-theme='dark'] .location-map-preview-osm.leaflet-container {
+  background-color: var(--bg-primary);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-tile-pane,
+[data-theme='dark'] .location-map-picker-map .leaflet-tile-pane,
+[data-theme='dark'] .location-map-preview-osm .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(1.22) contrast(0.84) saturate(0.85);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-bar a,
+[data-theme='dark'] .location-map-picker-map .leaflet-bar a,
+[data-theme='dark'] .location-map-preview-osm .leaflet-bar a {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom-color: color-mix(in srgb, var(--text-secondary) 22%, transparent);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-bar a:hover,
+[data-theme='dark'] .location-map-picker-map .leaflet-bar a:hover,
+[data-theme='dark'] .location-map-preview-osm .leaflet-bar a:hover {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-bar a.leaflet-disabled,
+[data-theme='dark'] .location-map-picker-map .leaflet-bar a.leaflet-disabled,
+[data-theme='dark'] .location-map-preview-osm .leaflet-bar a.leaflet-disabled {
+  background-color: var(--bg-secondary);
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-control-attribution,
+[data-theme='dark'] .location-map-picker-map .leaflet-control-attribution,
+[data-theme='dark'] .location-map-preview-osm .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  color: var(--text-secondary);
+  backdrop-filter: blur(4px);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-control-attribution a,
+[data-theme='dark'] .location-map-picker-map .leaflet-control-attribution a,
+[data-theme='dark'] .location-map-preview-osm .leaflet-control-attribution a {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .stations-osm-map__canvas .leaflet-control-attribution a:hover,
+[data-theme='dark'] .location-map-picker-map .leaflet-control-attribution a:hover,
+[data-theme='dark'] .location-map-preview-osm .leaflet-control-attribution a:hover {
+  color: var(--accent-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='dark'] .stations-osm-map__canvas .leaflet-tile-pane,
+  [data-theme='dark'] .location-map-picker-map .leaflet-tile-pane,
+  [data-theme='dark'] .location-map-preview-osm .leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(1.15) contrast(0.88) saturate(0.9);
+  }
+}

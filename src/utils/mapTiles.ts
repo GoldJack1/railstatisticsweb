@@ -1,12 +1,18 @@
 /**
- * Map tile layer config. Same OpenStreetMap layer for light and dark theme.
+ * Map tile layer config per theme.
+ * Light and dark both use standard OSM; dark mode tiles are tuned via leafletDarkTiles.css.
+ * Both themes use the OpenRailwayMap vector overlay from mapTileLayers.ts.
  */
 
 import { useOsmBackendProxy } from './osmBackendProxy'
 
 export interface TileLayerConfig {
   url: string
-  options: { attribution: string }
+  options: {
+    attribution: string
+    subdomains?: string
+    maxZoom?: number
+  }
 }
 
 const OSM_DIRECT = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'

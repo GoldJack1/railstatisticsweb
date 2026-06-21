@@ -22,13 +22,14 @@ import {
   isSuperTramMapStop,
 } from '../../utils/superTramMapMarker'
 import { getMarkerHitRadius, getMarkerVisualRadius } from '../../utils/mapMarkerSizing'
-import { getTileLayersConfig } from '../../utils/mapTiles'
+import { addThemeTileLayersToMap, swapThemeTileLayers, type MapTileLayerRefs } from '../../utils/mapTileLayers'
 import type { Station } from '../../types'
 import {
   MapAddStationContextMenu,
   type MapAddStationContextMenuState,
 } from './MapAddStationContextMenu'
 import './StationsOsmMap.css'
+import './leafletDarkTiles.css'
 
 const DEFAULT_CENTER: L.LatLngTuple = [54.5, -2.5]
 const DEFAULT_ZOOM = 6
@@ -146,7 +147,7 @@ export function StationsOsmMap({
 }: StationsOsmMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const tileLayerRef = useRef<L.TileLayer | null>(null)
+  const tileLayersRef = useRef<MapTileLayerRefs | null>(null)
   const markersLayerRef = useRef<L.LayerGroup | null>(null)
   const markersByIdRef = useRef<Map<string, StationMarkerPair>>(new Map())
   const onStationSelectRef = useRef(onStationSelect)
@@ -160,7 +161,6 @@ export function StationsOsmMap({
   const [visibleLegendNetworks, setVisibleLegendNetworks] = useState<NetworkCollectionId[]>([])
   const { theme } = useTheme()
   const themeKey = theme === 'dark' ? 'dark' : 'light'
-  const tileLayers = getTileLayersConfig()
 
   onStationSelectRef.current = onStationSelect
   onStationClearRef.current = onStationClear
@@ -293,10 +293,7 @@ export function StationsOsmMap({
     if (!mapContainerRef.current) return
 
     const map = L.map(mapContainerRef.current).setView(DEFAULT_CENTER, DEFAULT_ZOOM)
-    const config = tileLayers[themeKey]
-    const tiles = L.tileLayer(config.url, config.options)
-    tiles.addTo(map)
-    tileLayerRef.current = tiles
+    tileLayersRef.current = addThemeTileLayersToMap(map, themeKey)
     mapRef.current = map
 
     map.on('click', (event) => {
@@ -348,7 +345,7 @@ export function StationsOsmMap({
       markersByIdRef.current.clear()
       map.remove()
       mapRef.current = null
-      tileLayerRef.current = null
+      tileLayersRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
 
@@ -393,13 +390,9 @@ export function StationsOsmMap({
   }, [updateVisibleLegendNetworks])
 
   useEffect(() => {
-    if (!mapRef.current || !tileLayerRef.current) return
-    const config = tileLayers[themeKey]
-    mapRef.current.removeLayer(tileLayerRef.current)
-    const newTiles = L.tileLayer(config.url, config.options)
-    newTiles.addTo(mapRef.current)
-    tileLayerRef.current = newTiles
-  }, [themeKey, tileLayers])
+    if (!mapRef.current || !tileLayersRef.current) return
+    tileLayersRef.current = swapThemeTileLayers(mapRef.current, tileLayersRef.current, themeKey)
+  }, [themeKey])
 
   useEffect(() => {
     if (!addStationMode) return

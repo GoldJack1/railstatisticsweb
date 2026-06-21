@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import '../../../components/maps/leafletDarkTiles.css'
 import { useTheme } from '../../../hooks/useTheme'
-import { getTileLayersConfig } from '../../../utils/mapTiles'
+import { addThemeTileLayersToMap, swapThemeTileLayers, type MapTileLayerRefs } from '../../../utils/mapTileLayers'
 
 // Precise circle marker: center is exactly the station coordinates (no anchor ambiguity)
 const PRECISE_MARKER_OPTIONS: L.CircleMarkerOptions = {
@@ -41,13 +42,12 @@ export function StationLocationMapView({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.CircleMarker | null>(null)
-  const tileLayerRef = useRef<L.TileLayer | null>(null)
+  const tileLayersRef = useRef<MapTileLayerRefs | null>(null)
   const tileProbeLoggedRef = useRef(false)
   const instanceIdRef = useRef(`map_${Math.random().toString(36).slice(2, 9)}`)
   const { theme } = useTheme()
   const themeKey = theme === 'dark' ? 'dark' : 'light'
   const center: L.LatLngTuple = [latitude, longitude]
-  const tileLayers = getTileLayersConfig()
 
   // Init map and precise circle marker once
   useEffect(() => {
@@ -63,11 +63,9 @@ export function StationLocationMapView({
     // #region agent log
     fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H7',location:'StationLocationMapView.tsx:init-before-map',message:'Before Leaflet map creation',data:{instanceId:instanceIdRef.current,inMeasureLayer,inVisibleBody,clientWidth:mapRef.current.clientWidth,clientHeight:mapRef.current.clientHeight,rectWidth:containerRect.width,rectHeight:containerRect.height,offsetWidth:mapRef.current.offsetWidth,offsetHeight:mapRef.current.offsetHeight,heightProp:height ?? null},timestamp:Date.now()})}).catch(()=>{})
     // #endregion
-    const config = tileLayers[themeKey]
     const map = L.map(mapRef.current).setView(center, DEFAULT_ZOOM)
-    const tiles = L.tileLayer(config.url, config.options)
-    tiles.addTo(map)
-    tiles.on('load', () => {
+    const layers = addThemeTileLayersToMap(map, themeKey)
+    layers.base.on('load', () => {
       if (!mapRef.current || tileProbeLoggedRef.current) return
       tileProbeLoggedRef.current = true
       const tile = mapRef.current.querySelector('.leaflet-tile') as HTMLImageElement | null
@@ -79,7 +77,7 @@ export function StationLocationMapView({
       fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H6',location:'StationLocationMapView.tsx:tile-layer-load',message:'Leaflet tile layer loaded and measured',data:{instanceId:instanceIdRef.current,tileNaturalWidth:tile?.naturalWidth ?? null,tileNaturalHeight:tile?.naturalHeight ?? null,tileClientWidth:tile?.clientWidth ?? null,tileClientHeight:tile?.clientHeight ?? null,tileStyleWidth:tile?.style.width ?? null,tileStyleHeight:tile?.style.height ?? null,tileComputedMaxWidth:tileStyles?.maxWidth ?? null,tileComputedWidth:tileStyles?.width ?? null,tileComputedTransform:tileStyles?.transform ?? null,tilePaneTransform:tilePane?.style.transform ?? null,mapPaneTransform:mapPane?.style.transform ?? null,containerComputedWidth:containerStyles.width,containerComputedMaxWidth:containerStyles.maxWidth,containerComputedOverflow:containerStyles.overflow},timestamp:Date.now()})}).catch(()=>{})
       // #endregion
     })
-    tileLayerRef.current = tiles
+    tileLayersRef.current = layers
     const marker = L.circleMarker(center, PRECISE_MARKER_OPTIONS)
     marker.addTo(map)
     markerRef.current = marker
@@ -89,12 +87,12 @@ export function StationLocationMapView({
     // #endregion
     return () => {
       // #region agent log
-      fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H4',location:'StationLocationMapView.tsx:init-cleanup',message:'Leaflet map cleanup',data:{hadMap:Boolean(mapInstanceRef.current),hadMarker:Boolean(markerRef.current),hadTileLayer:Boolean(tileLayerRef.current)},timestamp:Date.now()})}).catch(()=>{})
+      fetch('http://127.0.0.1:7371/ingest/b6fa4275-bcd2-40b2-a149-9100e5c19d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d0517c'},body:JSON.stringify({sessionId:'d0517c',runId:'pre-fix',hypothesisId:'H4',location:'StationLocationMapView.tsx:init-cleanup',message:'Leaflet map cleanup',data:{hadMap:Boolean(mapInstanceRef.current),hadMarker:Boolean(markerRef.current),hadTileLayers:Boolean(tileLayersRef.current)},timestamp:Date.now()})}).catch(()=>{})
       // #endregion
       map.remove()
       mapInstanceRef.current = null
       markerRef.current = null
-      tileLayerRef.current = null
+      tileLayersRef.current = null
       tileProbeLoggedRef.current = false
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
@@ -155,15 +153,14 @@ export function StationLocationMapView({
     }
   }, [latitude, longitude, height])
 
-  // When theme changes, swap tile layer (same OSM for both; effect keeps layer in sync)
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return
-    const config = tileLayers[themeKey]
-    mapInstanceRef.current.removeLayer(tileLayerRef.current)
-    const newTiles = L.tileLayer(config.url, config.options)
-    newTiles.addTo(mapInstanceRef.current)
-    tileLayerRef.current = newTiles
-  }, [themeKey, tileLayers])
+    if (!mapInstanceRef.current || !tileLayersRef.current) return
+    tileLayersRef.current = swapThemeTileLayers(
+      mapInstanceRef.current,
+      tileLayersRef.current,
+      themeKey
+    )
+  }, [themeKey])
 
   // When lat/lng change (e.g. from props), update map view and marker
   useEffect(() => {

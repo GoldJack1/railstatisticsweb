@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import '../../../components/maps/leafletDarkTiles.css'
 import { useTheme } from '../../../hooks/useTheme'
-import { getTileLayersConfig } from '../../../utils/mapTiles'
+import { addThemeTileLayersToMap, swapThemeTileLayers, type MapTileLayerRefs } from '../../../utils/mapTileLayers'
 import { useOsmBackendProxy } from '../../../utils/osmBackendProxy'
 import TXTINPIconWideButtonSearch from '../../textInputs/special/TXTINPIconWideButtonSearch'
 
@@ -63,10 +64,9 @@ export function LocationMapPicker({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
-  const tileLayerRef = useRef<L.TileLayer | null>(null)
+  const tileLayersRef = useRef<MapTileLayerRefs | null>(null)
   const { theme } = useTheme()
   const themeKey = theme === 'dark' ? 'dark' : 'light'
-  const tileLayers = getTileLayersConfig()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -106,11 +106,8 @@ export function LocationMapPicker({
   // Initialize map once (theme-based tiles + optional circle marker)
   useEffect(() => {
     if (!mapRef.current) return
-    const config = tileLayers[themeKey]
     const map = L.map(mapRef.current).setView(center, DEFAULT_ZOOM)
-    const tiles = L.tileLayer(config.url, config.options)
-    tiles.addTo(map)
-    tileLayerRef.current = tiles
+    tileLayersRef.current = addThemeTileLayersToMap(map, themeKey)
     mapInstanceRef.current = map
     if (hasValidCoords) {
       const marker = L.marker([latitude, longitude], { draggable: true, icon: CIRCLE_ICON })
@@ -125,18 +122,18 @@ export function LocationMapPicker({
       map.remove()
       mapInstanceRef.current = null
       markerRef.current = null
-      tileLayerRef.current = null
+      tileLayersRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- init map once
 
   // When theme changes, swap tile layer (match view map)
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return
-    const config = tileLayers[themeKey]
-    mapInstanceRef.current.removeLayer(tileLayerRef.current)
-    const newTiles = L.tileLayer(config.url, config.options)
-    newTiles.addTo(mapInstanceRef.current)
-    tileLayerRef.current = newTiles
+    if (!mapInstanceRef.current || !tileLayersRef.current) return
+    tileLayersRef.current = swapThemeTileLayers(
+      mapInstanceRef.current,
+      tileLayersRef.current,
+      themeKey
+    )
   }, [themeKey])
 
   // Sync marker when lat/lng change from parent (e.g. manual input)
