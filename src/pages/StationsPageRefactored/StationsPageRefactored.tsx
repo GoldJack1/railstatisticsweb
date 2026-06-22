@@ -24,6 +24,7 @@ import { formatStationLocationDisplay } from '../../utils/formatStationLocation'
 import { NETWORK_COLLECTION_IDS } from '../../constants/stationCollections'
 import type { NetworkViewFilter } from '../../constants/stationCollections'
 import { countPendingChangesForCollection } from '../../utils/pendingChangesByCollection'
+import { mergePendingChangesForStationsList } from '../../utils/applyPendingChangesForDisplay'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { buildStationPath } from '../../utils/stationAreaSlug'
@@ -149,9 +150,13 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
   const stations = useMemo(() => {
-    if (isSandbox || networkView === 'all') return loadedStations
-    return loadedStations.filter((station) => station.sourceCollectionId === networkView)
-  }, [loadedStations, isSandbox, networkView])
+    const baseStations =
+      isSandbox || networkView === 'all'
+        ? loadedStations
+        : loadedStations.filter((station) => station.sourceCollectionId === networkView)
+
+    return mergePendingChangesForStationsList(baseStations, pendingChanges, networkView)
+  }, [loadedStations, isSandbox, networkView, pendingChanges])
 
   const uniqueValues = useMemo(() => getStationFilterOptions(stations || []), [stations])
   const defaultSelections = useMemo(

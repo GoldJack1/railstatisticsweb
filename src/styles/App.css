@@ -57,8 +57,9 @@
 
 .main-content.app-main.app-main--stations-layout {
     flex: 1 0 auto;
-    min-height: 0;
+    min-height: auto;
     display: flex;
     flex-direction: column;
+    overflow: visible;
 }
 

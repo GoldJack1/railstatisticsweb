@@ -2,9 +2,43 @@ import type { PendingChangeEntry } from '../contexts/PendingStationChangesContex
 import type { SandboxStationDoc, Station } from '../types'
 import { getFieldChangesForPendingReview, type StationFieldChange } from './stationFieldDiffs'
 
+import type { NetworkViewFilter } from '../constants/stationCollections'
+import { resolvePendingTargetCollectionId } from './pendingChangesByCollection'
+import { mergePendingNewStationsForMap } from './pendingMapStations'
+import { getStationNetworkCollectionId } from './stationAreaSlug'
+
 export function mergeStationWithPendingUpdate(station: Station, entry: PendingChangeEntry | undefined): Station {
   if (!entry || entry.isNew) return station
   return { ...station, ...entry.updated }
+}
+
+export function findPendingEntryForStation(
+  station: Station,
+  pendingChanges: Record<string, PendingChangeEntry>
+): PendingChangeEntry | undefined {
+  const entry = pendingChanges[station.id]
+  if (!entry || entry.isNew) return undefined
+
+  const stationCollection = getStationNetworkCollectionId(station)
+  const entryCollection = resolvePendingTargetCollectionId(entry)
+
+  if (stationCollection && entryCollection !== stationCollection) {
+    return undefined
+  }
+
+  return entry
+}
+
+export function mergePendingChangesForStationsList(
+  firestoreStations: Station[],
+  pendingChanges: Record<string, PendingChangeEntry>,
+  networkView: NetworkViewFilter
+): Station[] {
+  const withUpdates = firestoreStations.map((station) =>
+    mergeStationWithPendingUpdate(station, findPendingEntryForStation(station, pendingChanges))
+  )
+
+  return mergePendingNewStationsForMap(withUpdates, pendingChanges, networkView).stations
 }
 
 export function mergeAdditionalDocWithPendingUpdate(

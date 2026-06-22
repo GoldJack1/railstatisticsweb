@@ -312,13 +312,13 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    min-height: auto;
     display: flex;
     flex-direction: column;
     overflow: visible;
     max-height: none;
     height: auto;
     overscroll-behavior: auto;
-    min-height: 0; /* Allow flex item to shrink */
 }
 
 /* Controls Strip */
