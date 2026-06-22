@@ -247,6 +247,8 @@ export {
   type StationCollectionId,
 } from '../constants/stationCollections'
 import { isLightRailCollection, LIGHT_RAIL_DOC_FIELDS } from '../utils/lightRailStationFields'
+import { mapStationDetailFieldsFromFirestore } from '../utils/stationsTableColumnCatalog'
+import { extractYearlyPassengersFromFirestoreData } from '../utils/yearlyPassengers'
 
 import {
   DEFAULT_NETWORK_COLLECTION_ID,
@@ -585,13 +587,18 @@ export const fetchStationsFromFirebase = async (collectionOverride?: StationColl
         stnarea: data.stnarea || data.STNAREA || null,
         borough: borough != null && borough !== '' ? String(borough) : null,
         fareZone,
-        yearlyPassengers: data.yearlyPassengers || null,
+        yearlyPassengers: extractYearlyPassengersFromFirestoreData(data),
         urlSlug: String(data.urlSlug ?? '').trim() || null,
         stationUrl: String(data.url ?? '').trim() || null,
         linesServed:
           data['Lines Served'] != null && String(data['Lines Served']).trim() !== ''
             ? String(data['Lines Served'])
             : null,
+        dateOpened:
+          data['Date Opened'] != null && String(data['Date Opened']).trim() !== ''
+            ? String(data['Date Opened'])
+            : null,
+        ...mapStationDetailFieldsFromFirestore(data),
         ...(isNetworkCollection(collectionName) ? { sourceCollectionId: collectionName } : {}),
       }
       

@@ -1,0 +1,132 @@
+.stations-table-panel {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.stations-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.stations-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+  table-layout: auto;
+}
+
+.stations-table th,
+.stations-table td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  vertical-align: top;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.stations-table th {
+  z-index: 1;
+  padding: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, var(--bg-primary));
+  white-space: nowrap;
+}
+
+.stations-table__sort-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.stations-table__sort-button:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+}
+
+.stations-table__sort-button:focus-visible {
+  outline: 2px solid var(--accent-base);
+  outline-offset: -2px;
+}
+
+.stations-table__sort-button--active {
+  color: var(--text-primary);
+}
+
+.stations-table__sort-indicator {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.stations-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--bg-secondary) 35%, var(--bg-primary));
+}
+
+.stations-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stations-table__row {
+  cursor: pointer;
+}
+
+.stations-table__row:hover td {
+  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+}
+
+.stations-table__row:focus-visible {
+  outline: 2px solid var(--accent-base);
+  outline-offset: -2px;
+}
+
+.stations-table__id {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.stations-table__name {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 10rem;
+}
+
+.stations-table__locale {
+  min-width: 16rem;
+  color: var(--text-secondary);
+}
+
+.stations-table__lines-cell {
+  min-width: 11rem;
+}
+
+.stations-table__lines-chips {
+  width: max-content;
+  max-width: none;
+}

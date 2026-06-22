@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStations } from '../../hooks/useStations'
 import { useDebounce } from '../../hooks/useDebounce'
@@ -15,6 +15,8 @@ import BUTDDMList from '../../components/buttons/ddm/BUTDDMList'
 import BUTDDMListActionDual from '../../components/buttons/ddm/BUTDDMListActionDual'
 import StationCard from '../../components/cards/StationCard/StationCard'
 import LightRailStopCard from '../../components/cards/LightRailStopCard/LightRailStopCard'
+import StationsTableView from '../../components/cards/StationsTableView/StationsTableView'
+import StationsTableColumnsModal from '../../components/cards/StationsTableView/StationsTableColumnsModal'
 import { isLightRailStop } from '../../utils/stationCardForNetwork'
 import StationAdminControls from '../../components/cards/StationAdminControls/StationAdminControls'
 import NetworkStationTabGroup from '../../components/cards/NetworkStationTabGroup/NetworkStationTabGroup'
@@ -27,6 +29,22 @@ import { usePendingStationChanges } from '../../contexts/PendingStationChangesCo
 import { buildStationPath } from '../../utils/stationAreaSlug'
 import { pathnameForReviewPendingSource } from '../../utils/reviewPendingNavigation'
 import { useStationAdminMode } from '../../hooks/useStationAdminMode'
+import { useStationCollectionFieldSchema } from '../../hooks/useStationCollectionFieldSchema'
+import {
+  readStationAdminDisplayMode,
+  writeStationAdminDisplayMode,
+  STATION_ADMIN_DISPLAY_MODE_CHANGED_EVENT,
+  type StationAdminDisplayMode,
+} from '../../utils/stationAdminDisplayModeStorage'
+import {
+  sortStationsByTableColumn,
+  type StationsTableSort,
+} from '../../utils/stationsTableColumns'
+import {
+  getDefaultTableColumnSlots,
+  getTableFieldSchemaForNetworkView,
+  type StationsTableColumnSlot,
+} from '../../utils/stationsTableColumnCatalog'
 import {
   filterStations,
   getDefaultStationFilterSelections,
@@ -70,12 +88,28 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
   const [isEditMode, setIsEditMode] = useState<boolean>(initialMode === 'edit')
   const [isMobileFiltersExpanded, setIsMobileFiltersExpanded] = useState(false)
   const [isMobileSortExpanded, setIsMobileSortExpanded] = useState(false)
+  const [tableSort, setTableSort] = useState<StationsTableSort>({ column: 'name', direction: 'asc' })
+  const [isTableColumnsModalOpen, setIsTableColumnsModalOpen] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1280 : window.innerWidth
   )
   const { collectionId, networkView, setNetworkView, isSandbox, setSandbox } = useStationCollection()
+  const [tableColumnSlots, setTableColumnSlots] = useState<StationsTableColumnSlot[]>(() =>
+    getDefaultTableColumnSlots(networkView)
+  )
   const { pendingChanges } = usePendingStationChanges()
   const isAdminMode = useStationAdminMode()
+  const subscribeDisplayMode = useCallback((onStoreChange: () => void) => {
+    window.addEventListener(STATION_ADMIN_DISPLAY_MODE_CHANGED_EVENT, onStoreChange)
+    return () => window.removeEventListener(STATION_ADMIN_DISPLAY_MODE_CHANGED_EVENT, onStoreChange)
+  }, [])
+  const getDisplayModeSnapshot = useCallback(() => readStationAdminDisplayMode(), [])
+  const storedDisplayMode = useSyncExternalStore(subscribeDisplayMode, getDisplayModeSnapshot, () => 'cards' as const)
+  const adminDisplayMode: StationAdminDisplayMode =
+    isAdminMode && storedDisplayMode === 'table' ? 'table' : 'cards'
+  const handleDisplayModeChange = useCallback((mode: StationAdminDisplayMode) => {
+    writeStationAdminDisplayMode(mode)
+  }, [])
   const pendingChangesCount = useMemo(() => {
     if (isSandbox) return countPendingChangesForCollection(pendingChanges, collectionId)
     if (networkView === 'all') {
@@ -87,6 +121,22 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     return countPendingChangesForCollection(pendingChanges, collectionId)
   }, [pendingChanges, collectionId, networkView, isSandbox])
   const isAdminPanelVisible = initialMode === 'edit' || isAdminMode
+  const tableHeaderSchemaCollectionId = useMemo(() => {
+    if (networkView === 'all') return null
+    if (isSandbox) return collectionId
+    return networkView
+  }, [networkView, isSandbox, collectionId])
+  const { fieldSchema: tableHeaderFieldSchema, loading: tableHeaderSchemaLoading } =
+    useStationCollectionFieldSchema(tableHeaderSchemaCollectionId)
+  const tableHeaderFieldSchemaForModal = useMemo(() => {
+    if (networkView === 'all') {
+      return getTableFieldSchemaForNetworkView('all')
+    }
+    if (tableHeaderSchemaLoading) {
+      return getTableFieldSchemaForNetworkView(networkView)
+    }
+    return tableHeaderFieldSchema
+  }, [networkView, tableHeaderSchemaLoading, tableHeaderFieldSchema])
 
   useEffect(() => {
     if (initialMode === 'edit' || isAdminMode) {
@@ -115,13 +165,26 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
     [stations, debouncedSearchTerm, effectiveSelections, uniqueValues]
   )
 
-  const sortedStations = useMemo(() => sortStations(filteredStations, sortOption), [filteredStations, sortOption])
+  const sortedStations = useMemo(() => {
+    if (adminDisplayMode === 'table') {
+      return sortStationsByTableColumn(filteredStations, tableSort)
+    }
+    return sortStations(filteredStations, sortOption)
+  }, [filteredStations, sortOption, adminDisplayMode, tableSort])
 
-  const ITEMS_PER_PAGE = 20
-  const totalPages = Math.ceil(sortedStations.length / ITEMS_PER_PAGE)
+  const CARD_ITEMS_PER_PAGE = 20
+  const TABLE_ITEMS_PER_PAGE = 100
+  const itemsPerPage = adminDisplayMode === 'table' ? TABLE_ITEMS_PER_PAGE : CARD_ITEMS_PER_PAGE
+  const totalPages = Math.ceil(sortedStations.length / itemsPerPage)
   const paginatedStations = sortedStations.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+  const handleStationNavigate = useCallback(
+    (station: (typeof sortedStations)[number]) => {
+      navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`)
+    },
+    [navigate, collectionId, isEditMode]
   )
   const visiblePaginationItems = useMemo(() => {
     const windowSize = viewportWidth < 640 ? 3 : viewportWidth < 1024 ? 5 : 7
@@ -195,7 +258,11 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, effectiveSelections, sortOption, collectionId, networkView])
+  }, [debouncedSearchTerm, effectiveSelections, sortOption, collectionId, networkView, tableSort, adminDisplayMode])
+
+  useEffect(() => {
+    setTableColumnSlots(getDefaultTableColumnSlots(networkView))
+  }, [networkView])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -259,8 +326,10 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
             <StationAdminControls
               isEditMode={isEditMode}
               isSandbox={isSandbox}
+              displayMode={adminDisplayMode}
               pendingChangesCount={pendingChangesCount}
               onModeChange={(mode) => setIsEditMode(mode === 'edit')}
+              onDisplayModeChange={handleDisplayModeChange}
               onSandboxChange={setSandbox}
               onOpenPendingChanges={() =>
                 navigate('/stations/pending-review', {
@@ -292,15 +361,30 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
         <aside className="stations-sidebar">
           {/* Search + Filters + Sort */}
           <div className="sidebar-section">
-            {isAdminPanelVisible && isEditMode && (
-              <div className="stations-sidebar-add-station stations-sidebar-add-station--desktop">
-                <BUTWideButton
-                  type="button"
-                  width="fill"
-                  onClick={() => navigate('/stations/new')}
-                >
-                  + Add new station
-                </BUTWideButton>
+            {isAdminPanelVisible && (
+              <div className="stations-sidebar-admin-actions">
+                {adminDisplayMode === 'table' && (
+                  <div className="stations-sidebar-assign-headers">
+                    <BUTWideButton
+                      type="button"
+                      width="fill"
+                      onClick={() => setIsTableColumnsModalOpen(true)}
+                    >
+                      Assign headers
+                    </BUTWideButton>
+                  </div>
+                )}
+                {isEditMode && (
+                  <div className="stations-sidebar-add-station stations-sidebar-add-station--desktop">
+                    <BUTWideButton
+                      type="button"
+                      width="fill"
+                      onClick={() => navigate('/stations/new')}
+                    >
+                      + Add new station
+                    </BUTWideButton>
+                  </div>
+                )}
               </div>
             )}
             <h2 className="sidebar-section-title sidebar-section-title--subsection">Search</h2>
@@ -471,22 +555,31 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
 
         {/* Main Content */}
         <main className="stations-main">
-          {/* Station Grid */}
-          <div className="stations-page-grid">
-            {paginatedStations.map((station) => {
-              const cardProps = {
-                station,
-                locationDisplay: formatStationLocationDisplay(station),
-                onCardClick: () => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`),
-                onInfoClick: () => navigate(`/stations/${buildStationPath(station, collectionId)}${isEditMode ? '/edit' : ''}`),
-              }
-              return isLightRailStop(station) ? (
-                <LightRailStopCard key={station.id} {...cardProps} />
-              ) : (
-                <StationCard key={station.id} {...cardProps} />
-              )
-            })}
-          </div>
+          {adminDisplayMode === 'table' ? (
+            <StationsTableView
+              stations={paginatedStations}
+              sort={tableSort}
+              onSortChange={setTableSort}
+              onRowClick={handleStationNavigate}
+              columnSlots={tableColumnSlots}
+            />
+          ) : (
+            <div className="stations-page-grid">
+              {paginatedStations.map((station) => {
+                const cardProps = {
+                  station,
+                  locationDisplay: formatStationLocationDisplay(station),
+                  onCardClick: () => handleStationNavigate(station),
+                  onInfoClick: () => handleStationNavigate(station),
+                }
+                return isLightRailStop(station) ? (
+                  <LightRailStopCard key={station.id} {...cardProps} />
+                ) : (
+                  <StationCard key={station.id} {...cardProps} />
+                )
+              })}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -542,6 +635,14 @@ const StationsPage: React.FC<StationsPageProps> = ({ initialMode = 'view' }) => 
         </main>
       </div>
 
+      <StationsTableColumnsModal
+        open={isTableColumnsModalOpen}
+        slots={tableColumnSlots}
+        networkView={networkView}
+        fieldSchema={tableHeaderFieldSchemaForModal}
+        onApply={setTableColumnSlots}
+        onClose={() => setIsTableColumnsModalOpen(false)}
+      />
     </div>
   )
 }

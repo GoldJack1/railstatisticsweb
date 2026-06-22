@@ -26,6 +26,34 @@ export interface Station {
   sourceCollectionId?: NetworkCollectionId
   /** Comma-separated SuperTram lines (Firestore `Lines Served`). */
   linesServed?: string | null
+  /** Opening date (Firestore `Date Opened`, mainly light rail). */
+  dateOpened?: string | null
+  platforms?: string | null
+  operatorCode?: string | null
+  staffingLevel?: string | null
+  nlc?: string | null
+  gauge?: string | null
+  minConnectionTime?: string | null
+  province?: string | null
+  postEirCode?: string | null
+  stepFreeCode?: string | null
+  stepFreeNote?: string | null
+  hasLift?: string | null
+  liftAvailable?: string | null
+  liftNotes?: string | null
+  liftDetails?: string | null
+  isLimitedService?: string | null
+  isStaffed?: string | null
+  connectionBus?: string | null
+  connectionTaxi?: string | null
+  connectionUnderground?: string | null
+  connectionTrain?: string | null
+  stationStatus?: string | null
+  operationalPeriod?: string | null
+  requestStop?: string | null
+  toiletsAccessible?: string | null
+  toiletsChangingPlace?: string | null
+  toiletsBabyChanging?: string | null
 }
 
 export interface YearlyPassengers {

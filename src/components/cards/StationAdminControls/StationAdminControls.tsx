@@ -1,13 +1,16 @@
 import React from 'react'
 import { BUTBaseButtonBar as ButtonBar } from '../../buttons'
 import { BUTBaseButton as Button } from '../../buttons'
+import type { StationAdminDisplayMode } from '../../../utils/stationAdminDisplayModeStorage'
 import './StationAdminControls.css'
 
 interface StationAdminControlsProps {
   isEditMode: boolean
   isSandbox: boolean
+  displayMode: StationAdminDisplayMode
   pendingChangesCount: number
   onModeChange: (mode: 'view' | 'edit') => void
+  onDisplayModeChange: (mode: StationAdminDisplayMode) => void
   onSandboxChange: (enabled: boolean) => void
   onOpenPendingChanges: () => void
   onAddStation: () => void
@@ -16,8 +19,10 @@ interface StationAdminControlsProps {
 const StationAdminControls: React.FC<StationAdminControlsProps> = ({
   isEditMode,
   isSandbox,
+  displayMode,
   pendingChangesCount,
   onModeChange,
+  onDisplayModeChange,
   onSandboxChange,
   onOpenPendingChanges,
   onAddStation,
@@ -33,6 +38,18 @@ const StationAdminControls: React.FC<StationAdminControlsProps> = ({
           ]}
           selectedIndex={isEditMode ? 1 : 0}
           onChange={(_, value) => onModeChange(value as 'view' | 'edit')}
+        />
+      </div>
+
+      <div className="station-admin-controls-group">
+        <span className="station-admin-controls-label">Display</span>
+        <ButtonBar
+          buttons={[
+            { label: 'Cards', value: 'cards' },
+            { label: 'Table', value: 'table' },
+          ]}
+          selectedIndex={displayMode === 'table' ? 1 : 0}
+          onChange={(_, value) => onDisplayModeChange(value as StationAdminDisplayMode)}
         />
       </div>
 

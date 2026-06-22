@@ -26,6 +26,23 @@ export function storedDateToIsoDate(value: string): string {
   return ''
 }
 
+/** Parse stored date strings to UTC ms for sorting; returns null if unparseable. */
+export function parseStoredDateForSort(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const iso = storedDateToIsoDate(trimmed)
+  if (iso) {
+    const [yyyy, mm, dd] = iso.split('-').map(Number)
+    if (yyyy && mm && dd) {
+      return Date.UTC(yyyy, mm - 1, dd)
+    }
+  }
+
+  const parsed = Date.parse(trimmed)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 /** Convert `<input type="date">` value to dd/mm/yyyy for Firestore. */
 export function isoDateToDdMmYyyy(value: string): string {
   const trimmed = value.trim()
