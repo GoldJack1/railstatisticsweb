@@ -22,6 +22,8 @@ import {
 } from '../../utils/superTramMapMarker'
 import { getMarkerHitRadius, getMarkerVisualRadius, MARKER_STROKE } from '../../utils/mapMarkerSizing'
 import { addThemeTileLayersToMap, swapThemeTileLayers, type MapTileLayerRefs } from '../../utils/mapTileLayers'
+import { isStationVisibleAtTimelineCutoff } from '../../utils/superTramTimeline'
+import { LIGHTRAIL_COLLECTION_ID } from '../../utils/lightRailStationFields'
 import type { Station } from '../../types'
 import {
   MapAddStationContextMenu,
@@ -66,6 +68,9 @@ interface StationsOsmMapProps {
   addStationMode?: boolean
   onAddStationAtLocation?: (latitude: number, longitude: number) => void
   onAddStationModeChange?: (enabled: boolean) => void
+  /** SuperTram opening timeline — null disables timeline filtering. */
+  timelineCutoffMs?: number | null
+  timelineShowUndatedAtMax?: boolean
 }
 
 function getStationLegendCollectionId(
@@ -94,6 +99,29 @@ function getStationMarkerColor(
     return NETWORK_MAP_COLORS[collectionId]
   }
   return NETWORK_MAP_FALLBACK_COLOR
+}
+
+function setMarkerTimelineVisibility(marker: StationMarkerPair, visible: boolean): void {
+  const opacity = visible ? 1 : 0
+  marker.hit.setStyle({
+    fillOpacity: visible ? 0.001 : 0,
+    interactive: visible,
+  })
+
+  if (marker.kind === 'supertram-logo') {
+    const element = (marker.visual as L.Marker).getElement()
+    if (element) {
+      element.style.opacity = String(opacity)
+      element.style.pointerEvents = visible ? '' : 'none'
+    }
+    return
+  }
+
+  const circleMarker = marker.visual as L.CircleMarker
+  circleMarker.setStyle({
+    fillOpacity: visible ? 0.95 : 0,
+    opacity,
+  })
 }
 
 function applyMarkerStyle(
@@ -143,6 +171,8 @@ export function StationsOsmMap({
   addStationMode = false,
   onAddStationAtLocation,
   onAddStationModeChange,
+  timelineCutoffMs = null,
+  timelineShowUndatedAtMax = true,
 }: StationsOsmMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -370,8 +400,28 @@ export function StationsOsmMap({
         stationKey === selectedStationId,
         mobileMarkers
       )
+
+      if (timelineCutoffMs === null || station.sourceCollectionId !== LIGHTRAIL_COLLECTION_ID) {
+        setMarkerTimelineVisibility(marker, true)
+        return
+      }
+
+      const visible = isStationVisibleAtTimelineCutoff(
+        station,
+        timelineCutoffMs,
+        timelineShowUndatedAtMax
+      )
+      setMarkerTimelineVisibility(marker, visible)
     })
-  }, [selectedStationId, mapStations, networkView, mobileMarkers, pendingNewStationKeys])
+  }, [
+    selectedStationId,
+    mapStations,
+    networkView,
+    mobileMarkers,
+    pendingNewStationKeys,
+    timelineCutoffMs,
+    timelineShowUndatedAtMax,
+  ])
 
   useEffect(() => {
     const map = mapRef.current

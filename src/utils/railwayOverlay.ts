@@ -82,7 +82,7 @@ function createStyleNationalRailwayLine(heavyRailColor: string) {
       opacity: 1,
       fill: false,
       lineCap: 'round',
-      lineJoin: 'round'
+      lineJoin: 'round',
     }
   }
 }
@@ -135,22 +135,27 @@ function createVectorRailwayLayer({
   })
 }
 
-/** Railway line overlay (active infrastructure only). */
-export function createRailwayOverlayLayer(themeKey: RailwayOverlayTheme): L.LayerGroup {
+export type RailwayOverlayLayers = {
+  national: L.LayerGroup
+  supertram: L.LayerGroup
+}
+
+/** Railway line overlays (active infrastructure only). */
+export function createRailwayOverlayLayers(themeKey: RailwayOverlayTheme): RailwayOverlayLayers {
   const styleNationalRailwayLine = createStyleNationalRailwayLine(HEAVY_RAIL_COLORS[themeKey])
 
   const lowZoomLines = createVectorRailwayLayer({
     url: 'https://openrailwaymap.app/standard_railway_line_low/{z}/{x}/{y}',
     layerName: 'standard_railway_line_low',
     zoomBounds: { maxNativeZoom: 7, maxZoom: 7 },
-    style: styleNationalRailwayLine
+    style: styleNationalRailwayLine,
   })
 
   const highZoomLines = createVectorRailwayLayer({
     url: 'https://openrailwaymap.app/railway_line_high/{z}/{x}/{y}',
     layerName: 'railway_line_high',
     zoomBounds: { minNativeZoom: 8, minZoom: 8 },
-    style: styleNationalRailwayLine
+    style: styleNationalRailwayLine,
   })
 
   const lowZoomSuperTram = createVectorRailwayLayer({
@@ -169,5 +174,14 @@ export function createRailwayOverlayLayer(themeKey: RailwayOverlayTheme): L.Laye
     style: styleSuperTramRailwayLine
   })
 
-  return L.layerGroup([lowZoomLines, highZoomLines, lowZoomSuperTram, highZoomSuperTram])
+  return {
+    national: L.layerGroup([lowZoomLines, highZoomLines]),
+    supertram: L.layerGroup([lowZoomSuperTram, highZoomSuperTram]),
+  }
+}
+
+/** Combined national + SuperTram overlays. */
+export function createRailwayOverlayLayer(themeKey: RailwayOverlayTheme): L.LayerGroup {
+  const { national, supertram } = createRailwayOverlayLayers(themeKey)
+  return L.layerGroup([national, supertram])
 }

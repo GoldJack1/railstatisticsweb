@@ -6,6 +6,11 @@ import { BUTBaseButton as Button, BUTWideButton } from '../../components/buttons
 import NetworkStationTabGroup from '../../components/cards/NetworkStationTabGroup/NetworkStationTabGroup'
 import StationsOsmMap from '../../components/maps/StationsOsmMap'
 import StationsMapSelectedPanel from '../../components/maps/StationsMapSelectedPanel'
+import StationsMapTimeline from '../../components/maps/StationsMapTimeline'
+import { LIGHTRAIL_COLLECTION_ID } from '../../utils/lightRailStationFields'
+import {
+  buildSuperTramTimelineSteps,
+} from '../../utils/superTramTimeline'
 import { useStationCollection } from '../../contexts/StationCollectionContext'
 import { usePendingStationChanges } from '../../contexts/PendingStationChangesContext'
 import { fetchAllNetworkStationsFromFirebase } from '../../services/firebase'
@@ -20,6 +25,7 @@ import type { NewStationNavigationState } from '../../types/newStationNavigation
 import type { Station } from '../../types'
 import '../StationsPageRefactored/StationsPageRefactored.css'
 import './StationsMapPage.css'
+import '../../components/maps/StationsMapTimeline.css'
 
 const MOBILE_MAP_MEDIA = '(max-width: 639px)'
 
@@ -34,7 +40,11 @@ const StationsMapPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [isAddStationMode, setIsAddStationMode] = useState(false)
+  const [timelineStepIndex, setTimelineStepIndex] = useState(0)
+  const [timelinePlaying, setTimelinePlaying] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
+
+  const showSuperTramTimeline = networkView === LIGHTRAIL_COLLECTION_ID
 
   useEffect(() => {
     if (!isAdminMode) {
@@ -117,6 +127,40 @@ const StationsMapPage: React.FC = () => {
     () => mergePendingNewStationsForMap(firestoreMapStations, pendingChanges, networkView),
     [firestoreMapStations, pendingChanges, networkView]
   )
+
+  const superTramTimelineStations = useMemo(
+    () =>
+      showSuperTramTimeline
+        ? mapStations.filter((station) => station.sourceCollectionId === LIGHTRAIL_COLLECTION_ID)
+        : [],
+    [mapStations, showSuperTramTimeline]
+  )
+
+  const superTramTimelineSteps = useMemo(
+    () => buildSuperTramTimelineSteps(superTramTimelineStations),
+    [superTramTimelineStations]
+  )
+
+  const timelineCutoffMs = useMemo(() => {
+    if (!showSuperTramTimeline || superTramTimelineSteps.length === 0) return null
+    const maxIndex = superTramTimelineSteps.length - 1
+    const clamped = Math.max(0, Math.min(timelineStepIndex, maxIndex))
+    return superTramTimelineSteps[clamped].cutoffMs
+  }, [showSuperTramTimeline, superTramTimelineSteps, timelineStepIndex])
+
+  const timelineShowUndatedAtMax = useMemo(() => {
+    if (!showSuperTramTimeline || superTramTimelineSteps.length === 0) return true
+    const maxIndex = superTramTimelineSteps.length - 1
+    return timelineStepIndex >= maxIndex
+  }, [showSuperTramTimeline, superTramTimelineSteps, timelineStepIndex])
+
+  useEffect(() => {
+    if (!showSuperTramTimeline) {
+      setTimelinePlaying(false)
+      return
+    }
+    setTimelineStepIndex(Math.max(0, superTramTimelineSteps.length - 1))
+  }, [showSuperTramTimeline, superTramTimelineSteps.length])
 
   const selectedStationIsPending = Boolean(
     selectedStation && pendingNewKeys.has(getStationMapKey(selectedStation))
@@ -217,13 +261,25 @@ const StationsMapPage: React.FC = () => {
               addStationMode={isAddStationMode}
               onAddStationModeChange={setIsAddStationMode}
               onAddStationAtLocation={handleAddStationAtLocation}
+              timelineCutoffMs={timelineCutoffMs}
+              timelineShowUndatedAtMax={timelineShowUndatedAtMax}
             />
           </main>
-          <StationsMapSelectedPanel
-            ref={panelRef}
-            station={selectedStation}
-            isPendingNew={selectedStationIsPending}
-          />
+          <aside ref={panelRef} className="stations-map-side-panel" aria-label="Map details">
+            {showSuperTramTimeline && (
+              <StationsMapTimeline
+                stations={superTramTimelineStations}
+                stepIndex={timelineStepIndex}
+                onStepIndexChange={setTimelineStepIndex}
+                isPlaying={timelinePlaying}
+                onPlayingChange={setTimelinePlaying}
+              />
+            )}
+            <StationsMapSelectedPanel
+              station={selectedStation}
+              isPendingNew={selectedStationIsPending}
+            />
+          </aside>
         </div>
       </div>
     </div>
