@@ -1,0 +1,1391 @@
+{
+  "collection": "lightrail_GBSHEFFSUPERTRAM",
+  "exportedAt": "2026-06-22T19:53:59.499Z",
+  "count": 51,
+  "documents": [
+    {
+      "oldId": "0034",
+      "stopName": "Arbourthorne Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Arbourthorne Road",
+        "Train": "No",
+        "borough": "Norfolk Park",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0001",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3634218776218,
+          "longitude": -1.447926163673401
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0001"
+    },
+    {
+      "oldId": "0010",
+      "stopName": "Arena/Olympic Legacy Park",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Arena/Olympic Legacy Park",
+        "Train": "No",
+        "borough": "Carbrook",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0002",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.39819775500695,
+          "longitude": -1.4205193519592285
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0002"
+    },
+    {
+      "oldId": "0011",
+      "stopName": "Attercliffe",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Attercliffe",
+        "Train": "No",
+        "borough": "Attercliffe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0003",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.392321640680635,
+          "longitude": -1.4299929141998293
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0003"
+    },
+    {
+      "oldId": "0025",
+      "stopName": "Bamforth Street",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Bamforth Street",
+        "Train": "No",
+        "borough": "Upperthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0004",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.39890782383795,
+          "longitude": -1.4925581216812136
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0004"
+    },
+    {
+      "oldId": "0048",
+      "stopName": "Beighton/Drake House Lane",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Beighton/Drake House Lane",
+        "Train": "No",
+        "borough": "Waterthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0005",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3417146,
+          "longitude": -1.3475239
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0005"
+    },
+    {
+      "oldId": "0042",
+      "stopName": "Birley Lane",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Birley Lane",
+        "Train": "No",
+        "borough": "Frecheville",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0006",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3403868,
+          "longitude": -1.3993588
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0006"
+    },
+    {
+      "oldId": "0043",
+      "stopName": "Birley Moor Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Birley Moor Road",
+        "Train": "No",
+        "borough": "Frecheville",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0007",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.34159,
+          "longitude": -1.3886532
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0007"
+    },
+    {
+      "oldId": "0006",
+      "stopName": "Carbrook for IKEA",
+      "data": {
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Carbrook for IKEA",
+        "borough": "Tinsley",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0008",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.40551537367715,
+          "longitude": -1.4109063148498535
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0008"
+    },
+    {
+      "oldId": "0017",
+      "stopName": "Castle Square",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "18/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow, Purple, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Castle Square",
+        "Train": "No",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0009",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3830724,
+          "longitude": -1.466069
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0009"
+    },
+    {
+      "oldId": "0008",
+      "stopName": "Cathedral",
+      "data": {
+        "Date Opened": "18/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple, Tram-Train, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Cathedral",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0010",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38259244114579,
+          "longitude": -1.469051241874695
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0010"
+    },
+    {
+      "oldId": "0019",
+      "stopName": "City Hall",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "City Hall",
+        "Train": "No",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0011",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.381757309229414,
+          "longitude": -1.4726346731185915
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0011"
+    },
+    {
+      "oldId": "0015",
+      "stopName": "Cricket Inn Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Cricket Inn Road",
+        "Train": "No",
+        "borough": "Park Hill",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0012",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.384006688489734,
+          "longitude": -1.4466011524200442
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0012"
+    },
+    {
+      "oldId": "0047",
+      "stopName": "Crystal Peaks",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Crystal Peaks",
+        "Train": "No",
+        "borough": "Owlthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0013",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3417101,
+          "longitude": -1.3561161
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0013"
+    },
+    {
+      "oldId": "0045",
+      "stopName": "Donetsk Way",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Donetsk Way",
+        "Train": "No",
+        "borough": "Owlthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0014",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.341741389561186,
+          "longitude": -1.3703459501266482
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0014"
+    },
+    {
+      "oldId": "0016",
+      "stopName": "Fitzalan Square/Ponds Forge",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow, Purple, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Fitzalan Square/Ponds Forge",
+        "Train": "No",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0015",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3831978,
+          "longitude": -1.4638794
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0015"
+    },
+    {
+      "oldId": "0038",
+      "stopName": "Gleadless Townend",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "05/12/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Gleadless Townend",
+        "Train": "No",
+        "borough": "Gleadless",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0016",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3460998,
+          "longitude": -1.4258692
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0016"
+    },
+    {
+      "oldId": "0031",
+      "stopName": "Granville Road/The Sheffield College",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Granville Road/The Sheffield College",
+        "Train": "No",
+        "borough": "Park Hill",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0017",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.37434279547365,
+          "longitude": -1.4612513780593872
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0017"
+    },
+    {
+      "oldId": "0044",
+      "stopName": "Hackenthorpe",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Hackenthorpe",
+        "Train": "No",
+        "borough": "Hackenthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0018",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.34358935175121,
+          "longitude": -1.3810533285140991
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0018"
+    },
+    {
+      "oldId": "0051",
+      "stopName": "Halfway",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Halfway",
+        "Train": "No",
+        "borough": "Westfield",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0019",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3285388,
+          "longitude": -1.3442988
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0019"
+    },
+    {
+      "oldId": "0040",
+      "stopName": "Herdings Park",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "03/04/1995",
+        "HasLift": "No",
+        "IsLimitedService": "Yes",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Purple",
+        "Platforms": "A",
+        "StopName": "Herdings Park",
+        "Train": "No",
+        "borough": "Gleadless",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0020",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3425086,
+          "longitude": -1.4392481
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0020"
+    },
+    {
+      "oldId": "0039",
+      "stopName": "Herdings/Leighton Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "03/04/1995",
+        "HasLift": "No",
+        "IsLimitedService": "Yes",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Purple",
+        "Platforms": "A, B",
+        "StopName": "Herdings/Leighton Road",
+        "Train": "No",
+        "borough": "Gleadless",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0021",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3424477,
+          "longitude": -1.4324545
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0021"
+    },
+    {
+      "oldId": "0026",
+      "stopName": "Hillsborough Interchange",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Hillsborough Interchange",
+        "Train": "No",
+        "borough": "Middlewood",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0022",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.40201983259706,
+          "longitude": -1.4999717473983767
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0022"
+    },
+    {
+      "oldId": "0029",
+      "stopName": "Hillsborough Park",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow",
+        "Platforms": "A, B",
+        "StopName": "Hillsborough Park",
+        "Train": "No",
+        "borough": "Hillsborough",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0023",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.4044049,
+          "longitude": -1.5036651
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0023"
+    },
+    {
+      "oldId": "0037",
+      "stopName": "Hollinsend",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "05/12/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Hollinsend",
+        "Train": "No",
+        "borough": "Gleadless",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0024",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3520359,
+          "longitude": -1.4245537
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0024"
+    },
+    {
+      "oldId": "0014",
+      "stopName": "Hyde Park",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Hyde Park",
+        "Train": "No",
+        "borough": "Park Hill",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0025",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3846431,
+          "longitude": -1.4524215
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0025"
+    },
+    {
+      "oldId": "0023",
+      "stopName": "Infirmary Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Infirmary Road",
+        "Train": "No",
+        "borough": "Upperthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0026",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.39089487321081,
+          "longitude": -1.4824676513671875
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0026"
+    },
+    {
+      "oldId": "0024",
+      "stopName": "Langsett/Primrose View",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Langsett/Primrose View",
+        "Train": "No",
+        "borough": "Upperthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0027",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.39576999774311,
+          "longitude": -1.489350199699402
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0027"
+    },
+    {
+      "oldId": "0028",
+      "stopName": "Leppings Lane",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow",
+        "Platforms": "A, B",
+        "StopName": "Leppings Lane",
+        "Train": "No",
+        "borough": "Hillsborough",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0028",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.41033766156,
+          "longitude": -1.5042364597320559
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0028"
+    },
+    {
+      "oldId": "0003",
+      "stopName": "Magna",
+      "data": {
+        "Date Opened": "09/04/2026",
+        "HasLift": "Yes",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Magna",
+        "borough": "Templeborough",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0029",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.42021077341246,
+          "longitude": -1.3891160488128664
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0029"
+    },
+    {
+      "oldId": "0027",
+      "stopName": "Malin Bridge",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A",
+        "StopName": "Malin Bridge",
+        "Train": "No",
+        "borough": "Hillsborough",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0030",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.40069253912218,
+          "longitude": -1.508206129074097
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0030"
+    },
+    {
+      "oldId": "0036",
+      "stopName": "Manor Top/Elm Tree",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "05/12/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Manor Top/Elm Tree",
+        "Train": "No",
+        "borough": "Intake",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0031",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.359664,
+          "longitude": -1.4288524
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0031"
+    },
+    {
+      "oldId": "0001",
+      "stopName": "Meadowhall Interchange",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow",
+        "Platforms": "A, B",
+        "StopName": "Meadowhall Interchange",
+        "Train": "Yes",
+        "borough": "Brightside",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0032",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.417170431724415,
+          "longitude": -1.4130896329879763
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0032"
+    },
+    {
+      "oldId": "0002",
+      "stopName": "Meadowhall South/Tinsley",
+      "data": {
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Meadowhall South/Tinsley",
+        "borough": "Tinsley",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0033",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.41424497663712,
+          "longitude": -1.4050269126892092
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0033"
+    },
+    {
+      "oldId": "0030",
+      "stopName": "Middlewood Park & Ride",
+      "data": {
+        "Bus": "Yes",
+        "Date Opened": "23/10/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow",
+        "Platforms": "A, B",
+        "StopName": "Middlewood Park & Ride",
+        "Train": "No",
+        "borough": "Worrall",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0034",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.4158805,
+          "longitude": -1.5101523
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0034"
+    },
+    {
+      "oldId": "0046",
+      "stopName": "Moss Way",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Moss Way",
+        "Train": "No",
+        "borough": "Owlthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0035",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.34217696498609,
+          "longitude": -1.3626480102539065
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0035"
+    },
+    {
+      "oldId": "0021",
+      "stopName": "Netherthorpe Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Netherthorpe Road",
+        "Train": "No",
+        "borough": "Netherthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0036",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38474579001746,
+          "longitude": -1.4825266599655151
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0036"
+    },
+    {
+      "oldId": "0013",
+      "stopName": "Nunnery Square P&R",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Nunnery Square P&R",
+        "Train": "No",
+        "borough": "Wybourn",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0037",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3855242,
+          "longitude": -1.4417611
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0037"
+    },
+    {
+      "oldId": "0033",
+      "stopName": "Park Grange",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Park Grange",
+        "Train": "No",
+        "borough": "Norfolk Park",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0038",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.36715105209206,
+          "longitude": -1.455012559890747
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0038"
+    },
+    {
+      "oldId": "0032",
+      "stopName": "Park Grange Croft",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "01/12/2001",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Park Grange Croft",
+        "Train": "No",
+        "borough": "Norfolk Park",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0039",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3701337,
+          "longitude": -1.4585329
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0039"
+    },
+    {
+      "oldId": "0004",
+      "stopName": "Rotherham Central",
+      "data": {
+        "Date Opened": "25/10/2018",
+        "HasLift": "Yes",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Tram-Train",
+        "Platforms": "3, 4",
+        "StopName": "Rotherham Central",
+        "Train": "Yes",
+        "borough": "Rotherham",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0040",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.431034031716344,
+          "longitude": -1.3615107536315918
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0040"
+    },
+    {
+      "oldId": "0005",
+      "stopName": "Rotherham Parkgate",
+      "data": {
+        "Date Opened": "26/10/2018",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Tram-Train",
+        "Platforms": "A",
+        "StopName": "Rotherham Parkgate",
+        "borough": "Rotherham",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0041",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.44297605350685,
+          "longitude": -1.3432180881500246
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0041"
+    },
+    {
+      "oldId": "0022",
+      "stopName": "Shalesmoor for Kelham Island",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "Shalesmoor for Kelham Island",
+        "Train": "No",
+        "borough": "Neepsend",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0042",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38866185413629,
+          "longitude": -1.4779454469680788
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0042"
+    },
+    {
+      "oldId": "0007",
+      "stopName": "Sheffield Station for Sheffield Hallam University",
+      "data": {
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Sheffield Station for Sheffield Hallam University",
+        "Train": "Yes",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0043",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.377869410559846,
+          "longitude": -1.4612674713134766
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0043"
+    },
+    {
+      "oldId": "0035",
+      "stopName": "Spring Lane",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "22/08/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Purple",
+        "Platforms": "A, B",
+        "StopName": "Spring Lane",
+        "Train": "No",
+        "borough": "Arbourthorne",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0044",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3662334,
+          "longitude": -1.4388872
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0044"
+    },
+    {
+      "oldId": "0020",
+      "stopName": "University of Sheffield",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "University of Sheffield",
+        "Train": "No",
+        "borough": "Broomhall",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0045",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38067577305757,
+          "longitude": -1.4840555191040041
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0045"
+    },
+    {
+      "oldId": "0009",
+      "stopName": "Valley Centretainment",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "05/11/1998",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Valley Centretainment",
+        "Train": "No",
+        "borough": "Carbrook",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0046",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.4022117270231,
+          "longitude": -1.4127033948898318
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0046"
+    },
+    {
+      "oldId": "0049",
+      "stopName": "Waterthorpe",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Waterthorpe",
+        "Train": "No",
+        "borough": "Waterthorpe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0047",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3364716,
+          "longitude": -1.3450322
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0047"
+    },
+    {
+      "oldId": "0018",
+      "stopName": "West Street",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/02/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue, Yellow",
+        "Platforms": "A, B",
+        "StopName": "West Street",
+        "Train": "No",
+        "borough": "Sheffield City",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0048",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38056377809741,
+          "longitude": -1.477392911911011
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0048"
+    },
+    {
+      "oldId": "0050",
+      "stopName": "Westfield",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "Westfield",
+        "Train": "No",
+        "borough": "Westfield",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0049",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.33187569586811,
+          "longitude": -1.34383499622345
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0049"
+    },
+    {
+      "oldId": "0041",
+      "stopName": "White Lane",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "27/03/1995",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Blue",
+        "Platforms": "A, B",
+        "StopName": "White Lane",
+        "Train": "No",
+        "borough": "Gleadless",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0050",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.3430688,
+          "longitude": -1.4198443
+        },
+        "stnarea": "GBSHEFFSUPERTRAM"
+      },
+      "newId": "0050"
+    },
+    {
+      "oldId": "0012",
+      "stopName": "Woodbourn Road",
+      "data": {
+        "Bus": "No",
+        "Date Opened": "21/03/1994",
+        "HasLift": "No",
+        "IsLimitedService": "No",
+        "IsStaffed": "No",
+        "IsStepFree": "Yes",
+        "Lines Served": "Yellow, Tram-Train",
+        "Platforms": "A, B",
+        "StopName": "Woodbourn Road",
+        "Train": "No",
+        "borough": "Attercliffe",
+        "country": "England",
+        "county": "South Yorkshire",
+        "id": "0051",
+        "location": {
+          "_type": "geopoint",
+          "latitude": 53.38885060956457,
+          "longitude": -1.4345848560333254
+        },
+        "stnarea": "GBSHEFFSUPERTRAM",
+        "urlSlug": ""
+      },
+      "newId": "0051"
+    }
+  ]
+}

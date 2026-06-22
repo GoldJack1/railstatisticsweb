@@ -1,0 +1,313 @@
+{
+  "collection": "lightrail_GBSHEFFSUPERTRAM",
+  "exportedAt": "2026-06-22T19:54:26.680Z",
+  "sortedBy": "StopName A-Z",
+  "mappings": [
+    {
+      "stopName": "Arbourthorne Road",
+      "oldDocumentId": "0034",
+      "newDocumentId": "0001",
+      "changed": true
+    },
+    {
+      "stopName": "Arena/Olympic Legacy Park",
+      "oldDocumentId": "0010",
+      "newDocumentId": "0002",
+      "changed": true
+    },
+    {
+      "stopName": "Attercliffe",
+      "oldDocumentId": "0011",
+      "newDocumentId": "0003",
+      "changed": true
+    },
+    {
+      "stopName": "Bamforth Street",
+      "oldDocumentId": "0025",
+      "newDocumentId": "0004",
+      "changed": true
+    },
+    {
+      "stopName": "Beighton/Drake House Lane",
+      "oldDocumentId": "0048",
+      "newDocumentId": "0005",
+      "changed": true
+    },
+    {
+      "stopName": "Birley Lane",
+      "oldDocumentId": "0042",
+      "newDocumentId": "0006",
+      "changed": true
+    },
+    {
+      "stopName": "Birley Moor Road",
+      "oldDocumentId": "0043",
+      "newDocumentId": "0007",
+      "changed": true
+    },
+    {
+      "stopName": "Carbrook for IKEA",
+      "oldDocumentId": "0006",
+      "newDocumentId": "0008",
+      "changed": true
+    },
+    {
+      "stopName": "Castle Square",
+      "oldDocumentId": "0017",
+      "newDocumentId": "0009",
+      "changed": true
+    },
+    {
+      "stopName": "Cathedral",
+      "oldDocumentId": "0008",
+      "newDocumentId": "0010",
+      "changed": true
+    },
+    {
+      "stopName": "City Hall",
+      "oldDocumentId": "0019",
+      "newDocumentId": "0011",
+      "changed": true
+    },
+    {
+      "stopName": "Cricket Inn Road",
+      "oldDocumentId": "0015",
+      "newDocumentId": "0012",
+      "changed": true
+    },
+    {
+      "stopName": "Crystal Peaks",
+      "oldDocumentId": "0047",
+      "newDocumentId": "0013",
+      "changed": true
+    },
+    {
+      "stopName": "Donetsk Way",
+      "oldDocumentId": "0045",
+      "newDocumentId": "0014",
+      "changed": true
+    },
+    {
+      "stopName": "Fitzalan Square/Ponds Forge",
+      "oldDocumentId": "0016",
+      "newDocumentId": "0015",
+      "changed": true
+    },
+    {
+      "stopName": "Gleadless Townend",
+      "oldDocumentId": "0038",
+      "newDocumentId": "0016",
+      "changed": true
+    },
+    {
+      "stopName": "Granville Road/The Sheffield College",
+      "oldDocumentId": "0031",
+      "newDocumentId": "0017",
+      "changed": true
+    },
+    {
+      "stopName": "Hackenthorpe",
+      "oldDocumentId": "0044",
+      "newDocumentId": "0018",
+      "changed": true
+    },
+    {
+      "stopName": "Halfway",
+      "oldDocumentId": "0051",
+      "newDocumentId": "0019",
+      "changed": true
+    },
+    {
+      "stopName": "Herdings Park",
+      "oldDocumentId": "0040",
+      "newDocumentId": "0020",
+      "changed": true
+    },
+    {
+      "stopName": "Herdings/Leighton Road",
+      "oldDocumentId": "0039",
+      "newDocumentId": "0021",
+      "changed": true
+    },
+    {
+      "stopName": "Hillsborough Interchange",
+      "oldDocumentId": "0026",
+      "newDocumentId": "0022",
+      "changed": true
+    },
+    {
+      "stopName": "Hillsborough Park",
+      "oldDocumentId": "0029",
+      "newDocumentId": "0023",
+      "changed": true
+    },
+    {
+      "stopName": "Hollinsend",
+      "oldDocumentId": "0037",
+      "newDocumentId": "0024",
+      "changed": true
+    },
+    {
+      "stopName": "Hyde Park",
+      "oldDocumentId": "0014",
+      "newDocumentId": "0025",
+      "changed": true
+    },
+    {
+      "stopName": "Infirmary Road",
+      "oldDocumentId": "0023",
+      "newDocumentId": "0026",
+      "changed": true
+    },
+    {
+      "stopName": "Langsett/Primrose View",
+      "oldDocumentId": "0024",
+      "newDocumentId": "0027",
+      "changed": true
+    },
+    {
+      "stopName": "Leppings Lane",
+      "oldDocumentId": "0028",
+      "newDocumentId": "0028",
+      "changed": false
+    },
+    {
+      "stopName": "Magna",
+      "oldDocumentId": "0003",
+      "newDocumentId": "0029",
+      "changed": true
+    },
+    {
+      "stopName": "Malin Bridge",
+      "oldDocumentId": "0027",
+      "newDocumentId": "0030",
+      "changed": true
+    },
+    {
+      "stopName": "Manor Top/Elm Tree",
+      "oldDocumentId": "0036",
+      "newDocumentId": "0031",
+      "changed": true
+    },
+    {
+      "stopName": "Meadowhall Interchange",
+      "oldDocumentId": "0001",
+      "newDocumentId": "0032",
+      "changed": true
+    },
+    {
+      "stopName": "Meadowhall South/Tinsley",
+      "oldDocumentId": "0002",
+      "newDocumentId": "0033",
+      "changed": true
+    },
+    {
+      "stopName": "Middlewood Park & Ride",
+      "oldDocumentId": "0030",
+      "newDocumentId": "0034",
+      "changed": true
+    },
+    {
+      "stopName": "Moss Way",
+      "oldDocumentId": "0046",
+      "newDocumentId": "0035",
+      "changed": true
+    },
+    {
+      "stopName": "Netherthorpe Road",
+      "oldDocumentId": "0021",
+      "newDocumentId": "0036",
+      "changed": true
+    },
+    {
+      "stopName": "Nunnery Square P&R",
+      "oldDocumentId": "0013",
+      "newDocumentId": "0037",
+      "changed": true
+    },
+    {
+      "stopName": "Park Grange",
+      "oldDocumentId": "0033",
+      "newDocumentId": "0038",
+      "changed": true
+    },
+    {
+      "stopName": "Park Grange Croft",
+      "oldDocumentId": "0032",
+      "newDocumentId": "0039",
+      "changed": true
+    },
+    {
+      "stopName": "Rotherham Central",
+      "oldDocumentId": "0004",
+      "newDocumentId": "0040",
+      "changed": true
+    },
+    {
+      "stopName": "Rotherham Parkgate",
+      "oldDocumentId": "0005",
+      "newDocumentId": "0041",
+      "changed": true
+    },
+    {
+      "stopName": "Shalesmoor for Kelham Island",
+      "oldDocumentId": "0022",
+      "newDocumentId": "0042",
+      "changed": true
+    },
+    {
+      "stopName": "Sheffield Station for Sheffield Hallam University",
+      "oldDocumentId": "0007",
+      "newDocumentId": "0043",
+      "changed": true
+    },
+    {
+      "stopName": "Spring Lane",
+      "oldDocumentId": "0035",
+      "newDocumentId": "0044",
+      "changed": true
+    },
+    {
+      "stopName": "University of Sheffield",
+      "oldDocumentId": "0020",
+      "newDocumentId": "0045",
+      "changed": true
+    },
+    {
+      "stopName": "Valley Centretainment",
+      "oldDocumentId": "0009",
+      "newDocumentId": "0046",
+      "changed": true
+    },
+    {
+      "stopName": "Waterthorpe",
+      "oldDocumentId": "0049",
+      "newDocumentId": "0047",
+      "changed": true
+    },
+    {
+      "stopName": "West Street",
+      "oldDocumentId": "0018",
+      "newDocumentId": "0048",
+      "changed": true
+    },
+    {
+      "stopName": "Westfield",
+      "oldDocumentId": "0050",
+      "newDocumentId": "0049",
+      "changed": true
+    },
+    {
+      "stopName": "White Lane",
+      "oldDocumentId": "0041",
+      "newDocumentId": "0050",
+      "changed": true
+    },
+    {
+      "stopName": "Woodbourn Road",
+      "oldDocumentId": "0012",
+      "newDocumentId": "0051",
+      "changed": true
+    }
+  ]
+}

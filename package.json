@@ -25,7 +25,8 @@
     "firebase:enable-totp": "node scripts/enable-firebase-totp-mfa.mjs",
     "firebase:set-station-editor-claim": "node scripts/set-rs-station-editor-claim.mjs",
     "firebase:import-gb-heritage": "node scripts/import-gb-heritage-stations.mjs",
-    "firebase:import-sheff-supertram": "node scripts/import-sheff-supertram-stops.mjs"
+    "firebase:import-sheff-supertram": "node scripts/import-sheff-supertram-stops.mjs",
+    "firebase:reorder-supertram-ids": "node scripts/export-and-reorder-supertram-ids.mjs"
   },
   "repository": {
     "type": "git",
